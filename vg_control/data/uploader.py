@@ -158,8 +158,8 @@ def upload_archive(
             # Also print for console (keep existing behavior)
             print(f"PROGRESS: {json.dumps(progress_data)}")
     
-    # Use -# for a simpler progress indicator that's easier to parse
-    curl_command = f'curl -X PUT "{upload_url}" -k -H "Content-Type: application/x-tar" -T "{archive_path}" -# -m 1200'
+    # Use requests with streaming for reliable large file uploads
+    # No timeout is set to allow uploads of any size to complete
     
     # Debug: log the upload URL (hide sensitive parts)
     from urllib.parse import urlparse
@@ -175,70 +175,100 @@ def upload_archive(
     except:
         pass  # Don't fail if debug logging fails
     
-    with tqdm(total=file_size, unit='B', unit_scale=True, desc="Uploading") as pbar:
-        process = subprocess.Popen(
-            shlex.split(curl_command),
-            stderr=subprocess.PIPE,
-            bufsize=1,  # Line buffered
-            universal_newlines=True
-        )
-        
-        last_update = 0
-        start_time = time.time() if progress_mode else 0
-        
-        # Read curl's progress output
-        while True:
-            line = process.stderr.readline()
-            if not line:
-                break
-            
-            # Update progress bar based on curl's output
-            if "#" in line:
-                try:
-                    # Extract percentage from the number of # characters
-                    percent = min((line.count("#") / 50) * 100, 100)  # Cap at 100%
-                    current = min(int(file_size * (percent / 100)), file_size)  # Cap at file size
+    # Upload with requests using streaming to handle large files reliably
+    start_time = time.time()
+    bytes_uploaded = 0
+    chunk_size = 1024 * 1024  # 1MB chunks for smooth progress
+    
+    try:
+        with open(archive_path, 'rb') as f:
+            with tqdm(total=file_size, unit='B', unit_scale=True, desc="Uploading") as pbar:
+                
+                def file_reader():
+                    """Generator that reads file in chunks and updates progress"""
+                    nonlocal bytes_uploaded
+                    last_progress_time = time.time()
                     
-                    # Only update if we've made progress to avoid unnecessary refreshes
-                    if current > last_update:
-                        pbar.n = current
-                        pbar.refresh()
+                    while True:
+                        chunk = f.read(chunk_size)
+                        if not chunk:
+                            break
                         
-                        # Calculate speed and emit progress for UI
-                        if progress_mode and start_time > 0:
-                            elapsed_time = time.time() - start_time
-                            speed_bps = current / elapsed_time if elapsed_time > 0 else 0
-                            emit_upload_progress(current, file_size, speed_bps)
+                        chunk_len = len(chunk)
+                        bytes_uploaded += chunk_len
+                        pbar.update(chunk_len)
                         
-                        last_update = current
-                except:
-                    continue
-
-        # Wait for process to complete
-        return_code = process.wait()
-        
-        # Cleanup progress file
-        if progress_mode:
-            import tempfile
-            import os
-            progress_file = os.path.join(tempfile.gettempdir(), 'owl-control-upload-progress.json')
-            try:
-                if os.path.exists(progress_file):
-                    # Write final completion state
-                    final_progress = {
-                        "phase": "upload",
-                        "action": "complete",
-                        "bytes_uploaded": file_size,
-                        "total_bytes": file_size,
-                        "percent": 100,
-                        "speed_mbps": 0,
-                        "eta_seconds": 0,
-                        "timestamp": time.time()
-                    }
-                    with open(progress_file, 'w') as f:
-                        json.dump(final_progress, f)
-            except Exception as e:
-                print(f"Warning: Could not write final progress: {e}")
-        
-        if return_code != 0:
-            raise Exception(f"Upload failed with return code {return_code}")
+                        # Update progress file periodically (every 0.5 seconds)
+                        current_time = time.time()
+                        if progress_mode and (current_time - last_progress_time > 0.5):
+                            elapsed = current_time - start_time
+                            speed_bps = bytes_uploaded / elapsed if elapsed > 0 else 0
+                            emit_upload_progress(bytes_uploaded, file_size, speed_bps)
+                            last_progress_time = current_time
+                        
+                        yield chunk
+                    
+                    # Final progress update
+                    if progress_mode:
+                        elapsed = time.time() - start_time
+                        speed_bps = bytes_uploaded / elapsed if elapsed > 0 else 0
+                        emit_upload_progress(bytes_uploaded, file_size, speed_bps)
+                
+                # Perform the upload with no timeout
+                response = requests.put(
+                    upload_url,
+                    data=file_reader(),
+                    headers={
+                        'Content-Type': 'application/x-tar',
+                        'Content-Length': str(file_size)
+                    },
+                    verify=False  # Skip SSL verification (equivalent to curl -k)
+                )
+                
+                # Check if upload was successful
+                response.raise_for_status()
+                return_code = 0
+                
+    except requests.exceptions.RequestException as e:
+        print(f"Upload failed: {e}")
+        return_code = 1
+        # Log error to debug file
+        try:
+            with open(debug_log_path, 'a') as debug_file:
+                debug_file.write(f"[{datetime.now().isoformat()}] ERROR: {str(e)}\n")
+        except:
+            pass
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return_code = 1
+        try:
+            with open(debug_log_path, 'a') as debug_file:
+                debug_file.write(f"[{datetime.now().isoformat()}] ERROR: {str(e)}\n")
+        except:
+            pass
+    
+    # Cleanup progress file
+    if progress_mode:
+        import tempfile
+        import os
+        progress_file = os.path.join(tempfile.gettempdir(), 'owl-control-upload-progress.json')
+        try:
+            if os.path.exists(progress_file):
+                # Write final completion state
+                final_progress = {
+                    "phase": "upload",
+                    "action": "complete",
+                    "bytes_uploaded": file_size,
+                    "total_bytes": file_size,
+                    "percent": 100,
+                    "speed_mbps": 0,
+                    "eta_seconds": 0,
+                    "timestamp": time.time()
+                }
+                with open(progress_file, 'w') as f:
+                    json.dump(final_progress, f)
+        except Exception as e:
+            print(f"Warning: Could not write final progress: {e}")
+    
+    if return_code != 0:
+        raise Exception(f"Upload failed with return code {return_code}")
