@@ -175,49 +175,18 @@ def upload_archive(
     except:
         pass  # Don't fail if debug logging fails
     
-    # Upload with requests using streaming to handle large files reliably
+    # Upload with requests using streaming to handle large files reliably  
     start_time = time.time()
-    bytes_uploaded = 0
-    chunk_size = 1024 * 1024  # 1MB chunks for smooth progress
+    return_code = 1  # Default to error
     
     try:
+        # Simple streaming upload without nested functions
         with open(archive_path, 'rb') as f:
-            with tqdm(total=file_size, unit='B', unit_scale=True, desc="Uploading") as pbar:
-                
-                def file_reader():
-                    """Generator that reads file in chunks and updates progress"""
-                    nonlocal bytes_uploaded
-                    last_progress_time = time.time()
-                    
-                    while True:
-                        chunk = f.read(chunk_size)
-                        if not chunk:
-                            break
-                        
-                        chunk_len = len(chunk)
-                        bytes_uploaded += chunk_len
-                        pbar.update(chunk_len)
-                        
-                        # Update progress file periodically (every 0.5 seconds)
-                        current_time = time.time()
-                        if progress_mode and (current_time - last_progress_time > 0.5):
-                            elapsed = current_time - start_time
-                            speed_bps = bytes_uploaded / elapsed if elapsed > 0 else 0
-                            emit_upload_progress(bytes_uploaded, file_size, speed_bps)
-                            last_progress_time = current_time
-                        
-                        yield chunk
-                    
-                    # Final progress update
-                    if progress_mode:
-                        elapsed = time.time() - start_time
-                        speed_bps = bytes_uploaded / elapsed if elapsed > 0 else 0
-                        emit_upload_progress(bytes_uploaded, file_size, speed_bps)
-                
-                # Perform the upload with no timeout
+            # Use requests with file object directly - it handles streaming automatically
+            with tqdm.wrapattr(f, "read", desc="Uploading", total=file_size, unit='B', unit_scale=True) as file_with_progress:
                 response = requests.put(
                     upload_url,
-                    data=file_reader(),
+                    data=file_with_progress,
                     headers={
                         'Content-Type': 'application/x-tar',
                         'Content-Length': str(file_size)
@@ -228,6 +197,11 @@ def upload_archive(
                 # Check if upload was successful
                 response.raise_for_status()
                 return_code = 0
+                
+                # Emit final progress if in progress mode
+                if progress_mode:
+                    elapsed = time.time() - start_time
+                    emit_upload_progress(file_size, file_size, file_size / elapsed if elapsed > 0 else 0)
                 
     except requests.exceptions.RequestException as e:
         print(f"Upload failed: {e}")
