@@ -18,28 +18,23 @@ use tokio::{
     time::timeout,
 };
 
-#[derive(Serialize, Deserialize, Debug)]
-struct BridgeMessage {
-    #[serde(rename = "type")]
-    message_type: String,
-    data: serde_json::Value,
-    timestamp: f64,
-}
+use std::thread;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct BridgeCommand {
-    #[serde(rename = "type")]
-    command_type: String,
-    data: serde_json::Value,
-}
+use libobs_sources::windows::{MonitorCaptureSourceBuilder, MonitorCaptureSourceUpdater};
+use libobs_wrapper::{context::{ObsContext, ObsContextReturn}, data::output::ObsOutputRef, encoders::ObsVideoEncoderType, utils::VideoEncoderInfo};
+use libobs_wrapper::data::ObsObjectUpdater;
+use libobs_wrapper::encoders::ObsContextEncoders;
+use libobs_wrapper::sources::ObsSourceBuilder;
+use libobs_wrapper::utils::traits::ObsUpdatable;
+use libobs_wrapper::utils::{AudioEncoderInfo, ObsPath, OutputInfo, StartupInfo};
 
-struct OBSBridgeProcess {
-    child: Arc<Mutex<Option<TokioChild>>>,
-    stdin: Arc<Mutex<Option<tokio::process::ChildStdin>>>,
-}
-
+// TODO: https://github.com/joshprk/libobs-rs/blob/main/examples/obs-preview/src/main.rs#L27
+// probably the storing of the obsoutputref is causing the memleak and crashes.
+// instead store the ctx in RW lock and .write().unwrap().output() to reconstruct?
+// or instead store the output.stop() returned thread handler and call that when necessary?
 pub struct WindowRecorder {
-    bridge: OBSBridgeProcess,
+    obs_out: Arc<Mutex<Option<ObsOutputRef>>>,
+    // obs_kill_switch: Future<Output = libobs_wrapper::data::output::ObsOutputRef>,
     #[allow(dead_code)]
     recording_path: String,
 }
@@ -50,151 +45,96 @@ impl WindowRecorder {
             .ok_or_eyre("Recording path must have a parent directory")?;
         
         // Convert to absolute path for OBS
-        let absolute_recording_path = std::fs::canonicalize(recording_dir)
-            .wrap_err("Failed to get absolute path for recording directory")?;
-        
-        let recording_path = absolute_recording_path.to_str()
-            .ok_or_eyre("Path must be valid UTF-8")?;
+        // let mut absolute_recording_path = std::fs::canonicalize(recording_dir)
+        //     .wrap_err("Failed to get absolute path for recording directory")?;
+        // let recording_path = absolute_recording_path.to_str()
+        //     .ok_or_eyre("Path must be valid UTF-8")?;
 
-        tracing::debug!("Starting OBS bridge process");
-        
-        // Get the appropriate uv path (bundled in release, system in debug)
-        let uv_path = if cfg!(debug_assertions) {
-            "uv".to_string() // Use system uv in debug mode
-        } else {
-            // Use bundled uv in release mode - look for uv.exe next to the executable
-            std::env::current_exe()
-                .ok()
-                .and_then(|exe| exe.parent().map(|p| p.join("uv.exe")))
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|| "uv".to_string()) // Fallback to system uv
-        };
-        
-        tracing::debug!("Using uv path: {}", uv_path);
-        
-        // Start the Python OBS bridge process
-        let mut command = tokio::process::Command::new(uv_path)
-            .arg("run")
-            .arg("-m")
-            .arg("vg_control.video.obs_bridge")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .wrap_err("Failed to spawn OBS bridge process")?;
+        let recording_path: &str = path.to_str()
+            .ok_or_eyre("Recording path must be valid UTF-8")?;
 
-        let stdin = command.stdin.take()
-            .ok_or_eyre("Failed to get stdin handle")?;
-        let stdout = command.stdout.take()
-            .ok_or_eyre("Failed to get stdout handle")?;
-        let stderr = command.stderr.take()
-            .ok_or_eyre("Failed to get stderr handle")?;
-        
-        let bridge = OBSBridgeProcess {
-            child: Arc::new(Mutex::new(Some(command))),
-            stdin: Arc::new(Mutex::new(Some(stdin))),
+        tracing::debug!("Starting OBS context");
+
+        // // Start the OBS context
+        let startup_info = StartupInfo::default();
+        let context = ObsContext::new(startup_info).await?;
+        let context = match context {
+            ObsContextReturn::Done(c) => Some(c),
+            ObsContextReturn::Restart => {
+                None
+            }
         };
 
-        let recorder = WindowRecorder {
-            bridge,
-            recording_path: recording_path.to_string(),
-        };
-
-        // Set up stderr reader in background to capture errors
-        let stderr_reader = BufReader::new(stderr);
-        tokio::spawn(async move {
-            let mut stderr_lines = stderr_reader.lines();
-            while let Ok(Some(line)) = stderr_lines.next_line().await {
-                tracing::error!("OBS bridge stderr: {}", line);
-            }
-        });
-
-        // Wait for ready message
-        let reader = BufReader::new(stdout);
-        let mut lines = reader.lines();
-        
-        if let Some(line) = timeout(Duration::from_secs(10), lines.next_line()).await?? {
-            let message: BridgeMessage = serde_json::from_str(&line)
-                .wrap_err("Failed to parse ready message")?;
-            
-            if message.message_type != "ready" {
-                return Err(eyre!("Expected ready message, got: {}", message.message_type));
-            }
-            tracing::debug!("OBS bridge is ready");
-        } else {
-            return Err(eyre!("No ready message received from OBS bridge"));
+        if context.is_none() {
+            println!("OBS has been updated, restarting...");
+            return Err(eyre!("OBS restart required"));
         }
 
-        // Initialize OBS
-        recorder.send_command("initialize", serde_json::json!({
-            "recording_path": recording_path
-        })).await?;
+        let mut context = context.unwrap();
+        let mut scene = context.scene("main").await?;
+        let monitors = MonitorCaptureSourceBuilder::get_monitors().map_err(|e| eyre!(e))?;
 
-        // Read initialize response
-        if let Some(line) = timeout(Duration::from_secs(5), lines.next_line()).await?? {
-            tracing::debug!("Raw initialize response: {}", line);
-            let message: BridgeMessage = serde_json::from_str(&line)
-                .wrap_err_with(|| format!("Failed to parse initialize response: '{}'", line))?;
-            
-            if message.message_type == "error" {
-                return Err(eyre!("OBS initialization failed: {}", message.data.get("message").unwrap_or(&serde_json::Value::String("Unknown error".to_string()))));
-            } else if message.message_type != "initialized" {
-                return Err(eyre!("Expected initialized message, got: {}", message.message_type));
-            }
-            tracing::debug!("OBS initialized successfully");
-        } else {
-            return Err(eyre!("No initialize response received from OBS bridge"));
-        }
+        let mut monitor_capture = context
+            .source_builder::<MonitorCaptureSourceBuilder, _>("Monitor Capture")
+            .await?
+            .set_monitor(&monitors[0])
+            .add_to_scene(&mut scene)
+            .await?;
 
-        // Start recording
-        recorder.send_command("start", serde_json::json!({})).await?;
+        // Register the source
+        scene.set_to_channel(0).await?;
 
-        // Read start response
-        if let Some(line) = timeout(Duration::from_secs(5), lines.next_line()).await?? {
-            let message: BridgeMessage = serde_json::from_str(&line)
-                .wrap_err("Failed to parse start response")?;
-            
-            if message.message_type == "error" {
-                return Err(eyre!("OBS start recording failed: {}", message.data.get("message").unwrap_or(&serde_json::Value::String("Unknown error".to_string()))));
-            } else if message.message_type != "start_requested" {
-                tracing::warn!("Expected start_requested message, got: {}", message.message_type);
-            }
-            tracing::debug!("OBS start recording requested");
-        } else {
-            return Err(eyre!("No start response received from OBS bridge"));
-        }
+        // Set up output
+        let mut output_settings = context.data().await?;
+        output_settings
+            .set_string("path", ObsPath::new(recording_path).build())
+            // .set_string("path", ObsPath::from_relative("recording.mp4").build())
+            .await?;
 
-        // Once we're done reading stdout, spin up a task to echo stdout
-        tokio::spawn(async move {
-            while let Ok(Some(line)) = lines.next_line().await {
-                tracing::info!("OBS bridge stdout: {}", line);
-            }
-        });
+        let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
+        let mut output = context.output(output_info).await?;
+
+        // Register the video encoder
+        let mut video_settings = context.data().await?;
+        video_settings
+            .bulk_update()
+            .set_int("bf", 2)
+            .set_bool("psycho_aq", true)
+            .set_bool("lookahead", true)
+            .set_string("profile", "high")
+            // .set_string("preset", "hq")
+            .set_string("rate_control", "cbr")
+            .set_int("bitrate", 10000)
+            .update()
+            .await?;
+
+        // Get video handler and attach encoder to output
+        let video_handler = context.get_video_ptr().await?;
+        output.video_encoder(
+            VideoEncoderInfo::new(ObsVideoEncoderType::OBS_X264, "video_encoder", 
+                                Some(video_settings), None),
+            video_handler
+        ).await?;
+
+        // Register the audio encoder
+        let mut audio_settings = context.data().await?;
+        audio_settings.set_int("bitrate", 160).await?;
+
+        let audio_info =
+            AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
+
+        let audio_handler = context.get_audio_ptr().await?;
+        output.audio_encoder(audio_info, 0, audio_handler).await?;
+
+        output.start().await?;
 
         tracing::debug!("OBS recording started successfully");
-        Ok(recorder)
-    }
-
-    async fn send_command(&self, command_type: &str, data: serde_json::Value) -> Result<()> {
-        let command = BridgeCommand {
-            command_type: command_type.to_string(),
-            data,
+        let recorder = WindowRecorder {
+            obs_out: Arc::new(Mutex::new(Some(output))),
+            // obs_kill_switch: output.stop(),
+            recording_path: recording_path.to_string(),
         };
-        
-        let command_json = serde_json::to_string(&command)?
-            .replace('\n', "") + "\n";
-
-        let mut stdin_guard = self.bridge.stdin.lock().await;
-        if let Some(stdin) = stdin_guard.as_mut() {
-            stdin.write_all(command_json.as_bytes()).await
-                .wrap_err("Failed to write command to OBS bridge")?;
-            stdin.flush().await
-                .wrap_err("Failed to flush stdin")?;
-        } else {
-            return Err(eyre!("OBS bridge stdin not available"));
-        }
-
-        Ok(())
+        Ok(recorder)
     }
 
     pub fn listen_to_messages(&self) -> impl Future<Output = Result<()>> + use<> {
@@ -208,68 +148,31 @@ impl WindowRecorder {
 
     pub fn stop_recording(&self) {
         tracing::debug!("Stopping OBS recording");
-        let stdin = self.bridge.stdin.clone();
-        
-        tokio::spawn(async move {
-            let command = BridgeCommand {
-                command_type: "stop".to_string(),
-                data: serde_json::json!({}),
-            };
-            
-            let command_json = match serde_json::to_string(&command) {
-                Ok(json) => json + "\n",
-                Err(e) => {
-                    tracing::error!("Failed to serialize stop command: {}", e);
-                    return;
-                }
-            };
-
-            let mut stdin_guard = stdin.lock().await;
-            if let Some(stdin) = stdin_guard.as_mut() {
-                if let Err(e) = stdin.write_all(command_json.as_bytes()).await {
-                    tracing::error!("Failed to send stop command: {}", e);
-                }
-                if let Err(e) = stdin.flush().await {
-                    tracing::error!("Failed to flush stop command: {}", e);
-                }
-            }
-        });
+        // tokio::spawn({
+        //     let out = self.obs_out.clone();
+        //     async move {
+        //         if let Ok(mut out_guard) = out.try_lock() {
+        //             if let Some(out) = out_guard.as_mut() {
+        //                 out.stop().await.ok();
+        //             }
+        //         }
+        //     }
+        // });
     }
 }
 
 impl Drop for WindowRecorder {
     fn drop(&mut self) {
-        tracing::debug!("Shutting down OBS bridge process");
-        
-        // Send shutdown command (fire and forget)
+        tracing::debug!("Shutting down OBS process...");
+
         tokio::spawn({
-            let stdin = self.bridge.stdin.clone();
-            let child = self.bridge.child.clone();
-            
+            let out = self.obs_out.clone();
             async move {
-                // Try to send shutdown command
-                let shutdown_cmd = match serde_json::to_string(&BridgeCommand {
-                    command_type: "shutdown".to_string(),
-                    data: serde_json::json!({}),
-                }) {
-                    Ok(json) => json + "\n",
-                    Err(_) => return,
-                };
-                
-                if let Ok(mut stdin_guard) = stdin.try_lock() {
-                    if let Some(stdin) = stdin_guard.as_mut() {
-                        let _ = stdin.write_all(shutdown_cmd.as_bytes()).await;
-                        let _ = stdin.flush().await;
+                if let Ok(mut out_guard) = out.try_lock() {
+                    if let Some(out) = out_guard.as_mut() {
+                        out.stop().await.ok();
                     }
-                }
-                
-                // Wait a bit then kill if needed
-                tokio::time::sleep(Duration::from_millis(500)).await;
-                
-                if let Ok(mut child_guard) = child.try_lock() {
-                    if let Some(child) = child_guard.as_mut() {
-                        let _ = child.kill().await;
-                    }
+                    tracing::debug!("Shut down OBS process");
                 }
             }
         });

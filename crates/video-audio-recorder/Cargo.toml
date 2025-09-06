@@ -12,3 +12,5 @@ color-eyre.workspace = true
 derive_more.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+libobs-wrapper.workspace = true
+libobs-sources.workspace = true
