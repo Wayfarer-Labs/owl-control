@@ -14,3 +14,4 @@ serde.workspace = true
 serde_json.workspace = true
 libobs-wrapper.workspace = true
 libobs-sources.workspace = true
+libobs-window-helper.workspace = true

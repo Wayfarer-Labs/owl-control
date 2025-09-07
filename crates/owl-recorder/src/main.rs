@@ -47,7 +47,7 @@ const MAX_RECORDING_DURATION: Duration = Duration::from_secs(60 * 10);
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
 
     let Args {
         recording_location,

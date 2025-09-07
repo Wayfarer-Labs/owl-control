@@ -20,8 +20,11 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tauri-winrt-notification = "0.7.2"
 sysinfo = "0.32.1"
+# libobs-wrapper = { version = "3.0.3", features = ["bootstrapper"]}
 libobs-wrapper = "3.0.3"
+async-trait = "0.1"  # For implementing the bootstrap status handler
 libobs-sources = "2.0.5"
+libobs-window-helper = "0.1.4"
 
 [workspace.metadata]
 # The libobs version to use (can either be a specific version or "latest")

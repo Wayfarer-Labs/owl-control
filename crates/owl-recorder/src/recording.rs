@@ -6,7 +6,6 @@ use std::{
 use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
-use tokio_util::task::AbortOnDropHandle;
 
 #[cfg(feature = "real-video")]
 use video_audio_recorder::WindowRecorder;
@@ -14,10 +13,6 @@ use video_audio_recorder::WindowRecorder;
 use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder};
 
 pub(crate) struct Recording {
-    #[cfg(feature = "real-video")]
-    window_recorder: WindowRecorder,
-    #[cfg(feature = "real-video")]
-    window_recorder_listener: AbortOnDropHandle<Result<()>>,
     input_recorder: InputRecorder,
 
     metadata_path: PathBuf,
@@ -61,22 +56,12 @@ impl Recording {
         let start_instant = Instant::now();
 
         #[cfg(feature = "real-video")]
-        let window_recorder =
-            WindowRecorder::start_recording(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
-        #[cfg(feature = "real-video")]
-        let window_recorder_listener =
-            AbortOnDropHandle::new(tokio::task::spawn(window_recorder.listen_to_messages()));
-
+        WindowRecorder::start_recording_static(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
+        
         let input_recorder = InputRecorder::start(&csv_path).await?;
 
         Ok(Self {
-            #[cfg(feature = "real-video")]
-            window_recorder,
-            #[cfg(feature = "real-video")]
-            window_recorder_listener,
-
             input_recorder,
-
             metadata_path,
             game_exe,
             start_time,
@@ -123,9 +108,7 @@ impl Recording {
 
     pub(crate) async fn stop(self) -> Result<()> {
         #[cfg(feature = "real-video")]
-        self.window_recorder.stop_recording();
-        #[cfg(feature = "real-video")]
-        self.window_recorder_listener.await.unwrap()?;
+        WindowRecorder::stop_recording_static().await?;
 
         self.input_recorder.stop().await?;
 
