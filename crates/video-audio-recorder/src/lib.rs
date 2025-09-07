@@ -75,26 +75,25 @@ impl WindowRecorder {
         // Set up scene and window capture based on input pid
         let mut scene = context.scene("main").await?;
 
-        // TODO: for some reason the window capture results in recording with wrong resolution? The application capture is smaller than the window size, resulting in black borders, whereas monitor capture works fine?
 
-        // let window = WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized).map_err(|e| eyre!(e))?;
-        // let window = window.iter().find(|w| w.pid == _pid).ok_or_else(|| eyre!("No window found with PID: {}", _pid))?;
+        let window = WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized).map_err(|e| eyre!(e))?;
+        let window = window.iter().find(|w| w.pid == _pid).ok_or_else(|| eyre!("No window found with PID: {}", _pid))?;
         
-        // let mut _window_capture = context.source_builder::<WindowCaptureSourceBuilder, _>("window_capture")
-        //     .await?
-        //     .set_window(window)
-        //     .set_capture_audio(true)
-        //     .set_client_area(true)
-        //     .add_to_scene(&mut scene)
-        //     .await?;
-
-        let monitors = MonitorCaptureSourceBuilder::get_monitors().map_err(|e| eyre!(e))?;
-        let mut _monitor_capture = context
-            .source_builder::<MonitorCaptureSourceBuilder, _>("Monitor Capture")
+        let mut _window_capture = context.source_builder::<WindowCaptureSourceBuilder, _>("window_capture")
             .await?
-            .set_monitor(&monitors[0])
+            .set_window(window)
+            .set_capture_audio(true)
+            .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
             .add_to_scene(&mut scene)
             .await?;
+
+        // let monitors = MonitorCaptureSourceBuilder::get_monitors().map_err(|e| eyre!(e))?;
+        // let mut _monitor_capture = context
+        //     .source_builder::<MonitorCaptureSourceBuilder, _>("Monitor Capture")
+        //     .await?
+        //     .set_monitor(&monitors[0])
+        //     .add_to_scene(&mut scene)
+        //     .await?;
 
         // Register the source
         scene.set_to_channel(0).await?;
