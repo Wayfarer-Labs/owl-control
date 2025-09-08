@@ -93,7 +93,7 @@ impl WindowRecorder {
 
         // Initialize OBS with bootstrapper
         let context = ObsContext::builder()
-            .enable_bootstrapper(handler.clone(), ObsBootstrapperOptions::default())
+            .enable_bootstrapper(handler.clone(), ObsBootstrapperOptions::default().set_no_restart())
             .start()
             .await?;
 
@@ -106,14 +106,6 @@ impl WindowRecorder {
             }
         };
 
-        // let startup_info = StartupInfo::default();
-        // let context = ObsContext::new(startup_info).await?;
-        // let context = match context {
-        //     ObsContextReturn::Done(c) => c,
-        //     ObsContextReturn::Restart => {
-        //         return Err(eyre!("OBS restart required during initialization"));
-        //     }
-        // };
         handler.done();
         tracing::debug!("OBS context initialized successfully");
 

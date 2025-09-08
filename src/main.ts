@@ -558,52 +558,74 @@ async function ensurePythonDependencies() {
 
 // Start Python recording bridge
 function startRecordingBridge(startKey: string, stopKey: string) {
-  try {
-    // Stop existing process if running
-    if (pythonProcess) {
-      pythonProcess.kill();
-      pythonProcess = null;
-    }
-
-    console.log(`Starting recording bridge`);
-    console.log(`Executing: ${recorderCommand()}`);
-    console.log(`Working directory: ${rootDir()}`);
-
-    pythonProcess = spawn(recorderCommand(), [
-      '--recording-location', "./data_dump/games/",
-      '--start-key', startKey,
-      '--stop-key', stopKey,
-    ], {
-      cwd: rootDir(),
-    });
-
-    // Handle output
-    pythonProcess.stdout.on('data', (data: Buffer) => {
-      console.log(`Recording bridge stdout: ${data.toString()}`);
-    });
-
-    pythonProcess.stderr.on('data', (data: Buffer) => {
-      console.error(`Recording bridge stderr: ${data.toString()}`);
-    });
-
-    pythonProcess.on('error', (error: Error) => {
-      console.error(`Recording bridge process error: ${error.message}`);
-      console.error(`This usually means the executable was not found: ${recorderCommand()}`);
-    });
-
-    pythonProcess.on('close', (code: number) => {
-      console.log(`Recording bridge process exited with code ${code}`);
-      if (code !== 0) {
-        console.error(`Recording bridge failed with exit code ${code}`);
+  const startProcess = (startKey: string, stopKey: string) => {
+    let obsRestartRequired = false;
+    
+    try {
+      // Stop existing process if running
+      if (pythonProcess) {
+        pythonProcess.kill();
+        pythonProcess = null;
       }
-      pythonProcess = null;
-    });
 
-    return true;
-  } catch (error) {
-    console.error('Error starting recording bridge:', error);
-    return false;
-  }
+      console.log(`Starting recording bridge`);
+      console.log(`Executing: ${recorderCommand()}`);
+      console.log(`Working directory: ${rootDir()}`);
+
+      pythonProcess = spawn(recorderCommand(), [
+        '--recording-location', "./data_dump/games/",
+        '--start-key', startKey,
+        '--stop-key', stopKey,
+      ], {
+        cwd: rootDir(),
+      });
+
+      // Handle output
+      pythonProcess.stdout.on('data', (data: Buffer) => {
+        console.log(`Recording bridge stdout: ${data.toString()}`);
+      });
+
+      pythonProcess.stderr.on('data', (data: Buffer) => {
+        const stderrText = data.toString();
+        console.error(`Recording bridge stderr: ${stderrText}`);
+        
+        // Check if OBS restart is required
+        if (stderrText.includes('OBS restart required during initialization')) {
+          console.log('OBS restart required detected, will restart process after exit');
+          obsRestartRequired = true;
+        }
+      });
+
+      pythonProcess.on('error', (error: Error) => {
+        console.error(`Recording bridge process error: ${error.message}`);
+        console.error(`This usually means the executable was not found: ${recorderCommand()}`);
+      });
+
+      pythonProcess.on('close', (code: number) => {
+        console.log(`Recording bridge process exited with code ${code}`);
+        if (code !== 0) {
+          console.error(`Recording bridge failed with exit code ${code}`);
+        }
+        
+        // Check if we need to restart due to OBS restart requirement
+        if (obsRestartRequired) {
+          console.log('Restarting recording bridge due to OBS restart requirement');
+          setTimeout(() => {
+            startProcess(startKey, stopKey);
+          }, 1000); // Wait 1 second before restarting
+        } else {
+          pythonProcess = null;
+        }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error starting recording bridge:', error);
+      return false;
+    }
+  };
+
+  return startProcess(startKey, stopKey);
 }
 
 function recorderCommand() {
