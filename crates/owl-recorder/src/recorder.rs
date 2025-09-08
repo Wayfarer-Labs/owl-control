@@ -11,18 +11,18 @@ use crate::{
 };
 
 pub(crate) struct Recorder {
-    recording_dir: PathBuf,
+    recording_dir_generator: Box<dyn Fn() -> PathBuf>,
     recording: Option<Recording>,
 }
 
 impl Recorder {
-    pub(crate) async fn new(recording_dir: PathBuf) -> Result<Self> {
+    pub(crate) async fn new(recording_dir_generator: impl Fn() -> PathBuf + 'static) -> Result<Self> {
         // Initialize the OBS bootstrapper as early as possible
         #[cfg(feature = "real-video")]
         WindowRecorder::instance().await?;
 
         Ok(Self {
-            recording_dir,
+            recording_dir_generator: Box::new(recording_dir_generator),
             recording: None,
         })
     }
@@ -36,9 +36,9 @@ impl Recorder {
             return Ok(());
         }
 
-        let recording_location = &self.recording_dir;
+        let recording_location = (self.recording_dir_generator)();
 
-        std::fs::create_dir_all(recording_location)
+        std::fs::create_dir_all(&recording_location)
             .wrap_err("Failed to create recording directory")?;
 
         let Some((game_exe, pid, hwnd)) =
