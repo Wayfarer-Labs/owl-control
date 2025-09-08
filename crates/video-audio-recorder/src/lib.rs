@@ -20,9 +20,9 @@ use libobs_wrapper::utils::{AudioEncoderInfo, ObsPath, OutputInfo, StartupInfo};
 static WINDOW_RECORDER: OnceCell<WindowRecorder> = OnceCell::const_new();
 
 pub struct WindowRecorder {
-    obs_context: Arc<Mutex<ObsContext>>,
-    current_output: Arc<Mutex<Option<ObsOutputRef>>>,
-    recording_path: Arc<Mutex<Option<String>>>,
+    obs_context: Mutex<ObsContext>,
+    current_output: Mutex<Option<ObsOutputRef>>,
+    recording_path: Mutex<Option<String>>,
 }
 
 use libobs_wrapper::{
@@ -110,9 +110,9 @@ impl WindowRecorder {
         tracing::debug!("OBS context initialized successfully");
 
         Ok(WindowRecorder {
-            obs_context: Arc::new(Mutex::new(context)),
-            current_output: Arc::new(Mutex::new(None)),
-            recording_path: Arc::new(Mutex::new(None)),
+            obs_context: Mutex::new(context),
+            current_output: Mutex::new(None),
+            recording_path: Mutex::new(None),
         })
     }
 
