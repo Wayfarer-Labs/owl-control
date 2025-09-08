@@ -25,6 +25,56 @@ pub struct WindowRecorder {
     recording_path: Arc<Mutex<Option<String>>>,
 }
 
+use libobs_wrapper::{
+    bootstrap::{
+        ObsBootstrapperOptions,
+        status_handler::ObsBootstrapStatusHandler,
+    }
+};
+use std::time::Instant;
+
+// Logging-based handler using tracing
+#[derive(Debug, Clone)]
+struct LoggingBootstrapHandler {
+    start_time: Instant,
+}
+
+impl LoggingBootstrapHandler {
+    pub fn new() -> Self {
+        tracing::info!("Starting OBS bootstrap process");
+        Self {
+            start_time: Instant::now(),
+        }
+    }
+    pub fn done(&self) {
+        let elapsed = self.start_time.elapsed();
+        tracing::info!("OBS bootstrap completed in {:.2}s", elapsed.as_secs_f32());
+    }
+}
+
+#[async_trait::async_trait]
+impl ObsBootstrapStatusHandler for LoggingBootstrapHandler {
+    async fn handle_downloading(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
+        tracing::info!("Downloading: {:.1}% - {}", prog * 100.0, msg);
+        // Log major milestones
+        let percent = (prog * 100.0) as i32;
+        if percent % 25 == 0 && percent > 0 {
+            tracing::info!("Download progress: {}%", percent);
+        }
+        Ok(())
+    }
+
+    async fn handle_extraction(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
+        tracing::info!("Extracting: {:.1}% - {}", prog * 100.0, msg);
+        // Log major milestones
+        let percent = (prog * 100.0) as i32;
+        if percent % 25 == 0 && percent > 0 {
+            tracing::info!("Extraction progress: {}%", percent);
+        }
+        Ok(())
+    }
+}
+
 /// WindowRecorder is a singleton (yes, shoot me if you care) that manages the OBS context and recordings.
 /// Why a singleton? Well libobs is buggy asf and doesn't like being initialized multiple times,
 /// previous implementation attempting to reinitialize the context always crashed at the first rerecord attempt.
@@ -38,15 +88,44 @@ impl WindowRecorder {
     }
     
     async fn new() -> Result<Self> {
-        let startup_info = StartupInfo::default();
-        let context = ObsContext::new(startup_info).await?;
+        // Create a progress handler
+        let handler = LoggingBootstrapHandler::new();
+
+        // Initialize OBS with bootstrapper
+        let context = ObsContext::builder()
+            .enable_bootstrapper(handler.clone(), ObsBootstrapperOptions::default())
+            .start()
+            .await?;
+
+        // Handle potential restart
         let context = match context {
-            ObsContextReturn::Done(c) => c,
-            ObsContextReturn::Restart => {
-                return Err(eyre!("OBS restart required during initialization"));
+            libobs_wrapper::context::ObsContextReturn::Done(c) => c,
+            libobs_wrapper::context::ObsContextReturn::Restart => {
+                println!("OBS has been downloaded and extracted. The application will now restart.");
+                handler.done();
+                // Restart the current process
+                let current_exe = std::env::current_exe()?;
+                let args: Vec<String> = std::env::args().collect();
+                
+                std::process::Command::new(current_exe)
+                    .args(&args[1..]) // Skip the first arg (program name)
+                    .spawn()?;
+                
+                // Exit current process
+                std::process::exit(0);
+                // return Err(eyre!("OBS restart required during initialization"));
             }
         };
 
+        // let startup_info = StartupInfo::default();
+        // let context = ObsContext::new(startup_info).await?;
+        // let context = match context {
+        //     ObsContextReturn::Done(c) => c,
+        //     ObsContextReturn::Restart => {
+        //         return Err(eyre!("OBS restart required during initialization"));
+        //     }
+        // };
+        handler.done();
         tracing::debug!("OBS context initialized successfully");
 
         Ok(WindowRecorder {

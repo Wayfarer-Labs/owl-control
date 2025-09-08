@@ -2,6 +2,7 @@
 name = "video-audio-recorder"
 version = "0.0.0"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
 clap.workspace = true
@@ -15,3 +16,5 @@ serde_json.workspace = true
 libobs-wrapper.workspace = true
 libobs-sources.workspace = true
 libobs-window-helper.workspace = true
+async-trait.workspace = true
+anyhow = "1.0.99"
