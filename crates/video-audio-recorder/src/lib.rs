@@ -102,18 +102,7 @@ impl WindowRecorder {
             libobs_wrapper::context::ObsContextReturn::Done(c) => c,
             libobs_wrapper::context::ObsContextReturn::Restart => {
                 println!("OBS has been downloaded and extracted. The application will now restart.");
-                handler.done();
-                // Restart the current process
-                let current_exe = std::env::current_exe()?;
-                let args: Vec<String> = std::env::args().collect();
-                
-                std::process::Command::new(current_exe)
-                    .args(&args[1..]) // Skip the first arg (program name)
-                    .spawn()?;
-                
-                // Exit current process
-                std::process::exit(0);
-                // return Err(eyre!("OBS restart required during initialization"));
+                return Err(eyre!("OBS restart required during initialization"));
             }
         };
 

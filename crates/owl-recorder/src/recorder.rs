@@ -2,26 +2,29 @@ use std::path::PathBuf;
 
 use color_eyre::{Result, eyre::Context as _};
 use tauri_winrt_notification::Toast;
+#[cfg(feature = "real-video")]
+use video_audio_recorder::WindowRecorder;
 
 use crate::{
     find_game::get_foregrounded_game,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
 };
 
-pub(crate) struct Recorder<D> {
-    recording_dir: D,
+pub(crate) struct Recorder {
+    recording_dir: PathBuf,
     recording: Option<Recording>,
 }
 
-impl<D> Recorder<D>
-where
-    D: FnMut() -> PathBuf,
-{
-    pub(crate) fn new(recording_dir: D) -> Self {
-        Self {
+impl Recorder {
+    pub(crate) async fn new(recording_dir: PathBuf) -> Result<Self> {
+        // Initialize the OBS bootstrapper as early as possible
+        #[cfg(feature = "real-video")]
+        WindowRecorder::instance().await?;
+
+        Ok(Self {
             recording_dir,
             recording: None,
-        }
+        })
     }
 
     pub(crate) fn recording(&self) -> Option<&Recording> {
@@ -33,9 +36,9 @@ where
             return Ok(());
         }
 
-        let recording_location = (self.recording_dir)();
+        let recording_location = &self.recording_dir;
 
-        std::fs::create_dir_all(&recording_location)
+        std::fs::create_dir_all(recording_location)
             .wrap_err("Failed to create recording directory")?;
 
         let Some((game_exe, pid, hwnd)) =

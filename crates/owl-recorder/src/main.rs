@@ -61,16 +61,14 @@ async fn main() -> Result<()> {
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
     let mut recorder = Recorder::new(
-        || {
-            recording_location.join(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-                    .to_string(),
-            )
-        },
-    );
+        recording_location.join(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .to_string(),
+        )
+    ).await?;
 
     let mut input_rx = listen_for_raw_inputs();
 
