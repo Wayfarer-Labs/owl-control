@@ -23,6 +23,7 @@ sysinfo = "0.32.1"
 # libobs-wrapper = { version = "3.0.3", features = ["bootstrapper"]}
 libobs-wrapper = "3.0.3"
 async-trait = "0.1"  # For implementing the bootstrap status handler
+anyhow = "1.0.99"   # Necessary for certain libobs features
 libobs-sources = "2.0.5"
 libobs-window-helper = "0.1.4"
 

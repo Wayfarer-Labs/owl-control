@@ -22,17 +22,18 @@ fn main() {
             let filename = src.file_name().unwrap();
             let dest = target_dir.join(filename);
             
-            if let Err(e) = fs::copy(&src, &dest) {
-                eprintln!("Warning: Failed to copy {}: {}", dll_path, e);
-            } else {
-                println!("cargo:rerun-if-changed={}", dll_path);
-                println!("Copied {} to {}", dll_path, dest.display());
+            // originally we only track rerun if changes occur to lib/ but that ended up being too inconsistent, so instead
+            // we just rerun the copy process every time build is called if the .dll doesn't already exist in target directory
+            if !dest.exists() {
+                if let Err(e) = fs::copy(&src, &dest) {
+                    eprintln!("Warning: Failed to copy {}: {}", dll_path, e);
+                } else {
+                    println!("cargo:rerun-if-changed={}", dll_path);
+                    println!("Copied {} to {}", dll_path, dest.display());
+                }
             }
         } else {
             eprintln!("Warning: DLL not found: {}", dll_path);
         }
     }
-    
-    // Tell cargo to rerun if any DLL changes
-    println!("cargo:rerun-if-changed=libs/");
 }
