@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.12.*"
 resolution-markers = [
     "sys_platform == 'darwin'",
@@ -171,18 +171,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/25/5761d832a81df431e260719ec45de696414266613c9ee268394dd5ad8236/numpy-2.2.6-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:fe27749d33bb772c80dcd84ae7e8df2adc920ae8297400dabec45f0dedb3f6de", size = 18313783, upload-time = "2025-05-17T21:36:56.883Z" },
     { url = "https://files.pythonhosted.org/packages/57/0a/72d5a3527c5ebffcd47bde9162c39fae1f90138c961e5296491ce778e682/numpy-2.2.6-cp312-cp312-win32.whl", hash = "sha256:4eeaae00d789f66c7a25ac5f34b71a7035bb474e679f410e5e1a94deb24cf2d4", size = 6246506, upload-time = "2025-05-17T21:37:07.368Z" },
     { url = "https://files.pythonhosted.org/packages/36/fa/8c9210162ca1b88529ab76b41ba02d433fd54fecaf6feb70ef9f124683f1/numpy-2.2.6-cp312-cp312-win_amd64.whl", hash = "sha256:c1f9540be57940698ed329904db803cf7a402f3fc200bfe599334c9bd84a40b2", size = 12614190, upload-time = "2025-05-17T21:37:26.213Z" },
-]
-
-[[package]]
-name = "obsws-python"
-version = "1.7.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "websocket-client" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/de/aa/1a4e9db03c0eda9a2594c9aeccea5e93b5d2308f5273dd7217b346b523d4/obsws_python-1.7.2.tar.gz", hash = "sha256:b5cdaad30fbe1f6d4787b6530048b9882f070c3ee7830abb6dad4a47f84d7fa0", size = 29133, upload-time = "2025-05-14T19:20:26.005Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/68/a5d63428b26221e0f6cb3968d93ffb951825ba0f82b23d356efedfa19fd5/obsws_python-1.7.2-py3-none-any.whl", hash = "sha256:acda31852ad9d7165de915b0603c13f6df527d3f61619970bf5fb562e300bc85", size = 30863, upload-time = "2025-05-14T19:20:24.603Z" },
 ]
 
 [[package]]
@@ -404,12 +392,11 @@ wheels = [
 
 [[package]]
 name = "vg-control"
-version = "1.0.0"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "gputil" },
     { name = "numpy" },
-    { name = "obsws-python" },
     { name = "pandas" },
     { name = "psutil" },
     { name = "py-cpuinfo" },
@@ -431,7 +418,6 @@ dev = [
 requires-dist = [
     { name = "gputil", specifier = ">=1.4.0" },
     { name = "numpy", specifier = ">=2.0.0,<3" },
-    { name = "obsws-python", specifier = ">=1.7.2" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "py-cpuinfo", specifier = ">=9.0.0" },
@@ -447,15 +433,6 @@ dev = [
     { name = "flake8", specifier = ">=6.1.0,<7" },
     { name = "mypy", specifier = ">=1.5.0,<2" },
     { name = "pytest", specifier = ">=7.4.0,<8" },
-]
-
-[[package]]
-name = "websocket-client"
-version = "1.8.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e6/30/fba0d96b4b5fbf5948ed3f4681f7da2f9f64512e1d303f94b4cc174c24a5/websocket_client-1.8.0.tar.gz", hash = "sha256:3239df9f44da632f96012472805d40a23281a991027ce11d2f45a6f24ac4c3da", size = 54648, upload-time = "2024-04-23T22:16:16.976Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/84/44687a29792a70e111c5c477230a72c4b957d88d16141199bf9acb7537a3/websocket_client-1.8.0-py3-none-any.whl", hash = "sha256:17b44cc997f5c498e809b22cdf2d9c7a9e71c02c8cc2b6c56e7c2d1239bfa526", size = 58826, upload-time = "2024-04-23T22:16:14.422Z" },
 ]
 
 [[package]]

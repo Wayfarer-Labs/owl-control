@@ -18,12 +18,15 @@
 
 ## 🎮 What is OWL Control?
 
-OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from games, using OBS to do the recording work. This data can be uploaded to create a public dataset that researchers worldwide can use to train AI models. Here's a video tutorial if you don't want to read the below: [link](https://www.loom.com/share/1722a9d6be26468baba8a06b4006350d)
+OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from games, using OBS to do the recording work. This data can be uploaded to create a public dataset that researchers worldwide can use to train AI models.
 
 **DISCLAIMER**: THERE ARE REPORTS OF OWL CONTROL CAUSING BANS IN MULTIPLAYER PVP GAMES - WE STRONGLY RECOMMEND USING ONLY IN SINGLE-PLAYER GAMES  
 
 ## 🚀 Getting Started (User Installation)
-
+The below text is supplemental, please watch the video tutorial here:  
+[link](https://www.loom.com/share/f18451c8196a47a9a2dd7418f785cd37)  
+The video goes over common failure cases and shows some light debugging. OWL Control is currently in pre-release and there a lot of kinks to iron out. As such the video tutorial is extensive,
+and features some minor debugging. It should be watched in full before you use the software so you can both verify it is working and report correctly when it is not.
 <table>
 <tr>
 <td width="50px" align="center">1️⃣</td>
@@ -43,7 +46,7 @@ OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from 
 </tr>
 <tr>
 <td align="center">5️⃣</td>
-<td><strong>Install and setup OBS Studio</strong> (<a href="https://obsproject.com/">download</a>) and <a href="https://imgur.com/a/rN7C79y">enable websocket + disable authentication</a></td>
+<td><strong>Install and setup OBS Studio</strong> (<a href="https://obsproject.com/">download</a>) (if OBS asks for your preferences/settings/preset, just press "cancel" and ignore) and <a href="https://imgur.com/a/rN7C79y">enable websocket + disable authentication</a></td>
 </tr>
 <tr>
 <td align="center">6️⃣</td>

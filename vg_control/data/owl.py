@@ -8,7 +8,7 @@ import shutil
 import json
 from datetime import datetime
 
-from ..constants import ROOT_DIR, MIN_FOOTAGE, MAX_FOOTAGE
+from ..constants import ROOT_DIR, MIN_FOOTAGE, MAX_FOOTAGE, RECORDING_WIDTH, RECORDING_HEIGHT, FPS
 
 from .input_utils.buttons import get_button_stats
 from .input_utils.mouse import get_mouse_stats
@@ -94,18 +94,104 @@ def filter_invalid_sample(vid_path, csv_path, meta_path, verbose = False):
     return is_invalid
 
 class OWLDataManager:
-    def __init__(self, token, progress_mode=False):
+    def __init__(self, token, progress_mode=False, bundle_sessions=False):
         self.staged_files = []
         self.staging_dir = "staging"
         self.current_tar_uuid = None
         self.token = token
         self.progress_mode = progress_mode
+        self.bundle_sessions = bundle_sessions  # If False, create individual tars per session
         self.total_duration = 0.0  # Track total duration of uploaded videos
         self.total_bytes = 0  # Track total bytes of files
         self.staged_bytes = 0  # Track bytes staged so far
         os.makedirs(self.staging_dir, exist_ok=True)
 
+    def _process_individual_sessions(self, verbose=False):
+        """Process each session as an individual tar file and upload immediately."""
+        sessions_processed = 0
+        
+        for root, dirs, files in os.walk(ROOT_DIR):
+            if '.uploaded' in files or '.invalid' in files:
+                continue
+            
+            has_mp4 = any([fname.endswith('.mp4') for fname in files])
+            has_csv = any([fname.endswith('.csv') for fname in files])
+            has_metadata = any([fname == 'metadata.json' for fname in files])
+            
+            if has_mp4 and has_csv and has_metadata:
+                mp4_file = next(f for f in files if f.endswith('.mp4'))
+                csv_file = next(f for f in files if f.endswith('.csv'))
+                
+                mp4_path = os.path.join(root, mp4_file)
+                csv_path = os.path.join(root, csv_file)
+                meta_path = os.path.join(root, 'metadata.json')
+                
+                # Check validity
+                try:
+                    invalid = filter_invalid_sample(mp4_path, csv_path, meta_path, verbose)
+                except Exception as e:
+                    print(f"Warning: Invalid data skipped: {e}")
+                    invalid = True
+                
+                if invalid:
+                    with open(os.path.join(root, '.invalid'), 'w') as f:
+                        pass
+                    continue
+                
+                # Read duration from metadata and track bytes
+                metadata_dict = {}
+                try:
+                    with open(meta_path) as f:
+                        metadata_dict = json.load(f)
+                    duration = float(metadata_dict.get('duration', 0))
+                    self.total_duration += duration
+                except Exception as e:
+                    print(f"Warning: Could not read duration from {meta_path}: {e}")
+                
+                # Track file sizes for statistics
+                mp4_size = os.path.getsize(mp4_path)
+                csv_size = os.path.getsize(csv_path)
+                meta_size = os.path.getsize(meta_path)
+                self.total_bytes += mp4_size + csv_size + meta_size
+                
+                # Create tar for this single session
+                import uuid
+                tar_name = f"{uuid.uuid4().hex[:16]}.tar"
+                
+                with tarfile.open(tar_name, "w") as tar:
+                    tar.add(mp4_path, arcname=mp4_file)
+                    tar.add(csv_path, arcname=csv_file)
+                    tar.add(meta_path, arcname='metadata.json')
+                
+                # Upload immediately with metadata
+                try:
+                    upload_archive(
+                        self.token, 
+                        tar_name, 
+                        progress_mode=self.progress_mode,
+                        video_filename=mp4_file,
+                        control_filename=csv_file,
+                        video_duration_seconds=metadata_dict.get('duration') if metadata_dict else None,
+                        video_width=RECORDING_WIDTH,
+                        video_height=RECORDING_HEIGHT,
+                        video_fps=FPS
+                        # video_codec not set here since it depends on user's OBS settings
+                    )
+                    with open(os.path.join(root, '.uploaded'), 'w') as f:
+                        f.write('')
+                    self.staged_files.append(root)
+                    sessions_processed += 1
+                finally:
+                    if os.path.exists(tar_name):
+                        os.remove(tar_name)
+        
+        return sessions_processed > 0
+
     def stage(self, verbose = False):
+        # If not bundling, process each session individually
+        if not self.bundle_sessions:
+            return self._process_individual_sessions(verbose)
+        
         file_counter = 0
         total_folders = sum(1 for root, dirs, files in os.walk(ROOT_DIR) if not ('.uploaded' in files or '.invalid' in files))
         processed_folders = 0
@@ -236,6 +322,10 @@ class OWLDataManager:
     
 
     def compress(self):
+        # Skip if not bundling (already handled in stage)
+        if not self.bundle_sessions:
+            return None
+            
         import uuid
         self.current_tar_uuid = uuid.uuid4().hex[:16]
         tar_name = f"{self.current_tar_uuid}.tar"
@@ -275,6 +365,10 @@ class OWLDataManager:
         return tar_name
 
     def upload(self):
+        # Skip if not bundling (already handled in stage)
+        if not self.bundle_sessions:
+            return
+            
         if not self.current_tar_uuid:
             raise Exception("Must compress before uploading")
             
@@ -285,7 +379,16 @@ class OWLDataManager:
             print(f"PROGRESS: {json.dumps(progress_data)}")
         
         try:
-            upload_archive(self.token, tar_name, progress_mode=self.progress_mode)
+            # Pass aggregated metadata for bundled uploads
+            upload_archive(
+                self.token, 
+                tar_name, 
+                progress_mode=self.progress_mode,
+                video_duration_seconds=self.total_duration,  # Total duration of all videos in bundle
+                video_width=RECORDING_WIDTH,
+                video_height=RECORDING_HEIGHT,
+                video_fps=FPS
+            )
             
             if self.progress_mode:
                 progress_data = {"phase": "upload", "action": "complete", "tar_file": tar_name}
@@ -324,8 +427,8 @@ class OWLDataManager:
                 shutil.rmtree(root)
 
 
-def upload_all_files(token, delete_uploaded=False, progress_mode=False):
-    manager = OWLDataManager(token, progress_mode=progress_mode)
+def upload_all_files(token, delete_uploaded=False, progress_mode=False, bundle_sessions=False):
+    manager = OWLDataManager(token, progress_mode=progress_mode, bundle_sessions=bundle_sessions)
     has_files = manager.stage()
     if has_files:
         manager.compress()

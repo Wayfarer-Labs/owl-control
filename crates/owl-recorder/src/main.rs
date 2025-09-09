@@ -42,7 +42,7 @@ struct Args {
 }
 
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
-const MAX_RECORDING_DURATION: Duration = Duration::from_secs(60 * 10);
+const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
 #[tokio::main]
 async fn main() -> Result<()> {

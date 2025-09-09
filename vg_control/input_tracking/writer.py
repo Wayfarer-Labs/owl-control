@@ -4,7 +4,6 @@ import asyncio
 import os
 
 from .tracker import InputTracker
-from ..constants import INACTIVITY_TIME
 
 """
 Quick Rundown on Event Datasets:

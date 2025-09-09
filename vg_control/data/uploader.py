@@ -63,6 +63,13 @@ def get_upload_url(
     archive_path: str,
     tags: Optional[List[str]] = None,
     base_url: str = API_BASE_URL,
+    video_filename: Optional[str] = None,
+    control_filename: Optional[str] = None,
+    video_duration_seconds: Optional[float] = None,
+    video_width: Optional[int] = None,
+    video_height: Optional[int] = None,
+    video_codec: Optional[str] = None,
+    video_fps: Optional[float] = None,
 ) -> str:
     """Request a pre-signed S3 URL for uploading a tar archive."""
 
@@ -78,6 +85,20 @@ def get_upload_url(
     }
     if tags:
         payload["tags"] = tags
+    if video_filename:
+        payload["video_filename"] = video_filename
+    if control_filename:
+        payload["control_filename"] = control_filename
+    if video_duration_seconds is not None:
+        payload["video_duration_seconds"] = video_duration_seconds
+    if video_width is not None:
+        payload["video_width"] = video_width
+    if video_height is not None:
+        payload["video_height"] = video_height
+    if video_codec:
+        payload["video_codec"] = video_codec
+    if video_fps is not None:
+        payload["video_fps"] = video_fps
 
     headers = {"Content-Type": "application/json", "X-API-Key": api_key}
     url = f"{base_url}/tracker/upload/game_control"
@@ -94,6 +115,13 @@ def upload_archive(
     tags: Optional[List[str]] = None,
     base_url: str = API_BASE_URL,
     progress_mode: bool = False,
+    video_filename: Optional[str] = None,
+    control_filename: Optional[str] = None,
+    video_duration_seconds: Optional[float] = None,
+    video_width: Optional[int] = None,
+    video_height: Optional[int] = None,
+    video_codec: Optional[str] = None,
+    video_fps: Optional[float] = None,
 ) -> None:
     """Upload an archive to the storage bucket via a pre-signed URL."""
 
@@ -102,6 +130,13 @@ def upload_archive(
         archive_path,
         tags=tags,
         base_url=base_url,
+        video_filename=video_filename,
+        control_filename=control_filename,
+        video_duration_seconds=video_duration_seconds,
+        video_width=video_width,
+        video_height=video_height,
+        video_codec=video_codec,
+        video_fps=video_fps,
     )
 
     # Get file size for progress bar
