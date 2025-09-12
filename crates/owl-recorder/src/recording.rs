@@ -62,7 +62,6 @@ impl Recording {
         Ok(Self {
             window_recorder,
             input_recorder,
-
             metadata_path,
             game_exe,
             start_time,

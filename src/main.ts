@@ -210,9 +210,9 @@ function createSettingsWindow() {
         background-color: #0c0c0f !important;
         color: #f8f9fa !important;
       }
-      
+
       /* Fix black box issues - make text containers transparent */
-      h1, h2, h3, h4, h5, h6, p, span, label, a, 
+      h1, h2, h3, h4, h5, h6, p, span, label, a,
       div.text-sm, div.text-muted-foreground, div.flex.items-center {
         background-color: transparent !important;
       }
@@ -236,60 +236,60 @@ function createSettingsWindow() {
         color: #0c0c0f !important;
         border: none !important;
       }
-      
+
       /* Primary button styling */
       button[class*="primary"], [role="button"][class*="primary"], .btn-primary, .button-primary {
         background-color: hsl(186, 90%, 61%) !important;
         color: #0c0c0f !important;
         border: none !important;
       }
-      
+
       /* Button variants */
       [class*="btn-secondary"], [class*="btn-outline"], [class*="ghost"] {
         background-color: transparent !important;
         border-color: #2a2d35 !important;
         color: #f8f9fa !important;
       }
-      
+
       /* Form inputs */
       input, select, textarea, [type="text"], [type="password"], [type="email"], [class*="input"] {
         background-color: #1f2028 !important;
         border-color: #2a2d35 !important;
         color: #f8f9fa !important;
       }
-      
+
       /* Text colors */
       p, h1, h2, h3, h4, h5, h6, span, label {
         color: #f8f9fa !important;
       }
-      
+
       /* Tailwind specific text classes */
       [class*="text-"], [class*="text-muted"] {
         color: #f8f9fa !important;
       }
-      
+
       /* Secondary text */
       [class*="text-muted"], [class*="text-secondary"] {
         color: #a0aec0 !important;
       }
-      
+
       /* Fix any potential black boxes around titles and text content */
       [class*="card-header"], [class*="card-title"], [class*="card-description"],
       .text-sm, .text-muted-foreground, .col-span-2, .flex.items-center,
       p.text-sm, div.text-sm, .space-y-2, .space-y-4 {
         background-color: transparent !important;
       }
-      
+
       /* Fix black boxes around specific elements */
       .col-span-2 *, div.flex.items-center *, .rounded-lg.border.p-4 * {
         background-color: transparent !important;
       }
-      
+
       /* Fix any specific components */
       .fixed.inset-0.bg-background\\/80.backdrop-blur-sm.z-50 {
         background-color: rgba(12, 12, 15, 0.8) !important;
       }
-      
+
       /* Ensure all UI components are dark */
       .bg-background, .bg-card, [class*="muted"], [class*="popover"] {
         background-color: #13151a !important;
@@ -307,14 +307,14 @@ function createSettingsWindow() {
       localStorage.setItem('apiKey', '${secureStore.credentials.apiKey || ""}');
       localStorage.setItem('hasConsented', 'true');
       document.documentElement.classList.add('dark');
-      
+
       // Force dark theme using body class as well
       document.body.classList.add('dark-theme');
-      
+
       // Set a global variable to tell React to show settings
       window.DIRECT_SETTINGS = true;
       window.SKIP_AUTH = true;
-      
+
       // We're ready to show the window now
       true; // Return value for promise
     `,
@@ -531,61 +531,87 @@ async function ensurePythonDependencies() {
 
 // Start Python recording bridge
 function startRecordingBridge(startKey: string, stopKey: string) {
-  try {
-    // Stop existing process if running
-    if (pythonProcess) {
-      pythonProcess.kill();
-      pythonProcess = null;
-    }
+  const startProcess = (startKey: string, stopKey: string) => {
+    let obsRestartRequired = false;
 
-    console.log(`Starting recording bridge`);
-    console.log(`Executing: ${recorderCommand()}`);
-    console.log(`Working directory: ${rootDir()}`);
-
-    pythonProcess = spawn(
-      recorderCommand(),
-      [
-        "--recording-location",
-        "./data_dump/games/",
-        "--start-key",
-        startKey,
-        "--stop-key",
-        stopKey,
-      ],
-      {
-        cwd: rootDir(),
-      },
-    );
-
-    // Handle output
-    pythonProcess.stdout.on("data", (data: Buffer) => {
-      console.log(`Recording bridge stdout: ${data.toString()}`);
-    });
-
-    pythonProcess.stderr.on("data", (data: Buffer) => {
-      console.error(`Recording bridge stderr: ${data.toString()}`);
-    });
-
-    pythonProcess.on("error", (error: Error) => {
-      console.error(`Recording bridge process error: ${error.message}`);
-      console.error(
-        `This usually means the executable was not found: ${recorderCommand()}`,
-      );
-    });
-
-    pythonProcess.on("close", (code: number) => {
-      console.log(`Recording bridge process exited with code ${code}`);
-      if (code !== 0) {
-        console.error(`Recording bridge failed with exit code ${code}`);
+    try {
+      // Stop existing process if running
+      if (pythonProcess) {
+        pythonProcess.kill();
+        pythonProcess = null;
       }
-      pythonProcess = null;
-    });
 
-    return true;
-  } catch (error) {
-    console.error("Error starting recording bridge:", error);
-    return false;
-  }
+      console.log(`Starting recording bridge`);
+      console.log(`Executing: ${recorderCommand()}`);
+      console.log(`Working directory: ${rootDir()}`);
+
+      pythonProcess = spawn(
+        recorderCommand(),
+        [
+          "--recording-location",
+          "./data_dump/games/",
+          "--start-key",
+          startKey,
+          "--stop-key",
+          stopKey,
+        ],
+        {
+          cwd: rootDir(),
+        },
+      );
+
+      // Handle output
+      pythonProcess.stdout.on("data", (data: Buffer) => {
+        console.log(`Recording bridge stdout: ${data.toString()}`);
+      });
+
+      pythonProcess.stderr.on("data", (data: Buffer) => {
+        const stderrText = data.toString();
+        console.error(`Recording bridge stderr: ${stderrText}`);
+
+        // Check if OBS restart is required
+        if (stderrText.includes("OBS restart required during initialization")) {
+          console.log(
+            "OBS restart required detected, will restart process after exit",
+          );
+          obsRestartRequired = true;
+        }
+      });
+
+      pythonProcess.on("error", (error: Error) => {
+        console.error(`Recording bridge process error: ${error.message}`);
+        console.error(
+          `This usually means the executable was not found: ${recorderCommand()}`,
+        );
+      });
+
+      pythonProcess.on("close", (code: number) => {
+        console.log(`Recording bridge process exited with code ${code}`);
+        if (code !== 0) {
+          console.error(`Recording bridge failed with exit code ${code}`);
+        }
+
+        // Check if we need to restart due to OBS restart requirement
+        if (obsRestartRequired) {
+          console.log(
+            "Restarting recording bridge due to OBS restart requirement",
+          );
+          setTimeout(() => {
+            startProcess(startKey, stopKey);
+          }, 1000); // Wait 1 second before restarting
+        } else {
+          pythonProcess = null;
+        }
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Error starting recording bridge:", error);
+      return false;
+    }
+  };
+
+  return startProcess(startKey, stopKey);
 }
 
 function recorderCommand() {

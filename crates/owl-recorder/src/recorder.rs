@@ -10,6 +10,7 @@ use windows::{
 use crate::{
     find_game::get_foregrounded_game,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
+    window_recorder::bootstrap_obs,
 };
 use constants::unsupported_games::UNSUPPORTED_GAMES;
 
@@ -22,11 +23,14 @@ impl<D> Recorder<D>
 where
     D: FnMut() -> PathBuf,
 {
-    pub(crate) fn new(recording_dir: D) -> Self {
-        Self {
+    pub(crate) async fn new(recording_dir: D) -> Result<Self> {
+        // Ensure that the OBS bootstrapper runs
+        bootstrap_obs().await?;
+
+        Ok(Self {
             recording_dir,
             recording: None,
-        }
+        })
     }
 
     pub(crate) fn recording(&self) -> Option<&Recording> {
