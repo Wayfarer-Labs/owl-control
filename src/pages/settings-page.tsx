@@ -20,7 +20,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   const [startRecordingKey, setStartRecordingKey] = useState('f4');
   const [stopRecordingKey, setStopRecordingKey] = useState('f5');
   const [apiToken, setApiToken] = useState('');
-  const [deleteUploadedFiles, setDeleteUploadedFiles] = useState(false);
   
   // Define the button styles directly in the component for reliability
   const buttonStyle = {
@@ -72,7 +71,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
     if (prefs.startRecordingKey) setStartRecordingKey(prefs.startRecordingKey);
     if (prefs.stopRecordingKey) setStopRecordingKey(prefs.stopRecordingKey);
     if (prefs.apiToken) setApiToken(prefs.apiToken);
-    if (prefs.deleteUploadedFiles !== undefined) setDeleteUploadedFiles(prefs.deleteUploadedFiles);
     
     // Always load user info after preferences
     loadUserInfo();
@@ -113,7 +111,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       startRecordingKey,
       stopRecordingKey,
       apiToken,
-      deleteUploadedFiles
     });
     
     // After saving preferences, automatically start the Python bridges
@@ -158,12 +155,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
     } else {
       onClose();
     }
-  };
-
-  const toggleDeleteUploadedFiles = () => {
-    const newValue = !deleteUploadedFiles;
-    console.log("Setting deleteUploadedFiles to:", newValue);
-    setDeleteUploadedFiles(newValue);
   };
   
   return (
@@ -211,41 +202,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                   className="bg-[#0c0c0f] border-[#2a2d35] text-white"
                   placeholder="Enter your OWL API token"
                 />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Upload Settings */}
-        <div className="bg-[#13151a] rounded-lg border border-[#2a2d35] p-4">
-          <h3 className="mb-4 text-sm font-medium text-white select-none">Upload Settings</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-[1fr,1fr] gap-4 items-center">
-              <Label className="text-sm text-white select-none">Delete Files After Upload</Label>
-              <div className="flex items-center">
-                {/* Custom checkbox implementation */}
-                <div 
-                  className="relative flex items-center select-none cursor-pointer" 
-                  onClick={toggleDeleteUploadedFiles}
-                >
-                  {/* Custom checkbox */}
-                  <div 
-                    className={`w-5 h-5 mr-2 border rounded flex items-center justify-center ${
-                      deleteUploadedFiles 
-                        ? 'bg-[#1a73e8] border-[#1a73e8]' 
-                        : 'bg-[#0c0c0f] border-[#2a2d35]'
-                    }`}
-                  >
-                    {deleteUploadedFiles && (
-                      <Check className="h-3.5 w-3.5 text-white" />
-                    )}
-                  </div>
-                  
-                  {/* Checkbox label */}
-                  <span className="text-white select-none">
-                    Delete local files after successful upload
-                  </span>
-                </div>
               </div>
             </div>
           </div>

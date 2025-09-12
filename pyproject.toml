@@ -1,6 +1,6 @@
 [project]
 name = "vg-control"
-version = "0.7.0"
+version = "0.8.0"
 description = "Video game control input tracking application"
 authors = [{ name = "Wayfarer Labs" }]
 requires-python = ">=3.12,<3.13"

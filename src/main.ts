@@ -54,7 +54,6 @@ const secureStore = {
     startRecordingKey: 'f4',
     stopRecordingKey: 'f5',
     apiToken: '',
-    deleteUploadedFiles: false
   } as Record<string, any>
 };
 
@@ -590,7 +589,7 @@ function recorderCommand() {
 }
 
 // Start Python upload bridge
-function startUploadBridge(apiToken: string, deleteUploadedFiles: boolean) {
+function startUploadBridge(apiToken: string) {
   try {
     console.log(`Starting upload bridge module from vg_control package`);
 
@@ -599,7 +598,6 @@ function startUploadBridge(apiToken: string, deleteUploadedFiles: boolean) {
       '-m',
       'vg_control.upload_bridge',
       '--api-token', apiToken,
-      ...(deleteUploadedFiles ? ['--delete-uploaded-files'] : [])
     ], {
       cwd: rootDir(),
     });
@@ -703,14 +701,9 @@ app.on('ready', async () => {
   if (isAuthenticated()) {
     const startKey = secureStore.preferences.startRecordingKey || 'f4';
     const stopKey = secureStore.preferences.stopRecordingKey || 'f5';
-    const apiToken = secureStore.credentials.apiKey || '';
-    const deleteUploadedFiles = secureStore.preferences.deleteUploadedFiles || false;
 
     // Start the recording bridge
     startRecordingBridge(startKey, stopKey);
-
-    // Upload bridge now started manually from UI
-    // startUploadBridge(apiToken, deleteUploadedFiles);
   }
 
   // If not authenticated, show main window for setup
@@ -817,14 +810,9 @@ function setupIpcHandlers() {
       if (isAuthenticated()) {
         const startKey = secureStore.preferences.startRecordingKey || 'f4';
         const stopKey = secureStore.preferences.stopRecordingKey || 'f5';
-        const apiToken = secureStore.credentials.apiKey || '';
-        const deleteUploadedFiles = secureStore.preferences.deleteUploadedFiles || false;
 
         // Restart the recording bridge
         startRecordingBridge(startKey, stopKey);
-
-        // Upload bridge now started manually from UI
-        // startUploadBridge(apiToken, deleteUploadedFiles);
       }
 
       return { success: true };
@@ -850,8 +838,8 @@ function setupIpcHandlers() {
   });
 
   // Start upload bridge
-  ipcMain.handle('start-upload-bridge', async (_, apiToken: string, deleteUploadedFiles: boolean) => {
-    return startUploadBridge(apiToken, deleteUploadedFiles);
+  ipcMain.handle('start-upload-bridge', async (_, apiToken: string) => {
+    return startUploadBridge(apiToken);
   });
 
   // Close settings window
@@ -869,14 +857,9 @@ function setupIpcHandlers() {
     // Start the Python bridges after authentication
     const startKey = secureStore.preferences.startRecordingKey || 'f4';
     const stopKey = secureStore.preferences.stopRecordingKey || 'f5';
-    const apiToken = secureStore.credentials.apiKey || '';
-    const deleteUploadedFiles = secureStore.preferences.deleteUploadedFiles || false;
 
     // Start the recording bridge
     startRecordingBridge(startKey, stopKey);
-
-    // Upload bridge now started manually from UI
-    // startUploadBridge(apiToken, deleteUploadedFiles);
 
     // Close main window if it exists
     if (mainWindow) {
@@ -914,7 +897,6 @@ function setupIpcHandlers() {
         '-m',
         'vg_control.upload_bridge',
         '--api-token', options.apiToken,
-        ...(options.deleteUploadedFiles ? ['--delete-uploaded-files'] : []),
         '--progress' // Add progress flag for detailed output
       ], {
         cwd: rootDir(),

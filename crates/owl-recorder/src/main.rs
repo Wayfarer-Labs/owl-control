@@ -7,6 +7,7 @@ mod keycode;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;
+mod window_recorder;
 
 use std::{
     path::PathBuf,

@@ -7,7 +7,6 @@ export interface AppPreferences {
   startRecordingKey?: string;
   stopRecordingKey?: string;
   apiToken?: string;
-  deleteUploadedFiles?: boolean;
 }
 
 /**
@@ -18,7 +17,6 @@ export class PythonBridge {
     startRecordingKey: 'f4',
     stopRecordingKey: 'f5',
     apiToken: '',
-    deleteUploadedFiles: false
   };
 
   constructor() {
@@ -125,7 +123,7 @@ export class PythonBridge {
   public async startUploadBridge(): Promise<boolean> {
     try {
       // Call Electron service to start Python upload bridge process
-      return await ElectronService.startUploadBridge(this.preferences.apiToken || '', this.preferences.deleteUploadedFiles || false);
+      return await ElectronService.startUploadBridge(this.preferences.apiToken || '');
     } catch (error) {
       console.error('Error starting upload bridge:', error);
       return false;

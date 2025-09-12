@@ -43,10 +43,10 @@ export class ElectronService {
   /**
    * Start upload bridge
    */
-  public static async startUploadBridge(apiToken: string, deleteUploadedFiles: boolean): Promise<boolean> {
+  public static async startUploadBridge(apiToken: string): Promise<boolean> {
     const ipcRenderer = this.getIpcRenderer();
     if (!ipcRenderer) return false;
-    return ipcRenderer.invoke('start-upload-bridge', apiToken, deleteUploadedFiles);
+    return ipcRenderer.invoke('start-upload-bridge', apiToken);
   }
   
   /**

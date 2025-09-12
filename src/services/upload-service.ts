@@ -87,7 +87,6 @@ export class UploadService {
    */
   public async startUpload(
     apiToken: string, 
-    deleteUploadedFiles: boolean = false,
     progressCallback?: (progress: UploadProgress) => void
   ): Promise<{ success: boolean; message?: string; stats?: UploadStats }> {
     if (this.uploadProcess) {
@@ -98,7 +97,6 @@ export class UploadService {
       // Start the Python upload process with special flags for progress output
       const result = await ipcRenderer.invoke('start-upload-with-progress', {
         apiToken,
-        deleteUploadedFiles,
         progressOutput: true
       });
 

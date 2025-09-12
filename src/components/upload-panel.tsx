@@ -97,7 +97,6 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({ className = '' }) => {
 
       const result = await uploadService.startUpload(
         credentialsResult.data.apiKey,
-        false, // Don't auto-delete files for now
         (progressData) => {
           setProgress(progressData);
           setIsUploading(progressData.isUploading);
