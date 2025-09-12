@@ -21,10 +21,7 @@ use libobs_window_helper::WindowSearchMode;
 use libobs_wrapper::{
     bootstrap::{ObsBootstrapperOptions, status_handler::ObsBootstrapStatusHandler},
     context::{ObsContext, ObsContextReturn},
-    data::{
-        output::ObsOutputRef,
-        video::{ObsVideoInfoBuilder},
-    },
+    data::{output::ObsOutputRef, video::ObsVideoInfoBuilder},
     encoders::ObsVideoEncoderType,
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };

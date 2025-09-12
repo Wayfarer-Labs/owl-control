@@ -7,7 +7,9 @@ use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
 
-use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder, window_recorder::WindowRecorder};
+use crate::{
+    hardware_id, hardware_specs, input_recorder::InputRecorder, window_recorder::WindowRecorder,
+};
 
 pub(crate) struct Recording {
     window_recorder: WindowRecorder,
@@ -144,7 +146,7 @@ impl Recording {
             .as_secs();
 
         let hardware_id = hardware_id::get()?;
-        
+
         let hardware_specs = match hardware_specs::get_hardware_specs() {
             Ok(specs) => Some(specs),
             Err(e) => {

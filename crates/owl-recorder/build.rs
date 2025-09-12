@@ -9,19 +9,17 @@ fn main() {
         .ancestors()
         .nth(3) // Go up from OUT_DIR to target/{profile}/
         .unwrap();
-    
+
     // Mainly for packaging the obs dummy dll for bootstrapper
-    let dll_paths = vec![
-        "libs/obs.dll",
-    ];
-    
+    let dll_paths = vec!["libs/obs.dll"];
+
     // Copy DLLs to target directory
     for dll_path in dll_paths {
         let src = Path::new(dll_path);
         if src.exists() {
             let filename = src.file_name().unwrap();
             let dest = target_dir.join(filename);
-            
+
             // originally we only track rerun if changes occur to lib/ but that ended up being too inconsistent, so instead
             // we just rerun the copy process every time build is called if the .dll doesn't already exist in target directory
             if !dest.exists() {

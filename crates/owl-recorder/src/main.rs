@@ -25,8 +25,8 @@ use tokio::{
 };
 
 use crate::{
-    idle::IdlenessTracker, keycode::lookup_keycode,
-    raw_input_debouncer::EventDebouncer, recorder::Recorder,
+    idle::IdlenessTracker, keycode::lookup_keycode, raw_input_debouncer::EventDebouncer,
+    recorder::Recorder,
 };
 
 #[derive(Parser, Debug)]
@@ -48,7 +48,9 @@ const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
 
     let Args {
         recording_location,
@@ -63,14 +65,17 @@ async fn main() -> Result<()> {
 
     let mut recorder = Recorder::new({
         let recording_location = recording_location.clone();
-        move || recording_location.join(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                .to_string(),
-        )
-    }).await?;
+        move || {
+            recording_location.join(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    .to_string(),
+            )
+        }
+    })
+    .await?;
 
     let mut input_rx = listen_for_raw_inputs();
 
