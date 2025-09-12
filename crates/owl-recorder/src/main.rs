@@ -7,6 +7,7 @@ mod keycode;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;
+mod window_recorder;
 
 use std::{
     path::PathBuf,
@@ -24,8 +25,8 @@ use tokio::{
 };
 
 use crate::{
-    idle::IdlenessTracker, keycode::lookup_keycode,
-    raw_input_debouncer::EventDebouncer, recorder::Recorder,
+    idle::IdlenessTracker, keycode::lookup_keycode, raw_input_debouncer::EventDebouncer,
+    recorder::Recorder,
 };
 
 #[derive(Parser, Debug)]
@@ -41,8 +42,8 @@ struct Args {
     stop_key: String,
 }
 
-const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
-const MAX_RECORDING_DURATION: Duration = Duration::from_secs(60 * 10);
+const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
+const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -60,17 +61,15 @@ async fn main() -> Result<()> {
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
-    let mut recorder = Recorder::new(
-        || {
-            recording_location.join(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-                    .to_string(),
-            )
-        },
-    );
+    let mut recorder = Recorder::new(|| {
+        recording_location.join(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .to_string(),
+        )
+    });
 
     let mut input_rx = listen_for_raw_inputs();
 

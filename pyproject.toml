@@ -1,6 +1,6 @@
 [project]
 name = "vg-control"
-version = "1.0.0"
+version = "0.8.0"
 description = "Video game control input tracking application"
 authors = [{ name = "Wayfarer Labs" }]
 requires-python = ">=3.12,<3.13"
@@ -12,7 +12,6 @@ dependencies = [
     "psutil>=7.0.0",
     "requests>=2.32.3",
     "tqdm>=4.67.1",
-    "obsws-python>=1.7.2",
     "GPUtil>=1.4.0",
     "py-cpuinfo>=9.0.0",
     "WMI>=1.5.1 ; sys_platform == 'win32'",
@@ -24,6 +23,7 @@ dev = [
     "black>=23.7.0,<24",
     "flake8>=6.1.0,<7",
     "mypy>=1.5.0,<2",
+    "ruff>=0.13.0",
 ]
 
 [tool.hatch.build.targets.sdist]

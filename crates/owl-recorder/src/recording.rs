@@ -6,18 +6,13 @@ use std::{
 use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
-use tokio_util::task::AbortOnDropHandle;
 
-#[cfg(feature = "real-video")]
-use video_audio_recorder::WindowRecorder;
-
-use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder};
+use crate::{
+    hardware_id, hardware_specs, input_recorder::InputRecorder, window_recorder::WindowRecorder,
+};
 
 pub(crate) struct Recording {
-    #[cfg(feature = "real-video")]
     window_recorder: WindowRecorder,
-    #[cfg(feature = "real-video")]
-    window_recorder_listener: AbortOnDropHandle<Result<()>>,
     input_recorder: InputRecorder,
 
     metadata_path: PathBuf,
@@ -50,7 +45,7 @@ impl Recording {
             path: metadata_path,
             game_exe,
         }: MetadataParameters,
-        #[cfg_attr(not(feature = "real-video"), expect(unused_variables))] WindowParameters {
+        WindowParameters {
             path: video_path,
             pid,
             hwnd,
@@ -60,21 +55,12 @@ impl Recording {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
 
-        #[cfg(feature = "real-video")]
         let window_recorder =
             WindowRecorder::start_recording(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
-        #[cfg(feature = "real-video")]
-        let window_recorder_listener =
-            AbortOnDropHandle::new(tokio::task::spawn(window_recorder.listen_to_messages()));
-
         let input_recorder = InputRecorder::start(&csv_path).await?;
 
         Ok(Self {
-            #[cfg(feature = "real-video")]
             window_recorder,
-            #[cfg(feature = "real-video")]
-            window_recorder_listener,
-
             input_recorder,
 
             metadata_path,
@@ -122,11 +108,7 @@ impl Recording {
     }
 
     pub(crate) async fn stop(self) -> Result<()> {
-        #[cfg(feature = "real-video")]
-        self.window_recorder.stop_recording();
-        #[cfg(feature = "real-video")]
-        self.window_recorder_listener.await.unwrap()?;
-
+        self.window_recorder.stop_recording().await?;
         self.input_recorder.stop().await?;
 
         Self::write_metadata(
@@ -165,7 +147,7 @@ impl Recording {
             .as_secs();
 
         let hardware_id = hardware_id::get()?;
-        
+
         let hardware_specs = match hardware_specs::get_hardware_specs() {
             Ok(specs) => Some(specs),
             Err(e) => {

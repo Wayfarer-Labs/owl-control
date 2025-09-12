@@ -1,12 +1,21 @@
-import { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, shell } from 'electron';
-import * as path from 'path';
-import * as fs from 'fs';
-import { spawn } from 'child_process';
-import { join } from 'path';
-import * as os from 'os';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  Tray,
+  Menu,
+  nativeImage,
+  shell,
+} from "electron";
+import * as path from "path";
+import * as fs from "fs";
+import { spawn, SpawnOptionsWithoutStdio } from "child_process";
+import { join } from "path";
+import * as os from "os";
 
 // Set up file logging
-const logFilePath = path.join(os.tmpdir(), 'owl-control-debug.log');
+const logFilePath = path.join(os.tmpdir(), "owl-control-debug.log");
 function logToFile(message: string) {
   const timestamp = new Date().toISOString();
   const logLine = `[${timestamp}] ${message}\n`;
@@ -15,7 +24,7 @@ function logToFile(message: string) {
   } catch (e) {
     // If we can't write to temp, try current directory
     try {
-      fs.appendFileSync('owl-control-debug.log', logLine);
+      fs.appendFileSync("owl-control-debug.log", logLine);
     } catch (e2) {
       // Give up
     }
@@ -26,18 +35,18 @@ function logToFile(message: string) {
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 console.log = (...args) => {
-  const message = args.join(' ');
+  const message = args.join(" ");
   logToFile(`LOG: ${message}`);
   originalConsoleLog(...args);
 };
 console.error = (...args) => {
-  const message = args.join(' ');
+  const message = args.join(" ");
   logToFile(`ERROR: ${message}`);
   originalConsoleError(...args);
 };
 
 // Log app startup
-logToFile('=== OWL Control Debug Log Started ===');
+logToFile("=== OWL Control Debug Log Started ===");
 
 // Keep references
 let mainWindow: BrowserWindow | null = null;
@@ -46,27 +55,24 @@ let tray: Tray | null = null;
 let pythonProcess: any = null;
 let isRecording = false;
 
-
 // Secure store for credentials and preferences
 const secureStore = {
   credentials: {} as Record<string, string>,
   preferences: {
-    startRecordingKey: 'f4',
-    stopRecordingKey: 'f5',
-    apiToken: '',
-    deleteUploadedFiles: false
-  } as Record<string, any>
+    startRecordingKey: "f4",
+    stopRecordingKey: "f5",
+    apiToken: "",
+  } as Record<string, any>,
 };
 
-
 // Path to store config
-const configPath = join(app.getPath('userData'), 'config.json');
+const configPath = join(app.getPath("userData"), "config.json");
 
 // Load config if it exists
 function loadConfig() {
   try {
     if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       if (config.credentials) {
         secureStore.credentials = config.credentials;
       }
@@ -74,27 +80,30 @@ function loadConfig() {
         secureStore.preferences = { ...config.preferences };
         // Ensure hotkeys have default values if not set
         if (!secureStore.preferences.startRecordingKey) {
-          secureStore.preferences.startRecordingKey = 'f4';
+          secureStore.preferences.startRecordingKey = "f4";
         }
         if (!secureStore.preferences.stopRecordingKey) {
-          secureStore.preferences.stopRecordingKey = 'f5';
+          secureStore.preferences.stopRecordingKey = "f5";
         }
       }
     }
   } catch (error) {
-    console.error('Error loading config:', error);
+    console.error("Error loading config:", error);
   }
 }
 
 // Save config
 function saveConfig() {
   try {
-    fs.writeFileSync(configPath, JSON.stringify({
-      credentials: secureStore.credentials,
-      preferences: secureStore.preferences
-    }));
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        credentials: secureStore.credentials,
+        preferences: secureStore.preferences,
+      }),
+    );
   } catch (error) {
-    console.error('Error saving config:', error);
+    console.error("Error saving config:", error);
   }
 }
 
@@ -102,7 +111,7 @@ function saveConfig() {
 function isAuthenticated() {
   return (
     secureStore.credentials.apiKey &&
-    secureStore.credentials.hasConsented === 'true'
+    secureStore.credentials.hasConsented === "true"
   );
 }
 
@@ -120,7 +129,7 @@ function createMainWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, "preload.js"),
     },
     frame: true,
     transparent: false,
@@ -128,20 +137,20 @@ function createMainWindow() {
     fullscreenable: false,
     minimizable: true,
     maximizable: false,
-    backgroundColor: '#0c0c0f',
+    backgroundColor: "#0c0c0f",
     center: true,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default'
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
   });
 
   // Load index.html
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, "index.html"));
 
   // Open DevTools in development
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     mainWindow.webContents.openDevTools();
   }
 
-  mainWindow.on('closed', () => {
+  mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
@@ -160,28 +169,31 @@ function createSettingsWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, "preload.js"),
     },
     parent: mainWindow || undefined,
-    modal: false,  // Allow independent movement
-    show: false,  // Hide until ready to show
-    backgroundColor: '#0c0c0f',  // Dark background color
-    resizable: false,  // Prevent resizing
-    fullscreenable: false,  // Prevent fullscreen
-    minimizable: true,  // Allow minimize
-    maximizable: false,  // Prevent maximize
-    frame: true,  // Keep the frame for window controls
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',  // macOS style
-    title: 'OWL Control Settings'  // Window title
+    modal: false, // Allow independent movement
+    show: false, // Hide until ready to show
+    backgroundColor: "#0c0c0f", // Dark background color
+    resizable: false, // Prevent resizing
+    fullscreenable: false, // Prevent fullscreen
+    minimizable: true, // Allow minimize
+    maximizable: false, // Prevent maximize
+    frame: true, // Keep the frame for window controls
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default", // macOS style
+    title: "OWL Control Settings", // Window title
   });
 
   // Directly load settings page with query parameters - single load
-  settingsWindow.loadURL('file://' + path.join(__dirname, 'index.html?page=settings&direct=true#settings'));
+  settingsWindow.loadURL(
+    "file://" +
+      path.join(__dirname, "index.html?page=settings&direct=true#settings"),
+  );
 
   // Use the global switch-to-widget handler from setupIpcHandlers
 
   // Set up DOM ready handler to apply CSS immediately
-  settingsWindow.webContents.on('dom-ready', () => {
+  settingsWindow.webContents.on("dom-ready", () => {
     // Apply simple CSS to prevent white flash during load
     settingsWindow.webContents.insertCSS(`
       html, body { background-color: #0c0c0f !important; }
@@ -190,7 +202,7 @@ function createSettingsWindow() {
   });
 
   // Set credentials directly in localStorage after content is fully loaded
-  settingsWindow.webContents.once('did-finish-load', () => {
+  settingsWindow.webContents.once("did-finish-load", () => {
     // Restore the original full CSS with detailed styling
     const css = `
       /* Force dark mode throughout the app */
@@ -288,9 +300,11 @@ function createSettingsWindow() {
     settingsWindow.webContents.insertCSS(css);
 
     // First set credentials to ensure auth works
-    settingsWindow.webContents.executeJavaScript(`
+    settingsWindow.webContents
+      .executeJavaScript(
+        `
       // Set credentials directly in localStorage
-      localStorage.setItem('apiKey', '${secureStore.credentials.apiKey || ''}');
+      localStorage.setItem('apiKey', '${secureStore.credentials.apiKey || ""}');
       localStorage.setItem('hasConsented', 'true');
       document.documentElement.classList.add('dark');
       
@@ -303,7 +317,8 @@ function createSettingsWindow() {
       
       // We're ready to show the window now
       true; // Return value for promise
-    `)
+    `,
+      )
       .then(() => {
         // After the page has applied dark theme, we can safely show the window
         if (settingsWindow) {
@@ -312,7 +327,7 @@ function createSettingsWindow() {
       });
   });
 
-  settingsWindow.on('closed', () => {
+  settingsWindow.on("closed", () => {
     settingsWindow = null;
   });
 }
@@ -327,15 +342,15 @@ function createTray() {
     const icon = nativeImage.createEmpty();
 
     // Define colors
-    const cyan = { r: 66, g: 226, b: 245, a: 255 };    // #42E2F5 - Cyan background
-    const dark = { r: 12, g: 12, b: 15, a: 255 };      // #0C0C0F - Dark text
+    const cyan = { r: 66, g: 226, b: 245, a: 255 }; // #42E2F5 - Cyan background
+    const dark = { r: 12, g: 12, b: 15, a: 255 }; // #0C0C0F - Dark text
 
     // Create buffer for the icon
     const trayIconBuffer = Buffer.alloc(size.width * size.height * 4);
 
     // First, fill the entire buffer with cyan (background)
     for (let i = 0; i < trayIconBuffer.length; i += 4) {
-      trayIconBuffer[i] = cyan.r;     // R
+      trayIconBuffer[i] = cyan.r; // R
       trayIconBuffer[i + 1] = cyan.g; // G
       trayIconBuffer[i + 2] = cyan.b; // B
       trayIconBuffer[i + 3] = cyan.a; // A
@@ -368,7 +383,7 @@ function createTray() {
           // Calculate position in buffer (4 bytes per pixel)
           const pos = (y * size.width + x) * 4;
           // Set the dark pixel for text
-          trayIconBuffer[pos] = dark.r;     // R
+          trayIconBuffer[pos] = dark.r; // R
           trayIconBuffer[pos + 1] = dark.g; // G
           trayIconBuffer[pos + 2] = dark.b; // B
           trayIconBuffer[pos + 3] = dark.a; // A
@@ -381,23 +396,23 @@ function createTray() {
       width: size.width,
       height: size.height,
       buffer: trayIconBuffer,
-      scaleFactor: 1.0
+      scaleFactor: 1.0,
     });
 
-    console.log('Created cyan tray icon with OWL text');
+    console.log("Created cyan tray icon with OWL text");
 
     // Create tray with our icon
     tray = new Tray(icon);
 
     // On macOS, we can use a title to ensure visibility
-    if (process.platform === 'darwin') {
-      tray.setTitle('VG');
+    if (process.platform === "darwin") {
+      tray.setTitle("VG");
     }
 
     updateTrayMenu();
 
     // Double-click on tray icon opens settings
-    tray.on('double-click', () => {
+    tray.on("double-click", () => {
       if (isAuthenticated()) {
         createSettingsWindow();
       } else {
@@ -405,7 +420,7 @@ function createTray() {
       }
     });
   } catch (error) {
-    console.error('Error creating tray:', error);
+    console.error("Error creating tray:", error);
   }
 }
 
@@ -417,102 +432,98 @@ function updateTrayMenu() {
 
   // Add status item
   menuTemplate.push({
-    label: isRecording ? 'Recording...' : 'Not Recording',
-    enabled: false
+    label: isRecording ? "Recording..." : "Not Recording",
+    enabled: false,
   });
 
-  menuTemplate.push({ type: 'separator' });
+  menuTemplate.push({ type: "separator" });
 
   // Remove recording controls from menu as Python bridge handles this independently
   if (isAuthenticated()) {
-
-    menuTemplate.push({ type: 'separator' });
+    menuTemplate.push({ type: "separator" });
 
     menuTemplate.push({
-      label: 'Settings',
-      click: () => createSettingsWindow()
+      label: "Settings",
+      click: () => createSettingsWindow(),
     });
   } else {
     menuTemplate.push({
-      label: 'Setup',
-      click: () => createMainWindow()
+      label: "Setup",
+      click: () => createMainWindow(),
     });
   }
 
-  menuTemplate.push({ type: 'separator' });
+  menuTemplate.push({ type: "separator" });
 
   menuTemplate.push({
-    label: 'Help',
+    label: "Help",
     click: () => {
-      shell.openExternal('https://wayfarerlabs.ai/contribute');
-    }
+      shell.openExternal("https://wayfarerlabs.ai/contribute");
+    },
   });
 
   menuTemplate.push({
-    label: 'Quit',
+    label: "Quit",
     click: () => {
       app.quit();
-    }
+    },
   });
 
   // Update tray icon color/label based on recording state
-  if (process.platform === 'darwin') {
-    tray.setTitle(isRecording ? 'Recording' : '');
+  if (process.platform === "darwin") {
+    tray.setTitle(isRecording ? "Recording" : "");
   }
 
   const contextMenu = Menu.buildFromTemplate(menuTemplate);
   tray.setContextMenu(contextMenu);
-  tray.setToolTip(isRecording ? 'OWL Control - Recording' : 'OWL Control');
+  tray.setToolTip(isRecording ? "OWL Control - Recording" : "OWL Control");
 }
 
 // Ensure Python dependencies are installed
 async function ensurePythonDependencies() {
   return new Promise<boolean>((resolve) => {
-    try {
-      console.log('Ensuring Python dependencies are installed...');
-      logToFile('STARTUP: Installing Python dependencies');
-      
-      const installProcess = spawn(getUvPath(), [
-        'sync',
-        '--frozen'  // Use lockfile without updating it
-      ], {
-        cwd: rootDir(),
-      });
+    console.log("Installing Python dependencies...");
+    logToFile("STARTUP: Installing Python dependencies");
 
-      installProcess.stdout.on('data', (data: Buffer) => {
-        const output = data.toString();
-        console.log(`Dependency install stdout: ${output}`);
-        logToFile(`DEP_INSTALL: ${output.trim()}`);
-      });
+    const installProcess = spawnUv(["sync"], {
+      cwd: rootDir(),
+    });
 
-      installProcess.stderr.on('data', (data: Buffer) => {
-        const output = data.toString();
-        console.error(`Dependency install stderr: ${output}`);
-        logToFile(`DEP_INSTALL_ERR: ${output.trim()}`);
-      });
+    installProcess.stdout.on("data", (data: Buffer) => {
+      const output = data.toString();
+      console.log(`Dependency install stdout: ${output}`);
+      logToFile(`DEP_INSTALL: ${output.trim()}`);
+    });
 
-      installProcess.on('close', (code: number) => {
-        if (code === 0) {
-          console.log('Python dependencies installed successfully');
-          logToFile('STARTUP: Python dependencies installation completed successfully');
-          resolve(true);
-        } else {
-          console.error(`Dependency installation failed with code ${code}`);
-          logToFile(`STARTUP: Python dependencies installation failed with code ${code}`);
-          resolve(false);
-        }
-      });
+    installProcess.stderr.on("data", (data: Buffer) => {
+      const output = data.toString();
+      console.error(`Dependency install stderr: ${output}`);
+      logToFile(`DEP_INSTALL_ERR: ${output.trim()}`);
+    });
 
-      installProcess.on('error', (error: Error) => {
-        console.error('Error installing Python dependencies:', error);
-        logToFile(`STARTUP: Error installing Python dependencies: ${error.message}`);
+    installProcess.on("close", (code: number) => {
+      if (code === 0) {
+        console.log("Python dependencies installed successfully");
+        logToFile(
+          "STARTUP: Python dependencies installation completed successfully",
+        );
+        resolve(true);
+      } else {
+        console.error(`Dependency installation failed with code ${code}`);
+        logToFile(
+          `STARTUP: Python dependencies installation failed with code ${code}`,
+        );
         resolve(false);
-      });
-    } catch (error) {
-      console.error('Error starting dependency installation:', error);
-      logToFile(`STARTUP: Error starting dependency installation: ${error}`);
+      }
+    });
+
+    installProcess.on("error", (error: Error) => {
+      console.error("Error installing Python dependencies:", error);
+      logToFile(
+        `STARTUP: Error installing Python dependencies: ${error.message}`,
+      );
       resolve(false);
-    }
+    });
   });
 }
 
@@ -531,29 +542,38 @@ function startRecordingBridge(startKey: string, stopKey: string) {
     console.log(`Executing: ${recorderCommand()}`);
     console.log(`Working directory: ${rootDir()}`);
 
-    pythonProcess = spawn(recorderCommand(), [
-      '--recording-location', "./data_dump/games/",
-      '--start-key', startKey,
-      '--stop-key', stopKey,
-    ], {
-      cwd: rootDir(),
-    });
+    pythonProcess = spawn(
+      recorderCommand(),
+      [
+        "--recording-location",
+        "./data_dump/games/",
+        "--start-key",
+        startKey,
+        "--stop-key",
+        stopKey,
+      ],
+      {
+        cwd: rootDir(),
+      },
+    );
 
     // Handle output
-    pythonProcess.stdout.on('data', (data: Buffer) => {
+    pythonProcess.stdout.on("data", (data: Buffer) => {
       console.log(`Recording bridge stdout: ${data.toString()}`);
     });
 
-    pythonProcess.stderr.on('data', (data: Buffer) => {
+    pythonProcess.stderr.on("data", (data: Buffer) => {
       console.error(`Recording bridge stderr: ${data.toString()}`);
     });
 
-    pythonProcess.on('error', (error: Error) => {
+    pythonProcess.on("error", (error: Error) => {
       console.error(`Recording bridge process error: ${error.message}`);
-      console.error(`This usually means the executable was not found: ${recorderCommand()}`);
+      console.error(
+        `This usually means the executable was not found: ${recorderCommand()}`,
+      );
     });
 
-    pythonProcess.on('close', (code: number) => {
+    pythonProcess.on("close", (code: number) => {
       console.log(`Recording bridge process exited with code ${code}`);
       if (code !== 0) {
         console.error(`Recording bridge failed with exit code ${code}`);
@@ -563,13 +583,13 @@ function startRecordingBridge(startKey: string, stopKey: string) {
 
     return true;
   } catch (error) {
-    console.error('Error starting recording bridge:', error);
+    console.error("Error starting recording bridge:", error);
     return false;
   }
 }
 
 function recorderCommand() {
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     return String.raw`target\x86_64-pc-windows-msvc\debug\owl-recorder`;
   } else {
     return "owl-recorder";
@@ -577,42 +597,39 @@ function recorderCommand() {
 }
 
 // Start Python upload bridge
-function startUploadBridge(apiToken: string, deleteUploadedFiles: boolean) {
+function startUploadBridge(apiToken: string) {
   try {
     console.log(`Starting upload bridge module from vg_control package`);
 
-    const uploadProcess = spawn(getUvPath(), [
-      'run',
-      '-m',
-      'vg_control.upload_bridge',
-      '--api-token', apiToken,
-      ...(deleteUploadedFiles ? ['--delete-uploaded-files'] : [])
-    ], {
-      cwd: rootDir(),
-    });
+    const uploadProcess = spawnUv(
+      ["run", "-m", "vg_control.upload_bridge", "--api-token", apiToken],
+      {
+        cwd: rootDir(),
+      },
+    );
 
     // Handle output
-    uploadProcess.stdout.on('data', (data: Buffer) => {
+    uploadProcess.stdout.on("data", (data: Buffer) => {
       console.log(`Upload bridge stdout: ${data.toString()}`);
     });
 
-    uploadProcess.stderr.on('data', (data: Buffer) => {
+    uploadProcess.stderr.on("data", (data: Buffer) => {
       console.error(`Upload bridge stderr: ${data.toString()}`);
     });
 
-    uploadProcess.on('close', (code: number) => {
+    uploadProcess.on("close", (code: number) => {
       console.log(`Upload bridge process exited with code ${code}`);
     });
 
     return true;
   } catch (error) {
-    console.error('Error starting upload bridge:', error);
+    console.error("Error starting upload bridge:", error);
     return false;
   }
 }
 
 function rootDir() {
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     return ".";
   } else {
     // In packaged app, use the resources directory
@@ -620,17 +637,58 @@ function rootDir() {
   }
 }
 
-function getUvPath() {
-  if (process.env.NODE_ENV === 'development') {
-    return 'uv'; // Use system uv in development
-  } else {
-    // Use bundled uv in production
-    return path.join(process.resourcesPath, 'uv.exe');
+/**
+ * Spawns uv with the same behavior as spawn_uv() in crates/video-audio-recorder/src/lib.rs.
+ * These functions should be kept synchronized.
+ */
+function spawnUv(args: string[], options?: SpawnOptionsWithoutStdio) {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  // Use system uv in development, bundled uv in production
+  const uvPath = isDevelopment
+    ? "uv"
+    : path.join(process.resourcesPath, "uv.exe");
+  let env: Record<string, string> = {
+    ...(options?.env || {}),
+    // Do not attempt to update the dependencies
+    UV_FROZEN: "1",
+  };
+
+  if (!isDevelopment) {
+    // In production, we override all of uv's paths to ensure that it installs everything locally
+    // to OWLC, which should stop it from interfering with the user's global state and/or
+    // have a better chance of working in non-standard configurations
+    const uvDir = path.join(process.resourcesPath, "uv");
+    if (!fs.existsSync(uvDir)) {
+      fs.mkdirSync(uvDir, { recursive: true });
+    }
+
+    env = {
+      ...env,
+      // Always copy deps, do not hardlink
+      UV_LINK_MODE: "copy",
+      // Do not let the user's configuration interfere with our uv
+      UV_NO_CONFIG: "1",
+      // Mark all dependencies as non-editable
+      UV_NO_EDITABLE: "1",
+      // Ensure we always use our managed Python
+      UV_MANAGED_PYTHON: "1",
+      // Update all directories
+      UV_CACHE_DIR: path.join(uvDir, "cache"),
+      UV_PYTHON_INSTALL_DIR: path.join(uvDir, "python_install"),
+      UV_PYTHON_BIN_DIR: path.join(uvDir, "python_bin"),
+      UV_TOOL_DIR: path.join(uvDir, "tool"),
+      UV_TOOL_BIN_DIR: path.join(uvDir, "tool_bin"),
+    };
   }
+
+  return spawn(uvPath, args, {
+    ...(options || {}),
+    env,
+  });
 }
 
 // App ready event
-app.on('ready', async () => {
+app.on("ready", async () => {
   // Load config
   loadConfig();
 
@@ -643,22 +701,21 @@ app.on('ready', async () => {
   // Install Python dependencies before starting any Python processes
   const depsInstalled = await ensurePythonDependencies();
   if (!depsInstalled) {
-    console.warn('Failed to install Python dependencies, Python features may not work correctly');
-    logToFile('STARTUP: Python dependencies installation failed, continuing anyway');
+    console.warn(
+      "Failed to install Python dependencies, Python features may not work correctly",
+    );
+    logToFile(
+      "STARTUP: Python dependencies installation failed, continuing anyway",
+    );
   }
 
   // Start the Python bridges if authenticated
   if (isAuthenticated()) {
-    const startKey = secureStore.preferences.startRecordingKey || 'f4';
-    const stopKey = secureStore.preferences.stopRecordingKey || 'f5';
-    const apiToken = secureStore.credentials.apiKey || '';
-    const deleteUploadedFiles = secureStore.preferences.deleteUploadedFiles || false;
+    const startKey = secureStore.preferences.startRecordingKey || "f4";
+    const stopKey = secureStore.preferences.stopRecordingKey || "f5";
 
     // Start the recording bridge
     startRecordingBridge(startKey, stopKey);
-
-    // Upload bridge now started manually from UI
-    // startUploadBridge(apiToken, deleteUploadedFiles);
   }
 
   // If not authenticated, show main window for setup
@@ -668,11 +725,11 @@ app.on('ready', async () => {
 });
 
 // Prevent app from closing when all windows are closed (keep tray icon)
-app.on('window-all-closed', () => {
+app.on("window-all-closed", () => {
   // Do nothing to keep the app running in the background
 });
 
-app.on('activate', () => {
+app.on("activate", () => {
   if (mainWindow === null) {
     if (!isAuthenticated()) {
       createMainWindow();
@@ -681,7 +738,7 @@ app.on('activate', () => {
 });
 
 // Quit app completely when exiting
-app.on('before-quit', () => {
+app.on("before-quit", () => {
   // Kill any running Python processes
   if (pythonProcess) {
     pythonProcess.kill();
@@ -696,114 +753,112 @@ function setupIpcHandlers() {
   // Widget mode has been removed
 
   // Open directory dialog
-  ipcMain.handle('open-directory-dialog', async () => {
-    if (!mainWindow && !settingsWindow) return '';
+  ipcMain.handle("open-directory-dialog", async () => {
+    if (!mainWindow && !settingsWindow) return "";
 
     const parentWindow = settingsWindow || mainWindow;
     const result = await dialog.showOpenDialog(parentWindow!, {
-      properties: ['openDirectory']
+      properties: ["openDirectory"],
     });
 
     if (result.canceled || result.filePaths.length === 0) {
-      return '';
+      return "";
     }
 
     return result.filePaths[0];
   });
 
   // Open save dialog
-  ipcMain.handle('open-save-dialog', async () => {
-    if (!mainWindow && !settingsWindow) return '';
+  ipcMain.handle("open-save-dialog", async () => {
+    if (!mainWindow && !settingsWindow) return "";
 
     const parentWindow = settingsWindow || mainWindow;
     const result = await dialog.showSaveDialog(parentWindow!, {
-      properties: ['createDirectory']
+      properties: ["createDirectory"],
     });
 
     if (result.canceled || !result.filePath) {
-      return '';
+      return "";
     }
 
     return result.filePath;
   });
 
   // Save credentials
-  ipcMain.handle('save-credentials', async (_, key: string, value: string) => {
+  ipcMain.handle("save-credentials", async (_, key: string, value: string) => {
     try {
       secureStore.credentials[key] = value;
       saveConfig();
 
       // Update tray menu if authentication state changed
-      if (key === 'apiKey' || key === 'hasConsented') {
+      if (key === "apiKey" || key === "hasConsented") {
         updateTrayMenu();
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Error saving credentials:', error);
+      console.error("Error saving credentials:", error);
       return { success: false, error: String(error) };
     }
   });
 
   // Load credentials
-  ipcMain.handle('load-credentials', async () => {
+  ipcMain.handle("load-credentials", async () => {
     try {
       return { success: true, data: secureStore.credentials };
     } catch (error) {
-      console.error('Error loading credentials:', error);
+      console.error("Error loading credentials:", error);
       return { success: false, data: {}, error: String(error) };
     }
   });
 
   // Save preferences
-  ipcMain.handle('save-preferences', async (_, preferences: any) => {
+  ipcMain.handle("save-preferences", async (_, preferences: any) => {
     try {
       secureStore.preferences = { ...secureStore.preferences, ...preferences };
       saveConfig();
 
       // Restart the Python bridges with new preferences if authenticated
       if (isAuthenticated()) {
-        const startKey = secureStore.preferences.startRecordingKey || 'f4';
-        const stopKey = secureStore.preferences.stopRecordingKey || 'f5';
-        const apiToken = secureStore.credentials.apiKey || '';
-        const deleteUploadedFiles = secureStore.preferences.deleteUploadedFiles || false;
+        const startKey = secureStore.preferences.startRecordingKey || "f4";
+        const stopKey = secureStore.preferences.stopRecordingKey || "f5";
 
         // Restart the recording bridge
         startRecordingBridge(startKey, stopKey);
-
-        // Upload bridge now started manually from UI
-        // startUploadBridge(apiToken, deleteUploadedFiles);
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error("Error saving preferences:", error);
       return { success: false, error: String(error) };
     }
   });
 
   // Load preferences
-  ipcMain.handle('load-preferences', async () => {
+  ipcMain.handle("load-preferences", async () => {
     try {
       return { success: true, data: secureStore.preferences };
     } catch (error) {
-      console.error('Error loading preferences:', error);
+      console.error("Error loading preferences:", error);
       return { success: false, data: {}, error: String(error) };
     }
   });
 
   // Start recording bridge
-  ipcMain.handle('start-recording-bridge', async (_, startKey: string, stopKey: string) => {
-    return startRecordingBridge(startKey, stopKey);
-  });
+  ipcMain.handle(
+    "start-recording-bridge",
+    async (_, startKey: string, stopKey: string) => {
+      return startRecordingBridge(startKey, stopKey);
+    },
+  );
 
   // Start upload bridge
-  ipcMain.handle('start-upload-bridge', async (_, apiToken: string, deleteUploadedFiles: boolean) => {
-    return startUploadBridge(apiToken, deleteUploadedFiles);
+  ipcMain.handle("start-upload-bridge", async (_, apiToken: string) => {
+    return startUploadBridge(apiToken);
   });
 
   // Close settings window
-  ipcMain.handle('close-settings', async () => {
+  ipcMain.handle("close-settings", async () => {
     if (settingsWindow) {
       settingsWindow.close();
     }
@@ -811,20 +866,15 @@ function setupIpcHandlers() {
   });
 
   // Authentication completed
-  ipcMain.handle('authentication-completed', async () => {
+  ipcMain.handle("authentication-completed", async () => {
     updateTrayMenu();
 
     // Start the Python bridges after authentication
-    const startKey = secureStore.preferences.startRecordingKey || 'f4';
-    const stopKey = secureStore.preferences.stopRecordingKey || 'f5';
-    const apiToken = secureStore.credentials.apiKey || '';
-    const deleteUploadedFiles = secureStore.preferences.deleteUploadedFiles || false;
+    const startKey = secureStore.preferences.startRecordingKey || "f4";
+    const stopKey = secureStore.preferences.stopRecordingKey || "f5";
 
     // Start the recording bridge
     startRecordingBridge(startKey, stopKey);
-
-    // Upload bridge now started manually from UI
-    // startUploadBridge(apiToken, deleteUploadedFiles);
 
     // Close main window if it exists
     if (mainWindow) {
@@ -835,7 +885,7 @@ function setupIpcHandlers() {
   });
 
   // Resize window for consent page
-  ipcMain.handle('resize-for-consent', async () => {
+  ipcMain.handle("resize-for-consent", async () => {
     if (mainWindow) {
       mainWindow.setSize(760, 700);
       mainWindow.center();
@@ -844,7 +894,7 @@ function setupIpcHandlers() {
   });
 
   // Resize window for API key page
-  ipcMain.handle('resize-for-api-key', async () => {
+  ipcMain.handle("resize-for-api-key", async () => {
     if (mainWindow) {
       mainWindow.setSize(440, 380);
       mainWindow.center();
@@ -853,70 +903,81 @@ function setupIpcHandlers() {
   });
 
   // Start upload with progress tracking
-  ipcMain.handle('start-upload-with-progress', async (_, options) => {
+  ipcMain.handle("start-upload-with-progress", async (_, options) => {
     try {
-      console.log('Starting upload with progress tracking');
-      
-      const uploadProcess = spawn(getUvPath(), [
-        'run',
-        '-m',
-        'vg_control.upload_bridge',
-        '--api-token', options.apiToken,
-        ...(options.deleteUploadedFiles ? ['--delete-uploaded-files'] : []),
-        '--progress' // Add progress flag for detailed output
-      ], {
-        cwd: rootDir(),
-      });
+      console.log("Starting upload with progress tracking");
+
+      const uploadProcess = spawnUv(
+        [
+          "run",
+          "-m",
+          "vg_control.upload_bridge",
+          "--api-token",
+          options.apiToken,
+          "--progress", // Add progress flag for detailed output
+        ],
+        {
+          cwd: rootDir(),
+        },
+      );
 
       const processId = uploadProcess.pid;
-      let finalStats = { totalFiles: 0, filesUploaded: 0, totalDuration: 0, totalBytes: 0 };
+      let finalStats = {
+        totalFiles: 0,
+        filesUploaded: 0,
+        totalDuration: 0,
+        totalBytes: 0,
+      };
 
       // Handle progress output from Python
-      uploadProcess.stdout.on('data', (data: Buffer) => {
+      uploadProcess.stdout.on("data", (data: Buffer) => {
         const output = data.toString();
         console.log(`Upload stdout: ${output}`);
-        
+
         // Parse progress information from Python output
         // Expected format: "PROGRESS: {json_data}" or "FINAL_STATS: {json_data}"
-        const lines = output.split('\n');
+        const lines = output.split("\n");
         for (const line of lines) {
-          if (line.startsWith('PROGRESS: ')) {
+          if (line.startsWith("PROGRESS: ")) {
             try {
               const progressData = JSON.parse(line.substring(10));
               // Send progress to renderer
               if (settingsWindow) {
-                settingsWindow.webContents.send('upload-progress', progressData);
+                settingsWindow.webContents.send(
+                  "upload-progress",
+                  progressData,
+                );
               }
               if (mainWindow) {
-                mainWindow.webContents.send('upload-progress', progressData);
+                mainWindow.webContents.send("upload-progress", progressData);
               }
             } catch (e) {
-              console.error('Failed to parse progress data:', e);
+              console.error("Failed to parse progress data:", e);
             }
-          } else if (line.startsWith('FINAL_STATS: ')) {
+          } else if (line.startsWith("FINAL_STATS: ")) {
             try {
               const statsData = JSON.parse(line.substring(13));
               finalStats = {
                 totalFiles: statsData.total_files_uploaded || 0,
                 filesUploaded: statsData.total_files_uploaded || 0,
                 totalDuration: statsData.total_duration_uploaded || 0,
-                totalBytes: statsData.total_bytes_uploaded || 0
+                totalBytes: statsData.total_bytes_uploaded || 0,
               };
-              console.log('Captured final stats:', finalStats);
+              console.log("Captured final stats:", finalStats);
             } catch (e) {
-              console.error('Failed to parse final stats:', e);
+              console.error("Failed to parse final stats:", e);
             }
           }
         }
       });
 
-      uploadProcess.stderr.on('data', (data: Buffer) => {
+      uploadProcess.stderr.on("data", (data: Buffer) => {
         console.error(`Upload stderr: ${data.toString()}`);
       });
 
-      uploadProcess.on('close', (code: number) => {
+      uploadProcess.on("close", (code: number) => {
         console.log(`Upload process exited with code ${code}`);
-        
+
         // Send completion message with captured stats
         const completionData = {
           success: code === 0,
@@ -924,34 +985,34 @@ function setupIpcHandlers() {
           totalFiles: finalStats.totalFiles,
           filesUploaded: finalStats.filesUploaded,
           totalDuration: finalStats.totalDuration,
-          totalBytes: finalStats.totalBytes
+          totalBytes: finalStats.totalBytes,
         };
-        
+
         if (settingsWindow) {
-          settingsWindow.webContents.send('upload-complete', completionData);
+          settingsWindow.webContents.send("upload-complete", completionData);
         }
         if (mainWindow) {
-          mainWindow.webContents.send('upload-complete', completionData);
+          mainWindow.webContents.send("upload-complete", completionData);
         }
       });
 
       return { success: true, processId: processId };
     } catch (error) {
-      console.error('Error starting upload with progress:', error);
+      console.error("Error starting upload with progress:", error);
       return { success: false, error: String(error) };
     }
   });
 
   // Stop upload process
-  ipcMain.handle('stop-upload-process', async (_, processId) => {
+  ipcMain.handle("stop-upload-process", async (_, processId) => {
     try {
       if (processId) {
-        process.kill(processId, 'SIGTERM');
+        process.kill(processId, "SIGTERM");
         return { success: true };
       }
-      return { success: false, error: 'No process ID provided' };
+      return { success: false, error: "No process ID provided" };
     } catch (error) {
-      console.error('Error stopping upload process:', error);
+      console.error("Error stopping upload process:", error);
       return { success: false, error: String(error) };
     }
   });

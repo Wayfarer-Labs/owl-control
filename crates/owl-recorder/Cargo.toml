@@ -1,10 +1,9 @@
 [package]
 name = "owl-recorder"
-version = "0.1.0"
+version = "0.8.0"
 edition = "2024"
 
 [dependencies]
-video-audio-recorder = { workspace = true, optional = true }
 raw-input.workspace = true
 game-process.workspace = true
 clap.workspace = true
@@ -18,7 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 tauri-winrt-notification.workspace = true
 sysinfo.workspace = true
+obws.workspace = true
+windows.workspace = true
 
-[features]
-default = ["real-video"]
-real-video = ["dep:video-audio-recorder"]
+constants = { path = "../constants" }

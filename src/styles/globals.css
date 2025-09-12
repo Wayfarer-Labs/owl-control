@@ -65,45 +65,73 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image: 
-      radial-gradient(circle at 20% 50%, rgba(66, 226, 245, 0.03) 0%, transparent 25%),
-      radial-gradient(circle at 80% 30%, rgba(66, 226, 245, 0.02) 0%, transparent 20%);
+    background-image:
+      radial-gradient(
+        circle at 20% 50%,
+        rgba(66, 226, 245, 0.03) 0%,
+        transparent 25%
+      ),
+      radial-gradient(
+        circle at 80% 30%,
+        rgba(66, 226, 245, 0.02) 0%,
+        transparent 20%
+      );
     position: relative;
     overflow-x: hidden;
   }
 
   body::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: -1;
-    background: 
-      linear-gradient(90deg, transparent 0%, rgba(66, 226, 245, 0.01) 25%, transparent 50%, rgba(66, 226, 245, 0.01) 75%, transparent 100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(66, 226, 245, 0.01) 25%,
+      transparent 50%,
+      rgba(66, 226, 245, 0.01) 75%,
+      transparent 100%
+    );
     opacity: 0.5;
     animation: aurora 15s linear infinite;
   }
 
   .dark body {
-    background-image: 
-      radial-gradient(circle at 20% 30%, rgba(77, 206, 129, 0.03) 0%, transparent 25%),
-      radial-gradient(circle at 80% 50%, rgba(77, 206, 129, 0.02) 0%, transparent 20%);
+    background-image:
+      radial-gradient(
+        circle at 20% 30%,
+        rgba(77, 206, 129, 0.03) 0%,
+        transparent 25%
+      ),
+      radial-gradient(
+        circle at 80% 50%,
+        rgba(77, 206, 129, 0.02) 0%,
+        transparent 20%
+      );
   }
-  
+
   .dark body::before {
-    background: 
-      linear-gradient(90deg, transparent 0%, rgba(77, 206, 129, 0.01) 25%, transparent 50%, rgba(77, 206, 129, 0.01) 75%, transparent 100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(77, 206, 129, 0.01) 25%,
+      transparent 50%,
+      rgba(77, 206, 129, 0.01) 75%,
+      transparent 100%
+    );
   }
 
   /* Stylized glow effect for highlighted elements */
   .glow {
     position: relative;
   }
-  
+
   .glow::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
@@ -116,7 +144,7 @@
     opacity: 0;
     transition: opacity 0.3s ease;
   }
-  
+
   .glow:hover::after {
     opacity: 1;
   }
@@ -131,7 +159,7 @@
   .dark .glow::after {
     background: rgba(77, 206, 129, 0.3);
   }
-  
+
   .dark .glow-text {
     text-shadow: 0 0 8px rgba(77, 206, 129, 0.6);
   }

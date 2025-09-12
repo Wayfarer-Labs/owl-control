@@ -1,5 +1,5 @@
 <div align="center">
-  
+
 # 🦉 OWL Control
 
 ### **Help train the next generation of AI by sharing your gameplay!**
@@ -18,11 +18,18 @@
 
 ## 🎮 What is OWL Control?
 
-OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from single-player games, using OBS to do the recording work. This data is uploaded to create a public dataset that researchers worldwide can use to train AI models. Here's a video tutorial if you don't want to read the below: [link](https://www.loom.com/share/1722a9d6be26468baba8a06b4006350d)
+OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from games, using OBS to do the recording work. This data can be uploaded to create a public dataset that researchers worldwide can use to train AI models.
 
-**DISCLAIMER**: THERE ARE REPORTS OF OWL CONTROL CAUSING BANS IN MULTIPLAYER PVP GAMES  
+**[The games list](./GAMES.md)** is a list of the games we're most actively seeking data for. Other first- and third-person games are acceptable, but check in with us if possible.
+
+**DISCLAIMER**: THERE ARE REPORTS OF OWL CONTROL CAUSING BANS IN MULTIPLAYER PVP GAMES - WE STRONGLY RECOMMEND USING ONLY IN SINGLE-PLAYER GAMES
 
 ## 🚀 Getting Started (User Installation)
+
+The below text is supplemental, please watch the video tutorial here:
+[link](https://www.loom.com/share/f18451c8196a47a9a2dd7418f785cd37)
+The video goes over common failure cases and shows some light debugging. OWL Control is currently in pre-release and there a lot of kinks to iron out. As such the video tutorial is extensive,
+and features some minor debugging. It should be watched in full before you use the software so you can both verify it is working and report correctly when it is not.
 
 <table>
 <tr>
@@ -43,7 +50,7 @@ OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from 
 </tr>
 <tr>
 <td align="center">5️⃣</td>
-<td><strong>Install and setup OBS Studio</strong> (<a href="https://obsproject.com/">download</a>) and <a href="https://imgur.com/a/rN7C79y">enable websocket + disable authentication</a></td>
+<td><strong>Install and setup OBS Studio</strong> (<a href="https://obsproject.com/">download</a>) (if OBS asks for your preferences/settings/preset, just press "cancel" and ignore) and <a href="https://imgur.com/a/rN7C79y">enable websocket + disable authentication</a></td>
 </tr>
 <tr>
 <td align="center">6️⃣</td>
@@ -57,31 +64,32 @@ OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from 
 
 ## 🛡️ Risks And Additional Information
 
-- **Audio**: OWL control does not record microphone inputs. It does record all system audio. Be aware of this if on voice chat/watching videos in the background during your play session.  
-- **Accidental Recording**: We have observed a bug where sometimes OWL control responds to F4 (the default record button, which can be accidentally activated if one alt-f4s a game to close it) right after you close a game. In cases where this happens, it can be a good idea to quickly double check OBS after you close a game. Black recordings that result from this will be filtered out of the uploaded dataset but might still upload.  
-- **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. That being said, OWL Control specifically sets OBS to record full screen applications, so there is no risk of accidental desktop capture.  
-- **Data Verification**: You can press "file -> show recordings" in OBS if you want to verify your data is recording properly before upload.  
+- **Audio**: OWL control does not record microphone inputs. It records game audio only, not all system audio.
+- **Accidental Recording**: We have observed a bug where sometimes OWL control responds to F4 (the default record button, which can be accidentally activated if one alt-f4s a game to close it) right after you close a game. In cases where this happens, it can be a good idea to quickly double check OBS after you close a game. Black recordings that result from this will be filtered out of the uploaded dataset but might still upload.
+- **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. That being said, OWL Control specifically sets OBS to record full screen applications, so there is no risk of accidental desktop capture.
+- **Data Verification**: You can press "file -> show recordings" in OBS if you want to verify your data is recording properly before upload.
 
 ## 💻 System Requirements
 
-An NVIDIA GPU is reccomended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.  
-Video upload can be bandwidth intensive, though we downsample videos to 360p and set an appropriate bitrate to lighten the load as much as possible.   
+An NVIDIA GPU is reccomended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.
+Video upload can be bandwidth intensive, though we downsample videos to 360p and set an appropriate bitrate to lighten the load as much as possible.
 
-## ⚙️ Uploading  
+## ⚙️ Uploading
 
-Uploads are manual. You should open the tray icon and select "upload" in settings. That being said, this feature is a WIP and it may be better to instead zip up your files and upload elsewhere for persistent cloud storage. Note that you can always press show recordings to find all the files, as mentioned earlier.
+Uploads are manual only. Data is stored locally and only uploaded when you manually press the upload button in settings. You can access upload options by opening the tray icon and selecting "Settings" -> "Upload". Note that you can always press "show recordings" in OBS to find all the files.
 
 ## ⌨️ Default Hotkeys
 
 <div align="center">
 
-| Key/Action | Function |
-|:----------:|:---------|
-| **F4** | 🟢 Start recording manually |
-| **F5** | 🔴 Stop recording |
+|      Key/Action      | Function                        |
+| :------------------: | :------------------------------ |
+|        **F4**        | 🟢 Start recording manually     |
+|        **F5**        | 🔴 Stop recording               |
 | **System Tray Icon** | ⚙️ Access settings and controls |
 
 Hotkeys for record/stop record can be changed in the applications settings.
+
 </div>
 
 ## 🤝 Contributing to AI Research
@@ -117,9 +125,9 @@ Hotkeys for record/stop record can be changed in the applications settings.
 
 > **OWL Control is open source!** If you're interested in the technical details or want to contribute:
 
-### 🔨 Building from Source  
+### 🔨 Building from Source
 
-First make sure you've installed Node, UV, and Rust (Cargo). It is reccomended to use powershell, and windows developer tools for this.  
+First make sure you've installed Node, UV, and Rust (Cargo). It is reccomended to use powershell, and windows developer tools for this.
 Winget can sometimes make a lot of this easier for you, but online installers should work. If you have any issues with setup, ask your local LLM!
 
 ```bash
@@ -149,6 +157,21 @@ npm run package:linux  # Linux only
 
 Currently only Windows is supported, although we'll be adding more platforms in the near future.
 
+### 🎨 Code Formatting
+
+This project uses automated code formatting tools to maintain consistent code style:
+
+```bash
+# Format Rust code
+cargo fmt
+
+# Format JavaScript/TypeScript code
+npm run format
+
+# Format Python code
+uv run ruff format
+```
+
 <div align="center">
   <em>📖 For detailed development instructions, see our <a href="docs/development.md">Development Guide</a></em>
 </div>
@@ -163,10 +186,10 @@ Currently only Windows is supported, although we'll be adding more platforms in 
 
 <div align="center">
 
-| Need Help? | Where to Go |
-|:----------:|:------------|
+|       Need Help?       | Where to Go                                                                                  |
+| :--------------------: | :------------------------------------------------------------------------------------------- |
 | 🐛 **Issues or Bugs?** | Report them on our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page |
-| ❓ **Questions?** | Visit our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page |
+|   ❓ **Questions?**    | Visit our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page          |
 
 </div>
 

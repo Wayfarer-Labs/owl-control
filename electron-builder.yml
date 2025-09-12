@@ -26,12 +26,6 @@ extraResources:
       - "**/*.pyd"
       - "!**/__pycache__"
       - "!**/*.pyc"
-  - from: .venv
-    to: .venv
-    filter:
-      - "**/*"
-      - "!**/__pycache__"
-      - "!**/*.pyc"
   - from: pyproject.toml
     to: pyproject.toml
   - from: uv.lock
@@ -58,9 +52,3 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: OWL Control
-
-publish:
-  - provider: github
-    owner: Wayfarer-Labs
-    repo: owl-control
-    releaseType: release

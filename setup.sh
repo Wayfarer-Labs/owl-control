@@ -51,45 +51,37 @@ fi
 echo ""
 echo "Setting up Python environment..."
 
-# Check for uv or poetry and install if needed
+# Check for uv and install if needed
 PYTHON_TOOL=""
 if command -v uv &> /dev/null; then
     echo "✓ uv found"
     PYTHON_TOOL="uv"
-elif command -v poetry &> /dev/null; then
-    echo "✓ poetry found"
-    PYTHON_TOOL="poetry"
 else
-    echo "Neither uv nor poetry found. Installing uv..."
+    echo "uv not found. Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH="$HOME/.cargo/bin:$PATH"
     if command -v uv &> /dev/null; then
         echo "✓ uv installed successfully"
         PYTHON_TOOL="uv"
     else
-        echo "Failed to install uv. Please install uv or poetry manually."
+        echo "Failed to install uv. Please install uv manually."
         exit 1
     fi
 fi
 
-# Install Python dependencies based on tool choice
+# Install Python dependencies with uv
 echo "Installing Python dependencies with $PYTHON_TOOL..."
-if [ "$PYTHON_TOOL" = "uv" ]; then
-    # Create and activate virtual environment with uv
-    uv venv
-    if [[ "$OS" == "windows" ]]; then
-        source .venv/Scripts/activate
-    else
-        source .venv/bin/activate
-    fi
-    
-    # Install dependencies with uv
-    # Since we have a pyproject.toml, we can install as a package
-    uv pip install -e .
+# Create and activate virtual environment with uv
+uv venv
+if [[ "$OS" == "windows" ]]; then
+    source .venv/Scripts/activate
 else
-    # Use poetry
-    poetry install
+    source .venv/bin/activate
 fi
+
+# Install dependencies with uv
+# Since we have a pyproject.toml, we can install as a package
+uv pip install -e .
 
 # Setup Node.js/Electron environment
 echo ""
@@ -148,14 +140,10 @@ echo "Setup complete!"
 echo ""
 echo "To run the application:"
 echo "1. Activate the Python environment:"
-if [ "$PYTHON_TOOL" = "uv" ]; then
-    if [[ "$OS" == "windows" ]]; then
-        echo "   source .venv/Scripts/activate"
-    else
-        echo "   source .venv/bin/activate"
-    fi
+if [[ "$OS" == "windows" ]]; then
+    echo "   source .venv/Scripts/activate"
 else
-    echo "   poetry shell"
+    echo "   source .venv/bin/activate"
 fi
 echo "2. Run the Python backend:"
 echo "   python vg_control/main.py"
