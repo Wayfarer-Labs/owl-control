@@ -3,7 +3,6 @@ dist/
 node_modules/
 .env
 .claude/
-.vscode/
 
 python-dist/*
 data_dump
@@ -56,7 +55,7 @@ dmypy.sock
 # Spyder related
 .spyderproject
 .spyproject
-  
+
 
 # Jupyter Notebook
 .ipynb_checkpoints

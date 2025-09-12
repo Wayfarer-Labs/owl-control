@@ -100,7 +100,7 @@ function saveConfig() {
       JSON.stringify({
         credentials: secureStore.credentials,
         preferences: secureStore.preferences,
-      })
+      }),
     );
   } catch (error) {
     console.error("Error saving config:", error);
@@ -187,7 +187,7 @@ function createSettingsWindow() {
   // Directly load settings page with query parameters - single load
   settingsWindow.loadURL(
     "file://" +
-      path.join(__dirname, "index.html?page=settings&direct=true#settings")
+      path.join(__dirname, "index.html?page=settings&direct=true#settings"),
   );
 
   // Use the global switch-to-widget handler from setupIpcHandlers
@@ -317,7 +317,7 @@ function createSettingsWindow() {
 
       // We're ready to show the window now
       true; // Return value for promise
-    `
+    `,
       )
       .then(() => {
         // After the page has applied dark theme, we can safely show the window
@@ -505,13 +505,13 @@ async function ensurePythonDependencies() {
       if (code === 0) {
         console.log("Python dependencies installed successfully");
         logToFile(
-          "STARTUP: Python dependencies installation completed successfully"
+          "STARTUP: Python dependencies installation completed successfully",
         );
         resolve(true);
       } else {
         console.error(`Dependency installation failed with code ${code}`);
         logToFile(
-          `STARTUP: Python dependencies installation failed with code ${code}`
+          `STARTUP: Python dependencies installation failed with code ${code}`,
         );
         resolve(false);
       }
@@ -520,7 +520,7 @@ async function ensurePythonDependencies() {
     installProcess.on("error", (error: Error) => {
       console.error("Error installing Python dependencies:", error);
       logToFile(
-        `STARTUP: Error installing Python dependencies: ${error.message}`
+        `STARTUP: Error installing Python dependencies: ${error.message}`,
       );
       resolve(false);
     });
@@ -557,7 +557,7 @@ function startRecordingBridge(startKey: string, stopKey: string) {
         ],
         {
           cwd: rootDir(),
-        }
+        },
       );
 
       // Handle output
@@ -572,7 +572,7 @@ function startRecordingBridge(startKey: string, stopKey: string) {
         // Check if OBS restart is required
         if (stderrText.includes("OBS restart required during initialization")) {
           console.log(
-            "OBS restart required detected, will restart process after exit"
+            "OBS restart required detected, will restart process after exit",
           );
           obsRestartRequired = true;
         }
@@ -581,7 +581,7 @@ function startRecordingBridge(startKey: string, stopKey: string) {
       pythonProcess.on("error", (error: Error) => {
         console.error(`Recording bridge process error: ${error.message}`);
         console.error(
-          `This usually means the executable was not found: ${recorderCommand()}`
+          `This usually means the executable was not found: ${recorderCommand()}`,
         );
       });
 
@@ -594,7 +594,7 @@ function startRecordingBridge(startKey: string, stopKey: string) {
         // Check if we need to restart due to OBS restart requirement
         if (obsRestartRequired) {
           console.log(
-            "Restarting recording bridge due to OBS restart requirement"
+            "Restarting recording bridge due to OBS restart requirement",
           );
           setTimeout(() => {
             startProcess(startKey, stopKey);
@@ -631,7 +631,7 @@ function startUploadBridge(apiToken: string) {
       ["run", "-m", "vg_control.upload_bridge", "--api-token", apiToken],
       {
         cwd: rootDir(),
-      }
+      },
     );
 
     // Handle output
@@ -728,10 +728,10 @@ app.on("ready", async () => {
   const depsInstalled = await ensurePythonDependencies();
   if (!depsInstalled) {
     console.warn(
-      "Failed to install Python dependencies, Python features may not work correctly"
+      "Failed to install Python dependencies, Python features may not work correctly",
     );
     logToFile(
-      "STARTUP: Python dependencies installation failed, continuing anyway"
+      "STARTUP: Python dependencies installation failed, continuing anyway",
     );
   }
 
@@ -875,7 +875,7 @@ function setupIpcHandlers() {
     "start-recording-bridge",
     async (_, startKey: string, stopKey: string) => {
       return startRecordingBridge(startKey, stopKey);
-    }
+    },
   );
 
   // Start upload bridge
@@ -944,7 +944,7 @@ function setupIpcHandlers() {
         ],
         {
           cwd: rootDir(),
-        }
+        },
       );
 
       const processId = uploadProcess.pid;
@@ -971,7 +971,7 @@ function setupIpcHandlers() {
               if (settingsWindow) {
                 settingsWindow.webContents.send(
                   "upload-progress",
-                  progressData
+                  progressData,
                 );
               }
               if (mainWindow) {

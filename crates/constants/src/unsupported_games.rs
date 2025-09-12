@@ -15,7 +15,7 @@ const fn ug(
     }
 }
 
-const ENOUGH_DATA_REASON: &str = "We have enough data for now.";
+pub const ENOUGH_DATA_REASON: &str = "We have enough data for now.";
 
 // -------------------------------------------------------------------
 // AFTER UPDATING, `cargo run --bin update-unsupported-games` FOR DOCS
@@ -36,6 +36,11 @@ pub const UNSUPPORTED_GAMES: &[UnsupportedGame] = &[
     ug(
         "Roblox",
         &["robloxstudiobeta", "robloxplayerbeta"],
-        "Roblox recordings do not currently work.",
+        "Recorded footage is all-black.",
+    ),
+    ug(
+        "Split Fiction",
+        &["splitfiction"],
+        "Split-screen games are unsupported.",
     ),
 ];

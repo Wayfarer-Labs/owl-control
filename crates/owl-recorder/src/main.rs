@@ -42,7 +42,7 @@ struct Args {
     stop_key: String,
 }
 
-const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
+const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
 #[tokio::main]
@@ -63,19 +63,15 @@ async fn main() -> Result<()> {
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
-    let mut recorder = Recorder::new({
-        let recording_location = recording_location.clone();
-        move || {
-            recording_location.join(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-                    .to_string(),
-            )
-        }
-    })
-    .await?;
+    let mut recorder = Recorder::new(|| {
+        recording_location.join(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .to_string(),
+        )
+    });
 
     let mut input_rx = listen_for_raw_inputs();
 

@@ -96,8 +96,14 @@ We have already collected sufficient data for these games, or they are not suppo
 Any data submitted for these games will be rejected by our system.
 Please do not submit data for these games.
 
+## Sufficient data captured
+
 - Minecraft
 - Valorant
 - Counter-Strike: Source
 - Counter-Strike 2
-- Roblox
+
+## Unsupported games
+
+- Roblox: Recorded footage is all-black.
+- Split Fiction: Split-screen games are unsupported.

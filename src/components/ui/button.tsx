@@ -1,13 +1,14 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 relative overflow-hidden",
   {
     variants: {
       variant: {
-        default: "bg-[hsl(186,90%,61%)] text-[#0c0c0f] hover:bg-[hsl(186,90%,55%)] glow glow-cyan",
+        default:
+          "bg-[hsl(186,90%,61%)] text-[#0c0c0f] hover:bg-[hsl(186,90%,55%)] glow glow-cyan",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -28,13 +29,13 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
-)
+  },
+);
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  asChild?: boolean
+  asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -46,19 +47,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         if (event.currentTarget === event.target) {
           event.stopPropagation();
         }
-        
+
         // Explicitly focus the button to improve accessibility
         event.currentTarget.focus();
-        
+
         // Call the original onClick handler if provided
         if (onClick) {
           onClick(event);
         }
       },
-      [onClick]
+      [onClick],
     );
-    
-    const Comp = asChild ? React.Fragment : "button"
+
+    const Comp = asChild ? React.Fragment : "button";
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
@@ -66,9 +67,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         onClick={handleClick}
         {...props}
       />
-    )
-  }
-)
-Button.displayName = "Button"
+    );
+  },
+);
+Button.displayName = "Button";
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

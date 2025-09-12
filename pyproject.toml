@@ -23,6 +23,7 @@ dev = [
     "black>=23.7.0,<24",
     "flake8>=6.1.0,<7",
     "mypy>=1.5.0,<2",
+    "ruff>=0.13.0",
 ]
 
 [tool.hatch.build.targets.sdist]
