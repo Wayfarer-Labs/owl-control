@@ -7,7 +7,7 @@ use color_eyre::{
     Result,
     eyre::{WrapErr as _, eyre},
 };
-use raw_input::PressState;
+use input_capture::PressState;
 use serde_json::json;
 use tokio::{fs::File, io::AsyncWriteExt as _};
 
@@ -40,7 +40,7 @@ impl InputRecorder {
         Ok(recorder)
     }
 
-    pub(crate) async fn seen_input(&mut self, e: raw_input::Event) -> Result<()> {
+    pub(crate) async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
         self.write_event(EventType::Input(e)).await
     }
 
@@ -76,15 +76,15 @@ impl InputRecorder {
             EventType::Start => ("START", json!([])),
             EventType::End => ("END", json!([])),
             EventType::Input(event) => match event {
-                raw_input::Event::MouseMove([x, y]) => ("MOUSE_MOVE", json!([x, y])),
-                raw_input::Event::MousePress { key, press_state } => (
+                input_capture::Event::MouseMove([x, y]) => ("MOUSE_MOVE", json!([x, y])),
+                input_capture::Event::MousePress { key, press_state } => (
                     "MOUSE_BUTTON",
                     json!([key, press_state == PressState::Pressed]),
                 ),
-                raw_input::Event::MouseScroll { scroll_amount } => {
+                input_capture::Event::MouseScroll { scroll_amount } => {
                     ("SCROLL", json!([scroll_amount]))
                 }
-                raw_input::Event::KeyPress { key, press_state } => {
+                input_capture::Event::KeyPress { key, press_state } => {
                     ("KEYBOARD", json!([key, press_state == PressState::Pressed]))
                 }
             },
@@ -106,5 +106,5 @@ struct Entry {
 enum EventType {
     Start,
     End,
-    Input(raw_input::Event),
+    Input(input_capture::Event),
 }

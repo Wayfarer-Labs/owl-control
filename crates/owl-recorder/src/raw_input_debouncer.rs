@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use raw_input::{Event, PressState};
+use input_capture::{Event, PressState};
 
 #[derive(Default)]
 pub(crate) struct EventDebouncer {

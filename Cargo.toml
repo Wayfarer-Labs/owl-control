@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.dependencies]
-raw-input = { path = "crates/raw-input" }
+input-capture = { path = "crates/input-capture" }
 game-process = { path = "crates/game-process" }
 clap = { version = "4.5.39", features = ["derive"] }
 tracing = "0.1.41"
@@ -26,3 +26,4 @@ serde_json = "1.0.140"
 tauri-winrt-notification = "0.7.2"
 sysinfo = "0.32.1"
 obws = "0.14.0"
+gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
