@@ -9,12 +9,11 @@ mod recorder;
 mod recording;
 
 use std::{
-    path::PathBuf,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    path::PathBuf, thread, time::{Duration, SystemTime, UNIX_EPOCH}
 };
 
 use clap::Parser;
-use color_eyre::{Result, eyre::eyre};
+use color_eyre::{eyre::eyre, Result};
 
 use game_process::does_process_exist;
 use raw_input::{PressState, RawInput};
@@ -27,6 +26,8 @@ use crate::{
     idle::IdlenessTracker, keycode::lookup_keycode,
     raw_input_debouncer::EventDebouncer, recorder::Recorder,
 };
+
+
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -44,8 +45,8 @@ struct Args {
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
-// use eframe::egui;
-use egui::DragValue;
+use eframe::egui;
+use egui::{Align2, Vec2, Color32, Rounding, Stroke};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
@@ -53,19 +54,36 @@ use std::sync::Mutex;
 use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_SHOWDEFAULT};
+use windows::Win32::{
+    UI::WindowsAndMessaging::{SetWindowLongPtrW, GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW},
+};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 
 // TODO: integration with https://github.com/coderedart/egui_overlay/blob/master/src/lib.rs
-// use https://docs.rs/egui_window_glfw_passthrough/latest/egui_window_glfw_passthrough/ directly instead of through egui_overlay
-
+// TODO: tray icon integration. rn it's a bit jank because it's counted as two instances of the the application, one for the overlay, and one for the main menu
+// but the main issue is that the tray icon library when minimized actually has disgustingly high cpu usage for some reason? so putting that on hold while we work on
+// main overlay first.
+// TODOs: 
+// Arc RWLock to transfer recording state to from main thread to overlay for display
+// OBS bootstrapper deferred restart to client, now has to be restarted by egui app, which should be cleaner than wtv the fuck philpax did with listening to stdout
+// Actually design the main app UI and link up all the buttons and stuff to look BETTER than the normal owl-recorder
 
 static VISIBLE: Mutex<bool> = Mutex::new(true);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    egui_overlay::start(HelloWorld { frame: 0 });
+    color_eyre::install()?;
+    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
 
-    /*
+    // launch on seperate thread so non-blocking
+    thread::spawn(move || {
+        egui_overlay::start(OverlayApp { frame: 0 });
+    });
+
+    // thread::spawn(move || {
+    //     _main();
+    // });
+    
     let mut icon_data: Vec<u8> = Vec::with_capacity(16 * 16 * 4);
     for _ in 0..256 {
         // all red
@@ -86,11 +104,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "My egui App",
         options,
         Box::new(|cc| {
+            
             let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
                 panic!("Unsupported platform");
             };
 
-            // let context = cc.egui_ctx.clone();
+            let context = cc.egui_ctx.clone();
 
             TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
                 // println!("TrayIconEvent: {:?}", event);
@@ -116,127 +135,109 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             *visible = true;
                         }
 
-                        // context.request_repaint();
+                        context.request_repaint();
                     }
                     _ => return,
                 }
             }));
 
-            Box::new(MyApp::default())
+            Ok(Box::new(MainApp::default()))
         }),
     );
-    */
+
     Ok(())
 }
 
-pub struct HelloWorld {
-    pub frame: u64,
+pub struct OverlayApp {
+    frame: u64,
 }
-impl EguiOverlay for HelloWorld {
+impl EguiOverlay for OverlayApp {
     fn gui_run(
         &mut self,
         egui_context: &egui::Context,
         _default_gfx_backend: &mut DefaultGfxBackend,
         glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
     ) {
-        // just some controls to show how you can use glfw_backend
-        egui::Window::new("controls").show(egui_context, |ui| {
-            ui.set_width(300.0);
-            self.frame += 1;
-            ui.label(format!("current frame number: {}", self.frame));
-            // sometimes, you want to see the borders to understand where the overlay is.
-            let mut borders = glfw_backend.window.is_decorated();
-            if ui.checkbox(&mut borders, "window borders").changed() {
-                glfw_backend.window.set_decorated(borders);
-            }
+        // kind of cringe that we are forced to check first frame setup logic like this, but egui_overlay doesn't expose
+        // any setup/init interface
+        if self.frame == 0 {
+            // install image loaders
+            egui_extras::install_image_loaders(egui_context);
 
-            ui.label(format!(
-                "pixels_per_virtual_unit: {}",
-                glfw_backend.physical_pixels_per_virtual_unit
-            ));
-            ui.label(format!("window scale: {}", glfw_backend.scale));
-            ui.label(format!("cursor pos x: {}", glfw_backend.cursor_pos[0]));
-            ui.label(format!("cursor pos y: {}", glfw_backend.cursor_pos[1]));
+            // hide glfw overlay icon from taskbar and alt+tab
+            let hwnd = glfw_backend.window.get_win32_window() as isize;
+            if hwnd != 0 {
+                unsafe {
+                    let hwnd = HWND(hwnd);
+                    let mut ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+                    ex_style |= WS_EX_TOOLWINDOW.0 as isize;  // Hide from taskbar
+                    ex_style &= !(WS_EX_APPWINDOW.0 as isize); // Remove from Alt+Tab
+                    SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
+                }
+            }
+        }
 
-            ui.label(format!(
-                "passthrough: {}",
-                glfw_backend.window.is_mouse_passthrough()
-            ));
-            // how to change size.
-            // WARNING: don't use drag value, because window size changing while dragging ui messes things up.
-            let mut size = glfw_backend.window_size_logical;
-            let mut changed = false;
-            ui.horizontal(|ui| {
-                ui.label("width: ");
-                ui.add_enabled(false, DragValue::new(&mut size[0]));
-                if ui.button("inc").clicked() {
-                    size[0] += 10.0;
-                    changed = true;
-                }
-                if ui.button("dec").clicked() {
-                    size[0] -= 10.0;
-                    changed = true;
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label("height: ");
-                ui.add_enabled(false, DragValue::new(&mut size[1]));
-                if ui.button("inc").clicked() {
-                    size[1] += 10.0;
-                    changed = true;
-                }
-                if ui.button("dec").clicked() {
-                    size[1] -= 10.0;
-                    changed = true;
-                }
-            });
-            if changed {
-                glfw_backend.set_window_size(size);
-            }
-            // how to change size.
-            // WARNING: don't use drag value, because window size changing while dragging ui messes things up.
-            let mut pos = glfw_backend.window_position;
-            let mut changed = false;
-            ui.horizontal(|ui| {
-                ui.label("x: ");
-                ui.add_enabled(false, DragValue::new(&mut pos[0]));
-                if ui.button("inc").clicked() {
-                    pos[0] += 10;
-                    changed = true;
-                }
-                if ui.button("dec").clicked() {
-                    pos[0] -= 10;
-                    changed = true;
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label("y: ");
-                ui.add_enabled(false, DragValue::new(&mut pos[1]));
-                if ui.button("inc").clicked() {
-                    pos[1] += 10;
-                    changed = true;
-                }
-                if ui.button("dec").clicked() {
-                    pos[1] -= 10;
-                    changed = true;
-                }
-            });
-            if changed {
-                glfw_backend.window.set_pos(pos[0], pos[1]);
-            }
+        let frame = egui::containers::Frame {
+            fill: Color32::from_black_alpha(80),          // Transparent background
+            stroke: Stroke::NONE,                // No border
+            rounding: Rounding::ZERO,            // No rounded corners
+            shadow: Default::default(),          // Default shadow settings
+            inner_margin: egui::Margin::same(8.0), // Inner padding
+            outer_margin: egui::Margin::ZERO,    // No outer margin
+        };
+        
+        egui::Window::new("recording overlay").title_bar(false)                    // No title bar
+            .resizable(false)                    // Non-resizable
+            .scroll([false, false])             // Non-scrollable (both x and y)
+            .collapsible(false)                  // Non-collapsible (removes collapse button)
+            .anchor(Align2::LEFT_TOP, Vec2{x: 10.0, y: 10.0}) // Anchored to top-right corner
+            .auto_sized()
+            .frame(frame)
+            .show(egui_context, |ui| {
+                self.frame += 1;
+                ui.horizontal(|ui| {
+                    ui.add(egui::Image::new(egui::include_image!("../assets/owl.png"))
+                                    .fit_to_exact_size(Vec2{x: 24.0, y: 24.0})
+                                    .tint(Color32::from_white_alpha(50)));
+                    ui.label("Recording...");
+                });
         });
 
-        // here you decide if you want to be passthrough or not.
-        if egui_context.wants_pointer_input() || egui_context.wants_keyboard_input() {
-            // we need input, so we need the window to be NOT passthrough
-            glfw_backend.set_passthrough(false);
-        } else {
-            // we don't care about input, so the window can be passthrough now
-            glfw_backend.set_passthrough(true)
-        }
+        // don't show transparent window outline
+        glfw_backend.window.set_decorated(false);
+        glfw_backend.set_window_size([200.0, 50.0]);
+        // anchor top left always
+        glfw_backend.window.set_pos(0, 0);
+        glfw_backend.window.maximize();
+        // always allow input to passthrough
+        glfw_backend.set_passthrough(true);
+
         egui_context.request_repaint();
+        // update every half a second, not like it needs to be super responsive
+        // and it also reduces cpu usage by a ton
+        thread::sleep(Duration::from_millis(500));  
     }
 }
+
+pub struct MainApp {
+
+}
+impl eframe::App for MainApp {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Hello World!");
+        });
+    }
+}
+
+impl Default for MainApp {
+    fn default() -> Self {
+        Self {
+            // Initialize your app state here
+        }
+    }
+}
+
 /*
 struct MyApp {
     // Your app state here
@@ -261,8 +262,8 @@ impl eframe::App for MyApp {
 
 #[tokio::main]
 async fn _main() -> Result<()> {
-    color_eyre::install()?;
-    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
+    // color_eyre::install()?;
+    // tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
 
     let Args {
         recording_location,
