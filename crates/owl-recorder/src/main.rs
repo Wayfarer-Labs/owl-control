@@ -29,6 +29,7 @@ use crate::{
 
 
 
+
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
@@ -50,6 +51,7 @@ use egui::{Align2, Vec2, Color32, Rounding, Stroke};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
+use std::any::TypeId;
 use std::sync::{Mutex, Arc, RwLock};
 use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use windows::Win32::Foundation::HWND;
@@ -68,6 +70,29 @@ use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 // OBS bootstrapper deferred restart to client, now has to be restarted by egui app, which should be cleaner than wtv the fuck philpax did with listening to stdout
 // Actually design the main app UI and link up all the buttons and stuff to look BETTER than the normal owl-recorder
 
+
+// lots of repeated code to just load bytes, especially tray_icon needs different type, so use a macro here
+macro_rules! load_icon_from_bytes {
+    (@internal $rgba:expr, $width:expr, $height:expr, egui_icon) => {
+        egui::IconData { rgba: $rgba, width: $width, height: $height }
+    };
+
+    (@internal $rgba:expr, $width:expr, $height:expr, tray_icon) => {
+        tray_icon::Icon::from_rgba($rgba, $width, $height)
+            .expect("Failed to create tray icon")
+    };
+
+    ($path:literal, $icon_type:ident) => {{
+        const ICON_BYTES: &[u8] = include_bytes!($path);
+        let image = image::load_from_memory(ICON_BYTES)
+            .expect("Failed to load embedded icon")
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        load_icon_from_bytes!(@internal rgba, width, height, $icon_type)
+    }};
+}
+
 enum RecordingStatus {
     Stopped,
     Recording,
@@ -75,11 +100,11 @@ enum RecordingStatus {
 }
 
 impl RecordingStatus {
-    pub fn display_text(&self) {
+    pub fn display_text(&self) -> &str {
         match *self {
-            RecordingStatus::Stopped => println!("Recording is stopped"),
-            RecordingStatus::Recording => println!("Recording is in progress"),
-            RecordingStatus::Paused => println!("Recording is paused"),
+            RecordingStatus::Stopped => "Stopped",
+            RecordingStatus::Recording => "Recording...",
+            RecordingStatus::Paused => "Paused",
         }
     }
 }
@@ -112,26 +137,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // thread::spawn(move || {
     //     _main();
     // });
-    
-    let mut icon_data: Vec<u8> = Vec::with_capacity(16 * 16 * 4);
-    for _ in 0..256 {
-        // all red
-        icon_data.extend_from_slice(&[255, 0, 0, 255]);
-    }
-    let icon = Icon::from_rgba(icon_data, 16, 16)?;
+
     let _tray_icon = TrayIconBuilder::new()
-        .with_icon(icon)
-        .with_tooltip("My App")
+        .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", tray_icon))
+        .with_tooltip("Owl Control")
         .build()?;
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([600.0, 600.0])
+            .with_resizable(false)
+            .with_title("Owl Control")
+            .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", egui_icon)),
         ..Default::default()
     };
 
     let cloned_state = recording_state.clone();
     let _ = eframe::run_native(
-        "My egui App",
+        "Owl Control",
         options,
         Box::new(move |cc| {
             let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
@@ -208,7 +231,7 @@ impl EguiOverlay for OverlayApp {
         }
 
         let frame = egui::containers::Frame {
-            fill: Color32::from_black_alpha(80),          // Transparent background
+            fill: Color32::from_black_alpha(80),    // Transparent background
             stroke: Stroke::NONE,                // No border
             rounding: Rounding::ZERO,            // No rounded corners
             shadow: Default::default(),          // Default shadow settings
@@ -229,7 +252,7 @@ impl EguiOverlay for OverlayApp {
                     ui.add(egui::Image::new(egui::include_image!("../assets/owl.png"))
                                     .fit_to_exact_size(Vec2{x: 24.0, y: 24.0})
                                     .tint(Color32::from_white_alpha(50)));
-                    ui.label("Recording...");
+                    ui.label(self.recording_state.state.read().unwrap().display_text());
                 });
         });
 
@@ -243,9 +266,9 @@ impl EguiOverlay for OverlayApp {
         glfw_backend.set_passthrough(true);
 
         egui_context.request_repaint();
-        // update every half a second, not like it needs to be super responsive
+        // update delay, not like it needs to be super responsive
         // and it also reduces cpu usage by a ton
-        thread::sleep(Duration::from_millis(500));  
+        thread::sleep(Duration::from_millis(100));  
     }
 }
 
@@ -255,7 +278,215 @@ pub struct MainApp {
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Hello World!");
+            ui.heading(egui::RichText::new("Settings").size(36.0).strong());
+            ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
+            if ui.button("Cycle Recording status").clicked() {
+                // Proof of concept: how to share state between main thread and overlay
+                let mut state = self.recording_state.state.write().unwrap();
+                *state = match *state {
+                    RecordingStatus::Stopped => RecordingStatus::Recording,
+                    RecordingStatus::Recording => RecordingStatus::Paused,
+                    RecordingStatus::Paused => RecordingStatus::Stopped,
+                };
+            }
+            ui.add_space(10.0);
+            ui.heading(self.recording_state.state.read().unwrap().display_text());
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.add_space(20.0);
+
+                // Account Section
+                ui.group(|ui| {
+                    ui.label(egui::RichText::new("Account").size(18.0).strong());
+                    ui.separator();
+                    ui.add_space(10.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Username:");
+                        ui.text_edit_singleline(&mut String::from("user@example.com"));
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Status:");
+                        ui.label("Connected");
+                    });
+                    
+                    ui.add_space(10.0);
+                    if ui.button("Sign Out").clicked() {
+                        // Handle sign out
+                    }
+                });
+
+                ui.add_space(15.0);
+
+                // OWL API Token Section
+                ui.group(|ui| {
+                    ui.label(egui::RichText::new("OWL API Token").size(18.0).strong());
+                    ui.separator();
+                    ui.add_space(10.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("API Token:");
+                        ui.text_edit_singleline(&mut String::from("••••••••••••••••"));
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        if ui.button("Generate New Token").clicked() {
+                            // Handle token generation
+                        }
+                        if ui.button("Revoke Token").clicked() {
+                            // Handle token revocation
+                        }
+                    });
+                    
+                    ui.add_space(5.0);
+                    ui.label(egui::RichText::new("Keep your API token secure and don't share it with others.").italics().color(egui::Color32::GRAY));
+                });
+
+                ui.add_space(15.0);
+
+                // Upload Settings Section
+                ui.group(|ui| {
+                    ui.label(egui::RichText::new("Upload Settings").size(18.0).strong());
+                    ui.separator();
+                    ui.add_space(10.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Default Quality:");
+                        egui::ComboBox::from_label("")
+                            .selected_text("High")
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut "High", "High", "High");
+                                ui.selectable_value(&mut "Medium", "Medium", "Medium");
+                                ui.selectable_value(&mut "Low", "Low", "Low");
+                            });
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Auto-upload:");
+                        ui.checkbox(&mut true, "Enable automatic uploads");
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Max file size (MB):");
+                        ui.add(egui::Slider::new(&mut 100, 1..=1000));
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Allowed file types:");
+                        ui.text_edit_singleline(&mut String::from(".jpg, .png, .gif, .mp4"));
+                    });
+                });
+
+                ui.add_space(15.0);
+
+                // Keyboard Shortcuts Section
+                ui.group(|ui| {
+                    ui.label(egui::RichText::new("Keyboard Shortcuts").size(18.0).strong());
+                    ui.separator();
+                    ui.add_space(10.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Upload file:");
+                        ui.code("Ctrl+U");
+                        if ui.small_button("Change").clicked() {
+                            // Handle shortcut change
+                        }
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Quick screenshot:");
+                        ui.code("Ctrl+Shift+S");
+                        if ui.small_button("Change").clicked() {
+                            // Handle shortcut change
+                        }
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Open settings:");
+                        ui.code("Ctrl+,");
+                        if ui.small_button("Change").clicked() {
+                            // Handle shortcut change
+                        }
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Toggle upload manager:");
+                        ui.code("Ctrl+M");
+                        if ui.small_button("Change").clicked() {
+                            // Handle shortcut change
+                        }
+                    });
+                    
+                    ui.add_space(10.0);
+                    if ui.button("Reset to Defaults").clicked() {
+                        // Handle reset shortcuts
+                    }
+                });
+
+                ui.add_space(15.0);
+
+                // Upload Manager Section
+                ui.group(|ui| {
+                    ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
+                    ui.separator();
+                    ui.add_space(10.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Show notifications:");
+                        ui.checkbox(&mut true, "Upload completed");
+                        ui.checkbox(&mut true, "Upload failed");
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Concurrent uploads:");
+                        ui.add(egui::Slider::new(&mut 3, 1..=10));
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Retry failed uploads:");
+                        ui.checkbox(&mut true, "Auto-retry up to 3 times");
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("History retention:");
+                        egui::ComboBox::from_label("")
+                            .selected_text("30 days")
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut "30 days", "30 days", "30 days");
+                                ui.selectable_value(&mut "90 days", "90 days", "90 days");
+                                ui.selectable_value(&mut "1 year", "1 year", "1 year");
+                                ui.selectable_value(&mut "Forever", "Forever", "Forever");
+                            });
+                    });
+                    
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        if ui.button("Clear Upload History").clicked() {
+                            // Handle clear history
+                        }
+                        if ui.button("Export History").clicked() {
+                            // Handle export history
+                        }
+                    });
+                });
+
+                ui.add_space(30.0);
+
+                // Save/Reset buttons at the bottom
+                ui.separator();
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Save Settings").clicked() {
+                        // Handle save settings
+                    }
+                    if ui.button("Reset All").clicked() {
+                        // Handle reset all settings
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(egui::RichText::new("Settings are automatically saved").italics().color(egui::Color32::GRAY));
+                    });
+                });
+            });
         });
     }
 }
