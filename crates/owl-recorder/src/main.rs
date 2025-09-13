@@ -50,7 +50,7 @@ use egui::{Align2, Vec2, Color32, Rounding, Stroke};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc, RwLock};
 use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_SHOWDEFAULT};
@@ -60,7 +60,6 @@ use windows::Win32::{
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 
-// TODO: integration with https://github.com/coderedart/egui_overlay/blob/master/src/lib.rs
 // TODO: tray icon integration. rn it's a bit jank because it's counted as two instances of the the application, one for the overlay, and one for the main menu
 // but the main issue is that the tray icon library when minimized actually has disgustingly high cpu usage for some reason? so putting that on hold while we work on
 // main overlay first.
@@ -69,15 +68,45 @@ use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 // OBS bootstrapper deferred restart to client, now has to be restarted by egui app, which should be cleaner than wtv the fuck philpax did with listening to stdout
 // Actually design the main app UI and link up all the buttons and stuff to look BETTER than the normal owl-recorder
 
+enum RecordingStatus {
+    Stopped,
+    Recording,
+    Paused,
+}
+
+impl RecordingStatus {
+    pub fn display_text(&self) {
+        match *self {
+            RecordingStatus::Stopped => println!("Recording is stopped"),
+            RecordingStatus::Recording => println!("Recording is in progress"),
+            RecordingStatus::Paused => println!("Recording is paused"),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct RecordingState {
+    state: Arc<RwLock<RecordingStatus>>,
+}
+
+impl RecordingState {
+    pub fn new() -> Self {
+        Self {
+            state: Arc::new(RwLock::new(RecordingStatus::Stopped)),
+        }
+    }
+}
 static VISIBLE: Mutex<bool> = Mutex::new(true);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     color_eyre::install()?;
     tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
 
+    let recording_state = RecordingState::new();
+    let cloned_state = recording_state.clone();
     // launch on seperate thread so non-blocking
     thread::spawn(move || {
-        egui_overlay::start(OverlayApp { frame: 0 });
+        egui_overlay::start(OverlayApp { frame: 0, recording_state: cloned_state });
     });
 
     // thread::spawn(move || {
@@ -100,11 +129,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
+    let cloned_state = recording_state.clone();
     let _ = eframe::run_native(
         "My egui App",
         options,
-        Box::new(|cc| {
-            
+        Box::new(move |cc| {
             let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
                 panic!("Unsupported platform");
             };
@@ -141,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }));
 
-            Ok(Box::new(MainApp::default()))
+            Ok(Box::new(MainApp { recording_state: cloned_state }))
         }),
     );
 
@@ -150,6 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 pub struct OverlayApp {
     frame: u64,
+    recording_state: RecordingState,
 }
 impl EguiOverlay for OverlayApp {
     fn gui_run(
@@ -220,7 +250,7 @@ impl EguiOverlay for OverlayApp {
 }
 
 pub struct MainApp {
-
+    recording_state: RecordingState,
 }
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
@@ -229,36 +259,6 @@ impl eframe::App for MainApp {
         });
     }
 }
-
-impl Default for MainApp {
-    fn default() -> Self {
-        Self {
-            // Initialize your app state here
-        }
-    }
-}
-
-/*
-struct MyApp {
-    // Your app state here
-}
-
-impl Default for MyApp {
-    fn default() -> Self {
-        Self {
-            // Initialize your app state here
-        }
-    }
-}
-
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Hello World!");
-        });
-    }
-}
-*/
 
 #[tokio::main]
 async fn _main() -> Result<()> {
