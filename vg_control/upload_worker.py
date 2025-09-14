@@ -31,9 +31,9 @@ def create_tar(directory: str, video_file: str, csv_file: str) -> str:
         tar.add(os.path.join(directory, video_file), arcname=video_file)
         tar.add(os.path.join(directory, csv_file), arcname=csv_file)
         # Add metadata.json if it exists
-        metadata_path = os.path.join(directory, 'metadata.json')
+        metadata_path = os.path.join(directory, "metadata.json")
         if os.path.exists(metadata_path):
-            tar.add(metadata_path, arcname='metadata.json')
+            tar.add(metadata_path, arcname="metadata.json")
     return tar_path
 
 
@@ -44,25 +44,27 @@ def mark_uploaded(directory: str) -> None:
         pass
 
 
-async def process_session(api_key: str, directory: str, video_file: str, csv_file: str) -> None:
+async def process_session(
+    api_key: str, directory: str, video_file: str, csv_file: str
+) -> None:
     """Compress and upload a single session."""
     tar_path = create_tar(directory, video_file, csv_file)
     try:
         # Read metadata.json to get duration
-        metadata_path = os.path.join(directory, 'metadata.json')
+        metadata_path = os.path.join(directory, "metadata.json")
         duration = None
         if os.path.exists(metadata_path):
             try:
                 with open(metadata_path) as f:
                     metadata = json.load(f)
-                duration = float(metadata.get('duration', 0))
+                duration = float(metadata.get("duration", 0))
             except Exception as e:
                 print(f"Warning: Could not read metadata from {metadata_path}: {e}")
-        
+
         # Extract game name from directory path for tags
         dir_parts = directory.split(os.sep)
         game_name = dir_parts[-2] if len(dir_parts) > 1 else "unknown"
-        
+
         upload_archive(
             api_key,
             tar_path,
@@ -72,7 +74,7 @@ async def process_session(api_key: str, directory: str, video_file: str, csv_fil
             video_duration_seconds=duration,
             video_width=RECORDING_WIDTH,
             video_height=RECORDING_HEIGHT,
-            video_fps=FPS
+            video_fps=FPS,
         )
         mark_uploaded(directory)
     finally:
@@ -91,7 +93,9 @@ async def process_all_sessions(api_key: str, root_dir: str = ROOT_DIR) -> None:
             print(f"Failed to upload {directory}: {exc}")
 
 
-async def upload_worker(api_key: str, root_dir: str = ROOT_DIR, check_interval: int = 300) -> None:
+async def upload_worker(
+    api_key: str, root_dir: str = ROOT_DIR, check_interval: int = 300
+) -> None:
     """Background task that periodically uploads any new sessions."""
     while True:
         await process_all_sessions(api_key, root_dir)

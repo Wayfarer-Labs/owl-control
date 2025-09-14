@@ -1,10 +1,9 @@
 [package]
 name = "owl-recorder"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 
 [dependencies]
-video-audio-recorder = { workspace = true, optional = true }
 raw-input.workspace = true
 game-process.workspace = true
 clap.workspace = true
@@ -18,12 +17,14 @@ serde.workspace = true
 serde_json.workspace = true
 tauri-winrt-notification.workspace = true
 sysinfo.workspace = true
+libobs-wrapper.workspace = true
+libobs-sources.workspace = true
+libobs-window-helper.workspace = true
+anyhow = "1.0" # Used just by the bootstrapper
+async-trait.workspace = true
+windows.workspace = true
 
 tray-icon = "0.14.3"
-windows = { version = "0.52.0", features = [
-    "Win32_Foundation",
-    "Win32_UI_WindowsAndMessaging",
-] }
 winit = "0.29.15"
 egui_overlay = { version = "0.9.0", features = ["egui_default", "glfw_default"] }
 egui_window_glfw_passthrough = "0.9.0"
@@ -33,6 +34,4 @@ egui_extras = { version = "0.29", features = ["all_loaders"] }
 image = { version = "0.25", features = ["jpeg", "png"] }
 eframe = "0.29"
 
-[features]
-default = ["real-video"]
-real-video = ["dep:video-audio-recorder"]
+constants = { path = "../constants" }

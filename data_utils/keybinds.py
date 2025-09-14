@@ -56,5 +56,5 @@ CODE_TO_KEY = {
     44: "COMMA",
     46: "PERIOD",
     47: "SLASH",
-    32: "SPACE"
+    32: "SPACE",
 }

@@ -7,12 +7,12 @@ use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
 
-#[cfg(feature = "real-video")]
-use video_audio_recorder::WindowRecorder;
-
-use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder};
+use crate::{
+    hardware_id, hardware_specs, input_recorder::InputRecorder, window_recorder::WindowRecorder,
+};
 
 pub(crate) struct Recording {
+    window_recorder: WindowRecorder,
     input_recorder: InputRecorder,
 
     metadata_path: PathBuf,
@@ -45,7 +45,7 @@ impl Recording {
             path: metadata_path,
             game_exe,
         }: MetadataParameters,
-        #[cfg_attr(not(feature = "real-video"), expect(unused_variables))] WindowParameters {
+        WindowParameters {
             path: video_path,
             pid,
             hwnd,
@@ -55,12 +55,12 @@ impl Recording {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
 
-        #[cfg(feature = "real-video")]
-        WindowRecorder::start_recording_static(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
-        
+        let window_recorder =
+            WindowRecorder::start_recording(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
         let input_recorder = InputRecorder::start(&csv_path).await?;
 
         Ok(Self {
+            window_recorder,
             input_recorder,
             metadata_path,
             game_exe,
@@ -107,9 +107,7 @@ impl Recording {
     }
 
     pub(crate) async fn stop(self) -> Result<()> {
-        #[cfg(feature = "real-video")]
-        WindowRecorder::stop_recording_static().await?;
-
+        self.window_recorder.stop_recording().await?;
         self.input_recorder.stop().await?;
 
         Self::write_metadata(
@@ -148,7 +146,7 @@ impl Recording {
             .as_secs();
 
         let hardware_id = hardware_id::get()?;
-        
+
         let hardware_specs = match hardware_specs::get_hardware_specs() {
             Ok(specs) => Some(specs),
             Err(e) => {

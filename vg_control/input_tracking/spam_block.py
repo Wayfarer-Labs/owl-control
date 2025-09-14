@@ -1,5 +1,6 @@
 from typing import Callable
 
+
 class SpamBlock:
     def __init__(self):
         self.buttons_pressed = {}
@@ -8,9 +9,10 @@ class SpamBlock:
         """
         Wrap some callback_fn that takes in (int, bool)
         For callback_fn:
-            - int: ID for thing that was pressed 
+            - int: ID for thing that was pressed
             - bool: Whether this press was down (true) or a release (false)
         """
+
         def wrapper(button_id: int, is_down: bool):
             if is_down:
                 if button_id not in self.buttons_pressed:
@@ -20,5 +22,5 @@ class SpamBlock:
                 if button_id in self.buttons_pressed:
                     del self.buttons_pressed[button_id]
                 callback_fn(button_id, is_down)
-        
+
         return wrapper

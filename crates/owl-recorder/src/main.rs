@@ -7,13 +7,16 @@ mod keycode;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;
+mod window_recorder;
 
 use std::{
-    path::PathBuf, thread, time::{Duration, SystemTime, UNIX_EPOCH}
+    path::PathBuf,
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use clap::Parser;
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{Result, eyre::eyre};
 
 use game_process::does_process_exist;
 use raw_input::{PressState, RawInput};
@@ -23,12 +26,9 @@ use tokio::{
 };
 
 use crate::{
-    idle::IdlenessTracker, keycode::lookup_keycode,
-    raw_input_debouncer::EventDebouncer, recorder::Recorder,
+    idle::IdlenessTracker, keycode::lookup_keycode, raw_input_debouncer::EventDebouncer,
+    recorder::Recorder,
 };
-
-
-
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -43,33 +43,31 @@ struct Args {
     stop_key: String,
 }
 
-const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
+const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
 use eframe::egui;
-use egui::{Align2, Vec2, Color32, Rounding, Stroke};
+use egui::{Align2, Color32, Rounding, Stroke, Vec2};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
 use std::any::TypeId;
-use std::sync::{Mutex, Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_SHOWDEFAULT};
-use windows::Win32::{
-    UI::WindowsAndMessaging::{SetWindowLongPtrW, GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW},
+use windows::Win32::UI::WindowsAndMessaging::{
+    GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
 };
+use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
 
 // TODO: tray icon integration. rn it's a bit jank because it's counted as two instances of the the application, one for the overlay, and one for the main menu
 // but the main issue is that the tray icon library when minimized actually has disgustingly high cpu usage for some reason? so putting that on hold while we work on
 // main overlay first.
-// TODOs: 
+// TODOs:
 // Arc RWLock to transfer recording state to from main thread to overlay for display
 // OBS bootstrapper deferred restart to client, now has to be restarted by egui app, which should be cleaner than wtv the fuck philpax did with listening to stdout
 // Actually design the main app UI and link up all the buttons and stuff to look BETTER than the normal owl-recorder
-
 
 // lots of repeated code to just load bytes, especially tray_icon needs different type, so use a macro here
 macro_rules! load_icon_from_bytes {
@@ -125,13 +123,18 @@ static VISIBLE: Mutex<bool> = Mutex::new(true);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     color_eyre::install()?;
-    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
 
     let recording_state = RecordingState::new();
     let cloned_state = recording_state.clone();
     // launch on seperate thread so non-blocking
     thread::spawn(move || {
-        egui_overlay::start(OverlayApp { frame: 0, recording_state: cloned_state });
+        egui_overlay::start(OverlayApp {
+            frame: 0,
+            recording_state: cloned_state,
+        });
     });
 
     // thread::spawn(move || {
@@ -174,13 +177,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let mut visible = VISIBLE.lock().unwrap();
 
                         if *visible {
-                            let window_handle = HWND(handle.hwnd.into());
+                            let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
                             unsafe {
                                 ShowWindow(window_handle, SW_HIDE);
                             }
                             *visible = false;
                         } else {
-                            let window_handle = HWND(handle.hwnd.into());
+                            let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
                             unsafe {
                                 ShowWindow(window_handle, SW_SHOWDEFAULT);
                             }
@@ -193,7 +196,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }));
 
-            Ok(Box::new(MainApp { recording_state: cloned_state }))
+            Ok(Box::new(MainApp {
+                recording_state: cloned_state,
+            }))
         }),
     );
 
@@ -221,9 +226,9 @@ impl EguiOverlay for OverlayApp {
             let hwnd = glfw_backend.window.get_win32_window() as isize;
             if hwnd != 0 {
                 unsafe {
-                    let hwnd = HWND(hwnd);
+                    let hwnd = HWND(hwnd as *mut std::ffi::c_void);
                     let mut ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-                    ex_style |= WS_EX_TOOLWINDOW.0 as isize;  // Hide from taskbar
+                    ex_style |= WS_EX_TOOLWINDOW.0 as isize; // Hide from taskbar
                     ex_style &= !(WS_EX_APPWINDOW.0 as isize); // Remove from Alt+Tab
                     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
                 }
@@ -231,30 +236,33 @@ impl EguiOverlay for OverlayApp {
         }
 
         let frame = egui::containers::Frame {
-            fill: Color32::from_black_alpha(80),    // Transparent background
-            stroke: Stroke::NONE,                // No border
-            rounding: Rounding::ZERO,            // No rounded corners
-            shadow: Default::default(),          // Default shadow settings
+            fill: Color32::from_black_alpha(80),   // Transparent background
+            stroke: Stroke::NONE,                  // No border
+            rounding: Rounding::ZERO,              // No rounded corners
+            shadow: Default::default(),            // Default shadow settings
             inner_margin: egui::Margin::same(8.0), // Inner padding
-            outer_margin: egui::Margin::ZERO,    // No outer margin
+            outer_margin: egui::Margin::ZERO,      // No outer margin
         };
-        
-        egui::Window::new("recording overlay").title_bar(false)                    // No title bar
-            .resizable(false)                    // Non-resizable
-            .scroll([false, false])             // Non-scrollable (both x and y)
-            .collapsible(false)                  // Non-collapsible (removes collapse button)
-            .anchor(Align2::LEFT_TOP, Vec2{x: 10.0, y: 10.0}) // Anchored to top-right corner
+
+        egui::Window::new("recording overlay")
+            .title_bar(false) // No title bar
+            .resizable(false) // Non-resizable
+            .scroll([false, false]) // Non-scrollable (both x and y)
+            .collapsible(false) // Non-collapsible (removes collapse button)
+            .anchor(Align2::LEFT_TOP, Vec2 { x: 10.0, y: 10.0 }) // Anchored to top-right corner
             .auto_sized()
             .frame(frame)
             .show(egui_context, |ui| {
                 self.frame += 1;
                 ui.horizontal(|ui| {
-                    ui.add(egui::Image::new(egui::include_image!("../assets/owl.png"))
-                                    .fit_to_exact_size(Vec2{x: 24.0, y: 24.0})
-                                    .tint(Color32::from_white_alpha(50)));
+                    ui.add(
+                        egui::Image::new(egui::include_image!("../assets/owl.png"))
+                            .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
+                            .tint(Color32::from_white_alpha(50)),
+                    );
                     ui.label(self.recording_state.state.read().unwrap().display_text());
                 });
-        });
+            });
 
         // don't show transparent window outline
         glfw_backend.window.set_decorated(false);
@@ -268,7 +276,7 @@ impl EguiOverlay for OverlayApp {
         egui_context.request_repaint();
         // update delay, not like it needs to be super responsive
         // and it also reduces cpu usage by a ton
-        thread::sleep(Duration::from_millis(100));  
+        thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -299,17 +307,17 @@ impl eframe::App for MainApp {
                     ui.label(egui::RichText::new("Account").size(18.0).strong());
                     ui.separator();
                     ui.add_space(10.0);
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Username:");
                         ui.text_edit_singleline(&mut String::from("user@example.com"));
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Status:");
                         ui.label("Connected");
                     });
-                    
+
                     ui.add_space(10.0);
                     if ui.button("Sign Out").clicked() {
                         // Handle sign out
@@ -323,12 +331,12 @@ impl eframe::App for MainApp {
                     ui.label(egui::RichText::new("OWL API Token").size(18.0).strong());
                     ui.separator();
                     ui.add_space(10.0);
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("API Token:");
                         ui.text_edit_singleline(&mut String::from("••••••••••••••••"));
                     });
-                    
+
                     ui.horizontal(|ui| {
                         if ui.button("Generate New Token").clicked() {
                             // Handle token generation
@@ -337,9 +345,15 @@ impl eframe::App for MainApp {
                             // Handle token revocation
                         }
                     });
-                    
+
                     ui.add_space(5.0);
-                    ui.label(egui::RichText::new("Keep your API token secure and don't share it with others.").italics().color(egui::Color32::GRAY));
+                    ui.label(
+                        egui::RichText::new(
+                            "Keep your API token secure and don't share it with others.",
+                        )
+                        .italics()
+                        .color(egui::Color32::GRAY),
+                    );
                 });
 
                 ui.add_space(15.0);
@@ -349,7 +363,7 @@ impl eframe::App for MainApp {
                     ui.label(egui::RichText::new("Upload Settings").size(18.0).strong());
                     ui.separator();
                     ui.add_space(10.0);
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Default Quality:");
                         egui::ComboBox::from_label("")
@@ -360,17 +374,17 @@ impl eframe::App for MainApp {
                                 ui.selectable_value(&mut "Low", "Low", "Low");
                             });
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Auto-upload:");
                         ui.checkbox(&mut true, "Enable automatic uploads");
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Max file size (MB):");
                         ui.add(egui::Slider::new(&mut 100, 1..=1000));
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Allowed file types:");
                         ui.text_edit_singleline(&mut String::from(".jpg, .png, .gif, .mp4"));
@@ -381,10 +395,14 @@ impl eframe::App for MainApp {
 
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
-                    ui.label(egui::RichText::new("Keyboard Shortcuts").size(18.0).strong());
+                    ui.label(
+                        egui::RichText::new("Keyboard Shortcuts")
+                            .size(18.0)
+                            .strong(),
+                    );
                     ui.separator();
                     ui.add_space(10.0);
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Upload file:");
                         ui.code("Ctrl+U");
@@ -392,7 +410,7 @@ impl eframe::App for MainApp {
                             // Handle shortcut change
                         }
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Quick screenshot:");
                         ui.code("Ctrl+Shift+S");
@@ -400,7 +418,7 @@ impl eframe::App for MainApp {
                             // Handle shortcut change
                         }
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Open settings:");
                         ui.code("Ctrl+,");
@@ -408,7 +426,7 @@ impl eframe::App for MainApp {
                             // Handle shortcut change
                         }
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Toggle upload manager:");
                         ui.code("Ctrl+M");
@@ -416,7 +434,7 @@ impl eframe::App for MainApp {
                             // Handle shortcut change
                         }
                     });
-                    
+
                     ui.add_space(10.0);
                     if ui.button("Reset to Defaults").clicked() {
                         // Handle reset shortcuts
@@ -430,23 +448,23 @@ impl eframe::App for MainApp {
                     ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
                     ui.separator();
                     ui.add_space(10.0);
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Show notifications:");
                         ui.checkbox(&mut true, "Upload completed");
                         ui.checkbox(&mut true, "Upload failed");
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Concurrent uploads:");
                         ui.add(egui::Slider::new(&mut 3, 1..=10));
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("Retry failed uploads:");
                         ui.checkbox(&mut true, "Auto-retry up to 3 times");
                     });
-                    
+
                     ui.horizontal(|ui| {
                         ui.label("History retention:");
                         egui::ComboBox::from_label("")
@@ -458,7 +476,7 @@ impl eframe::App for MainApp {
                                 ui.selectable_value(&mut "Forever", "Forever", "Forever");
                             });
                     });
-                    
+
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
                         if ui.button("Clear Upload History").clicked() {
@@ -483,7 +501,11 @@ impl eframe::App for MainApp {
                         // Handle reset all settings
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(egui::RichText::new("Settings are automatically saved").italics().color(egui::Color32::GRAY));
+                        ui.label(
+                            egui::RichText::new("Settings are automatically saved")
+                                .italics()
+                                .color(egui::Color32::GRAY),
+                        );
                     });
                 });
             });
@@ -507,16 +529,16 @@ async fn _main() -> Result<()> {
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
-    let mut recorder = Recorder::new({
-        let recording_location = recording_location.clone();
-        move || recording_location.join(
+    let mut recorder = Recorder::new(|| {
+        recording_location.join(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs()
                 .to_string(),
         )
-    }).await?;
+    })
+    .await?;
 
     let mut input_rx = listen_for_raw_inputs();
 

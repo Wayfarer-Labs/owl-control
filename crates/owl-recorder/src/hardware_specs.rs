@@ -36,12 +36,13 @@ pub struct HardwareSpecs {
 pub fn get_hardware_specs() -> Result<HardwareSpecs> {
     let mut sys = System::new_all();
     sys.refresh_all();
-    
+
     // CPU info
-    let cpu_info = sys.cpus().first().ok_or_else(|| {
-        color_eyre::eyre::eyre!("No CPU information available")
-    })?;
-    
+    let cpu_info = sys
+        .cpus()
+        .first()
+        .ok_or_else(|| color_eyre::eyre::eyre!("No CPU information available"))?;
+
     let cpu_specs = CpuSpecs {
         name: cpu_info.name().to_string(),
         cores: sys.cpus().len(),
@@ -49,10 +50,10 @@ pub fn get_hardware_specs() -> Result<HardwareSpecs> {
         vendor: cpu_info.vendor_id().to_string(),
         brand: cpu_info.brand().to_string(),
     };
-    
+
     // GPU info (basic - sysinfo doesn't have detailed GPU support)
     let mut gpus = Vec::new();
-    
+
     // Try to get GPU info from Windows registry or system calls
     #[cfg(target_os = "windows")]
     {
@@ -68,7 +69,7 @@ pub fn get_hardware_specs() -> Result<HardwareSpecs> {
             }
         }
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         // For non-Windows, add placeholder
@@ -77,7 +78,7 @@ pub fn get_hardware_specs() -> Result<HardwareSpecs> {
             vendor: "Unknown".to_string(),
         });
     }
-    
+
     // System info
     let system_specs = SystemSpecs {
         os_name: System::name().unwrap_or_else(|| "Unknown".to_string()),
@@ -86,7 +87,7 @@ pub fn get_hardware_specs() -> Result<HardwareSpecs> {
         hostname: System::host_name().unwrap_or_else(|| "Unknown".to_string()),
         total_memory_gb: sys.total_memory() as f64 / (1024.0 * 1024.0 * 1024.0),
     };
-    
+
     Ok(HardwareSpecs {
         cpu: cpu_specs,
         gpus,
@@ -97,16 +98,23 @@ pub fn get_hardware_specs() -> Result<HardwareSpecs> {
 #[cfg(target_os = "windows")]
 fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
     use std::process::Command;
-    
+
     // Try to get GPU info using wmic
     let output = Command::new("wmic")
-        .args(&["path", "win32_VideoController", "get", "name", "/format:csv"])
+        .args(&[
+            "path",
+            "win32_VideoController",
+            "get",
+            "name",
+            "/format:csv",
+        ])
         .output()?;
-    
+
     let output_str = String::from_utf8_lossy(&output.stdout);
     let mut gpus = Vec::new();
-    
-    for line in output_str.lines().skip(2) { // Skip header lines
+
+    for line in output_str.lines().skip(2) {
+        // Skip header lines
         let line = line.trim();
         if !line.is_empty() && line.contains(',') {
             // CSV format: Node,Name
@@ -115,14 +123,16 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
                 if !gpu_name.is_empty() {
                     let vendor = if gpu_name.to_lowercase().contains("nvidia") {
                         "NVIDIA"
-                    } else if gpu_name.to_lowercase().contains("amd") || gpu_name.to_lowercase().contains("radeon") {
+                    } else if gpu_name.to_lowercase().contains("amd")
+                        || gpu_name.to_lowercase().contains("radeon")
+                    {
                         "AMD"
                     } else if gpu_name.to_lowercase().contains("intel") {
                         "Intel"
                     } else {
                         "Unknown"
                     };
-                    
+
                     gpus.push(GpuSpecs {
                         name: gpu_name.to_string(),
                         vendor: vendor.to_string(),
@@ -131,27 +141,30 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
             }
         }
     }
-    
+
     if gpus.is_empty() {
         // Fallback: try a simpler wmic command
         let output = Command::new("wmic")
             .args(&["path", "win32_VideoController", "get", "name"])
             .output()?;
-        
+
         let output_str = String::from_utf8_lossy(&output.stdout);
-        for line in output_str.lines().skip(1) { // Skip header
+        for line in output_str.lines().skip(1) {
+            // Skip header
             let line = line.trim();
             if !line.is_empty() && line != "Name" {
                 let vendor = if line.to_lowercase().contains("nvidia") {
                     "NVIDIA"
-                } else if line.to_lowercase().contains("amd") || line.to_lowercase().contains("radeon") {
+                } else if line.to_lowercase().contains("amd")
+                    || line.to_lowercase().contains("radeon")
+                {
                     "AMD"
                 } else if line.to_lowercase().contains("intel") {
                     "Intel"
                 } else {
                     "Unknown"
                 };
-                
+
                 gpus.push(GpuSpecs {
                     name: line.to_string(),
                     vendor: vendor.to_string(),
@@ -159,6 +172,6 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
             }
         }
     }
-    
+
     Ok(gpus)
 }

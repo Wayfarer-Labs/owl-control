@@ -4,7 +4,6 @@ use game_process::{
     windows::Win32::Foundation::HWND,
 };
 
-
 pub(crate) fn get_foregrounded_game() -> Result<Option<(String, Pid, HWND)>> {
     let (hwnd, pid) = foreground_window()?;
 
@@ -23,4 +22,3 @@ pub(crate) fn get_foregrounded_game() -> Result<Option<(String, Pid, HWND)>> {
 
     Ok(Some((exe_name, pid, hwnd)))
 }
-

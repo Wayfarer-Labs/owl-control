@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* Force dark mode on html and body tags */
-html, body {
+html,
+body {
   background-color: #0c0c0f !important;
   color: #f8f9fa !important;
   height: 100%;
@@ -138,7 +139,7 @@ button[variant="outline"] {
     --input: 222 14% 14%;
     --ring: 186 90% 61%;
   }
-  
+
   /* Dark theme (same as root) */
   .dark {
     --background: 0 0% 4.7%; /* #0c0c0f */
@@ -169,18 +170,32 @@ button[variant="outline"] {
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    background-image: 
-      radial-gradient(circle at 15% 25%, rgba(66, 226, 245, 0.05) 0%, transparent 35%),
-      radial-gradient(circle at 85% 30%, rgba(77, 206, 129, 0.04) 0%, transparent 30%),
-      radial-gradient(circle at 50% 80%, rgba(66, 226, 245, 0.03) 0%, transparent 40%);
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+    background-image:
+      radial-gradient(
+        circle at 15% 25%,
+        rgba(66, 226, 245, 0.05) 0%,
+        transparent 35%
+      ),
+      radial-gradient(
+        circle at 85% 30%,
+        rgba(77, 206, 129, 0.04) 0%,
+        transparent 30%
+      ),
+      radial-gradient(
+        circle at 50% 80%,
+        rgba(66, 226, 245, 0.03) 0%,
+        transparent 40%
+      );
     position: relative;
     overflow-x: hidden;
   }
 
   /* Aurora effect overlay */
   body::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
@@ -188,22 +203,22 @@ button[variant="outline"] {
     bottom: 0;
     z-index: -1;
     background: linear-gradient(
-      90deg, 
-      transparent 0%, 
-      rgba(66, 226, 245, 0.015) 15%, 
-      rgba(77, 206, 129, 0.02) 30%, 
-      transparent 50%, 
-      rgba(66, 226, 245, 0.015) 70%, 
-      rgba(77, 206, 129, 0.02) 85%, 
+      90deg,
+      transparent 0%,
+      rgba(66, 226, 245, 0.015) 15%,
+      rgba(77, 206, 129, 0.02) 30%,
+      transparent 50%,
+      rgba(66, 226, 245, 0.015) 70%,
+      rgba(77, 206, 129, 0.02) 85%,
       transparent 100%
     );
     opacity: 0.7;
     animation: aurora 20s linear infinite;
   }
-  
+
   /* Additional subtle pulsing glow effect */
   body::after {
-    content: '';
+    content: "";
     position: absolute;
     top: -50%;
     left: -50%;
@@ -212,9 +227,9 @@ button[variant="outline"] {
     width: 200%;
     height: 200%;
     background: radial-gradient(
-      ellipse at center, 
-      transparent 65%, 
-      rgba(66, 226, 245, 0.03) 80%, 
+      ellipse at center,
+      transparent 65%,
+      rgba(66, 226, 245, 0.03) 80%,
       rgba(77, 206, 129, 0.04) 100%
     );
     z-index: -2;
@@ -224,20 +239,24 @@ button[variant="outline"] {
   }
 
   @keyframes aurora {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 100% 0%; }
+    0% {
+      background-position: 0% 0%;
+    }
+    100% {
+      background-position: 100% 0%;
+    }
   }
-  
+
   @keyframes pulse {
-    0% { 
+    0% {
       transform: scale(1);
       opacity: 0.3;
     }
-    50% { 
+    50% {
       transform: scale(1.05);
       opacity: 0.5;
     }
-    100% { 
+    100% {
       transform: scale(1);
       opacity: 0.3;
     }
@@ -248,9 +267,9 @@ button[variant="outline"] {
     position: relative;
     transition: all 0.2s ease;
   }
-  
+
   .glow::after {
-    content: '';
+    content: "";
     position: absolute;
     top: -2px;
     left: -2px;
@@ -261,14 +280,16 @@ button[variant="outline"] {
     background: rgba(66, 226, 245, 0.4);
     border-radius: inherit;
     opacity: 0;
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
   }
-  
+
   .glow:hover::after {
     opacity: 1;
     transform: scale(1.03);
   }
-  
+
   /* Focused element glow */
   .glow:focus::after {
     opacity: 0.7;
@@ -281,30 +302,32 @@ button[variant="outline"] {
     position: relative;
     transition: text-shadow 0.3s ease;
   }
-  
+
   .glow-text:hover {
-    text-shadow: 0 0 12px rgba(66, 226, 245, 1), 0 0 20px rgba(66, 226, 245, 0.5);
+    text-shadow:
+      0 0 12px rgba(66, 226, 245, 1),
+      0 0 20px rgba(66, 226, 245, 0.5);
   }
 
   /* Cyan primary glow effect */
   .glow-cyan::after {
     background: rgba(66, 226, 245, 0.5);
   }
-  
+
   /* Green secondary glow effect */
   .glow-green::after {
     background: rgba(77, 206, 129, 0.5);
   }
-  
+
   /* Text glow variants */
   .glow-text-cyan {
     text-shadow: 0 0 10px rgba(66, 226, 245, 0.8);
   }
-  
+
   .glow-text-green {
     text-shadow: 0 0 10px rgba(77, 206, 129, 0.8);
   }
-  
+
   /* Prevent flickering on animation */
   * {
     backface-visibility: hidden;
@@ -340,7 +363,7 @@ button[variant="outline"] {
 }
 
 .button-shine::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   width: 100%;
@@ -382,10 +405,13 @@ select {
   background-repeat: no-repeat;
   background-position: right 0.5rem center;
   background-size: 1em;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
-select:hover, select:focus {
+select:hover,
+select:focus {
   border-color: hsl(186, 90%, 61%); /* Cyan accent */
   box-shadow: 0 0 0 1px rgba(66, 226, 245, 0.2);
   outline: none;
@@ -413,7 +439,7 @@ input[type="checkbox"]:checked {
 }
 
 input[type="checkbox"]:checked::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0.4rem;
   top: 0.2rem;
@@ -441,7 +467,7 @@ input[type="checkbox"]:hover {
   z-index: 9999;
 }
 .loader::after {
-  content: '';
+  content: "";
   width: 40%;
   height: 3px;
   position: absolute;
