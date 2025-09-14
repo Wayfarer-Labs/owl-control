@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+default-members = ["crates/owl-recorder"]
 
 [workspace.dependencies]
 raw-input = { path = "crates/raw-input" }

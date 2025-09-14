@@ -19,6 +19,7 @@ use clap::Parser;
 use color_eyre::{Result, eyre::eyre};
 
 use game_process::does_process_exist;
+use libobs_wrapper::bootstrap;
 use raw_input::{PressState, RawInput};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -30,10 +31,30 @@ use crate::{
     recorder::Recorder,
 };
 
+use eframe::egui;
+use egui::{Align2, Color32, RichText, Rounding, Stroke, Vec2};
+use egui_overlay::EguiOverlay;
+use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
+
+use std::any::TypeId;
+use std::process::Command;
+use std::sync::{Arc, Mutex, RwLock};
+use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::{
+    GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+};
+use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow};
+use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    #[arg(long)]
+    // This is set because I'm lazy to specify cargo run location every time. And also because ObsContext::spawn_updater() breaks otherwise.
+    // I suspect that the libobs bootstrapper ObsContext::spawn_updater() which restarts the app after is bugged and doesn't accept args correctly.
+    // If run with a specified default value it doesn't call the relative path correctly on the restart, leading to the restarted app crashing immediately.
+    // But if you just run as is "cargo run" without params it will restart properly.
+    #[arg(long, default_value = "../data_dump/games")]
     recording_location: PathBuf,
 
     #[arg(long, default_value = "F4")]
@@ -46,27 +67,10 @@ struct Args {
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
-use eframe::egui;
-use egui::{Align2, Color32, Rounding, Stroke, Vec2};
-use egui_overlay::EguiOverlay;
-use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
-
-use std::any::TypeId;
-use std::sync::{Arc, Mutex, RwLock};
-use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
-};
-use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow};
-use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
 // TODO: tray icon integration. rn it's a bit jank because it's counted as two instances of the the application, one for the overlay, and one for the main menu
 // but the main issue is that the tray icon library when minimized actually has disgustingly high cpu usage for some reason? so putting that on hold while we work on
 // main overlay first.
 // TODOs:
-// Arc RWLock to transfer recording state to from main thread to overlay for display
-// OBS bootstrapper deferred restart to client, now has to be restarted by egui app, which should be cleaner than wtv the fuck philpax did with listening to stdout
 // Actually design the main app UI and link up all the buttons and stuff to look BETTER than the normal owl-recorder
 
 // lots of repeated code to just load bytes, especially tray_icon needs different type, so use a macro here
@@ -109,13 +113,20 @@ impl RecordingStatus {
 
 #[derive(Clone)]
 struct RecordingState {
+    // holds the current state of recording, recorder <-> overlay
     state: Arc<RwLock<RecordingStatus>>,
+    // setting for opacity of overlay, main app <-> overlay
+    opacity: Arc<RwLock<u8>>,
+    // bootstrap progress bar, recorder <-> main app
+    boostrap_progress: Arc<RwLock<f32>>,
 }
 
 impl RecordingState {
     pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(RecordingStatus::Stopped)),
+            opacity: Arc::new(RwLock::new(85)),
+            boostrap_progress: Arc::new(RwLock::new(0.0)),
         }
     }
 }
@@ -126,10 +137,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
-
     let recording_state = RecordingState::new();
+
+    // launch overlay on seperate thread so non-blocking
     let cloned_state = recording_state.clone();
-    // launch on seperate thread so non-blocking
     thread::spawn(move || {
         egui_overlay::start(OverlayApp {
             frame: 0,
@@ -137,10 +148,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     });
 
-    // thread::spawn(move || {
-    //     _main();
-    // });
+    // launch recorder on seperate thread so non-blocking
+    let cloned_state = recording_state.clone();
+    thread::spawn(move || {
+        let _ = _main(cloned_state);
+    });
 
+    // main app built here on main thread, so if it's closed by user the entire program is killed
     let _tray_icon = TrayIconBuilder::new()
         .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", tray_icon))
         .with_tooltip("Owl Control")
@@ -179,13 +193,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if *visible {
                             let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
                             unsafe {
-                                ShowWindow(window_handle, SW_HIDE);
+                                let _ = ShowWindow(window_handle, SW_HIDE);
                             }
                             *visible = false;
                         } else {
                             let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
                             unsafe {
-                                ShowWindow(window_handle, SW_SHOWDEFAULT);
+                                let _ = ShowWindow(window_handle, SW_SHOWDEFAULT);
                             }
                             *visible = true;
                         }
@@ -198,6 +212,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Ok(Box::new(MainApp {
                 recording_state: cloned_state,
+                frame: 0,
+                cached_progress: 0.,
             }))
         }),
     );
@@ -235,13 +251,14 @@ impl EguiOverlay for OverlayApp {
             }
         }
 
+        let overlay_opacity = *self.recording_state.opacity.read().unwrap();
         let frame = egui::containers::Frame {
-            fill: Color32::from_black_alpha(80),   // Transparent background
-            stroke: Stroke::NONE,                  // No border
-            rounding: Rounding::ZERO,              // No rounded corners
-            shadow: Default::default(),            // Default shadow settings
-            inner_margin: egui::Margin::same(8.0), // Inner padding
-            outer_margin: egui::Margin::ZERO,      // No outer margin
+            fill: Color32::from_black_alpha(overlay_opacity), // Transparent background
+            stroke: Stroke::NONE,                             // No border
+            rounding: Rounding::ZERO,                         // No rounded corners
+            shadow: Default::default(),                       // Default shadow settings
+            inner_margin: egui::Margin::same(8.0),            // Inner padding
+            outer_margin: egui::Margin::ZERO,                 // No outer margin
         };
 
         egui::Window::new("recording overlay")
@@ -258,9 +275,13 @@ impl EguiOverlay for OverlayApp {
                     ui.add(
                         egui::Image::new(egui::include_image!("../assets/owl.png"))
                             .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
-                            .tint(Color32::from_white_alpha(50)),
+                            .tint(Color32::from_white_alpha(overlay_opacity)),
                     );
-                    ui.label(self.recording_state.state.read().unwrap().display_text());
+                    ui.label(
+                        RichText::new(self.recording_state.state.read().unwrap().display_text())
+                            .size(12.0)
+                            .color(Color32::from_white_alpha(overlay_opacity)),
+                    );
                 });
             });
 
@@ -269,7 +290,6 @@ impl EguiOverlay for OverlayApp {
         glfw_backend.set_window_size([200.0, 50.0]);
         // anchor top left always
         glfw_backend.window.set_pos(0, 0);
-        glfw_backend.window.maximize();
         // always allow input to passthrough
         glfw_backend.set_passthrough(true);
 
@@ -282,26 +302,28 @@ impl EguiOverlay for OverlayApp {
 
 pub struct MainApp {
     recording_state: RecordingState,
+    frame: u64,
+    cached_progress: f32, // from 0-1
 }
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(egui::RichText::new("Settings").size(36.0).strong());
             ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
-            if ui.button("Cycle Recording status").clicked() {
-                // Proof of concept: how to share state between main thread and overlay
-                let mut state = self.recording_state.state.write().unwrap();
-                *state = match *state {
-                    RecordingStatus::Stopped => RecordingStatus::Recording,
-                    RecordingStatus::Recording => RecordingStatus::Paused,
-                    RecordingStatus::Paused => RecordingStatus::Stopped,
-                };
-            }
-            ui.add_space(10.0);
-            ui.heading(self.recording_state.state.read().unwrap().display_text());
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.add_space(20.0);
 
+            ui.add_space(10.0);
+            // avoid lock contention preventing writer from ever updating progress
+            if self.frame % 5 == 0 {
+                if let Ok(progress) = self.recording_state.boostrap_progress.try_read() {
+                    self.cached_progress = *progress;
+                }
+            }
+            if self.cached_progress < 1.0 {
+                ui.add(egui::ProgressBar::new(self.cached_progress).text("Loading OBS..."));
+            };
+            ui.add_space(10.0);
+
+            egui::ScrollArea::vertical().show(ui, |ui| {
                 // Account Section
                 ui.group(|ui| {
                     ui.label(egui::RichText::new("Account").size(18.0).strong());
@@ -443,6 +465,21 @@ impl eframe::App for MainApp {
 
                 ui.add_space(15.0);
 
+                // Overlay Settings Section
+                ui.group(|ui| {
+                    ui.label(egui::RichText::new("Overlay Settings").size(18.0).strong());
+                    ui.separator();
+                    ui.add_space(10.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label("Opacity:");
+                        let mut opacity_guard = self.recording_state.opacity.write().unwrap();
+                        ui.add(egui::Slider::new(&mut *opacity_guard, 1..=255));
+                    });
+                });
+
+                ui.add_space(15.0);
+
                 // Upload Manager Section
                 ui.group(|ui| {
                     ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
@@ -510,14 +547,12 @@ impl eframe::App for MainApp {
                 });
             });
         });
+        self.frame += 1;
     }
 }
 
 #[tokio::main]
-async fn _main() -> Result<()> {
-    // color_eyre::install()?;
-    // tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
-
+async fn _main(recording_state: RecordingState) -> Result<()> {
     let Args {
         recording_location,
         start_key,
@@ -529,17 +564,41 @@ async fn _main() -> Result<()> {
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
-    let mut recorder = Recorder::new(|| {
-        recording_location.join(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                .to_string(),
-        )
-    })
-    .await?;
+    let mut recorder = match Recorder::new(
+        || {
+            recording_location.join(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    .to_string(),
+            )
+        },
+        recording_state.boostrap_progress.clone(),
+    )
+    .await
+    {
+        Ok(recorder) => recorder,
+        Err(e) => {
+            // so technically the best practice would be to create a custom error type and check that, but cba make it just to use it once
+            if e.to_string()
+                .contains("OBS restart required during initialization")
+            {
+                // Defer the restart to the ObsContext::spawn_updater(). All we have to do is kill the main thread.
+                tracing::info!("Restarting OBS!");
+                // give it a sec to cleanup, no sense wasting the progress bar visuals either ;p
+                *recording_state.boostrap_progress.write().unwrap() = 1.0;
+                std::thread::sleep(Duration::from_secs(1));
+                std::process::exit(0);
+            } else {
+                // Handle other errors
+                tracing::error!(e=?e, "Failed to initialize recorder");
+                return Err(e);
+            }
+        }
+    };
 
+    tracing::info!("recorder initialized");
     let mut input_rx = listen_for_raw_inputs();
 
     let mut stop_rx = wait_for_ctrl_c();
@@ -559,35 +618,44 @@ async fn _main() -> Result<()> {
             e = input_rx.recv() => {
                 let e = e.expect("raw input reader was closed early");
                 recorder.seen_input(e).await?;
+                let mut state_writer = recording_state.state.write().unwrap();
                 if let Some(key) = keycode_from_event(&e) {
                     if key == start_key {
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
+                        *state_writer = RecordingStatus::Recording;
                     } else if key == stop_key {
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
+                        *state_writer = RecordingStatus::Stopped;
                         start_on_activity = false;
                     }
                 } else if start_on_activity {
                     tracing::info!("Input detected, restarting recording");
                     recorder.start().await?;
+                        *state_writer = RecordingStatus::Recording;
                     start_on_activity = false;
                 }
                 idleness_tracker.update_activity();
             },
             _ = perform_checks.tick() => {
                 if let Some(recording) = recorder.recording() {
+                    let mut state_writer = recording_state.state.write().unwrap();
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
                         recorder.stop().await?;
+                        *state_writer = RecordingStatus::Stopped;
                     } else if idleness_tracker.is_idle() {
                         tracing::info!("No input detected for 5 seconds, stopping recording");
                         recorder.stop().await?;
+                        *state_writer = RecordingStatus::Paused;
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_RECORDING_DURATION {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_RECORDING_DURATION.as_secs());
                         recorder.stop().await?;
+                        *state_writer = RecordingStatus::Stopped;
                         recorder.start().await?;
+                        *state_writer = RecordingStatus::Recording;
                         idleness_tracker.update_activity();
                     };
                 }
