@@ -1,3 +1,4 @@
+mod config_manager;
 mod find_game;
 mod hardware_id;
 mod hardware_specs;
@@ -19,7 +20,6 @@ use clap::Parser;
 use color_eyre::{Result, eyre::eyre};
 
 use game_process::does_process_exist;
-use libobs_wrapper::bootstrap;
 use raw_input::{PressState, RawInput};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -27,8 +27,8 @@ use tokio::{
 };
 
 use crate::{
-    idle::IdlenessTracker, keycode::lookup_keycode, raw_input_debouncer::EventDebouncer,
-    recorder::Recorder,
+    config_manager::ConfigManager, idle::IdlenessTracker, keycode::lookup_keycode,
+    raw_input_debouncer::EventDebouncer, recorder::Recorder,
 };
 
 use eframe::egui;
@@ -214,6 +214,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 recording_state: cloned_state,
                 frame: 0,
                 cached_progress: 0.,
+                configs: ConfigManager::new()?,
             }))
         }),
     );
@@ -304,19 +305,18 @@ pub struct MainApp {
     recording_state: RecordingState,
     frame: u64,
     cached_progress: f32, // from 0-1
+    configs: ConfigManager,
 }
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(egui::RichText::new("Settings").size(36.0).strong());
             ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
-
             ui.add_space(10.0);
-            // avoid lock contention preventing writer from ever updating progress
-            if self.frame % 5 == 0 {
-                if let Ok(progress) = self.recording_state.boostrap_progress.try_read() {
-                    self.cached_progress = *progress;
-                }
+
+            // progress bar for obs bootstrapper
+            if let Ok(progress) = self.recording_state.boostrap_progress.try_read() {
+                self.cached_progress = *progress;
             }
             if self.cached_progress < 1.0 {
                 ui.add(egui::ProgressBar::new(self.cached_progress).text("Loading OBS..."));
@@ -324,30 +324,6 @@ impl eframe::App for MainApp {
             ui.add_space(10.0);
 
             egui::ScrollArea::vertical().show(ui, |ui| {
-                // Account Section
-                ui.group(|ui| {
-                    ui.label(egui::RichText::new("Account").size(18.0).strong());
-                    ui.separator();
-                    ui.add_space(10.0);
-
-                    ui.horizontal(|ui| {
-                        ui.label("Username:");
-                        ui.text_edit_singleline(&mut String::from("user@example.com"));
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Status:");
-                        ui.label("Connected");
-                    });
-
-                    ui.add_space(10.0);
-                    if ui.button("Sign Out").clicked() {
-                        // Handle sign out
-                    }
-                });
-
-                ui.add_space(15.0);
-
                 // OWL API Token Section
                 ui.group(|ui| {
                     ui.label(egui::RichText::new("OWL API Token").size(18.0).strong());
@@ -356,16 +332,7 @@ impl eframe::App for MainApp {
 
                     ui.horizontal(|ui| {
                         ui.label("API Token:");
-                        ui.text_edit_singleline(&mut String::from("••••••••••••••••"));
-                    });
-
-                    ui.horizontal(|ui| {
-                        if ui.button("Generate New Token").clicked() {
-                            // Handle token generation
-                        }
-                        if ui.button("Revoke Token").clicked() {
-                            // Handle token revocation
-                        }
+                        ui.text_edit_singleline(&mut self.configs.get_api_key());
                     });
 
                     ui.add_space(5.0);
@@ -377,7 +344,6 @@ impl eframe::App for MainApp {
                         .color(egui::Color32::GRAY),
                     );
                 });
-
                 ui.add_space(15.0);
 
                 // Upload Settings Section
@@ -388,31 +354,12 @@ impl eframe::App for MainApp {
 
                     ui.horizontal(|ui| {
                         ui.label("Default Quality:");
-                        egui::ComboBox::from_label("")
-                            .selected_text("High")
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut "High", "High", "High");
-                                ui.selectable_value(&mut "Medium", "Medium", "Medium");
-                                ui.selectable_value(&mut "Low", "Low", "Low");
-                            });
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Auto-upload:");
-                        ui.checkbox(&mut true, "Enable automatic uploads");
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Max file size (MB):");
-                        ui.add(egui::Slider::new(&mut 100, 1..=1000));
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Allowed file types:");
-                        ui.text_edit_singleline(&mut String::from(".jpg, .png, .gif, .mp4"));
+                        ui.checkbox(
+                            &mut self.configs.get_delete_uploaded_files(),
+                            "Delete local files after successful upload",
+                        )
                     });
                 });
-
                 ui.add_space(15.0);
 
                 // Keyboard Shortcuts Section
@@ -426,48 +373,30 @@ impl eframe::App for MainApp {
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        ui.label("Upload file:");
-                        ui.code("Ctrl+U");
+                        ui.label("Start Recording:");
+                        ui.code(self.configs.get_start_recording_key());
                         if ui.small_button("Change").clicked() {
                             // Handle shortcut change
                         }
                     });
 
                     ui.horizontal(|ui| {
-                        ui.label("Quick screenshot:");
-                        ui.code("Ctrl+Shift+S");
+                        ui.label("Stop Recording:");
+                        ui.code(self.configs.get_stop_recording_key());
                         if ui.small_button("Change").clicked() {
                             // Handle shortcut change
                         }
                     });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Open settings:");
-                        ui.code("Ctrl+,");
-                        if ui.small_button("Change").clicked() {
-                            // Handle shortcut change
-                        }
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Toggle upload manager:");
-                        ui.code("Ctrl+M");
-                        if ui.small_button("Change").clicked() {
-                            // Handle shortcut change
-                        }
-                    });
-
-                    ui.add_space(10.0);
-                    if ui.button("Reset to Defaults").clicked() {
-                        // Handle reset shortcuts
-                    }
                 });
-
                 ui.add_space(15.0);
 
                 // Overlay Settings Section
                 ui.group(|ui| {
-                    ui.label(egui::RichText::new("Overlay Settings").size(18.0).strong());
+                    ui.label(
+                        egui::RichText::new("Overlay Customization")
+                            .size(18.0)
+                            .strong(),
+                    );
                     ui.separator();
                     ui.add_space(10.0);
 
@@ -487,41 +416,7 @@ impl eframe::App for MainApp {
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        ui.label("Show notifications:");
-                        ui.checkbox(&mut true, "Upload completed");
-                        ui.checkbox(&mut true, "Upload failed");
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Concurrent uploads:");
-                        ui.add(egui::Slider::new(&mut 3, 1..=10));
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Retry failed uploads:");
-                        ui.checkbox(&mut true, "Auto-retry up to 3 times");
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("History retention:");
-                        egui::ComboBox::from_label("")
-                            .selected_text("30 days")
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut "30 days", "30 days", "30 days");
-                                ui.selectable_value(&mut "90 days", "90 days", "90 days");
-                                ui.selectable_value(&mut "1 year", "1 year", "1 year");
-                                ui.selectable_value(&mut "Forever", "Forever", "Forever");
-                            });
-                    });
-
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        if ui.button("Clear Upload History").clicked() {
-                            // Handle clear history
-                        }
-                        if ui.button("Export History").clicked() {
-                            // Handle export history
-                        }
+                        ui.label("Under Construction");
                     });
                 });
 
@@ -539,7 +434,7 @@ impl eframe::App for MainApp {
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
-                            egui::RichText::new("Settings are automatically saved")
+                            egui::RichText::new("Wayfarer Labs")
                                 .italics()
                                 .color(egui::Color32::GRAY),
                         );

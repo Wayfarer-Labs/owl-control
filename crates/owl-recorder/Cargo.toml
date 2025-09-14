@@ -33,5 +33,6 @@ egui = "0.29"   # higher versions break egui_overlay
 egui_extras = { version = "0.29", features = ["all_loaders"] }
 image = { version = "0.25", features = ["jpeg", "png"] }
 eframe = "0.29"
+dirs = "6.0.0"
 
 constants = { path = "../constants" }
