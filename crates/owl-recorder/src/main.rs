@@ -36,10 +36,8 @@ use egui::{Align2, Color32, RichText, Rounding, Stroke, Vec2};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
-use std::any::TypeId;
-use std::process::Command;
 use std::sync::{Arc, Mutex, RwLock};
-use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tray_icon::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
@@ -95,6 +93,7 @@ macro_rules! load_icon_from_bytes {
     }};
 }
 
+#[derive(Clone, Copy, PartialEq)]
 enum RecordingStatus {
     Stopped,
     Recording,
@@ -142,10 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // launch overlay on seperate thread so non-blocking
     let cloned_state = recording_state.clone();
     thread::spawn(move || {
-        egui_overlay::start(OverlayApp {
-            frame: 0,
-            recording_state: cloned_state,
-        });
+        egui_overlay::start(OverlayApp::new(cloned_state));
     });
 
     // launch recorder on seperate thread so non-blocking
@@ -210,12 +206,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }));
 
-            Ok(Box::new(MainApp {
-                recording_state: cloned_state,
-                frame: 0,
-                cached_progress: 0.,
-                configs: ConfigManager::new()?,
-            }))
+            Ok(Box::new(MainApp::new(cloned_state).unwrap()))
         }),
     );
 
@@ -225,6 +216,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub struct OverlayApp {
     frame: u64,
     recording_state: RecordingState,
+    rec_status: RecordingStatus, // tracks when a change occurs to call for context_repaint
+}
+impl OverlayApp {
+    fn new(recording_state: RecordingState) -> Self {
+        let rec_status = *recording_state.state.read().unwrap();
+        Self {
+            frame: 0,
+            recording_state,
+            rec_status,
+        }
+    }
 }
 impl EguiOverlay for OverlayApp {
     fn gui_run(
@@ -262,6 +264,12 @@ impl EguiOverlay for OverlayApp {
             outer_margin: egui::Margin::ZERO,                 // No outer margin
         };
 
+        // only repaint the window when recording state changes, saves more cpu
+        let curr_state = *self.recording_state.state.read().unwrap();
+        if curr_state != self.rec_status {
+            self.rec_status = curr_state;
+            egui_context.request_repaint();
+        }
         egui::Window::new("recording overlay")
             .title_bar(false) // No title bar
             .resizable(false) // Non-resizable
@@ -279,7 +287,7 @@ impl EguiOverlay for OverlayApp {
                             .tint(Color32::from_white_alpha(overlay_opacity)),
                     );
                     ui.label(
-                        RichText::new(self.recording_state.state.read().unwrap().display_text())
+                        RichText::new(self.rec_status.display_text())
                             .size(12.0)
                             .color(Color32::from_white_alpha(overlay_opacity)),
                     );
@@ -293,19 +301,24 @@ impl EguiOverlay for OverlayApp {
         glfw_backend.window.set_pos(0, 0);
         // always allow input to passthrough
         glfw_backend.set_passthrough(true);
-
-        egui_context.request_repaint();
-        // update delay, not like it needs to be super responsive
-        // and it also reduces cpu usage by a ton
-        thread::sleep(Duration::from_millis(100));
     }
 }
 
 pub struct MainApp {
     recording_state: RecordingState,
     frame: u64,
-    cached_progress: f32, // from 0-1
-    configs: ConfigManager,
+    cached_progress: f32,   // from 0-1
+    configs: ConfigManager, // this is the cache that is actually saved to file
+}
+impl MainApp {
+    fn new(recording_state: RecordingState) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(Self {
+            recording_state,
+            frame: 0,
+            cached_progress: 0.0,
+            configs: ConfigManager::new()?,
+        })
+    }
 }
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
@@ -318,8 +331,9 @@ impl eframe::App for MainApp {
             if let Ok(progress) = self.recording_state.boostrap_progress.try_read() {
                 self.cached_progress = *progress;
             }
-            if self.cached_progress < 1.0 {
+            if self.cached_progress <= 1.0 {
                 ui.add(egui::ProgressBar::new(self.cached_progress).text("Loading OBS..."));
+                ctx.request_repaint();
             };
             ui.add_space(10.0);
 
@@ -428,9 +442,7 @@ impl eframe::App for MainApp {
                 ui.horizontal(|ui| {
                     if ui.button("Save Settings").clicked() {
                         // Handle save settings
-                    }
-                    if ui.button("Reset All").clicked() {
-                        // Handle reset all settings
+                        let _ = self.configs.save_config();
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
@@ -492,6 +504,10 @@ async fn _main(recording_state: RecordingState) -> Result<()> {
             }
         }
     };
+
+    // give it a moment for the user to see that loading has actually completed
+    std::thread::sleep(Duration::from_millis(300));
+    *recording_state.boostrap_progress.write().unwrap() = 1.337;
 
     tracing::info!("recorder initialized");
     let mut input_rx = listen_for_raw_inputs();

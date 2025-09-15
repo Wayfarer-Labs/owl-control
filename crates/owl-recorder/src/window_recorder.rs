@@ -189,7 +189,7 @@ pub async fn bootstrap_obs(progress_handle: Arc<RwLock<f32>>) -> Result<()> {
         }
         pub fn done(&self) {
             let elapsed = self.start_time.elapsed();
-            *self.progress_handle.write().unwrap() = 100.0;
+            *self.progress_handle.write().unwrap() = 1.0;
             tracing::info!("OBS bootstrap completed in {:.2}s", elapsed.as_secs_f32());
         }
     }
