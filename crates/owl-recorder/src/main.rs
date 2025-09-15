@@ -8,6 +8,7 @@ mod keycode;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;
+mod upload_manager;
 mod window_recorder;
 
 use std::{
@@ -32,6 +33,7 @@ use crate::{
     keycode::lookup_keycode,
     raw_input_debouncer::EventDebouncer,
     recorder::Recorder,
+    upload_manager::{is_upload_bridge_running_async, start_upload_bridge_async},
 };
 
 use eframe::egui;
@@ -55,7 +57,7 @@ struct Args {
     // I suspect that the libobs bootstrapper ObsContext::spawn_updater() which restarts the app after is bugged and doesn't accept args correctly.
     // If run with a specified default value it doesn't call the relative path correctly on the restart, leading to the restarted app crashing immediately.
     // But if you just run as is "cargo run" without params it will restart properly.
-    #[arg(long, default_value = "../data_dump/games")]
+    #[arg(long, default_value = "./data_dump/games")]
     recording_location: PathBuf,
 
     #[arg(long, default_value = "F4")]
@@ -128,7 +130,8 @@ impl RecordingState {
 }
 static VISIBLE: Mutex<bool> = Mutex::new(true);
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     color_eyre::install()?;
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
@@ -455,7 +458,15 @@ impl eframe::App for MainApp {
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        ui.label("Under Construction");
+                        if ui.button("Upload Recordings").clicked() {
+                            // Handle upload
+                            if !is_upload_bridge_running_async() {
+                                let api_key = self.local_credentials.api_key.clone();
+                                tokio::spawn(async move {
+                                    start_upload_bridge_async(&api_key).await;
+                                });
+                            }
+                        }
                     });
                 });
 
