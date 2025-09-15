@@ -10,8 +10,8 @@ pub struct Preferences {
     pub start_recording_key: String,
     #[serde(rename = "stopRecordingKey", default = "default_stop_key")]
     pub stop_recording_key: String,
-    #[serde(rename = "apiToken", default)]
-    pub api_token: String,
+    #[serde(rename = "overlayOpacity", default = "default_opacity")]
+    pub overlay_opacity: u8,
     #[serde(rename = "deleteUploadedFiles", default)]
     pub delete_uploaded_files: bool,
 }
@@ -21,7 +21,7 @@ impl Default for Preferences {
         Self {
             start_recording_key: "F4".to_string(),
             stop_recording_key: "F5".to_string(),
-            api_token: String::new(),
+            overlay_opacity: 85,
             delete_uploaded_files: false,
         }
     }
@@ -30,9 +30,11 @@ impl Default for Preferences {
 fn default_start_key() -> String {
     "F4".to_string()
 }
-
 fn default_stop_key() -> String {
     "F5".to_string()
+}
+fn default_opacity() -> u8 {
+    85
 }
 
 // For some reason, previous electron configs saved hasConsented as a string instead of a boolean? So now we need a custom deserializer
@@ -148,6 +150,7 @@ impl ConfigManager {
     }
 
     pub fn save_config(&self) -> Result<()> {
+        tracing::info!("Saving configs to {}", self.config_path.to_string_lossy());
         let contents = serde_json::to_string_pretty(&self)?;
         fs::write(&self.config_path, contents)?;
         Ok(())
@@ -171,10 +174,6 @@ impl ConfigManager {
         &self.preferences.stop_recording_key
     }
 
-    pub fn get_api_token(&self) -> &str {
-        &self.preferences.api_token
-    }
-
     pub fn get_delete_uploaded_files(&self) -> bool {
         self.preferences.delete_uploaded_files
     }
@@ -195,10 +194,6 @@ impl ConfigManager {
 
     pub fn set_stop_recording_key(&mut self, key: String) {
         self.preferences.stop_recording_key = key;
-    }
-
-    pub fn set_api_token(&mut self, token: String) {
-        self.preferences.api_token = token;
     }
 
     pub fn set_delete_uploaded_files(&mut self, delete: bool) {

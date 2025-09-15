@@ -27,8 +27,11 @@ use tokio::{
 };
 
 use crate::{
-    config_manager::ConfigManager, idle::IdlenessTracker, keycode::lookup_keycode,
-    raw_input_debouncer::EventDebouncer, recorder::Recorder,
+    config_manager::{ConfigManager, Credentials, Preferences},
+    idle::IdlenessTracker,
+    keycode::lookup_keycode,
+    raw_input_debouncer::EventDebouncer,
+    recorder::Recorder,
 };
 
 use eframe::egui;
@@ -64,12 +67,6 @@ struct Args {
 
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
-
-// TODO: tray icon integration. rn it's a bit jank because it's counted as two instances of the the application, one for the overlay, and one for the main menu
-// but the main issue is that the tray icon library when minimized actually has disgustingly high cpu usage for some reason? so putting that on hold while we work on
-// main overlay first.
-// TODOs:
-// Actually design the main app UI and link up all the buttons and stuff to look BETTER than the normal owl-recorder
 
 // lots of repeated code to just load bytes, especially tray_icon needs different type, so use a macro here
 macro_rules! load_icon_from_bytes {
@@ -216,14 +213,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub struct OverlayApp {
     frame: u64,
     recording_state: RecordingState,
-    rec_status: RecordingStatus, // tracks when a change occurs to call for context_repaint
+    overlay_opacity: u8,         // local opacity tracker
+    rec_status: RecordingStatus, // local rec status
 }
 impl OverlayApp {
     fn new(recording_state: RecordingState) -> Self {
+        let overlay_opacity = *recording_state.opacity.read().unwrap();
         let rec_status = *recording_state.state.read().unwrap();
         Self {
             frame: 0,
             recording_state,
+            overlay_opacity,
             rec_status,
         }
     }
@@ -240,7 +240,13 @@ impl EguiOverlay for OverlayApp {
         if self.frame == 0 {
             // install image loaders
             egui_extras::install_image_loaders(egui_context);
-
+            // don't show transparent window outline
+            glfw_backend.window.set_decorated(false);
+            glfw_backend.set_window_size([200.0, 50.0]);
+            // anchor top left always
+            glfw_backend.window.set_pos(0, 0);
+            // always allow input to passthrough
+            glfw_backend.set_passthrough(true);
             // hide glfw overlay icon from taskbar and alt+tab
             let hwnd = glfw_backend.window.get_win32_window() as isize;
             if hwnd != 0 {
@@ -252,16 +258,21 @@ impl EguiOverlay for OverlayApp {
                     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
                 }
             }
+            egui_context.request_repaint();
         }
 
-        let overlay_opacity = *self.recording_state.opacity.read().unwrap();
+        let curr_opacity = *self.recording_state.opacity.read().unwrap();
+        if curr_opacity != self.overlay_opacity {
+            self.overlay_opacity = curr_opacity;
+            egui_context.request_repaint();
+        }
         let frame = egui::containers::Frame {
-            fill: Color32::from_black_alpha(overlay_opacity), // Transparent background
-            stroke: Stroke::NONE,                             // No border
-            rounding: Rounding::ZERO,                         // No rounded corners
-            shadow: Default::default(),                       // Default shadow settings
-            inner_margin: egui::Margin::same(8.0),            // Inner padding
-            outer_margin: egui::Margin::ZERO,                 // No outer margin
+            fill: Color32::from_black_alpha(self.overlay_opacity), // Transparent background
+            stroke: Stroke::NONE,                                  // No border
+            rounding: Rounding::ZERO,                              // No rounded corners
+            shadow: Default::default(),                            // Default shadow settings
+            inner_margin: egui::Margin::same(8.0),                 // Inner padding
+            outer_margin: egui::Margin::ZERO,                      // No outer margin
         };
 
         // only repaint the window when recording state changes, saves more cpu
@@ -284,39 +295,42 @@ impl EguiOverlay for OverlayApp {
                     ui.add(
                         egui::Image::new(egui::include_image!("../assets/owl.png"))
                             .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
-                            .tint(Color32::from_white_alpha(overlay_opacity)),
+                            .tint(Color32::from_white_alpha(self.overlay_opacity)),
                     );
                     ui.label(
                         RichText::new(self.rec_status.display_text())
                             .size(12.0)
-                            .color(Color32::from_white_alpha(overlay_opacity)),
+                            .color(Color32::from_white_alpha(self.overlay_opacity)),
                     );
                 });
             });
-
-        // don't show transparent window outline
-        glfw_backend.window.set_decorated(false);
-        glfw_backend.set_window_size([200.0, 50.0]);
-        // anchor top left always
-        glfw_backend.window.set_pos(0, 0);
-        // always allow input to passthrough
-        glfw_backend.set_passthrough(true);
     }
 }
 
 pub struct MainApp {
     recording_state: RecordingState,
     frame: u64,
-    cached_progress: f32,   // from 0-1
-    configs: ConfigManager, // this is the cache that is actually saved to file
+    cached_progress: f32,           // from 0-1
+    configs: ConfigManager,         // this is the cache that is actually saved to file
+    local_credentials: Credentials, // local copy of the settings that is used to track
+    local_preferences: Preferences, // user inputs before being saved to the ConfigManager
 }
 impl MainApp {
     fn new(recording_state: RecordingState) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
-            recording_state,
-            frame: 0,
-            cached_progress: 0.0,
-            configs: ConfigManager::new()?,
+        Ok({
+            let cm = ConfigManager::new()?;
+            let local_credentials = cm.credentials.clone();
+            let local_preferences = cm.preferences.clone();
+            // write the cached overlay opacity
+            *recording_state.opacity.write().unwrap() = local_preferences.overlay_opacity;
+            Self {
+                recording_state,
+                frame: 0,
+                cached_progress: 0.0,
+                configs: cm,
+                local_credentials: local_credentials,
+                local_preferences: local_preferences,
+            }
         })
     }
 }
@@ -346,7 +360,10 @@ impl eframe::App for MainApp {
 
                     ui.horizontal(|ui| {
                         ui.label("API Token:");
-                        ui.text_edit_singleline(&mut self.configs.get_api_key());
+                        ui.add_sized(
+                            [400.0, 15.0],
+                            egui::TextEdit::singleline(&mut self.local_credentials.api_key),
+                        );
                     });
 
                     ui.add_space(5.0);
@@ -369,7 +386,7 @@ impl eframe::App for MainApp {
                     ui.horizontal(|ui| {
                         ui.label("Default Quality:");
                         ui.checkbox(
-                            &mut self.configs.get_delete_uploaded_files(),
+                            &mut self.local_preferences.delete_uploaded_files,
                             "Delete local files after successful upload",
                         )
                     });
@@ -386,20 +403,27 @@ impl eframe::App for MainApp {
                     ui.separator();
                     ui.add_space(10.0);
 
+                    // TODO: eventually implement a better keyboard shortcut system
                     ui.horizontal(|ui| {
                         ui.label("Start Recording:");
-                        ui.code(self.configs.get_start_recording_key());
-                        if ui.small_button("Change").clicked() {
-                            // Handle shortcut change
-                        }
+                        // ui.code(&mut self.local_preferences.start_recording_key);
+                        ui.add_sized(
+                            [60.0, 15.0],
+                            egui::TextEdit::singleline(
+                                &mut self.local_preferences.start_recording_key,
+                            ),
+                        );
                     });
 
                     ui.horizontal(|ui| {
                         ui.label("Stop Recording:");
-                        ui.code(self.configs.get_stop_recording_key());
-                        if ui.small_button("Change").clicked() {
-                            // Handle shortcut change
-                        }
+                        // ui.code(&mut self.local_preferences.stop_recording_key);
+                        ui.add_sized(
+                            [60.0, 15.0],
+                            egui::TextEdit::singleline(
+                                &mut self.local_preferences.stop_recording_key,
+                            ),
+                        );
                     });
                 });
                 ui.add_space(15.0);
@@ -417,6 +441,7 @@ impl eframe::App for MainApp {
                     ui.horizontal(|ui| {
                         ui.label("Opacity:");
                         let mut opacity_guard = self.recording_state.opacity.write().unwrap();
+                        self.local_preferences.overlay_opacity = *opacity_guard;
                         ui.add(egui::Slider::new(&mut *opacity_guard, 1..=255));
                     });
                 });
@@ -442,6 +467,8 @@ impl eframe::App for MainApp {
                 ui.horizontal(|ui| {
                     if ui.button("Save Settings").clicked() {
                         // Handle save settings
+                        self.configs.credentials = self.local_credentials.clone();
+                        self.configs.preferences = self.local_preferences.clone();
                         let _ = self.configs.save_config();
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
