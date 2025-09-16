@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 
 use color_eyre::{Result, eyre::Context as _};
 use tauri_winrt_notification::Toast;
@@ -23,9 +24,9 @@ impl<D> Recorder<D>
 where
     D: FnMut() -> PathBuf,
 {
-    pub(crate) async fn new(recording_dir: D) -> Result<Self> {
+    pub(crate) async fn new(recording_dir: D, progress_handle: Arc<RwLock<f32>>) -> Result<Self> {
         // Ensure that the OBS bootstrapper runs
-        bootstrap_obs().await?;
+        bootstrap_obs(progress_handle).await?;
 
         Ok(Self {
             recording_dir,

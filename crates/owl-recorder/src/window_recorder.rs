@@ -4,7 +4,7 @@ use color_eyre::{
     Result,
     eyre::{Context, OptionExt as _, eyre},
 };
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use windows::{
     Win32::{
         Foundation::POINT,
@@ -171,58 +171,57 @@ static OBS_STATE: OnceLock<Mutex<ObsState>> = OnceLock::new();
 fn get_obs_state() -> MutexGuard<'static, ObsState> {
     OBS_STATE.get().unwrap().lock().unwrap()
 }
-pub async fn bootstrap_obs() -> Result<()> {
+pub async fn bootstrap_obs(progress_handle: Arc<RwLock<f32>>) -> Result<()> {
     // Logging-based handler using tracing
     #[derive(Debug, Clone)]
     struct LoggingBootstrapHandler {
         start_time: Instant,
+        progress_handle: Arc<RwLock<f32>>,
     }
     impl LoggingBootstrapHandler {
-        pub fn new() -> Self {
+        pub fn new(progress_handle: Arc<RwLock<f32>>) -> Self {
             tracing::info!("Starting OBS bootstrap process");
+            *progress_handle.write().unwrap() = 0.0;
             Self {
                 start_time: Instant::now(),
+                progress_handle: progress_handle,
             }
         }
         pub fn done(&self) {
             let elapsed = self.start_time.elapsed();
+            *self.progress_handle.write().unwrap() = 1.0;
             tracing::info!("OBS bootstrap completed in {:.2}s", elapsed.as_secs_f32());
         }
     }
     #[async_trait::async_trait]
     impl ObsBootstrapStatusHandler for LoggingBootstrapHandler {
         async fn handle_downloading(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
-            tracing::info!("Downloading: {:.1}% - {}", prog * 100.0, msg);
             // Log major milestones
-            let percent = (prog * 100.0) as i32;
-            if percent % 25 == 0 && percent > 0 {
-                tracing::info!("Download progress: {}%", percent);
+            if prog % 0.05 <= 0.01 && prog > 0. {
+                *self.progress_handle.write().unwrap() = prog / 2.0;
+                tracing::info!("Downloading: {:.1}% - {}", prog * 100.0, msg);
             }
             Ok(())
         }
 
         async fn handle_extraction(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
-            tracing::info!("Extracting: {:.1}% - {}", prog * 100.0, msg);
             // Log major milestones
-            let percent = (prog * 100.0) as i32;
-            if percent % 25 == 0 && percent > 0 {
-                tracing::info!("Extraction progress: {}%", percent);
+            if prog % 0.05 <= 0.01 && prog > 0. {
+                *self.progress_handle.write().unwrap() = prog / 2.0 + 0.5;
+                tracing::info!("Extracting: {:.1}% - {}", prog * 100.0, msg);
             }
             Ok(())
         }
     }
 
     // Create a progress handler
-    let handler = LoggingBootstrapHandler::new();
+    let handler = LoggingBootstrapHandler::new(progress_handle);
 
     // Initialize OBS with bootstrapper
     let (base_width, base_height) =
         get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")?;
     let context = ObsContext::builder()
-        .enable_bootstrapper(
-            handler.clone(),
-            ObsBootstrapperOptions::default().set_no_restart(),
-        )
+        .enable_bootstrapper(handler.clone(), ObsBootstrapperOptions::default())
         .set_video_info(
             ObsVideoInfoBuilder::new()
                 .fps_num(FPS)

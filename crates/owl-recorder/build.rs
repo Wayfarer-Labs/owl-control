@@ -10,6 +10,7 @@ fn main() {
         .nth(3) // Go up from OUT_DIR to target/{profile}/
         .unwrap();
 
+    println!("cargo:rerun-if-changed={:?}", target_dir.to_str());
     // Mainly for packaging the obs dummy dll for bootstrapper
     let dll_paths = vec!["libs/obs.dll"];
 
