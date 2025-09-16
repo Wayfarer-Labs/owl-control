@@ -21,11 +21,8 @@ use clap::Parser;
 use color_eyre::{Result, eyre::eyre};
 
 use game_process::does_process_exist;
-use raw_input::{PressState, RawInput};
-use tokio::{
-    sync::{mpsc, oneshot},
-    time::MissedTickBehavior,
-};
+use input_capture::InputCapture;
+use tokio::{sync::oneshot, time::MissedTickBehavior};
 
 use crate::{
     config_manager::{ConfigManager, Credentials, Preferences},
@@ -548,7 +545,7 @@ async fn _main(recording_state: RecordingState) -> Result<()> {
     *recording_state.boostrap_progress.write().unwrap() = 1.337;
 
     tracing::info!("recorder initialized");
-    let mut input_rx = listen_for_raw_inputs();
+    let (_input_capture, mut input_rx) = InputCapture::new()?;
 
     let mut stop_rx = wait_for_ctrl_c();
 
@@ -558,6 +555,8 @@ async fn _main(recording_state: RecordingState) -> Result<()> {
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
+    let mut debouncer = EventDebouncer::new();
+
     loop {
         tokio::select! {
             r = &mut stop_rx => {
@@ -566,9 +565,13 @@ async fn _main(recording_state: RecordingState) -> Result<()> {
             },
             e = input_rx.recv() => {
                 let e = e.expect("raw input reader was closed early");
+                if !debouncer.debounce(e) {
+                    continue;
+                }
+
                 recorder.seen_input(e).await?;
                 let mut state_writer = recording_state.state.write().unwrap();
-                if let Some(key) = keycode_from_event(&e) {
+                if let Some(key) = e.key_press_keycode() {
                     if key == start_key {
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
@@ -615,39 +618,6 @@ async fn _main(recording_state: RecordingState) -> Result<()> {
     recorder.stop().await?;
 
     Ok(())
-}
-
-fn keycode_from_event(event: &raw_input::Event) -> Option<u16> {
-    if let raw_input::Event::KeyPress {
-        key,
-        press_state: PressState::Pressed,
-    } = event
-    {
-        Some(*key)
-    } else {
-        None
-    }
-}
-
-fn listen_for_raw_inputs() -> mpsc::Receiver<raw_input::Event> {
-    let (input_tx, input_rx) = mpsc::channel(1);
-
-    std::thread::spawn(move || {
-        let mut raw_input = Some(RawInput::initialize().expect("raw input failed to initialize"));
-        let mut debouncer = EventDebouncer::new();
-
-        RawInput::run_queue(|event| {
-            if !debouncer.debounce(event) {
-                return;
-            }
-            if input_tx.blocking_send(event).is_err() {
-                tracing::debug!("Input channel closed, stopping raw input listener");
-                raw_input.take();
-            }
-        })
-        .expect("failed to run windows message queue");
-    });
-    input_rx
 }
 
 fn wait_for_ctrl_c() -> oneshot::Receiver<()> {

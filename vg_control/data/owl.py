@@ -1,12 +1,8 @@
 from dotenv import load_dotenv
+
 import os
-
-load_dotenv()
-
 import tarfile
-import shutil
 import json
-from datetime import datetime
 
 from ..constants import (
     ROOT_DIR,
@@ -19,16 +15,19 @@ from ..constants import (
 
 from .input_utils.buttons import get_button_stats
 from .input_utils.mouse import get_mouse_stats
+from .input_utils.gamepad import get_gamepad_stats
 from .uploader import upload_archive
+
+load_dotenv()
 
 # Directory structure might be nested, but the root dirs will always have a .mp4 and .csv
 
 
-def filter_invalid_sample(vid_path, csv_path, meta_path) -> list[str]:
+def validate_video_metadata(vid_path, meta_path) -> list[str]:
     """
-    Detect invalid videos.
+    Validate basic video metadata (duration, file size).
 
-    Return value is a list of reasons for invalidity. If empty, the sample is valid.
+    Return value is a list of reasons for invalidity. If empty, the metadata is valid.
     """
     with open(meta_path) as f:
         metadata = json.load(f)
@@ -54,13 +53,25 @@ def filter_invalid_sample(vid_path, csv_path, meta_path) -> list[str]:
             f"Video size {vid_size:.2f} Mb too small compared to expected {expected_bits:.2f} Mb"
         )
 
-    btn_stats = get_button_stats(csv_path)
-    mouse_stats = get_mouse_stats(csv_path)
+    return invalid_reasons
 
-    # Filter out samples with too little activity
+
+def validate_keyboard_inputs(csv_path) -> tuple[list[str], dict]:
+    """
+    Validate keyboard inputs.
+
+    Returns:
+        - List of reasons for invalidity (empty if valid)
+        - Dictionary of keyboard statistics
+    """
+    invalid_reasons = []
+
+    btn_stats = get_button_stats(csv_path)
+
+    # Filter out samples with too little keyboard activity
     if (
         btn_stats["wasd_apm"] < 10
-    ):  # Less than 20 actions per minute is likely AFK/inactive
+    ):  # Less than 10 actions per minute is likely AFK/inactive
         invalid_reasons.append(
             f"WASD actions per minute too low: {btn_stats['wasd_apm']:.1f}"
         )
@@ -69,6 +80,29 @@ def filter_invalid_sample(vid_path, csv_path, meta_path) -> list[str]:
         invalid_reasons.append(
             f"Too few keyboard events: {btn_stats['total_keyboard_events']}"
         )
+
+    # Keyboard stats
+    keyboard_stats = {
+        "wasd_apm": btn_stats["wasd_apm"],
+        "unique_keys": btn_stats["unique_keys"],
+        "button_diversity": btn_stats["button_diversity"],
+        "total_keyboard_events": btn_stats["total_keyboard_events"],
+    }
+
+    return invalid_reasons, keyboard_stats
+
+
+def validate_mouse_inputs(csv_path) -> tuple[list[str], dict]:
+    """
+    Validate mouse inputs.
+
+    Returns:
+        - List of reasons for invalidity (empty if valid)
+        - Dictionary of mouse statistics
+    """
+    invalid_reasons = []
+
+    mouse_stats = get_mouse_stats(csv_path)
 
     # Filter out samples with abnormal mouse behavior
     if mouse_stats["overall_max"] < 0.05:  # Very little mouse movement
@@ -81,19 +115,106 @@ def filter_invalid_sample(vid_path, csv_path, meta_path) -> list[str]:
             f"Mouse movement too large: {mouse_stats['overall_max']:.1f}"
         )
 
+    # Mouse stats
+    mouse_input_stats = {
+        "mouse_movement_std": mouse_stats["overall_std"],
+        "mouse_x_std": mouse_stats["x_std"],
+        "mouse_y_std": mouse_stats["y_std"],
+        "mouse_max_movement": mouse_stats["overall_max"],
+        "mouse_max_x": mouse_stats["max_x"],
+        "mouse_max_y": mouse_stats["max_y"],
+    }
+
+    return invalid_reasons, mouse_input_stats
+
+
+def validate_gamepad_inputs(csv_path) -> tuple[list[str], dict]:
+    """
+    Validate gamepad inputs.
+
+    Returns:
+        - List of reasons for invalidity (empty if valid)
+        - Dictionary of gamepad statistics
+    """
+    invalid_reasons = []
+
+    gamepad_stats = get_gamepad_stats(csv_path)
+
+    # Filter out samples with too little gamepad activity
+    if gamepad_stats["total_gamepad_events"] < 20:  # Too few gamepad events overall
+        invalid_reasons.append(
+            f"Too few gamepad events: {gamepad_stats['total_gamepad_events']}"
+        )
+
+    if gamepad_stats["button_apm"] < 5:  # Less than 5 button presses per minute
+        invalid_reasons.append(
+            f"Gamepad button actions per minute too low: {gamepad_stats['button_apm']:.1f}"
+        )
+
+    # Filter out samples with abnormal axis behavior
+    if gamepad_stats["axis_activity"] < 0.01:  # Very little axis movement
+        invalid_reasons.append(
+            f"Gamepad axis activity too low: {gamepad_stats['axis_activity']:.3f}"
+        )
+
+    if gamepad_stats["max_axis_movement"] > 2.0:  # Unreasonably large axis movements
+        invalid_reasons.append(
+            f"Gamepad axis movement too large: {gamepad_stats['max_axis_movement']:.3f}"
+        )
+
+    # Add gamepad-specific stats
+    gamepad_input_stats = {
+        "gamepad_button_apm": gamepad_stats["button_apm"],
+        "gamepad_unique_buttons": gamepad_stats["unique_buttons"],
+        "gamepad_button_diversity": gamepad_stats["button_diversity"],
+        "gamepad_total_events": gamepad_stats["total_gamepad_events"],
+        "gamepad_axis_activity": gamepad_stats["axis_activity"],
+        "gamepad_max_axis_movement": gamepad_stats["max_axis_movement"],
+    }
+
+    return invalid_reasons, gamepad_input_stats
+
+
+def filter_invalid_sample(vid_path, csv_path, meta_path) -> list[str]:
+    """
+    Detect invalid videos.
+
+    Return value is a list of reasons for invalidity. If empty, the sample is valid.
+    """
+    invalid_reasons = []
+
+    # First validate basic video metadata
+    metadata_reasons = validate_video_metadata(vid_path, meta_path)
+    invalid_reasons.extend(metadata_reasons)
+
+    # Validate keyboard inputs
+    keyboard_reasons, keyboard_stats = validate_keyboard_inputs(csv_path)
+
+    # Validate mouse inputs
+    mouse_reasons, mouse_stats = validate_mouse_inputs(csv_path)
+
+    # Validate gamepad inputs
+    gamepad_reasons, gamepad_stats = validate_gamepad_inputs(csv_path)
+
+    # Only invalidate if all three input types are invalid
+    if (
+        len(keyboard_reasons) > 0
+        and len(mouse_reasons) > 0
+        and len(gamepad_reasons) > 0
+    ):
+        invalid_reasons.extend(keyboard_reasons)
+        invalid_reasons.extend(mouse_reasons)
+        invalid_reasons.extend(gamepad_reasons)
+
     # Add stats to metadata
+    with open(meta_path) as f:
+        metadata = json.load(f)
+
     extra_metadata = {
         "input_stats": {
-            "wasd_apm": btn_stats["wasd_apm"],
-            "unique_keys": btn_stats["unique_keys"],
-            "button_diversity": btn_stats["button_diversity"],
-            "total_keyboard_events": btn_stats["total_keyboard_events"],
-            "mouse_movement_std": mouse_stats["overall_std"],
-            "mouse_x_std": mouse_stats["x_std"],
-            "mouse_y_std": mouse_stats["y_std"],
-            "mouse_max_movement": mouse_stats["overall_max"],
-            "mouse_max_x": mouse_stats["max_x"],
-            "mouse_max_y": mouse_stats["max_y"],
+            **keyboard_stats,
+            **mouse_stats,
+            **gamepad_stats,
         }
     }
 

@@ -4,6 +4,20 @@ We want data from these games first and foremost. Other first- and third-person 
 
 `FP` below refers to "first person". We are primarily looking for first-person data.
 
+# Preferred Games
+
+You may have heard that we are offering to buy games for people so long as they commit to getting us a significant amount of data from that game.
+
+The caveat with this is that we are choosing which games to buy to control the data mixture. We will only buy _preferred games_. While you can use the list below as reference, this refers to games that are:
+
+- First Person
+- High Quality/Detail (Need not be AAA/new, i.e. Crysis 3)
+- Action Packed (Doesn't need to be fighting, just lots of events happening beyond moving/looking around)
+
+If you would like a game that fits these criteria and are willing to collect data for it, let us know and we can get you a key!
+
+Note that not all games in the below list necessarily meet the above criteria, and that failing to meet this criteria does not make a game "bad data".
+
 # Wanted games
 
 ### Top Priority Games
@@ -31,7 +45,6 @@ We want data from these games first and foremost. Other first- and third-person 
 - The Elder Scrolls V: Skyrim — Mixed (use FP)
 - Fallout 4 — Mixed (use FP)
 - Fallout: New Vegas — Mixed (use FP)
-- Fortnite: Ballistic Mode
 - Cyberpunk 2077 — FP
 - Red Dead Redemption 2 — Mixed (use FP mode)
 - Grand Theft Auto V — Mixed (use FP mode)
@@ -102,6 +115,7 @@ Please do not submit data for these games.
 - Valorant
 - Counter-Strike: Source
 - Counter-Strike 2
+- Fortnite
 
 ## Unsupported games
 

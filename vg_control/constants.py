@@ -11,11 +11,8 @@ RECORDING_HEIGHT = 360  # Video recording height
 
 # API endpoints
 API_BASE_URL = "https://api.openworldlabs.ai"
-UPLOAD_ENDPOINT = "/v1/upload"
 
 # File formats
-DATA_FILE_FORMAT = "vgc"  # OWL Control data format
 ROOT_DIR = (
     "./data_dump/games/"  # User should be able to set this, but we will need to use it
 )
-POLLS_PER_FRAME = 20  # Hard coded

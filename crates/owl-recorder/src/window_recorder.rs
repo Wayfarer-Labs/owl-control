@@ -4,6 +4,7 @@ use color_eyre::{
     Result,
     eyre::{Context, OptionExt as _, eyre},
 };
+use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use windows::{
     Win32::{
@@ -34,12 +35,6 @@ pub struct WindowRecorder {
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 
-// Keep in sync with vg_control/constants.py (for now!)
-const FPS: u32 = 60;
-
-// Video recording settings
-const RECORDING_WIDTH: u32 = 640;
-const RECORDING_HEIGHT: u32 = 360;
 const VIDEO_BITRATE: u32 = 2500;
 
 impl WindowRecorder {

@@ -4,7 +4,7 @@ version = "0.8.0"
 edition = "2024"
 
 [dependencies]
-raw-input.workspace = true
+input-capture.workspace = true
 game-process.workspace = true
 clap.workspace = true
 tracing.workspace = true
@@ -20,16 +20,19 @@ sysinfo.workspace = true
 libobs-wrapper.workspace = true
 libobs-sources.workspace = true
 libobs-window-helper.workspace = true
-anyhow = "1.0" # Used just by the bootstrapper
+anyhow = "1.0"                            # Used just by the bootstrapper
 async-trait.workspace = true
 windows.workspace = true
 
 tray-icon = "0.14.3"
 winit = "0.29.15"
-egui_overlay = { version = "0.9.0", features = ["egui_default", "glfw_default"] }
+egui_overlay = { version = "0.9.0", features = [
+    "egui_default",
+    "glfw_default",
+] }
 egui_window_glfw_passthrough = "0.9.0"
 egui_render_three_d = "0.9.0"
-egui = "0.29"   # higher versions break egui_overlay
+egui = "0.29" # higher versions break egui_overlay
 egui_extras = { version = "0.29", features = ["all_loaders"] }
 image = { version = "0.25", features = ["jpeg", "png"] }
 eframe = "0.29"

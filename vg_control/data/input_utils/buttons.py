@@ -3,12 +3,10 @@ Button presses
 """
 
 import json
-import os
 import numpy as np
 import pandas as pd
 
-from ...input_tracking.keybinds import CODE_TO_KEY
-from ...constants import FPS
+from .keybinds import CODE_TO_KEY
 
 
 def get_ascii(keycode_int):
@@ -67,28 +65,35 @@ def get_button_stats(csv_path):
         drop=True
     )
 
-    # Extract keycodes and press states
-    keyboard_data["keycode"] = keyboard_data["event_args"].apply(
-        lambda x: json.loads(x)[0]
-    )
-    keyboard_data["is_pressed"] = keyboard_data["event_args"].apply(
-        lambda x: json.loads(x)[1]
-    )
+    wasd_apm = 0.0
+    unique_keys = 0
+    diversity = 0.0
 
-    # Calculate stats
-    wasd_presses = keyboard_data[
-        (keyboard_data["keycode"].isin(wasd_codes)) & (keyboard_data["is_pressed"])
-    ].shape[0]
-    wasd_apm = wasd_presses / duration_minutes
+    if not keyboard_data.empty:
+        # Extract keycodes and press states
+        keyboard_data["keycode"] = keyboard_data["event_args"].apply(
+            lambda x: json.loads(x)[0]
+        )
+        keyboard_data["is_pressed"] = keyboard_data["event_args"].apply(
+            lambda x: json.loads(x)[1]
+        )
 
-    unique_keys = keyboard_data[keyboard_data["is_pressed"]]["keycode"].nunique()
+        # Calculate stats
+        wasd_presses = keyboard_data[
+            (keyboard_data["keycode"].isin(wasd_codes)) & (keyboard_data["is_pressed"])
+        ].shape[0]
+        wasd_apm = wasd_presses / duration_minutes
 
-    # Calculate button diversity using normalized entropy
-    key_counts = keyboard_data[keyboard_data["is_pressed"]]["keycode"].value_counts()
-    probs = key_counts / key_counts.sum()
-    entropy = -(probs * np.log2(probs)).sum()
-    max_entropy = np.log2(len(key_counts))
-    diversity = entropy / max_entropy if max_entropy > 0 else 0
+        unique_keys = keyboard_data[keyboard_data["is_pressed"]]["keycode"].nunique()
+
+        # Calculate button diversity using normalized entropy
+        key_counts = keyboard_data[keyboard_data["is_pressed"]][
+            "keycode"
+        ].value_counts()
+        probs = key_counts / key_counts.sum()
+        entropy = -(probs * np.log2(probs)).sum()
+        max_entropy = np.log2(len(key_counts))
+        diversity = entropy / max_entropy if max_entropy > 0 else 0
 
     # Get total keyboard events
     total_keyboard_events = len(keyboard_data)

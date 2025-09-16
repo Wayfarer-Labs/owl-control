@@ -129,7 +129,7 @@ where
         Ok(())
     }
 
-    pub(crate) async fn seen_input(&mut self, e: raw_input::Event) -> Result<()> {
+    pub(crate) async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
         let Some(recording) = self.recording.as_mut() else {
             return Ok(());
         };

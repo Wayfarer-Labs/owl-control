@@ -54,7 +54,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       // When opened directly from system tray, load credentials directly from Electron
       try {
         const { ipcRenderer } = window.require("electron");
-        ipcRenderer.invoke("load-credentials").then((result) => {
+        ipcRenderer.invoke("load-credentials").then((result: any) => {
           if (result.success && result.data) {
             // Update auth service with the credentials
             const authService = AuthService.getInstance();
@@ -171,12 +171,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
   return (
     <div className="fixed inset-0 bg-[#0c0c0f] z-50 flex flex-col select-none overflow-hidden">
-      {/* Draggable header area */}
-      <div
-        className="h-8"
-        style={{ WebkitAppRegion: "drag", "-webkit-app-region": "drag" } as any}
-      ></div>
-
       <div className="flex flex-col p-6 h-full overflow-hidden">
         {/* Header */}
         <div className="mb-6">

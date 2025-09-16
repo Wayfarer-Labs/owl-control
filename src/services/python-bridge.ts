@@ -112,6 +112,14 @@ export class PythonBridge {
    */
   public async startRecordingBridge(): Promise<boolean> {
     try {
+      if (
+        !this.preferences.startRecordingKey ||
+        !this.preferences.stopRecordingKey
+      ) {
+        console.error("Start recording key or stop recording key not set");
+        return false;
+      }
+
       // Call Electron service to start Python recording bridge process
       return await ElectronService.startRecordingBridge(
         this.preferences.startRecordingKey,

@@ -28,36 +28,23 @@ use windows::{
     core::PCSTR,
 };
 
-pub struct RawInput {
+use crate::{Event, PressState};
+
+pub struct KbmCapture {
     hwnd: HWND,
     class_name: PCSTR,
     h_instance: HINSTANCE,
 }
-
-#[derive(Debug, Clone, Copy)]
-pub enum Event {
-    MouseMove([i32; 2]),
-    MousePress {
-        key: u16,
-        press_state: PressState,
-    },
-    /// Negative values indicate scrolling down, positive values indicate scrolling up.
-    MouseScroll {
-        scroll_amount: i16,
-    },
-    KeyPress {
-        key: u16,
-        press_state: PressState,
-    },
+impl Drop for KbmCapture {
+    fn drop(&mut self) {
+        unsafe {
+            DestroyWindow(self.hwnd).expect("failed to destroy window");
+            UnregisterClassA(self.class_name, Some(self.h_instance))
+                .expect("failed to unregister class");
+        }
+    }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PressState {
-    Pressed,
-    Released,
-}
-
-impl RawInput {
+impl KbmCapture {
     pub fn initialize() -> Result<Self> {
         unsafe {
             let class_name = PCSTR(c"RawInputWindowClass".to_bytes_with_nul().as_ptr());
@@ -274,33 +261,5 @@ fn parse_wm_input(lparam: LPARAM) -> Vec<Event> {
             }
             _ => vec![],
         }
-    }
-}
-
-impl Drop for RawInput {
-    fn drop(&mut self) {
-        unsafe {
-            DestroyWindow(self.hwnd).expect("failed to destroy window");
-            UnregisterClassA(self.class_name, Some(self.h_instance))
-                .expect("failed to unregister class");
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[ignore = "run manually"]
-    fn print_keypresses() -> Result<()> {
-        color_eyre::install()?;
-        tracing_subscriber::fmt::init();
-
-        let _raw_input = RawInput::initialize().expect("Failed to initialize raw input");
-        RawInput::run_queue(|event| {
-            tracing::info!(?event, "Received raw input event");
-        })
-        .wrap_err("failed to run message queue")
     }
 }

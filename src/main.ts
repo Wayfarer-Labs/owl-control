@@ -7,6 +7,8 @@ import {
   Menu,
   nativeImage,
   shell,
+  MenuItem,
+  MenuItemConstructorOptions,
 } from "electron";
 import * as path from "path";
 import * as fs from "fs";
@@ -126,6 +128,7 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 440,
     height: 380,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -133,22 +136,18 @@ function createMainWindow() {
     },
     frame: true,
     transparent: false,
-    resizable: false,
+    resizable: true,
     fullscreenable: false,
     minimizable: true,
-    maximizable: false,
+    maximizable: true,
     backgroundColor: "#0c0c0f",
     center: true,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    title: "OWL Control",
   });
 
   // Load index.html
   mainWindow.loadFile(path.join(__dirname, "index.html"));
-
-  // Open DevTools in development
-  if (process.env.NODE_ENV === "development") {
-    mainWindow.webContents.openDevTools();
-  }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -166,22 +165,23 @@ function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
     width: 800,
     height: 630,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       preload: path.join(__dirname, "preload.js"),
     },
     parent: mainWindow || undefined,
-    modal: false, // Allow independent movement
-    show: false, // Hide until ready to show
-    backgroundColor: "#0c0c0f", // Dark background color
-    resizable: false, // Prevent resizing
-    fullscreenable: false, // Prevent fullscreen
-    minimizable: true, // Allow minimize
-    maximizable: false, // Prevent maximize
-    frame: true, // Keep the frame for window controls
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default", // macOS style
-    title: "OWL Control Settings", // Window title
+    modal: false,
+    show: false,
+    backgroundColor: "#0c0c0f",
+    resizable: true,
+    fullscreenable: false,
+    minimizable: true,
+    maximizable: true,
+    frame: true,
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    title: "OWL Control",
   });
 
   // Directly load settings page with query parameters - single load
@@ -195,7 +195,7 @@ function createSettingsWindow() {
   // Set up DOM ready handler to apply CSS immediately
   settingsWindow.webContents.on("dom-ready", () => {
     // Apply simple CSS to prevent white flash during load
-    settingsWindow.webContents.insertCSS(`
+    settingsWindow!.webContents.insertCSS(`
       html, body { background-color: #0c0c0f !important; }
       #root { background-color: #0c0c0f !important; }
     `);
@@ -297,10 +297,10 @@ function createSettingsWindow() {
     `;
 
     // Inject CSS first
-    settingsWindow.webContents.insertCSS(css);
+    settingsWindow!.webContents.insertCSS(css);
 
     // First set credentials to ensure auth works
-    settingsWindow.webContents
+    settingsWindow!.webContents
       .executeJavaScript(
         `
       // Set credentials directly in localStorage
@@ -363,11 +363,11 @@ function createTray() {
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Row 2
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Row 3
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Row 4
-      [0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0], // Row 5: O W L
+      [0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0], // Row 5: O W L
       [0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0], // Row 6: O W L
       [0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0], // Row 7: O W L
-      [0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0], // Row 8: O W L
-      [0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0], // Row 9: O W L
+      [0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0], // Row 8: O W L
+      [0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0], // Row 9: O W L
       [0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0], // Row 10: O W L
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Row 11
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Row 12
@@ -428,7 +428,7 @@ function createTray() {
 function updateTrayMenu() {
   if (!tray) return;
 
-  const menuTemplate = [];
+  const menuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [];
 
   // Add status item
   menuTemplate.push({

@@ -5,7 +5,7 @@
     "moduleResolution": "node",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "jsx": "react",
-    "strict": false,
+    "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -18,10 +18,7 @@
     },
     "allowJs": true,
     "sourceMap": true,
-    "declaration": false,
-    "noImplicitAny": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "declaration": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

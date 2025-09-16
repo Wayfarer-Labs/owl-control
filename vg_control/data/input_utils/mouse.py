@@ -3,7 +3,6 @@ Mouse movements
 """
 
 import json
-import os
 import pandas as pd
 
 from ...constants import FPS
@@ -44,27 +43,42 @@ def get_mouse_stats(csv_path):
     mouse_moves = mouse_data[mouse_data["event_type"] == "MOUSE_MOVE"].reset_index(
         drop=True
     )
-    mouse_moves["frame"] = (mouse_moves["timestamp"] // frame_duration).astype(int)
 
-    # Parse movement deltas
-    mouse_moves["event_args"] = mouse_moves["event_args"].apply(json.loads)
-    mouse_moves[["dx", "dy"]] = pd.DataFrame(
-        mouse_moves["event_args"].tolist(), index=mouse_moves.index
-    )
+    overall_std = 0.0
+    x_std = 0.0
+    y_std = 0.0
+    overall_max = 0.0
+    max_x = 0.0
+    max_y = 0.0
 
-    # Aggregate by frame
-    frame_data = (
-        mouse_moves.groupby("frame").agg({"dx": "mean", "dy": "mean"}).reset_index()
-    )
+    # Check if we have any mouse movement data
+    if not mouse_moves.empty:
+        mouse_moves["frame"] = (mouse_moves["timestamp"] // frame_duration).astype(int)
 
-    # Calculate movement statistics
-    stats = {
-        "overall_std": ((frame_data["dx"] ** 2 + frame_data["dy"] ** 2) ** 0.5).std(),
-        "x_std": frame_data["dx"].std(),
-        "y_std": frame_data["dy"].std(),
-        "overall_max": ((frame_data["dx"] ** 2 + frame_data["dy"] ** 2) ** 0.5).max(),
-        "max_x": frame_data["dx"].abs().max(),
-        "max_y": frame_data["dy"].abs().max(),
+        # Parse movement deltas
+        mouse_moves["event_args"] = mouse_moves["event_args"].apply(json.loads)
+        mouse_moves[["dx", "dy"]] = pd.DataFrame(
+            mouse_moves["event_args"].tolist(), index=mouse_moves.index
+        )
+
+        # Aggregate by frame
+        frame_data = (
+            mouse_moves.groupby("frame").agg({"dx": "mean", "dy": "mean"}).reset_index()
+        )
+
+        # Calculate movement statistics
+        overall_std = ((frame_data["dx"] ** 2 + frame_data["dy"] ** 2) ** 0.5).std()
+        x_std = frame_data["dx"].std()
+        y_std = frame_data["dy"].std()
+        overall_max = ((frame_data["dx"] ** 2 + frame_data["dy"] ** 2) ** 0.5).max()
+        max_x = frame_data["dx"].abs().max()
+        max_y = frame_data["dy"].abs().max()
+
+    return {
+        "overall_std": overall_std,
+        "x_std": x_std,
+        "y_std": y_std,
+        "overall_max": overall_max,
+        "max_x": max_x,
+        "max_y": max_y,
     }
-
-    return stats

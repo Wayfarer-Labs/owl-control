@@ -1,10 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-default-members = ["crates/owl-recorder"]
 
 [workspace.dependencies]
-raw-input = { path = "crates/raw-input" }
+input-capture = { path = "crates/input-capture" }
 game-process = { path = "crates/game-process" }
 clap = { version = "4.5.39", features = ["derive"] }
 tracing = "0.1.41"
@@ -20,21 +19,22 @@ windows = { version = "0.61.3", features = [
     "Win32_Graphics_Gdi",
     "Win32_System_Threading",
     "Win32_System_WindowsProgramming",
-    "Win32_Foundation",
-    "Win32_UI_WindowsAndMessaging",
 ] }
 uuid = { version = "1.17.0", features = ["v4"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tauri-winrt-notification = "0.7.2"
 sysinfo = "0.32.1"
+gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
+
 libobs-wrapper = "3.0.3"
-async-trait = "0.1"  # For implementing the bootstrap status handler
+async-trait = "0.1"            # For implementing the bootstrap status handler
 libobs-sources = "2.0.5"
 libobs-window-helper = "0.1.4"
 
 [workspace.metadata]
 # The libobs version to use (can either be a specific version or "latest")
 libobs-version = "31.0.3"
-# Optional: The directory to store the OBS build
+
+# Optional: The directory to store the OBS buildlibobs-version = "31.0.3"
 # libobs-cache-dir = "../obs-build"

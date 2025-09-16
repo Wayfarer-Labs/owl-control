@@ -34,6 +34,11 @@ pub const UNSUPPORTED_GAMES: &[UnsupportedGame] = &[
     ug("Counter-Strike: Source", &["cstrike"], ENOUGH_DATA_REASON),
     ug("Counter-Strike 2", &["cs2"], ENOUGH_DATA_REASON),
     ug(
+        "Fortnite",
+        &["fortniteclient-win64-shipping"],
+        ENOUGH_DATA_REASON,
+    ),
+    ug(
         "Roblox",
         &["robloxstudiobeta", "robloxplayerbeta"],
         "Recorded footage is all-black.",

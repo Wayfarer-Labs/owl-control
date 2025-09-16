@@ -133,41 +133,6 @@ export class AuthService {
   }
 
   /**
-   * Get upload URL for game control data
-   */
-  public async getUploadUrl(options: {
-    filename: string;
-    content_type: string;
-    file_size_mb: number;
-    expiration: number;
-    video_filename: string;
-    control_filename: string;
-    tags?: string[];
-  }): Promise<{ success: boolean; uploadUrl?: string; message?: string }> {
-    try {
-      if (!this.isAuthenticated()) {
-        return {
-          success: false,
-          message: "Not authenticated or no consent given",
-        };
-      }
-
-      // In a real implementation, this would make an HTTP request to the server
-      // For now, we'll mock the response
-
-      const mockResponse = {
-        success: true,
-        uploadUrl: `https://upload.openworldlabs.com/presigned/${options.filename}?token=${Math.random().toString(36).substring(2, 15)}`,
-      };
-
-      return mockResponse;
-    } catch (error) {
-      console.error("Error getting upload URL:", error);
-      return { success: false, message: "Failed to get upload URL" };
-    }
-  }
-
-  /**
    * Get user information
    */
   public async getUserInfo(): Promise<any> {
@@ -183,48 +148,6 @@ export class AuthService {
       method: "apiKey",
       apiKey: this.apiKey && this.apiKey.substring(0, 10) + "...",
     };
-  }
-
-  /**
-   * Upload game control data
-   */
-  public async uploadGameControlData(options: {
-    filename: string;
-    content_type: string;
-    file_size_mb: number;
-    video_filename: string;
-    control_filename: string;
-    tags?: string[];
-  }): Promise<{ success: boolean; message?: string }> {
-    try {
-      if (!this.isAuthenticated()) {
-        return {
-          success: false,
-          message: "Not authenticated or no consent given",
-        };
-      }
-
-      // 1. Get upload URL
-      const urlResult = await this.getUploadUrl({
-        ...options,
-        expiration: 3600, // 1 hour expiration
-      });
-
-      if (!urlResult.success || !urlResult.uploadUrl) {
-        return {
-          success: false,
-          message: urlResult.message || "Failed to get upload URL",
-        };
-      }
-
-      // 2. In a real implementation, we would use the URL to upload the file
-      // For now, just return success
-
-      return { success: true };
-    } catch (error) {
-      console.error("Error uploading game control data:", error);
-      return { success: false, message: "Failed to upload game control data" };
-    }
   }
 
   /**

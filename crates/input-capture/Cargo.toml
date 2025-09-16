@@ -1,5 +1,5 @@
 [package]
-name = "raw-input"
+name = "input-capture"
 version = "0.0.0"
 edition = "2024"
 
@@ -12,8 +12,12 @@ windows = { workspace = true, features = [
     "Win32_UI_Input",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_Graphics_Gdi",
+    "Win32_Devices_HumanInterfaceDevice",
+    "Win32_System_Com",
 ] }
 color-eyre.workspace = true
+tokio.workspace = true
+gilrs.workspace = true
 
 [dev-dependencies]
 tracing-subscriber.workspace = true

@@ -46,7 +46,7 @@
     "concurrently": "^8.2.1",
     "cross-env": "^7.0.3",
     "css-loader": "^6.8.1",
-    "electron": "^27.0.0",
+    "electron": "^38.1.0",
     "electron-builder": "^24.6.4",
     "html-webpack-plugin": "^5.5.3",
     "postcss": "^8.4.31",
