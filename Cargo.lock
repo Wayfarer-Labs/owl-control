@@ -3445,7 +3445,8 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libobs"
 version = "2.1.0"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35f0298d5573c136cb3382057e3e55b6029f7cf403d236bce525ff9f325afd19"
 dependencies = [
  "bindgen",
 ]
@@ -3453,7 +3454,8 @@ dependencies = [
 [[package]]
 name = "libobs-source-macro"
 version = "2.0.2"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2356baa6aea5b31a7fa157a4e48ad8d867058c7e333e2788f1cd106ed7900ce2"
 dependencies = [
  "num-traits",
  "proc-macro2",
@@ -3463,8 +3465,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-sources"
-version = "2.0.6"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
+version = "2.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a5085178744912adb937266a38764f3a65e08cd2e574f12134704f19341f78c"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3481,18 +3484,19 @@ dependencies = [
 
 [[package]]
 name = "libobs-window-helper"
-version = "0.1.4"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5179b1c0d5dda8cff0e145429779b984103887681a2f4f684ebfcf8a37f6f02"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
- "windows-result 0.3.4",
 ]
 
 [[package]]
 name = "libobs-wrapper"
-version = "4.0.0"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d19d6aba42a9eac6fc652577444d3f78de85787396a168d959128cda11bc8079"
 dependencies = [
  "anyhow",
  "arboard",
@@ -3524,7 +3528,7 @@ dependencies = [
  "tokio",
  "uuid",
  "vsprintf",
- "windows 0.61.3",
+ "windows 0.62.0",
 ]
 
 [[package]]
@@ -7208,11 +7212,24 @@ version = "0.61.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9babd3a767a4c1aef6900409f85f5d53ce2544ccdfaa86dad48c91782c6d6893"
 dependencies = [
- "windows-collections",
+ "windows-collections 0.2.0",
  "windows-core 0.61.2",
- "windows-future",
+ "windows-future 0.2.1",
  "windows-link 0.1.3",
- "windows-numerics",
+ "windows-numerics 0.2.0",
+]
+
+[[package]]
+name = "windows"
+version = "0.62.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9579d0e6970fd5250aa29aba5994052385ff55cf7b28a059e484bb79ea842e42"
+dependencies = [
+ "windows-collections 0.3.0",
+ "windows-core 0.62.0",
+ "windows-future 0.3.0",
+ "windows-link 0.2.0",
+ "windows-numerics 0.3.0",
 ]
 
 [[package]]
@@ -7222,6 +7239,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3beeceb5e5cfd9eb1d76b381630e82c4241ccd0d27f1a39ed41b2760b255c5e8"
 dependencies = [
  "windows-core 0.61.2",
+]
+
+[[package]]
+name = "windows-collections"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a90dd7a7b86859ec4cdf864658b311545ef19dbcf17a672b52ab7cefe80c336f"
+dependencies = [
+ "windows-core 0.62.0",
 ]
 
 [[package]]
@@ -7305,7 +7331,18 @@ checksum = "fc6a41e98427b19fe4b73c550f060b59fa592d7d686537eebf9385621bfbad8e"
 dependencies = [
  "windows-core 0.61.2",
  "windows-link 0.1.3",
- "windows-threading",
+ "windows-threading 0.1.0",
+]
+
+[[package]]
+name = "windows-future"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2194dee901458cb79e1148a4e9aac2b164cc95fa431891e7b296ff0b2f1d8a6"
+dependencies = [
+ "windows-core 0.62.0",
+ "windows-link 0.2.0",
+ "windows-threading 0.2.0",
 ]
 
 [[package]]
@@ -7405,6 +7442,16 @@ checksum = "9150af68066c4c5c07ddc0ce30421554771e528bde427614c61038bc2c92c2b1"
 dependencies = [
  "windows-core 0.61.2",
  "windows-link 0.1.3",
+]
+
+[[package]]
+name = "windows-numerics"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ce3498fe0aba81e62e477408383196b4b0363db5e0c27646f932676283b43d8"
+dependencies = [
+ "windows-core 0.62.0",
+ "windows-link 0.2.0",
 ]
 
 [[package]]
@@ -7615,6 +7662,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b66463ad2e0ea3bbf808b7f1d371311c80e115c0b71d60efc142cafbcfb057a6"
 dependencies = [
  "windows-link 0.1.3",
+]
+
+[[package]]
+name = "windows-threading"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab47f085ad6932defa48855254c758cdd0e2f2d48e62a34118a268d8f345e118"
+dependencies = [
+ "windows-link 0.2.0",
 ]
 
 [[package]]
