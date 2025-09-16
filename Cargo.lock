@@ -1557,6 +1557,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
+name = "duplicate"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97af9b5f014e228b33e77d75ee0e6e87960124f0f4b16337b586a6bec91867b1"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "proc-macro2-diagnostics",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3433,9 +3444,8 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "libobs"
-version = "2.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f22fd130fb7145431f233a258d5c8651b8a1f4dee8d0e62b0ff1491796027d7"
+version = "2.1.0"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
 dependencies = [
  "bindgen",
 ]
@@ -3443,8 +3453,7 @@ dependencies = [
 [[package]]
 name = "libobs-source-macro"
 version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2356baa6aea5b31a7fa157a4e48ad8d867058c7e333e2788f1cd106ed7900ce2"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
 dependencies = [
  "num-traits",
  "proc-macro2",
@@ -3454,9 +3463,8 @@ dependencies = [
 
 [[package]]
 name = "libobs-sources"
-version = "2.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2af74a5ad02d23fb3dca4651f801b08365f11cdc78e85a69753cecd71d392ae5"
+version = "2.0.6"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3474,8 +3482,7 @@ dependencies = [
 [[package]]
 name = "libobs-window-helper"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42b064ee7e3dc5c5a35d41714cf42da67aeaee7dc6532975a5181df55a7399cb"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
@@ -3484,9 +3491,8 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "3.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7314f1c63e5fb56287c800664a8ac9b025e5cd28d5e494bd4891064665cc8c8"
+version = "4.0.0"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=fix-23#0c30cef77421d89459b61a8559c01c87e4950565"
 dependencies = [
  "anyhow",
  "arboard",
@@ -3496,6 +3502,7 @@ dependencies = [
  "colored",
  "dialog",
  "display-info",
+ "duplicate",
  "futures",
  "futures-core",
  "futures-util",
@@ -4838,6 +4845,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "proc-macro2-diagnostics"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af066a9c399a26e020ada66a034357a868728e72cd426f3adcd35f80d88d88c8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+ "version_check",
+ "yansi",
 ]
 
 [[package]]
@@ -8015,6 +8035,12 @@ name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
+
+[[package]]
+name = "yansi"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "yoke"

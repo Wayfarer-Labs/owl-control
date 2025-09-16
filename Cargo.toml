@@ -28,10 +28,12 @@ sysinfo = "0.32.1"
 gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
 
 obws = "0.14.0"
-libobs-wrapper = "3.0.3"
-async-trait = "0.1"            # For implementing the bootstrap status handler
-libobs-sources = "2.0.5"
-libobs-window-helper = "0.1.4"
+async-trait = "0.1" # For implementing the bootstrap status handler
+libobs-wrapper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "fix-23", features = [
+    "bootstrapper",
+] }
+libobs-sources = { git = "https://github.com/joshprk/libobs-rs.git", branch = "fix-23" }
+libobs-window-helper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "fix-23" }
 
 [workspace.metadata]
 # The libobs version to use (can either be a specific version or "latest")

@@ -17,7 +17,10 @@ use windows::{
     core::PCWSTR,
 };
 
-use libobs_sources::{ObsSourceBuilder, windows::WindowCaptureSourceBuilder};
+use libobs_sources::{
+    ObsSourceBuilder,
+    windows::{GameCaptureSourceBuilder, ObsGameCaptureMode, WindowCaptureSourceBuilder},
+};
 use libobs_window_helper::WindowSearchMode;
 use libobs_wrapper::{
     bootstrap::{ObsBootstrapperOptions, status_handler::ObsBootstrapStatusHandler},
@@ -60,22 +63,22 @@ impl RecorderBackend for BootstrapRecorder {
         // Set up scene and window capture based on input pid
         let mut scene = state.obs_context.scene(OWL_SCENE_NAME).await?;
 
-        let window = WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
+        let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
             .map_err(|e| eyre!(e))?;
         let window = window
             .iter()
             .find(|w| w.pid == _pid)
             .ok_or_else(|| eyre!("No window found with PID: {}", _pid))?;
 
-        let mut _window_capture = state
-            .obs_context
-            .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
-            .await?
-            .set_window(window)
-            .set_capture_audio(true)
-            .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
-            .add_to_scene(&mut scene)
-            .await?;
+        // let mut _window_capture = state
+        //     .obs_context
+        //     .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
+        //     .await?
+        //     .set_window(window)
+        //     .set_capture_audio(true)
+        //     .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
+        //     .add_to_scene(&mut scene)
+        //     .await?;
 
         // let monitors = MonitorCaptureSourceBuilder::get_monitors().map_err(|e| eyre!(e))?;
         // let mut _monitor_capture = context
@@ -84,6 +87,16 @@ impl RecorderBackend for BootstrapRecorder {
         //     .set_monitor(&monitors[0])
         //     .add_to_scene(&mut scene)
         //     .await?;
+
+        let _game_capture = state
+            .obs_context
+            .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
+            .await?
+            .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
+            .set_window(window)
+            .set_capture_audio(true)
+            .add_to_scene(&mut scene)
+            .await?;
 
         // Register the source
         scene.set_to_channel(0).await?;
