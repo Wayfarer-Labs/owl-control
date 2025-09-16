@@ -27,6 +27,7 @@ tauri-winrt-notification = "0.7.2"
 sysinfo = "0.32.1"
 gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
 
+obws = "0.14.0"
 libobs-wrapper = "3.0.3"
 async-trait = "0.1"            # For implementing the bootstrap status handler
 libobs-sources = "2.0.5"

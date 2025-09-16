@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use color_eyre::{Result, eyre::Context as _};
@@ -8,24 +8,36 @@ use windows::{
     core::HSTRING,
 };
 
+use crate::bootstrap_recorder;
 use crate::{
+    bootstrap_recorder::bootstrap_obs,
     find_game::get_foregrounded_game,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
-    window_recorder::bootstrap_obs,
 };
 use constants::unsupported_games::UNSUPPORTED_GAMES;
 
-pub(crate) struct Recorder<D> {
+pub(crate) trait RecorderBackend {
+    async fn start_recording(dummy_video_path: &Path, _pid: u32, _hwnd: usize) -> Result<Self>
+    where
+        Self: Sized;
+    async fn stop_recording(&self) -> Result<()>;
+}
+pub(crate) struct Recorder<D, T>
+where
+    T: RecorderBackend,
+{
     recording_dir: D,
-    recording: Option<Recording>,
+    recording: Option<Recording<T>>,
 }
 
-impl<D> Recorder<D>
+impl<D, T> Recorder<D, T>
 where
     D: FnMut() -> PathBuf,
+    T: RecorderBackend,
 {
     pub(crate) async fn new(recording_dir: D, progress_handle: Arc<RwLock<f32>>) -> Result<Self> {
         // Ensure that the OBS bootstrapper runs
+        // TODO: if T is bootstrapper then run
         bootstrap_obs(progress_handle).await?;
 
         Ok(Self {
@@ -34,7 +46,7 @@ where
         })
     }
 
-    pub(crate) fn recording(&self) -> Option<&Recording> {
+    pub(crate) fn recording(&self) -> Option<&Recording<T>> {
         self.recording.as_ref()
     }
 

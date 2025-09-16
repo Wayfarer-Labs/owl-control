@@ -6,13 +6,15 @@ use std::{
 use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
+use tracing::span::Record;
 
 use crate::{
-    hardware_id, hardware_specs, input_recorder::InputRecorder, window_recorder::WindowRecorder,
+    bootstrap_recorder::BootstrapRecorder, hardware_id, hardware_specs,
+    input_recorder::InputRecorder, obs_socket_recorder::SocketRecorder, recorder::RecorderBackend,
 };
 
-pub(crate) struct Recording {
-    window_recorder: WindowRecorder,
+pub(crate) struct Recording<T: RecorderBackend> {
+    window_recorder: T,
     input_recorder: InputRecorder,
 
     metadata_path: PathBuf,
@@ -39,7 +41,12 @@ pub(crate) struct InputParameters {
     pub(crate) path: PathBuf,
 }
 
-impl Recording {
+// pub(crate) enum RecorderBackend {
+//     Bootstrap(BootstrapRecorder),
+//     Socket(SocketRecorder),
+// }
+
+impl<T: RecorderBackend> Recording<T> {
     pub(crate) async fn start(
         MetadataParameters {
             path: metadata_path,
@@ -56,7 +63,7 @@ impl Recording {
         let start_instant = Instant::now();
 
         let window_recorder =
-            WindowRecorder::start_recording(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
+            T::start_recording(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
         let input_recorder = InputRecorder::start(&csv_path).await?;
 
         Ok(Self {

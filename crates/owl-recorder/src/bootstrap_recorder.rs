@@ -28,7 +28,9 @@ use libobs_wrapper::{
 };
 use std::time::Instant;
 
-pub struct WindowRecorder {
+use crate::recorder::RecorderBackend;
+
+pub struct BootstrapRecorder {
     _recording_path: String,
 }
 
@@ -37,12 +39,12 @@ const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 
 const VIDEO_BITRATE: u32 = 2500;
 
-impl WindowRecorder {
-    pub async fn start_recording(
+impl RecorderBackend for BootstrapRecorder {
+    async fn start_recording(
         dummy_video_path: &Path,
         _pid: u32,
         _hwnd: usize,
-    ) -> Result<WindowRecorder> {
+    ) -> Result<BootstrapRecorder> {
         let recording_path: &str = dummy_video_path
             .to_str()
             .ok_or_eyre("Recording path must be valid UTF-8")?;
@@ -139,12 +141,12 @@ impl WindowRecorder {
         state.current_output = Some(output);
 
         tracing::debug!("OBS recording started successfully");
-        Ok(WindowRecorder {
+        Ok(BootstrapRecorder {
             _recording_path: recording_path.to_string(),
         })
     }
 
-    pub async fn stop_recording(&self) -> Result<()> {
+    async fn stop_recording(&self) -> Result<()> {
         tracing::debug!("Stopping OBS recording...");
         let mut state = get_obs_state();
         if let Some(mut output) = state.current_output.take() {

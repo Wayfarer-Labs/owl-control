@@ -22,6 +22,7 @@ libobs-sources.workspace = true
 libobs-window-helper.workspace = true
 anyhow = "1.0"                            # Used just by the bootstrapper
 async-trait.workspace = true
+obws.workspace = true
 windows.workspace = true
 
 tray-icon = "0.14.3"

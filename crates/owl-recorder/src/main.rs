@@ -1,3 +1,4 @@
+mod bootstrap_recorder;
 mod config_manager;
 mod find_game;
 mod hardware_id;
@@ -5,11 +6,11 @@ mod hardware_specs;
 mod idle;
 mod input_recorder;
 mod keycode;
+mod obs_socket_recorder;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;
 mod upload_manager;
-mod window_recorder;
 
 use std::{
     path::PathBuf,
@@ -25,6 +26,7 @@ use input_capture::InputCapture;
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 
 use crate::{
+    bootstrap_recorder::BootstrapRecorder,
     config_manager::{ConfigManager, Credentials, Preferences},
     idle::IdlenessTracker,
     keycode::lookup_keycode,
@@ -66,6 +68,7 @@ struct Args {
 
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
+// const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10);
 
 // lots of repeated code to just load bytes, especially tray_icon needs different type, so use a macro here
 macro_rules! load_icon_from_bytes {
@@ -377,14 +380,22 @@ impl eframe::App for MainApp {
                 });
                 ui.add_space(15.0);
 
-                // Upload Settings Section
+                // Recorder Settings Section
                 ui.group(|ui| {
-                    ui.label(egui::RichText::new("Upload Settings").size(18.0).strong());
+                    ui.label(egui::RichText::new("Recorder Settings").size(18.0).strong());
                     ui.separator();
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        ui.label("Default Quality:");
+                        ui.label("Recorder Backend:");
+                        ui.checkbox(
+                            &mut self.local_preferences.delete_uploaded_files,
+                            "Delete local files after successful upload",
+                        )
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Upload Behaviour:");
                         ui.checkbox(
                             &mut self.local_preferences.delete_uploaded_files,
                             "Delete local files after successful upload",
@@ -506,7 +517,7 @@ async fn _main(recording_state: RecordingState) -> Result<()> {
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
-    let mut recorder = match Recorder::new(
+    let mut recorder: Recorder<_, BootstrapRecorder> = match Recorder::new(
         || {
             recording_location.join(
                 SystemTime::now()
