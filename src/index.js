@@ -4,6 +4,7 @@ import { ApiKeyPage } from "./pages/api-key-page";
 import { ConsentPage } from "./pages/consent-page";
 import { SettingsPage } from "./pages/settings-page";
 import { AuthService } from "./services/auth-service";
+import { ElectronService } from "./services/electron-service";
 
 // Import CSS styles
 import "./styles.css";
@@ -11,6 +12,22 @@ import "./settings-styles.css";
 
 // Import assets to ensure they're included in the build
 import "./assets/tray-icon.svg";
+
+// Override logger to also log to file
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
+console.log = (...args) => {
+  const message = args.join(" ");
+  ElectronService.logToFile("LOG", message);
+  originalConsoleLog(...args);
+};
+
+console.error = (...args) => {
+  const message = args.join(" ");
+  ElectronService.logToFile("ERROR", message);
+  originalConsoleError(...args);
+};
 
 // Log app start for debugging
 console.log("OWL Control app initializing...");

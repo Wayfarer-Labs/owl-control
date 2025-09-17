@@ -48,7 +48,7 @@ export class AuthService {
         this.hasConsented = consentVal === true || consentVal === "true";
       }
     } catch (error) {
-      console.error("Error loading API key:", error);
+      console.error("loadApiKey: Error loading API key:", error);
     }
   }
 
@@ -91,7 +91,6 @@ export class AuthService {
         },
       });
       if (!rawResponse.ok) {
-        console.log("validateApiKey: rawResponse", rawResponse);
         return {
           success: false,
           message:
@@ -100,8 +99,11 @@ export class AuthService {
       }
 
       const response: { userId: string } = await rawResponse.json();
+      console.log(
+        "validateApiKey: Successfully validated API key - user ID:",
+        response.userId,
+      );
 
-      console.log("validateApiKey: response", response);
       // Store the API key
       this.apiKey = apiKey;
       this.userId = response.userId;
@@ -111,7 +113,7 @@ export class AuthService {
 
       return { success: true, userId: response.userId };
     } catch (error) {
-      console.error("API key validation error:", error);
+      console.error("validateApiKey: API key validation error:", error);
       return { success: false, message: "API key validation failed" };
     }
   }
@@ -137,23 +139,29 @@ export class AuthService {
     // the fewest changes possible to get this working, as this will all
     // hopefully be replaced in the future.
     if (!this.apiKey) {
+      console.log("getUserInfo: No API key found, loading from storage");
       await this.loadApiKey();
     }
 
     if (!this.apiKey) {
       // We still don't have an API key, so we can't be authenticated
-      console.log("getUserInfo: No API key found");
+      console.log("getUserInfo: No API key found after load attempt");
       return { authenticated: false };
     }
 
     let userId = this.userId;
     if (!userId) {
       const validationResult = await this.validateApiKey(this.apiKey);
-      console.log("getUserInfo: validationResult", validationResult);
       if (validationResult.success) {
         userId = validationResult.userId;
       } else {
-        throw new Error("Failed to validate API key");
+        console.error(
+          "getUserInfo: Failed to validate API key",
+          validationResult,
+        );
+        throw new Error(
+          "Failed to validate API key: " + validationResult.message,
+        );
       }
     }
 

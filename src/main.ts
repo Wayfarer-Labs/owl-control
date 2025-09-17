@@ -14,41 +14,11 @@ import * as path from "path";
 import * as fs from "fs";
 import { spawn, SpawnOptionsWithoutStdio } from "child_process";
 import { join } from "path";
-import * as os from "os";
 
-// Set up file logging
-const logFilePath = path.join(os.tmpdir(), "owl-control-debug.log");
-function logToFile(message: string) {
-  const timestamp = new Date().toISOString();
-  const logLine = `[${timestamp}] ${message}\n`;
-  try {
-    fs.appendFileSync(logFilePath, logLine);
-  } catch (e) {
-    // If we can't write to temp, try current directory
-    try {
-      fs.appendFileSync("owl-control-debug.log", logLine);
-    } catch (e2) {
-      // Give up
-    }
-  }
-}
-
-// Override console methods to also log to file
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-console.log = (...args) => {
-  const message = args.join(" ");
-  logToFile(`LOG: ${message}`);
-  originalConsoleLog(...args);
-};
-console.error = (...args) => {
-  const message = args.join(" ");
-  logToFile(`ERROR: ${message}`);
-  originalConsoleError(...args);
-};
+import "./log";
 
 // Log app startup
-logToFile("=== OWL Control Debug Log Started ===");
+console.log("=== OWL Control Debug Log Started ===");
 
 // Keep references
 let mainWindow: BrowserWindow | null = null;
@@ -342,9 +312,9 @@ function createTray() {
 
     // First, fill the entire buffer with cyan (background)
     for (let i = 0; i < trayIconBuffer.length; i += 4) {
-      trayIconBuffer[i] = cyan.r; // R
+      trayIconBuffer[i] = cyan.b; // B
       trayIconBuffer[i + 1] = cyan.g; // G
-      trayIconBuffer[i + 2] = cyan.b; // B
+      trayIconBuffer[i + 2] = cyan.r; // R
       trayIconBuffer[i + 3] = cyan.a; // A
     }
 
@@ -375,9 +345,9 @@ function createTray() {
           // Calculate position in buffer (4 bytes per pixel)
           const pos = (y * size.width + x) * 4;
           // Set the dark pixel for text
-          trayIconBuffer[pos] = dark.r; // R
+          trayIconBuffer[pos] = dark.b; // B
           trayIconBuffer[pos + 1] = dark.g; // G
-          trayIconBuffer[pos + 2] = dark.b; // B
+          trayIconBuffer[pos + 2] = dark.r; // R
           trayIconBuffer[pos + 3] = dark.a; // A
         }
       }
@@ -475,7 +445,7 @@ function updateTrayMenu() {
 async function ensurePythonDependencies() {
   return new Promise<boolean>((resolve) => {
     console.log("Installing Python dependencies...");
-    logToFile("STARTUP: Installing Python dependencies");
+    console.log("STARTUP: Installing Python dependencies");
 
     const installProcess = spawnUv(["sync"], {
       cwd: rootDir(),
@@ -484,25 +454,25 @@ async function ensurePythonDependencies() {
     installProcess.stdout.on("data", (data: Buffer) => {
       const output = data.toString();
       console.log(`Dependency install stdout: ${output}`);
-      logToFile(`DEP_INSTALL: ${output.trim()}`);
+      console.log(`DEP_INSTALL: ${output.trim()}`);
     });
 
     installProcess.stderr.on("data", (data: Buffer) => {
       const output = data.toString();
       console.error(`Dependency install stderr: ${output}`);
-      logToFile(`DEP_INSTALL_ERR: ${output.trim()}`);
+      console.log(`DEP_INSTALL_ERR: ${output.trim()}`);
     });
 
     installProcess.on("close", (code: number) => {
       if (code === 0) {
         console.log("Python dependencies installed successfully");
-        logToFile(
+        console.log(
           "STARTUP: Python dependencies installation completed successfully",
         );
         resolve(true);
       } else {
         console.error(`Dependency installation failed with code ${code}`);
-        logToFile(
+        console.log(
           `STARTUP: Python dependencies installation failed with code ${code}`,
         );
         resolve(false);
@@ -511,7 +481,7 @@ async function ensurePythonDependencies() {
 
     installProcess.on("error", (error: Error) => {
       console.error("Error installing Python dependencies:", error);
-      logToFile(
+      console.log(
         `STARTUP: Error installing Python dependencies: ${error.message}`,
       );
       resolve(false);
@@ -722,7 +692,7 @@ app.on("ready", async () => {
     console.warn(
       "Failed to install Python dependencies, Python features may not work correctly",
     );
-    logToFile(
+    console.log(
       "STARTUP: Python dependencies installation failed, continuing anyway",
     );
   }
@@ -768,7 +738,9 @@ app.on("before-quit", () => {
 
 // Set up IPC handlers
 function setupIpcHandlers() {
-  // Widget mode has been removed
+  ipcMain.on("log-to-file", (_event, level, message) => {
+    console.log(`RENDERER-${level}: ${message}`);
+  });
 
   // Open directory dialog
   ipcMain.handle("open-directory-dialog", async () => {

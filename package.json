@@ -1,6 +1,6 @@
 {
   "name": "vg-control",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Video game control input tracking application",
   "main": "dist/main.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "watch": "webpack --config webpack.config.js --watch",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "package": "electron-builder",
+    "package": "electron-builder --publish=never",
     "package:download-requirements": "powershell scripts/download-requirements.ps1",
     "postinstall": "electron-builder install-app-deps",
     "version:patch": "node scripts/bump-version.js patch",

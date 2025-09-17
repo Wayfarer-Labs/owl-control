@@ -13,6 +13,13 @@ export class ElectronService {
     }
   }
 
+  /** Send log to file */
+  public static async logToFile(level: string, message: string): Promise<void> {
+    const ipcRenderer = this.getIpcRenderer();
+    if (!ipcRenderer) return;
+    ipcRenderer.send("log-to-file", level, message);
+  }
+
   /**
    * Open directory dialog
    */
