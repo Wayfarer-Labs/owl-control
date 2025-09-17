@@ -27,6 +27,7 @@ use libobs_wrapper::{
     context::{ObsContext, ObsContextReturn},
     data::{output::ObsOutputRef, video::ObsVideoInfoBuilder},
     encoders::ObsVideoEncoderType,
+    sources::ObsSourceRef,
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 use std::time::Instant;
@@ -35,6 +36,7 @@ use crate::recorder::RecorderBackend;
 
 pub struct BootstrapRecorder {
     _recording_path: String,
+    source: ObsSourceRef,
 }
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -163,6 +165,7 @@ impl RecorderBackend for BootstrapRecorder {
         tracing::debug!("OBS recording started successfully");
         Ok(BootstrapRecorder {
             _recording_path: recording_path.to_string(),
+            source: _game_capture,
         })
     }
 
@@ -171,6 +174,9 @@ impl RecorderBackend for BootstrapRecorder {
         let mut state = get_obs_state();
         if let Some(mut output) = state.current_output.take() {
             output.stop().await.wrap_err("Failed to stop OBS output")?;
+            if let Some(mut scene) = state.obs_context.get_scene(OWL_SCENE_NAME).await {
+                scene.remove_source(&self.source).await?;
+            }
             tracing::debug!("OBS recording stopped");
         } else {
             tracing::warn!("No active recording to stop");
