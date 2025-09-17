@@ -23,7 +23,7 @@ pub async fn start_upload_bridge_async(api_token: &str) -> bool {
             // Development mode
             std::env::current_dir().unwrap()
         } else {
-            // Release mode. @philpax erm how?
+            // TODO: Release mode. @philpax erm how?
             std::env::current_dir().unwrap()
         }
     };

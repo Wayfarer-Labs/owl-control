@@ -47,7 +47,8 @@ use tray_icon::{
 };
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+    FLASHW_STOP, FLASHWINFO, FlashWindowEx, GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW,
+    WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -277,8 +278,22 @@ impl EguiOverlay for OverlayApp {
             if hwnd != 0 {
                 unsafe {
                     let hwnd = HWND(hwnd as *mut std::ffi::c_void);
+
+                    // TODO: there is a bug with egui overlay start where if the user is alt tabbed at the moment
+                    // that the app is started, the overlay will be permanently unminimizable and highlighted in the
+                    // task bar. Idk how to fix that, for now I have fixed the highlighting part here.
+                    let flash_info = FLASHWINFO {
+                        cbSize: std::mem::size_of::<FLASHWINFO>() as u32,
+                        hwnd,
+                        dwFlags: FLASHW_STOP,
+                        uCount: 0,
+                        dwTimeout: 0,
+                    };
+                    let _ = FlashWindowEx(&flash_info);
+
                     let mut ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
                     ex_style |= WS_EX_TOOLWINDOW.0 as isize; // Hide from taskbar
+                    ex_style |= WS_EX_NOACTIVATE.0 as isize; // Don't steal focus
                     ex_style &= !(WS_EX_APPWINDOW.0 as isize); // Remove from Alt+Tab
                     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
                 }
@@ -360,7 +375,7 @@ impl MainApp {
     }
 }
 impl eframe::App for MainApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         // if user closes the app instead minimize to tray
         if ctx.input(|i| i.viewport().close_requested()) {
             let mut visible = VISIBLE.lock().unwrap();
