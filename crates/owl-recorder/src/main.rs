@@ -185,7 +185,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         ..
                     } => {
                         let mut visible = VISIBLE.lock().unwrap();
-
                         if *visible {
                             let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
                             unsafe {
@@ -193,14 +192,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             *visible = false;
                         } else {
+                            // set viewport visible true in case it was minimised to tray via closing the app
+                            context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                             let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
                             unsafe {
                                 let _ = ShowWindow(window_handle, SW_SHOWDEFAULT);
-                                context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                             }
                             *visible = true;
                         }
-
                         context.request_repaint();
                     }
                     _ => return,
@@ -339,11 +338,15 @@ impl MainApp {
     }
 }
 impl eframe::App for MainApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
+        // if user closes the app instead minimize to tray
         if ctx.input(|i| i.viewport().close_requested()) {
+            let mut visible = VISIBLE.lock().unwrap();
+            *visible = false;
             ctx.send_viewport_cmd(ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
         }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(egui::RichText::new("Settings").size(36.0).strong());
             ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
