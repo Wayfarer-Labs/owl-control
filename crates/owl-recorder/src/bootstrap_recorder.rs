@@ -2,7 +2,7 @@ use std::{path::Path, sync::MutexGuard};
 
 use color_eyre::{
     Result,
-    eyre::{Context, OptionExt as _, eyre},
+    eyre::{Context, OptionExt as _, bail, eyre},
 };
 use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
@@ -45,7 +45,7 @@ const VIDEO_BITRATE: u32 = 2500;
 impl RecorderBackend for BootstrapRecorder {
     async fn start_recording(
         dummy_video_path: &Path,
-        _pid: u32,
+        pid: u32,
         _hwnd: usize,
     ) -> Result<BootstrapRecorder> {
         let recording_path: &str = dummy_video_path
@@ -57,7 +57,7 @@ impl RecorderBackend for BootstrapRecorder {
         // Check if already recording
         let mut state = get_obs_state();
         if state.current_output.is_some() {
-            return Err(eyre!("Recording is already in progress"));
+            bail!("Recording is already in progress");
         }
 
         // Set up scene and window capture based on input pid
@@ -67,8 +67,8 @@ impl RecorderBackend for BootstrapRecorder {
             .map_err(|e| eyre!(e))?;
         let window = window
             .iter()
-            .find(|w| w.pid == _pid)
-            .ok_or_else(|| eyre!("No window found with PID: {}", _pid))?;
+            .find(|w| w.pid == pid)
+            .ok_or_else(|| eyre!("No window found with PID: {}", pid))?;
 
         // let mut _window_capture = state
         //     .obs_context
@@ -87,6 +87,13 @@ impl RecorderBackend for BootstrapRecorder {
         //     .set_monitor(&monitors[0])
         //     .add_to_scene(&mut scene)
         //     .await?;
+
+        if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
+            bail!(
+                "The window ({}) you're trying to record is already being captured by another process. Do you have OBS or another instance of OWL Control open?",
+                window.full_exe
+            );
+        }
 
         let _game_capture = state
             .obs_context
@@ -250,7 +257,7 @@ pub async fn bootstrap_obs(progress_handle: Arc<RwLock<f32>>) -> Result<()> {
         ObsContextReturn::Done(c) => c,
         ObsContextReturn::Restart => {
             println!("OBS has been downloaded and extracted. The application will now restart.");
-            return Err(eyre!("OBS restart required during initialization"));
+            bail!("OBS restart required during initialization");
         }
     };
 
