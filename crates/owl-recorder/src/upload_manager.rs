@@ -1,12 +1,9 @@
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
 
-// Simple atomic flag for async version
 static IS_RUNNING: AtomicBool = AtomicBool::new(false);
 
-pub async fn start_upload_bridge_async(api_token: &str) -> bool {
+pub fn start_upload_bridge(api_token: &str) -> bool {
     // Check if already running
     if IS_RUNNING.load(Ordering::SeqCst) {
         tracing::info!("Upload bridge is already running, skipping...");
@@ -50,31 +47,23 @@ pub async fn start_upload_bridge_async(api_token: &str) -> bool {
     };
 
     // Wait for process completion
-    tokio::spawn(async move {
-        match child.wait().await {
-            Ok(status) => {
-                if let Some(code) = status.code() {
-                    tracing::info!("Upload bridge process exited with code {}", code);
-                } else {
-                    tracing::info!("Upload bridge process terminated by signal");
-                }
+    match child.wait() {
+        Ok(status) => {
+            if let Some(code) = status.code() {
+                tracing::info!("Upload bridge process exited with code {}", code);
+            } else {
+                tracing::info!("Upload bridge process terminated by signal");
             }
-            Err(e) => tracing::error!("Error waiting for process: {}", e),
         }
-        // Reset running flag when process ends
-        IS_RUNNING.store(false, Ordering::SeqCst);
-    });
+        Err(e) => tracing::error!("Error waiting for process: {}", e),
+    }
+    // Reset running flag when process ends
+    IS_RUNNING.store(false, Ordering::SeqCst);
 
     true
 }
 
-/// Check if async upload bridge is currently running (not async!)
-pub fn is_upload_bridge_running_async() -> bool {
+/// Check if upload bridge is currently running
+pub fn is_upload_bridge_running() -> bool {
     IS_RUNNING.load(Ordering::SeqCst)
-}
-
-/// Force reset the async upload bridge flag (not async!)
-pub fn reset_upload_bridge_flag_async() {
-    IS_RUNNING.store(false, Ordering::SeqCst);
-    tracing::info!("Async upload bridge running flag has been reset");
 }

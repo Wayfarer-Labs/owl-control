@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use color_eyre::{Result, eyre::Context as _};
 use tauri_winrt_notification::Toast;
@@ -8,7 +8,7 @@ use windows::{
     core::HSTRING,
 };
 
-use crate::bootstrap_recorder;
+use crate::RecordingState;
 use crate::{
     bootstrap_recorder::bootstrap_obs,
     find_game::get_foregrounded_game,
@@ -35,10 +35,13 @@ where
     D: FnMut() -> PathBuf,
     T: RecorderBackend,
 {
-    pub(crate) async fn new(recording_dir: D, progress_handle: Arc<RwLock<f32>>) -> Result<Self> {
+    pub(crate) async fn new(
+        recording_dir: D,
+        recording_state: Arc<RecordingState>,
+    ) -> Result<Self> {
         // Ensure that the OBS bootstrapper runs
         // TODO: if T is bootstrapper then run
-        bootstrap_obs(progress_handle).await?;
+        bootstrap_obs(recording_state).await?;
 
         Ok(Self {
             recording_dir,
