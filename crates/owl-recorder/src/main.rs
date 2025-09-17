@@ -42,7 +42,7 @@ use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
 use std::sync::{Arc, Mutex, RwLock};
 use tray_icon::{
-    MouseButtonState, TrayIconBuilder, TrayIconEvent,
+    MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
     menu::{Menu, MenuEvent, MenuItem},
 };
 use windows::Win32::Foundation::HWND;
@@ -161,7 +161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tray_menu = Menu::new();
     tray_menu.append(&quit_item)?;
     // create tray icon
-    let _tray_icon = TrayIconBuilder::new()
+    let tray_icon = TrayIconBuilder::new()
         .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", tray_icon))
         .with_tooltip("Owl Control")
         .with_menu(Box::new(tray_menu))
@@ -229,7 +229,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }));
 
-            Ok(Box::new(MainApp::new(cloned_state).unwrap()))
+            Ok(Box::new(MainApp::new(cloned_state, tray_icon).unwrap()))
         }),
     );
 
@@ -350,26 +350,34 @@ impl EguiOverlay for OverlayApp {
 pub struct MainApp {
     recording_state: RecordingState,
     frame: u64,
-    cached_progress: f32,           // from 0-1
-    configs: ConfigManager,         // this is the cache that is actually saved to file
+    rec_status: RecordingStatus, // local RecordingStatus to update tray icon
+    cached_progress: f32,        // from 0-1
+    configs: ConfigManager,      // this is the cache that is actually saved to file
     local_credentials: Credentials, // local copy of the settings that is used to track
     local_preferences: Preferences, // user inputs before being saved to the ConfigManager
+    tray_icon: TrayIcon, // maintains reference to tray icon to update based on recordingstate
 }
 impl MainApp {
-    fn new(recording_state: RecordingState) -> Result<Self, Box<dyn std::error::Error>> {
+    fn new(
+        recording_state: RecordingState,
+        tray_icon: TrayIcon,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok({
             let cm = ConfigManager::new()?;
             let local_credentials = cm.credentials.clone();
             let local_preferences = cm.preferences.clone();
             // write the cached overlay opacity
             *recording_state.opacity.write().unwrap() = local_preferences.overlay_opacity;
+            let rec_status = *recording_state.state.read().unwrap();
             Self {
                 recording_state,
                 frame: 0,
+                rec_status,
                 cached_progress: 0.0,
                 configs: cm,
                 local_credentials: local_credentials,
                 local_preferences: local_preferences,
+                tray_icon,
             }
         })
     }
@@ -382,6 +390,33 @@ impl eframe::App for MainApp {
             *visible = false;
             ctx.send_viewport_cmd(ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+        }
+
+        // update the tray icon based on recording state
+        let curr_state = *self.recording_state.state.read().unwrap();
+        if curr_state != self.rec_status {
+            self.rec_status = curr_state;
+            match curr_state {
+                RecordingStatus::Recording => {
+                    let _ = self.tray_icon.set_icon(Some(load_icon_from_bytes!(
+                        "../assets/owl-logo-recording.png",
+                        tray_icon
+                    )));
+                    ctx.send_viewport_cmd(ViewportCommand::Icon(Some(
+                        load_icon_from_bytes!("../assets/owl-logo-recording.png", egui_icon).into(),
+                    )));
+                }
+                _ => {
+                    let _ = self.tray_icon.set_icon(Some(load_icon_from_bytes!(
+                        "../assets/owl-logo.png",
+                        tray_icon
+                    )));
+                    ctx.send_viewport_cmd(ViewportCommand::Icon(Some(
+                        load_icon_from_bytes!("../assets/owl-logo.png", egui_icon).into(),
+                    )));
+                }
+            };
+            ctx.request_repaint();
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
