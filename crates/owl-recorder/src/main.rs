@@ -41,7 +41,10 @@ use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
 use std::sync::{Arc, Mutex, RwLock};
-use tray_icon::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tray_icon::{
+    MouseButtonState, TrayIconBuilder, TrayIconEvent,
+    menu::{Menu, MenuEvent, MenuItem},
+};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
@@ -151,9 +154,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // main app built here on main thread, so if it's closed by user the entire program is killed
+    // tray icon right click menu for quit option
+    let quit_item = MenuItem::new("Quit", true, None);
+    let quit_item_id = quit_item.id().clone();
+    let tray_menu = Menu::new();
+    tray_menu.append(&quit_item)?;
+    // create tray icon
     let _tray_icon = TrayIconBuilder::new()
         .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", tray_icon))
         .with_tooltip("Owl Control")
+        .with_menu(Box::new(tray_menu))
         .build()?;
 
     let options = eframe::NativeOptions {
@@ -174,13 +184,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 panic!("Unsupported platform");
             };
 
+            MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+                match event.id() {
+                    id if id == &quit_item_id => {
+                        // Close the application
+                        // TODO: probably should be a more graceful way to close the app?
+                        // probably need a atomicbool with close flag so we can close via
+                        // context_menu.send_viewport_cmd(egui::ViewportCommand::Close);
+                        // and then also clean up any uploading video process in progress.
+                        std::process::exit(0);
+                    }
+                    _ => {}
+                }
+            }));
+
             let context = cc.egui_ctx.clone();
-
             TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-                // println!("TrayIconEvent: {:?}", event);
-
                 match event {
                     TrayIconEvent::Click {
+                        button: tray_icon::MouseButton::Left,
                         button_state: MouseButtonState::Down,
                         ..
                     } => {
@@ -474,7 +496,76 @@ impl eframe::App for MainApp {
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        if ui.button("Upload Recordings").clicked() {
+                        let available_width = ui.available_width() - 40.0;
+                        let cell_width = available_width / 4.0;
+
+                        // Cell 1: Total Uploaded
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(cell_width, ui.available_height()),
+                            egui::Layout::top_down(egui::Align::Center),
+                            |ui| {
+                                self.create_upload_cell(
+                                    ui,
+                                    "📊", // Icon
+                                    "Total Uploaded",
+                                    // &self.total_uploaded,
+                                    "604 min",
+                                );
+                            },
+                        );
+
+                        // Cell 2: Files Uploaded
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(cell_width, ui.available_height()),
+                            egui::Layout::top_down(egui::Align::Center),
+                            |ui| {
+                                self.create_upload_cell(
+                                    ui,
+                                    "📁", // Icon
+                                    "Files Uploaded",
+                                    // &self.files_uploaded,
+                                    "20",
+                                );
+                            },
+                        );
+
+                        // Cell 3: Volume Uploaded
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(cell_width, ui.available_height()),
+                            egui::Layout::top_down(egui::Align::Center),
+                            |ui| {
+                                self.create_upload_cell(
+                                    ui,
+                                    "💾", // Icon
+                                    "Volume Uploaded",
+                                    // &self.volume_uploaded,
+                                    "20 GB",
+                                );
+                            },
+                        );
+
+                        // Cell 4: Last Upload
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(cell_width, ui.available_height()),
+                            egui::Layout::top_down(egui::Align::Center),
+                            |ui| {
+                                self.create_upload_cell(
+                                    ui,
+                                    "🕒", // Icon
+                                    "Last Upload",
+                                    // &self.last_upload,
+                                    "9/17/2025 at 5:34:22PM",
+                                );
+                            },
+                        );
+                    });
+
+                    ui.add_space(15.0);
+                    ui.centered_and_justified(|ui| {
+                        if ui
+                            .button(egui::RichText::new("Upload Recordings").size(12.0).strong())
+                            .clicked()
+                        {
                             // Handle upload
                             if !is_upload_bridge_running_async() {
                                 let api_key = self.local_credentials.api_key.clone();
@@ -486,9 +577,8 @@ impl eframe::App for MainApp {
                     });
                 });
 
-                ui.add_space(30.0);
-
                 // Save/Reset buttons at the bottom
+                ui.add_space(10.0);
                 ui.separator();
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
@@ -509,6 +599,23 @@ impl eframe::App for MainApp {
             });
         });
         self.frame += 1;
+    }
+}
+impl MainApp {
+    // constructor for each cell in upload manager section
+    fn create_upload_cell(&self, ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
+        // Icon
+        ui.label(egui::RichText::new(icon).size(28.0));
+        ui.add_space(8.0);
+        // Title
+        ui.label(egui::RichText::new(title).size(12.0).strong());
+        ui.add_space(4.0);
+        // Value
+        ui.label(
+            egui::RichText::new(value)
+                .size(10.0)
+                .color(egui::Color32::from_rgb(128, 128, 128)),
+        );
     }
 }
 
