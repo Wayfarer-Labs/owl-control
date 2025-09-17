@@ -36,7 +36,7 @@ use crate::{
 };
 
 use eframe::egui;
-use egui::{Align2, Color32, RichText, Rounding, Stroke, Vec2};
+use egui::{Align2, Color32, RichText, Rounding, Stroke, Vec2, ViewportCommand};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 
@@ -196,6 +196,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
                             unsafe {
                                 let _ = ShowWindow(window_handle, SW_SHOWDEFAULT);
+                                context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                             }
                             *visible = true;
                         }
@@ -339,6 +340,10 @@ impl MainApp {
 }
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        if ctx.input(|i| i.viewport().close_requested()) {
+            ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(egui::RichText::new("Settings").size(36.0).strong());
             ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
