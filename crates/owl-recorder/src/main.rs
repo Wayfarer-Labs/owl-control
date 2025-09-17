@@ -309,9 +309,9 @@ impl EguiOverlay for OverlayApp {
         let frame = egui::containers::Frame {
             fill: Color32::from_black_alpha(self.overlay_opacity), // Transparent background
             stroke: Stroke::NONE,                                  // No border
-            rounding: Rounding::ZERO,                              // No rounded corners
+            corner_radius: 0.0.into(),                             // No rounded corners
             shadow: Default::default(),                            // Default shadow settings
-            inner_margin: egui::Margin::same(8.0),                 // Inner padding
+            inner_margin: egui::Margin::same(8),                   // Inner padding
             outer_margin: egui::Margin::ZERO,                      // No outer margin
         };
 
