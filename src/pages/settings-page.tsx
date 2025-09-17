@@ -1,20 +1,9 @@
-import React, { useState, useEffect } from "react";
-// import { Logo } from '@/components/logo';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import React, { useState, useEffect, useCallback } from "react";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-// Theme toggle removed - always dark theme
-import { AuthService } from "@/services/auth-service";
-import { PythonBridge, AppPreferences } from "@/services/python-bridge";
-import { Check } from "lucide-react";
+import { AuthService, UserInfo } from "@/services/auth-service";
+import { PythonBridge } from "@/services/python-bridge";
 import { UploadPanel } from "@/components/upload-panel";
 
 interface SettingsPageProps {
@@ -22,11 +11,9 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
-  const [statusMessage, setStatusMessage] = useState("");
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [startRecordingKey, setStartRecordingKey] = useState("f4");
   const [stopRecordingKey, setStopRecordingKey] = useState("f5");
-  const [apiToken, setApiToken] = useState("");
 
   // Define the button styles directly in the component for reliability
   const buttonStyle = {
@@ -44,89 +31,40 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   const authService = AuthService.getInstance();
   const pythonBridge = new PythonBridge();
 
-  // Load preferences on component mount
-  useEffect(() => {
-    // Direct loading of credentials from Electron
-    const isSettingsDirectNavigation =
-      window.location.search.includes("page=settings");
-
-    if (isSettingsDirectNavigation) {
-      // When opened directly from system tray, load credentials directly from Electron
-      try {
-        const { ipcRenderer } = window.require("electron");
-        ipcRenderer.invoke("load-credentials").then((result: any) => {
-          if (result.success && result.data) {
-            // Update auth service with the credentials
-            const authService = AuthService.getInstance();
-            if (result.data.apiKey) {
-              authService.validateApiKey(result.data.apiKey);
-            }
-            if (result.data.hasConsented === "true") {
-              authService.setConsent(true);
-            }
-
-            // Now load user info
-            loadUserInfo();
-          }
-        });
-      } catch (error) {
-        console.error("Error loading credentials from Electron:", error);
-      }
-    }
-
-    // Load preferences
-    const prefs = pythonBridge.loadPreferences();
-    if (prefs.startRecordingKey) setStartRecordingKey(prefs.startRecordingKey);
-    if (prefs.stopRecordingKey) setStopRecordingKey(prefs.stopRecordingKey);
-    if (prefs.apiToken) setApiToken(prefs.apiToken);
-
-    // Always load user info after preferences
-    loadUserInfo();
-  }, []);
-
-  const loadUserInfo = async () => {
+  const loadUserInfo = useCallback(async () => {
     try {
-      // Check if we're in direct settings mode
-      if (
-        (window as any).SKIP_AUTH === true ||
-        (window as any).DIRECT_SETTINGS === true
-      ) {
-        // Try to load credentials directly from Electron
-        try {
-          const { ipcRenderer } = window.require("electron");
-          const result = await ipcRenderer.invoke("load-credentials");
-          if (result.success && result.data) {
-            // Set credentials in auth service
-            if (result.data.apiKey) {
-              await authService.validateApiKey(result.data.apiKey);
-            }
-            if (result.data.hasConsented === "true") {
-              await authService.setConsent(true);
-            }
-          }
-        } catch (error) {
-          console.error("Error loading credentials from Electron:", error);
-        }
-      }
-
       // Now get user info
       const info = await authService.getUserInfo();
       setUserInfo(info);
     } catch (error) {
       console.error("Error loading user info:", error);
     }
-  };
+  }, [authService, setUserInfo]);
+
+  // Load preferences on component mount
+  useEffect(() => {
+    // Load preferences
+    const prefs = pythonBridge.loadPreferences();
+    if (prefs.startRecordingKey) setStartRecordingKey(prefs.startRecordingKey);
+    if (prefs.stopRecordingKey) setStopRecordingKey(prefs.stopRecordingKey);
+
+    // Always load user info after preferences
+    loadUserInfo();
+  }, [loadUserInfo]);
 
   const savePreferences = () => {
     pythonBridge.savePreferences({
       startRecordingKey,
       stopRecordingKey,
-      apiToken,
     });
 
     // After saving preferences, automatically start the Python bridges
     pythonBridge.startRecordingBridge();
-    pythonBridge.startUploadBridge();
+    if (userInfo && userInfo.authenticated) {
+      pythonBridge.startUploadBridge(userInfo.apiKey);
+    } else {
+      console.error("User info not found or not authenticated");
+    }
   };
 
   const handleLogout = async () => {
@@ -185,44 +123,31 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         {/* Main Content */}
         <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden pr-2">
           {/* Account Section */}
-          {userInfo && (
-            <div className="bg-[#13151a] rounded-lg border border-[#2a2d35] p-4">
-              <h3 className="mb-2 text-sm font-medium text-white select-none">
-                Account
-              </h3>
-              <div className="flex items-center justify-between">
-                <p className="text-[#42e2f5] select-none">
-                  {userInfo.email
-                    ? `${userInfo.email}`
-                    : "API Key authenticated"}
-                </p>
-                <button
-                  className="bg-black text-white px-4 py-2 rounded-md font-medium select-none"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* API Token Section */}
           <div className="bg-[#13151a] rounded-lg border border-[#2a2d35] p-4">
-            <h3 className="mb-4 text-sm font-medium text-white select-none">
-              OWL API Token
+            <h3 className="mb-2 text-sm font-medium text-white select-none">
+              Account
             </h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 items-center">
-                <div>
-                  <Input
-                    id="apiToken"
-                    value={apiToken}
-                    onChange={(e) => setApiToken(e.target.value)}
-                    className="bg-[#0c0c0f] border-[#2a2d35] text-white"
-                    placeholder="Enter your OWL API token"
-                  />
-                </div>
-              </div>
+            <div className="flex items-center justify-between">
+              <p className="text-[#42e2f5]">
+                {userInfo ? (
+                  userInfo.authenticated ? (
+                    <>
+                      User ID:{" "}
+                      <span className="select-text">{userInfo.userId}</span>
+                    </>
+                  ) : (
+                    "Not authenticated. Please log out and log in again."
+                  )
+                ) : (
+                  "Authenticating..."
+                )}
+              </p>
+              <button
+                className="bg-black text-white px-4 py-2 rounded-md font-medium select-none"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
             </div>
           </div>
 
@@ -305,7 +230,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           </div>
 
           {/* Upload Manager */}
-          <UploadPanel />
+          <UploadPanel isAuthenticated={userInfo?.authenticated || false} />
         </div>
 
         {/* Footer */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Upload, Play, Clock, FileText, Wifi } from "lucide-react";
+import { Upload, Clock, FileText, Wifi } from "lucide-react";
 import UploadService, {
   UploadProgress,
   UploadStats,
@@ -7,10 +7,14 @@ import UploadService, {
 import { ElectronService } from "../services/electron-service";
 
 interface UploadPanelProps {
+  isAuthenticated: boolean;
   className?: string;
 }
 
-export const UploadPanel: React.FC<UploadPanelProps> = ({ className = "" }) => {
+export const UploadPanel: React.FC<UploadPanelProps> = ({
+  className = "",
+  isAuthenticated,
+}) => {
   const [uploadService] = useState(() => UploadService.getInstance());
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState<UploadProgress>({
@@ -142,8 +146,8 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({ className = "" }) => {
     >
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Upload className="h-6 w-6 text-[#42e2f5]" />
-        <h2 className="text-xl font-bold text-white">Upload Manager</h2>
+        <Upload className="h-4 w-4 text-[#42e2f5]" />
+        <h2 className="text-sm font-medium text-white">Upload Manager</h2>
       </div>
 
       {/* Stats Cards */}
@@ -235,14 +239,13 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({ className = "" }) => {
         {/* Control Button */}
         <button
           onClick={handleStartUpload}
-          disabled={isUploading}
+          disabled={isUploading || !isAuthenticated}
           className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-all duration-200 ${
-            isUploading
+            isUploading || !isAuthenticated
               ? "bg-gray-600 cursor-not-allowed text-gray-300"
               : "bg-[#42e2f5] hover:bg-[#35c5d7] text-black"
           }`}
         >
-          <Play className="h-4 w-4" />
           {isUploading ? "Upload in Progress..." : "Start Upload"}
         </button>
 

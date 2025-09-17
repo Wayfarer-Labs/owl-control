@@ -38,6 +38,16 @@ pub const UNSUPPORTED_GAMES: &[UnsupportedGame] = &[
         &["fortniteclient-win64-shipping"],
         ENOUGH_DATA_REASON,
     ),
+    ug("Overwatch 2", &["overwatch"], ENOUGH_DATA_REASON),
+    ug("Team Fortress 2", &["tf", "tf_win64"], ENOUGH_DATA_REASON),
+    ug("Apex Legends", &["r5apex"], ENOUGH_DATA_REASON),
+    ug("Rainbow Six Siege", &["rainbowsix"], ENOUGH_DATA_REASON),
+    ug("Squad", &["squad"], ENOUGH_DATA_REASON),
+    ug(
+        "Hell Let Loose",
+        &["hll-win64-shipping"],
+        ENOUGH_DATA_REASON,
+    ),
     ug(
         "Roblox",
         &["robloxstudiobeta", "robloxplayerbeta"],

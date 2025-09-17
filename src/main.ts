@@ -201,7 +201,6 @@ function createSettingsWindow() {
     `);
   });
 
-  // Set credentials directly in localStorage after content is fully loaded
   settingsWindow.webContents.once("did-finish-load", () => {
     // Restore the original full CSS with detailed styling
     const css = `
@@ -303,17 +302,10 @@ function createSettingsWindow() {
     settingsWindow!.webContents
       .executeJavaScript(
         `
-      // Set credentials directly in localStorage
-      localStorage.setItem('apiKey', '${secureStore.credentials.apiKey || ""}');
-      localStorage.setItem('hasConsented', 'true');
       document.documentElement.classList.add('dark');
 
       // Force dark theme using body class as well
       document.body.classList.add('dark-theme');
-
-      // Set a global variable to tell React to show settings
-      window.DIRECT_SETTINGS = true;
-      window.SKIP_AUTH = true;
 
       // We're ready to show the window now
       true; // Return value for promise

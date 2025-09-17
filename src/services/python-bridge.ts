@@ -48,20 +48,6 @@ export class PythonBridge {
         .catch((error) => {
           console.error("Error loading preferences from Electron:", error);
         });
-
-      // For immediate return, check localStorage
-      try {
-        const storedPrefs = localStorage.getItem("appPreferences");
-        if (storedPrefs) {
-          const parsed = JSON.parse(storedPrefs);
-          this.preferences = {
-            ...this.preferences,
-            ...parsed,
-          };
-        }
-      } catch (error) {
-        console.error("Error loading preferences from localStorage:", error);
-      }
     } catch (error) {
       console.error("Error loading preferences:", error);
     }
@@ -89,16 +75,6 @@ export class PythonBridge {
 
       // Save to Electron's secure storage
       await ElectronService.savePreferences(this.preferences);
-
-      // Also save to localStorage as fallback
-      try {
-        localStorage.setItem(
-          "appPreferences",
-          JSON.stringify(this.preferences),
-        );
-      } catch (error) {
-        console.error("Error saving preferences to localStorage:", error);
-      }
 
       return true;
     } catch (error) {
@@ -134,12 +110,10 @@ export class PythonBridge {
   /**
    * Start upload bridge
    */
-  public async startUploadBridge(): Promise<boolean> {
+  public async startUploadBridge(apiToken: string): Promise<boolean> {
     try {
       // Call Electron service to start Python upload bridge process
-      return await ElectronService.startUploadBridge(
-        this.preferences.apiToken || "",
-      );
+      return await ElectronService.startUploadBridge(apiToken);
     } catch (error) {
       console.error("Error starting upload bridge:", error);
       return false;

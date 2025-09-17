@@ -30,6 +30,7 @@ Note that not all games in the below list necessarily meet the above criteria, a
 - X-Plane / Microsoft Flight Simulator
 - Forza Horizon 5
 - No Man's Sky
+- Shadow Warrior 3
 
 ### Movement / Parkour (continuous control, momentum, traversal)
 
@@ -116,6 +117,12 @@ Please do not submit data for these games.
 - Counter-Strike: Source
 - Counter-Strike 2
 - Fortnite
+- Overwatch 2
+- Team Fortress 2
+- Apex Legends
+- Rainbow Six Siege
+- Squad
+- Hell Let Loose
 
 ## Unsupported games
 

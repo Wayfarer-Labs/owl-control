@@ -1,9 +1,24 @@
+import { API_BASE_URL } from "./constants";
 import { ElectronService } from "./electron-service";
+
+export type UserInfo =
+  | {
+      authenticated: true;
+      hasApiKey: boolean;
+      hasConsented: boolean;
+      method: string;
+      apiKey: string;
+      userId: string;
+    }
+  | {
+      authenticated: false;
+    };
 
 export class AuthService {
   private static instance: AuthService;
   private apiKey: string | null = null;
   private hasConsented: boolean = false;
+  private userId: string | null = null;
 
   private constructor() {
     // Try to load stored API key
@@ -31,21 +46,6 @@ export class AuthService {
         // Convert stored consent value to a strict boolean
         const consentVal = result.data.hasConsented;
         this.hasConsented = consentVal === true || consentVal === "true";
-      } else {
-        // Try to load from localStorage as fallback
-        const storedKey = localStorage.getItem("apiKey");
-        const storedConsent = localStorage.getItem("hasConsented");
-
-        if (storedKey) {
-          this.apiKey = storedKey;
-          this.hasConsented = storedConsent === "true";
-
-          // Save to secure storage
-          await ElectronService.saveCredentials("apiKey", storedKey);
-          if (this.hasConsented) {
-            await ElectronService.saveCredentials("hasConsented", "true");
-          }
-        }
       }
     } catch (error) {
       console.error("Error loading API key:", error);
@@ -56,13 +56,6 @@ export class AuthService {
    * Check if user is authenticated and has consented
    */
   public isAuthenticated(): boolean {
-    // Check if we're in direct settings mode (from Electron)
-    if (
-      (window as any).SKIP_AUTH === true ||
-      (window as any).DIRECT_SETTINGS === true
-    ) {
-      return true;
-    }
     return !!this.apiKey && this.hasConsented;
   }
 
@@ -74,11 +67,13 @@ export class AuthService {
   }
 
   /**
-   * Validate API key
+   * Get the user's info, validating the API key in the process
    */
   public async validateApiKey(
     apiKey: string,
-  ): Promise<{ success: boolean; message?: string }> {
+  ): Promise<
+    { success: true; userId: string } | { success: false; message?: string }
+  > {
     try {
       if (!apiKey || apiKey.trim() === "") {
         return { success: false, message: "API key cannot be empty" };
@@ -89,23 +84,32 @@ export class AuthService {
         return { success: false, message: "Invalid API key format" };
       }
 
-      // For now, accept any properly formatted key
-      // In production, we would validate the key with the server
+      const rawResponse = await fetch(`${API_BASE_URL}/api/v1/user/info`, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+      });
+      if (!rawResponse.ok) {
+        console.log("validateApiKey: rawResponse", rawResponse);
+        return {
+          success: false,
+          message:
+            "Invalid API key, or server unavailable: " + rawResponse.statusText,
+        };
+      }
 
+      const response: { userId: string } = await rawResponse.json();
+
+      console.log("validateApiKey: response", response);
       // Store the API key
       this.apiKey = apiKey;
+      this.userId = response.userId;
 
       // Save to secure storage
       await ElectronService.saveCredentials("apiKey", apiKey);
 
-      // Also save to localStorage as fallback
-      try {
-        localStorage.setItem("apiKey", apiKey);
-      } catch (error) {
-        console.error("Error saving API key to localStorage:", error);
-      }
-
-      return { success: true };
+      return { success: true, userId: response.userId };
     } catch (error) {
       console.error("API key validation error:", error);
       return { success: false, message: "API key validation failed" };
@@ -123,21 +127,34 @@ export class AuthService {
       "hasConsented",
       hasConsented ? "true" : "false",
     );
-
-    // Also save to localStorage as fallback
-    try {
-      localStorage.setItem("hasConsented", hasConsented ? "true" : "false");
-    } catch (error) {
-      console.error("Error saving consent status to localStorage:", error);
-    }
   }
 
   /**
    * Get user information
    */
-  public async getUserInfo(): Promise<any> {
+  public async getUserInfo(): Promise<UserInfo> {
+    // Apologies for the very messy control flow here; I'm trying to make
+    // the fewest changes possible to get this working, as this will all
+    // hopefully be replaced in the future.
     if (!this.apiKey) {
+      await this.loadApiKey();
+    }
+
+    if (!this.apiKey) {
+      // We still don't have an API key, so we can't be authenticated
+      console.log("getUserInfo: No API key found");
       return { authenticated: false };
+    }
+
+    let userId = this.userId;
+    if (!userId) {
+      const validationResult = await this.validateApiKey(this.apiKey);
+      console.log("getUserInfo: validationResult", validationResult);
+      if (validationResult.success) {
+        userId = validationResult.userId;
+      } else {
+        throw new Error("Failed to validate API key");
+      }
     }
 
     // Return user info
@@ -147,6 +164,7 @@ export class AuthService {
       hasConsented: this.hasConsented,
       method: "apiKey",
       apiKey: this.apiKey && this.apiKey.substring(0, 10) + "...",
+      userId: userId,
     };
   }
 
@@ -156,17 +174,10 @@ export class AuthService {
   public async logout(): Promise<void> {
     this.apiKey = null;
     this.hasConsented = false;
+    this.userId = null;
 
     // Remove from secure storage
     await ElectronService.saveCredentials("apiKey", "");
     await ElectronService.saveCredentials("hasConsented", "false");
-
-    // Also remove from localStorage
-    try {
-      localStorage.removeItem("apiKey");
-      localStorage.removeItem("hasConsented");
-    } catch (error) {
-      console.error("Error removing credentials from localStorage:", error);
-    }
   }
 }
