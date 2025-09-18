@@ -40,3 +40,4 @@ eframe = "0.32"
 dirs = "6.0.0"
 
 constants = { path = "../constants" }
+rodio = "0.21.1"
