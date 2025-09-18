@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create tray icon
     let tray_icon = TrayIconBuilder::new()
         .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", tray_icon))
-        .with_tooltip("Owl Control")
+        .with_tooltip("OWL Control")
         .with_menu(Box::new(tray_menu))
         .build()?;
 
@@ -165,14 +165,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([600.0, 600.0])
             .with_resizable(false)
-            .with_title("Owl Control")
+            .with_title("OWL Control")
             .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", egui_icon)),
         ..Default::default()
     };
 
     let cloned_state = recording_state.clone();
     let _ = eframe::run_native(
-        "Owl Control",
+        "OWL Control",
         options,
         Box::new(move |cc| {
             let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
