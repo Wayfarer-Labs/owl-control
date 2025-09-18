@@ -5,7 +5,7 @@ use color_eyre::{
     eyre::{Context, OptionExt as _, bail, eyre},
 };
 use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
-use std::sync::{Arc, Mutex, OnceLock, RwLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use windows::{
     Win32::{
         Foundation::POINT,
@@ -44,6 +44,11 @@ const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 
 const VIDEO_BITRATE: u32 = 2500;
 
+// Untested! Added for testing purposes, but will probably not be used as
+// we want to ensure we're capturing a game and WindowCapture will capture
+// non-game content.
+const USE_WINDOW_CAPTURE: bool = false;
+
 impl RecorderBackend for BootstrapRecorder {
     async fn start_recording(
         dummy_video_path: &Path,
@@ -65,47 +70,49 @@ impl RecorderBackend for BootstrapRecorder {
         // Set up scene and window capture based on input pid
         let mut scene = state.obs_context.scene(OWL_SCENE_NAME).await?;
 
-        let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
-            .map_err(|e| eyre!(e))?;
-        let window = window
-            .iter()
-            .find(|w| w.pid == pid)
-            .ok_or_else(|| eyre!("No window found with PID: {}", pid))?;
+        let source = if USE_WINDOW_CAPTURE {
+            let window =
+                WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
+                    .map_err(|e| eyre!(e))?;
+            let window = window
+                .iter()
+                .find(|w| w.0.pid == pid)
+                .ok_or_else(|| eyre!("No window found with PID: {}", pid))?;
 
-        // let mut _window_capture = state
-        //     .obs_context
-        //     .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
-        //     .await?
-        //     .set_window(window)
-        //     .set_capture_audio(true)
-        //     .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
-        //     .add_to_scene(&mut scene)
-        //     .await?;
+            state
+                .obs_context
+                .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
+                .await?
+                .set_window(window)
+                .set_capture_audio(true)
+                .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
+                .add_to_scene(&mut scene)
+                .await?
+        } else {
+            let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
+                .map_err(|e| eyre!(e))?;
+            let window = window
+                .iter()
+                .find(|w| w.pid == pid)
+                .ok_or_else(|| eyre!("No window found with PID: {}", pid))?;
 
-        // let monitors = MonitorCaptureSourceBuilder::get_monitors().map_err(|e| eyre!(e))?;
-        // let mut _monitor_capture = context
-        //     .source_builder::<MonitorCaptureSourceBuilder, _>("Monitor Capture")
-        //     .await?
-        //     .set_monitor(&monitors[0])
-        //     .add_to_scene(&mut scene)
-        //     .await?;
+            if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
+                bail!(
+                    "The window ({}) you're trying to record is already being captured by another process. Do you have OBS or another instance of OWL Control open?",
+                    window.full_exe
+                );
+            }
 
-        if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
-            bail!(
-                "The window ({}) you're trying to record is already being captured by another process. Do you have OBS or another instance of OWL Control open?",
-                window.full_exe
-            );
-        }
-
-        let _game_capture = state
-            .obs_context
-            .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
-            .await?
-            .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
-            .set_window(window)
-            .set_capture_audio(true)
-            .add_to_scene(&mut scene)
-            .await?;
+            state
+                .obs_context
+                .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
+                .await?
+                .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
+                .set_window(window)
+                .set_capture_audio(true)
+                .add_to_scene(&mut scene)
+                .await?
+        };
 
         // Register the source
         scene.set_to_channel(0).await?;
@@ -165,7 +172,7 @@ impl RecorderBackend for BootstrapRecorder {
         tracing::debug!("OBS recording started successfully");
         Ok(BootstrapRecorder {
             _recording_path: recording_path.to_string(),
-            source: _game_capture,
+            source,
         })
     }
 
