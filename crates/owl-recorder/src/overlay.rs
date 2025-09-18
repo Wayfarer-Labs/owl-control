@@ -9,8 +9,9 @@ use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{
-        FLASHW_STOP, FLASHWINFO, FlashWindowEx, GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW,
-        WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        FLASHW_STOP, FLASHWINFO, FlashWindowEx, GWL_EXSTYLE, GetWindowLongPtrW, SW_HIDE,
+        SW_SHOWDEFAULT, SetWindowLongPtrW, ShowWindow, WS_EX_APPWINDOW, WS_EX_NOACTIVATE,
+        WS_EX_TOOLWINDOW,
     },
 };
 
@@ -48,6 +49,7 @@ impl EguiOverlay for OverlayApp {
         if self.frame == 0 {
             // install image loaders
             egui_extras::install_image_loaders(egui_context);
+
             // don't show transparent window outline
             glfw_backend.window.set_decorated(false);
             glfw_backend.set_window_size([600.0, 50.0]);
@@ -55,15 +57,17 @@ impl EguiOverlay for OverlayApp {
             glfw_backend.window.set_pos(0, 0);
             // always allow input to passthrough
             glfw_backend.set_passthrough(true);
+
             // hide glfw overlay icon from taskbar and alt+tab
             let hwnd = glfw_backend.window.get_win32_window() as isize;
             if hwnd != 0 {
                 unsafe {
                     let hwnd = HWND(hwnd as *mut std::ffi::c_void);
 
-                    // TODO: there is a bug with egui overlay start where if the user is alt tabbed at the moment
-                    // that the app is started, the overlay will be permanently unminimizable and highlighted in the
-                    // task bar. Idk how to fix that, for now I have fixed the highlighting part here.
+                    // https://stackoverflow.com/a/7219089
+                    // glfw window might bug sometimes, if user is alt tabbed / focusing another window while glfw starts up
+                    // hiding it from taskbar might break. so we have to do this shit per microsoft:
+                    // "you must hide the window first (by calling ShowWindow with SW_HIDE), change the window style, and then show the window."
                     let flash_info = FLASHWINFO {
                         cbSize: std::mem::size_of::<FLASHWINFO>() as u32,
                         hwnd,
@@ -73,11 +77,17 @@ impl EguiOverlay for OverlayApp {
                     };
                     let _ = FlashWindowEx(&flash_info);
 
+                    let _ = ShowWindow(hwnd, SW_HIDE); // hide the window
+
+                    // set the style
                     let mut ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
                     ex_style |= WS_EX_TOOLWINDOW.0 as isize; // Hide from taskbar
                     ex_style |= WS_EX_NOACTIVATE.0 as isize; // Don't steal focus
                     ex_style &= !(WS_EX_APPWINDOW.0 as isize); // Remove from Alt+Tab
                     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
+
+                    let _ = ShowWindow(hwnd, SW_SHOWDEFAULT); // show the window for the new style to come into effect
+                    let _ = ShowWindow(hwnd, SW_HIDE); // hide the window so we can't see it
                 }
             }
             egui_context.request_repaint();
