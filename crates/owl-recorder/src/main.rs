@@ -16,7 +16,10 @@ mod upload_manager;
 
 use std::{
     path::PathBuf,
-    sync::RwLock,
+    sync::{
+        RwLock,
+        atomic::{AtomicU8, Ordering},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -99,7 +102,7 @@ struct RecordingState {
     // holds the current state of recording, recorder <-> overlay
     state: RwLock<RecordingStatus>,
     // setting for opacity of overlay, main app <-> overlay
-    opacity: RwLock<u8>,
+    opacity: AtomicU8,
     // bootstrap progress bar, recorder <-> main app
     boostrap_progress: RwLock<f32>,
 }
@@ -108,7 +111,7 @@ impl RecordingState {
     pub fn new() -> Self {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
-            opacity: RwLock::new(85),
+            opacity: AtomicU8::new(85),
             boostrap_progress: RwLock::new(0.0),
         }
     }
@@ -242,7 +245,9 @@ impl MainApp {
             let local_credentials = cm.credentials.clone();
             let local_preferences = cm.preferences.clone();
             // write the cached overlay opacity
-            *recording_state.opacity.write().unwrap() = local_preferences.overlay_opacity;
+            recording_state
+                .opacity
+                .store(local_preferences.overlay_opacity, Ordering::Relaxed);
             let rec_status = recording_state.state.read().unwrap().clone();
             Self {
                 recording_state,
@@ -314,7 +319,6 @@ impl eframe::App for MainApp {
                 ui.group(|ui| {
                     ui.label(egui::RichText::new("OWL API Token").size(18.0).strong());
                     ui.separator();
-                    ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
                         ui.label("API Token:");
@@ -335,30 +339,6 @@ impl eframe::App for MainApp {
                 });
                 ui.add_space(15.0);
 
-                // Recorder Settings Section
-                ui.group(|ui| {
-                    ui.label(egui::RichText::new("Recorder Settings").size(18.0).strong());
-                    ui.separator();
-                    ui.add_space(10.0);
-
-                    ui.horizontal(|ui| {
-                        ui.label("Recorder Backend:");
-                        ui.checkbox(
-                            &mut self.local_preferences.delete_uploaded_files,
-                            "Delete local files after successful upload",
-                        )
-                    });
-
-                    ui.horizontal(|ui| {
-                        ui.label("Upload Behaviour:");
-                        ui.checkbox(
-                            &mut self.local_preferences.delete_uploaded_files,
-                            "Delete local files after successful upload",
-                        )
-                    });
-                });
-                ui.add_space(15.0);
-
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
                     ui.label(
@@ -367,7 +347,6 @@ impl eframe::App for MainApp {
                             .strong(),
                     );
                     ui.separator();
-                    ui.add_space(10.0);
 
                     // TODO: eventually implement a better keyboard shortcut system
                     ui.horizontal(|ui| {
@@ -402,13 +381,24 @@ impl eframe::App for MainApp {
                             .strong(),
                     );
                     ui.separator();
-                    ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
                         ui.label("Opacity:");
-                        let mut opacity_guard = self.recording_state.opacity.write().unwrap();
-                        self.local_preferences.overlay_opacity = *opacity_guard;
-                        ui.add(egui::Slider::new(&mut *opacity_guard, 1..=255));
+                        let mut stored_opacity =
+                            self.recording_state.opacity.load(Ordering::Relaxed);
+
+                        let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
+                        ui.add(
+                            egui::Slider::new(&mut egui_opacity, 0.0..=100.0)
+                                .suffix("%")
+                                .integer(),
+                        );
+
+                        stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
+                        self.recording_state
+                            .opacity
+                            .store(stored_opacity as u8, Ordering::Relaxed);
+                        self.local_preferences.overlay_opacity = stored_opacity;
                     });
                 });
 

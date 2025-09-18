@@ -1,5 +1,5 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, atomic::Ordering},
     time::{Duration, Instant},
 };
 
@@ -25,7 +25,7 @@ pub struct OverlayApp {
 }
 impl OverlayApp {
     pub fn new(recording_state: Arc<RecordingState>) -> Self {
-        let overlay_opacity = *recording_state.opacity.read().unwrap();
+        let overlay_opacity = recording_state.opacity.load(Ordering::Relaxed);
         let rec_status = recording_state.state.read().unwrap().clone();
         Self {
             frame: 0,
@@ -83,7 +83,7 @@ impl EguiOverlay for OverlayApp {
             egui_context.request_repaint();
         }
 
-        let curr_opacity = *self.recording_state.opacity.read().unwrap();
+        let curr_opacity = self.recording_state.opacity.load(Ordering::Relaxed);
         if curr_opacity != self.overlay_opacity {
             self.overlay_opacity = curr_opacity;
             egui_context.request_repaint();
