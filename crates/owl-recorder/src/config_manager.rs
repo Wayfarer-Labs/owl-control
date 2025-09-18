@@ -14,6 +14,8 @@ pub struct Preferences {
     pub overlay_opacity: u8,
     #[serde(rename = "deleteUploadedFiles", default)]
     pub delete_uploaded_files: bool,
+    #[serde(rename = "honk", default)]
+    pub honk: bool,
 }
 
 impl Default for Preferences {
@@ -23,6 +25,7 @@ impl Default for Preferences {
             stop_recording_key: "F5".to_string(),
             overlay_opacity: 85,
             delete_uploaded_files: false,
+            honk: true,
         }
     }
 }
@@ -154,49 +157,5 @@ impl ConfigManager {
         let contents = serde_json::to_string_pretty(&self)?;
         fs::write(&self.config_path, contents)?;
         Ok(())
-    }
-
-    // Credential getters
-    pub fn get_api_key(&self) -> &str {
-        &self.credentials.api_key
-    }
-
-    pub fn has_consented(&self) -> bool {
-        self.credentials.has_consented
-    }
-
-    // Preference getters
-    pub fn get_start_recording_key(&self) -> &str {
-        &self.preferences.start_recording_key
-    }
-
-    pub fn get_stop_recording_key(&self) -> &str {
-        &self.preferences.stop_recording_key
-    }
-
-    pub fn get_delete_uploaded_files(&self) -> bool {
-        self.preferences.delete_uploaded_files
-    }
-
-    // Credential setters
-    pub fn set_api_key(&mut self, api_key: String) {
-        self.credentials.api_key = api_key;
-    }
-
-    pub fn set_has_consented(&mut self, consented: bool) {
-        self.credentials.has_consented = consented;
-    }
-
-    // Preference setters
-    pub fn set_start_recording_key(&mut self, key: String) {
-        self.preferences.start_recording_key = key;
-    }
-
-    pub fn set_stop_recording_key(&mut self, key: String) {
-        self.preferences.stop_recording_key = key;
-    }
-
-    pub fn set_delete_uploaded_files(&mut self, delete: bool) {
-        self.preferences.delete_uploaded_files = delete;
     }
 }

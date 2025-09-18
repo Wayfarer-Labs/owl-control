@@ -38,8 +38,7 @@ use crate::{
 use eframe::egui;
 use egui::ViewportCommand;
 
-use rodio::{Decoder, OutputStream, Sink};
-use std::io::Cursor;
+use rodio::OutputStream;
 use std::sync::{Arc, Mutex};
 use tray_icon::{
     MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
@@ -309,7 +308,10 @@ impl eframe::App for MainApp {
                     )));
                 }
             };
-            self.play_audio(&self.rec_status);
+            // honk if honk
+            if self.local_preferences.honk {
+                self.play_audio(&self.rec_status);
+            }
             ctx.request_repaint();
         }
 
@@ -390,14 +392,14 @@ impl eframe::App for MainApp {
                 // Overlay Settings Section
                 ui.group(|ui| {
                     ui.label(
-                        egui::RichText::new("Overlay Customization")
+                        egui::RichText::new("Recorder Customization")
                             .size(18.0)
                             .strong(),
                     );
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        ui.label("Opacity:");
+                        ui.label("Overlay Opacity:");
                         let mut stored_opacity =
                             self.recording_state.opacity.load(Ordering::Relaxed);
 
@@ -414,6 +416,18 @@ impl eframe::App for MainApp {
                             .store(stored_opacity as u8, Ordering::Relaxed);
                         self.local_preferences.overlay_opacity = stored_opacity;
                     });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Recording Audio Cue:");
+                        let honk = self.local_preferences.honk;
+                        ui.add(egui::Checkbox::new(
+                            &mut self.local_preferences.honk,
+                            match honk {
+                                true => "Honk.",
+                                false => "Honk?",
+                            },
+                        ));
+                    })
                 });
 
                 ui.add_space(15.0);
@@ -558,7 +572,7 @@ impl MainApp {
                 BufReader::new(File::open("./crates/owl-recorder/assets/goose_honk0.mp3").unwrap())
             }
             _ => {
-                BufReader::new(File::open("./crates/owl-recorder/assets/goose_honk0.mp3").unwrap())
+                BufReader::new(File::open("./crates/owl-recorder/assets/goose_honk1.mp3").unwrap())
             }
         };
         // Note that the playback stops when the sink is dropped
