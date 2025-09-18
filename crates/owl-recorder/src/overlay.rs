@@ -87,7 +87,6 @@ impl EguiOverlay for OverlayApp {
                     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
 
                     let _ = ShowWindow(hwnd, SW_SHOWDEFAULT); // show the window for the new style to come into effect
-                    let _ = ShowWindow(hwnd, SW_HIDE); // hide the window so we can't see it
                 }
             }
             egui_context.request_repaint();
