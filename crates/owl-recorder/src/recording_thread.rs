@@ -108,22 +108,18 @@ async fn main(
                 }
 
                 recorder.seen_input(e).await?;
-                let mut state_writer = recording_state.state.write().unwrap();
                 if let Some(key) = e.key_press_keycode() {
                     if key == start_key {
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
-                        *state_writer = RecordingStatus::Recording;
                     } else if key == stop_key {
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
-                        *state_writer = RecordingStatus::Stopped;
                         start_on_activity = false;
                     }
                 } else if start_on_activity {
                     tracing::info!("Input detected, restarting recording");
                     recorder.start().await?;
-                        *state_writer = RecordingStatus::Recording;
                     start_on_activity = false;
                 }
                 idleness_tracker.update_activity();
@@ -134,7 +130,6 @@ async fn main(
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
                         recorder.stop().await?;
-                        *state_writer = RecordingStatus::Stopped;
                     } else if idleness_tracker.is_idle() {
                         tracing::info!("No input detected for 5 seconds, stopping recording");
                         recorder.stop().await?;
@@ -143,9 +138,7 @@ async fn main(
                     } else if recording.elapsed() > MAX_RECORDING_DURATION {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_RECORDING_DURATION.as_secs());
                         recorder.stop().await?;
-                        *state_writer = RecordingStatus::Stopped;
                         recorder.start().await?;
-                        *state_writer = RecordingStatus::Recording;
                         idleness_tracker.update_activity();
                     };
                 }

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Instant;
 
 use color_eyre::{Result, eyre::Context as _};
 use tauri_winrt_notification::Toast;
@@ -8,8 +9,8 @@ use windows::{
     core::HSTRING,
 };
 
-use crate::RecordingState;
 use crate::{
+    RecordingState, RecordingStatus,
     bootstrap_recorder::bootstrap_obs,
     find_game::get_foregrounded_game,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
@@ -28,6 +29,7 @@ where
 {
     recording_dir: D,
     recording: Option<Recording<T>>,
+    recording_state: Arc<RecordingState>,
 }
 
 impl<D, T> Recorder<D, T>
@@ -41,11 +43,12 @@ where
     ) -> Result<Self> {
         // Ensure that the OBS bootstrapper runs
         // TODO: if T is bootstrapper then run
-        bootstrap_obs(recording_state).await?;
+        bootstrap_obs(recording_state.clone()).await?;
 
         Ok(Self {
             recording_dir,
             recording: None,
+            recording_state,
         })
     }
 
@@ -134,12 +137,16 @@ where
 
         show_notification(
             "Started recording",
-            &format!("Recording `{}`", recording.game_exe()),
+            &format!("Recording `{game_exe}`"),
             "",
             NotificationType::Info,
         );
 
         self.recording = Some(recording);
+        *self.recording_state.state.write().unwrap() = RecordingStatus::Recording {
+            start_time: Instant::now(),
+            game_exe,
+        };
 
         Ok(())
     }
@@ -165,6 +172,7 @@ where
         );
 
         recording.stop().await?;
+        *self.recording_state.state.write().unwrap() = RecordingStatus::Stopped;
 
         Ok(())
     }

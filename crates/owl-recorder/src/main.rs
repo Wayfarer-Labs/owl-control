@@ -14,7 +14,12 @@ mod recording;
 mod recording_thread;
 mod upload_manager;
 
-use std::{path::PathBuf, sync::RwLock, thread, time::Duration};
+use std::{
+    path::PathBuf,
+    sync::RwLock,
+    thread,
+    time::{Duration, Instant},
+};
 
 use clap::Parser;
 use color_eyre::Result;
@@ -80,21 +85,14 @@ macro_rules! load_icon_from_bytes {
     }};
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 enum RecordingStatus {
     Stopped,
-    Recording,
+    Recording {
+        start_time: Instant,
+        game_exe: String,
+    },
     Paused,
-}
-
-impl RecordingStatus {
-    pub fn display_text(&self) -> &str {
-        match *self {
-            RecordingStatus::Stopped => "Stopped",
-            RecordingStatus::Recording => "Recording...",
-            RecordingStatus::Paused => "Paused",
-        }
-    }
 }
 
 struct RecordingState {
@@ -245,7 +243,7 @@ impl MainApp {
             let local_preferences = cm.preferences.clone();
             // write the cached overlay opacity
             *recording_state.opacity.write().unwrap() = local_preferences.overlay_opacity;
-            let rec_status = *recording_state.state.read().unwrap();
+            let rec_status = recording_state.state.read().unwrap().clone();
             Self {
                 recording_state,
                 frame: 0,
@@ -270,11 +268,11 @@ impl eframe::App for MainApp {
         }
 
         // update the tray icon based on recording state
-        let curr_state = *self.recording_state.state.read().unwrap();
+        let curr_state = self.recording_state.state.read().unwrap().clone();
         if curr_state != self.rec_status {
             self.rec_status = curr_state;
-            match curr_state {
-                RecordingStatus::Recording => {
+            match &self.rec_status {
+                RecordingStatus::Recording { .. } => {
                     let _ = self.tray_icon.set_icon(Some(load_icon_from_bytes!(
                         "../assets/owl-logo-recording.png",
                         tray_icon

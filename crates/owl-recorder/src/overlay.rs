@@ -1,6 +1,9 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use egui::{Align2, Color32, RichText, Stroke, Vec2};
+use egui::{Align2, Color32, Stroke, TextFormat, Vec2, text::LayoutJob};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 use windows::Win32::{
@@ -18,16 +21,18 @@ pub struct OverlayApp {
     recording_state: Arc<RecordingState>,
     overlay_opacity: u8,         // local opacity tracker
     rec_status: RecordingStatus, // local rec status
+    last_paint_time: Instant,
 }
 impl OverlayApp {
     pub fn new(recording_state: Arc<RecordingState>) -> Self {
         let overlay_opacity = *recording_state.opacity.read().unwrap();
-        let rec_status = *recording_state.state.read().unwrap();
+        let rec_status = recording_state.state.read().unwrap().clone();
         Self {
             frame: 0,
             recording_state,
             overlay_opacity,
             rec_status,
+            last_paint_time: Instant::now(),
         }
     }
 }
@@ -45,7 +50,7 @@ impl EguiOverlay for OverlayApp {
             egui_extras::install_image_loaders(egui_context);
             // don't show transparent window outline
             glfw_backend.window.set_decorated(false);
-            glfw_backend.set_window_size([200.0, 50.0]);
+            glfw_backend.set_window_size([600.0, 50.0]);
             // anchor top left always
             glfw_backend.window.set_pos(0, 0);
             // always allow input to passthrough
@@ -92,10 +97,13 @@ impl EguiOverlay for OverlayApp {
             outer_margin: egui::Margin::ZERO,                      // No outer margin
         };
 
-        // only repaint the window when recording state changes, saves more cpu
-        let curr_state = *self.recording_state.state.read().unwrap();
-        if curr_state != self.rec_status {
+        // only repaint the window every 500ms or when the recording state changes
+        let curr_state = self.recording_state.state.read().unwrap().clone();
+        if self.last_paint_time.elapsed() > Duration::from_millis(500)
+            || curr_state != self.rec_status
+        {
             self.rec_status = curr_state;
+            self.last_paint_time = Instant::now();
             egui_context.request_repaint();
         }
         egui::Window::new("recording overlay")
@@ -114,11 +122,55 @@ impl EguiOverlay for OverlayApp {
                             .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
                             .tint(Color32::from_white_alpha(self.overlay_opacity)),
                     );
-                    ui.label(
-                        RichText::new(self.rec_status.display_text())
-                            .size(12.0)
-                            .color(Color32::from_white_alpha(self.overlay_opacity)),
-                    );
+
+                    let font_id = egui::FontId::new(12.0, egui::FontFamily::Proportional);
+                    let color = Color32::from_white_alpha(self.overlay_opacity);
+                    let recording_text: egui::WidgetText = match &self.rec_status {
+                        RecordingStatus::Stopped => egui::RichText::new("Stopped")
+                            .font(font_id)
+                            .color(color)
+                            .into(),
+                        RecordingStatus::Recording {
+                            start_time,
+                            game_exe,
+                        } => {
+                            let mut job = LayoutJob::default();
+                            job.append(
+                                "Recording ",
+                                0.0,
+                                TextFormat {
+                                    font_id: font_id.clone(),
+                                    color,
+                                    ..Default::default()
+                                },
+                            );
+                            job.append(
+                                &game_exe,
+                                0.0,
+                                TextFormat {
+                                    font_id: font_id.clone(),
+                                    italics: true,
+                                    color,
+                                    ..Default::default()
+                                },
+                            );
+                            job.append(
+                                &format!(" ({}s)", start_time.elapsed().as_secs()),
+                                0.0,
+                                TextFormat {
+                                    font_id,
+                                    color,
+                                    ..Default::default()
+                                },
+                            );
+                            job.into()
+                        }
+                        RecordingStatus::Paused => egui::RichText::new("Paused")
+                            .font(font_id)
+                            .color(color)
+                            .into(),
+                    };
+                    ui.label(recording_text);
                 });
             });
     }
