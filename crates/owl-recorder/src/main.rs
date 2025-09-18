@@ -15,6 +15,8 @@ mod recording_thread;
 mod upload_manager;
 
 use std::{
+    fs::File,
+    io::BufReader,
     path::PathBuf,
     sync::{
         RwLock,
@@ -36,6 +38,8 @@ use crate::{
 use eframe::egui;
 use egui::ViewportCommand;
 
+use rodio::{Decoder, OutputStream, Sink};
+use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 use tray_icon::{
     MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
@@ -105,6 +109,7 @@ struct RecordingState {
     opacity: AtomicU8,
     // bootstrap progress bar, recorder <-> main app
     boostrap_progress: RwLock<f32>,
+    egui_ctx: Arc<Mutex<Option<egui::Context>>>,
 }
 
 impl RecordingState {
@@ -113,6 +118,7 @@ impl RecordingState {
             state: RwLock::new(RecordingStatus::Stopped),
             opacity: AtomicU8::new(85),
             boostrap_progress: RwLock::new(0.0),
+            egui_ctx: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -218,6 +224,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }));
 
+            *cloned_state.egui_ctx.lock().unwrap() = Some(cc.egui_ctx.clone());
             Ok(Box::new(MainApp::new(cloned_state, tray_icon).unwrap()))
         }),
     );
@@ -234,6 +241,7 @@ pub struct MainApp {
     local_credentials: Credentials, // local copy of the settings that is used to track
     local_preferences: Preferences, // user inputs before being saved to the ConfigManager
     tray_icon: TrayIcon, // maintains reference to tray icon to update based on recordingstate
+    stream_handle: OutputStream,
 }
 impl MainApp {
     fn new(
@@ -249,6 +257,8 @@ impl MainApp {
                 .opacity
                 .store(local_preferences.overlay_opacity, Ordering::Relaxed);
             let rec_status = recording_state.state.read().unwrap().clone();
+            let stream_handle = rodio::OutputStreamBuilder::open_default_stream()
+                .expect("open default audio stream");
             Self {
                 recording_state,
                 frame: 0,
@@ -258,12 +268,13 @@ impl MainApp {
                 local_credentials: local_credentials,
                 local_preferences: local_preferences,
                 tray_icon,
+                stream_handle,
             }
         })
     }
 }
 impl eframe::App for MainApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
         // if user closes the app instead minimize to tray
         if ctx.input(|i| i.viewport().close_requested()) {
             let mut visible = VISIBLE.lock().unwrap();
@@ -272,6 +283,8 @@ impl eframe::App for MainApp {
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
         }
 
+        // TODO: https://github.com/emilk/egui/discussions/3971#discussioncomment-8368009
+        // known issue unable to change the taskbar icon at runtime, see ^
         // update the tray icon based on recording state
         let curr_state = self.recording_state.state.read().unwrap().clone();
         if curr_state != self.rec_status {
@@ -296,6 +309,7 @@ impl eframe::App for MainApp {
                     )));
                 }
             };
+            self.play_audio(&self.rec_status);
             ctx.request_repaint();
         }
 
@@ -531,5 +545,24 @@ impl MainApp {
                 .size(10.0)
                 .color(egui::Color32::from_rgb(128, 128, 128)),
         );
+    }
+
+    fn play_audio(&self, recording_status: &RecordingStatus) {
+        // Load a sound from a file, using a path relative to Cargo.toml
+        tracing::info!("audio playing");
+        let file = match &recording_status {
+            &RecordingStatus::Recording {
+                start_time: _,
+                game_exe: _,
+            } => {
+                BufReader::new(File::open("./crates/owl-recorder/assets/goose_honk0.mp3").unwrap())
+            }
+            _ => {
+                BufReader::new(File::open("./crates/owl-recorder/assets/goose_honk0.mp3").unwrap())
+            }
+        };
+        // Note that the playback stops when the sink is dropped
+        let sink = rodio::play(&self.stream_handle.mixer(), file).unwrap();
+        sink.sleep_until_end();
     }
 }

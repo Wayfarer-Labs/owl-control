@@ -147,7 +147,16 @@ where
             start_time: Instant::now(),
             game_exe,
         };
-
+        {
+            // request repaint here to refresh the eframe, forcing it to update the trayicon and play the audio
+            self.recording_state
+                .egui_ctx
+                .lock()
+                .unwrap()
+                .as_ref()
+                .expect("Expected egui_ctx, wtf.")
+                .request_repaint();
+        }
         Ok(())
     }
 
@@ -173,7 +182,16 @@ where
 
         recording.stop().await?;
         *self.recording_state.state.write().unwrap() = RecordingStatus::Stopped;
-
+        {
+            // request repaint here to refresh the eframe, forcing it to update the trayicon and play the audio
+            self.recording_state
+                .egui_ctx
+                .lock()
+                .unwrap()
+                .as_ref()
+                .expect("Expected egui_ctx, wtf.")
+                .request_repaint();
+        }
         Ok(())
     }
 }
