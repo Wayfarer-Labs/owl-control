@@ -1,3 +1,4 @@
+mod app_icon;
 mod bootstrap_recorder;
 mod config_manager;
 mod find_game;
@@ -30,6 +31,7 @@ use clap::Parser;
 use color_eyre::Result;
 
 use crate::{
+    app_icon::set_app_icon_windows,
     config_manager::{ConfigManager, Credentials, Preferences},
     overlay::OverlayApp,
     upload_manager::{is_upload_bridge_running, start_upload_bridge},
@@ -244,8 +246,8 @@ pub struct MainApp {
     local_credentials: Credentials, // local copy of the settings that is used to track
     local_preferences: Preferences, // user inputs before being saved to the ConfigManager
     tray_icon: TrayIcon, // maintains reference to tray icon to update based on recordingstate
-    sink: Sink,
-    stream_handle: OutputStream,
+    sink: Sink,          // for honking
+    _stream_handle: OutputStream, // stream handle needs to stay alive for the sink to play audio
 }
 impl MainApp {
     fn new(
@@ -274,7 +276,7 @@ impl MainApp {
                 local_preferences: local_preferences,
                 tray_icon,
                 sink,
-                stream_handle,
+                _stream_handle: stream_handle,
             }
         })
     }
@@ -300,17 +302,13 @@ impl eframe::App for MainApp {
                     let _ = self
                         .tray_icon
                         .set_icon(Some(load_icon_from_bytes!(LOGO_RECORDING_BYTES, tray_icon)));
-                    ctx.send_viewport_cmd(ViewportCommand::Icon(Some(
-                        load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon).into(),
-                    )));
+                    set_app_icon_windows(&load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon));
                 }
                 _ => {
                     let _ = self
                         .tray_icon
                         .set_icon(Some(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon)));
-                    ctx.send_viewport_cmd(ViewportCommand::Icon(Some(
-                        load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon).into(),
-                    )));
+                    set_app_icon_windows(&load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon));
                 }
             };
             // honk if honk
@@ -568,25 +566,22 @@ impl MainApp {
 
     fn play_audio(&self, recording_status: &RecordingStatus) {
         // Load a sound from a file, using a path relative to Cargo.toml
-        tracing::info!("audio playing");
-        self.sink
-            .append(Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("));
-        // match &recording_status {
-        //     &RecordingStatus::Recording {
-        //         start_time: _,
-        //         game_exe: _,
-        //     } => {
-        //         self.sink.append(
-        //             Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("),
-        //         );
-        //     }
-        //     _ => {
-        //         self.sink.append(
-        //             Decoder::new_mp3(Cursor::new(HONK_1_BYTES)).expect("Cannot decode honk :("),
-        //         );
-        //     }
-        // };
-        // Note that the playback stops when the sink is dropped
+        tracing::info!("honking... 🦢");
+        match &recording_status {
+            &RecordingStatus::Recording {
+                start_time: _,
+                game_exe: _,
+            } => {
+                self.sink.append(
+                    Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("),
+                );
+            }
+            _ => {
+                self.sink.append(
+                    Decoder::new_mp3(Cursor::new(HONK_1_BYTES)).expect("Cannot decode honk :("),
+                );
+            }
+        };
         self.sink.play();
     }
 }
