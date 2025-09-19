@@ -16,7 +16,7 @@ mod upload_manager;
 
 use std::{
     fs::File,
-    io::BufReader,
+    io::{BufReader, Cursor},
     path::PathBuf,
     sync::{
         RwLock,
@@ -38,7 +38,7 @@ use crate::{
 use eframe::egui;
 use egui::ViewportCommand;
 
-use rodio::OutputStream;
+use rodio::{Decoder, OutputStream, Sink};
 use std::sync::{Arc, Mutex};
 use tray_icon::{
     MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
@@ -80,9 +80,8 @@ macro_rules! load_icon_from_bytes {
             .expect("Failed to create tray icon")
     };
 
-    ($path:literal, $icon_type:ident) => {{
-        const ICON_BYTES: &[u8] = include_bytes!($path);
-        let image = image::load_from_memory(ICON_BYTES)
+    ($bytes:expr, $icon_type:ident) => {{
+        let image = image::load_from_memory($bytes)
             .expect("Failed to load embedded icon")
             .into_rgba8();
         let (width, height) = image.dimensions();
@@ -90,6 +89,11 @@ macro_rules! load_icon_from_bytes {
         load_icon_from_bytes!(@internal rgba, width, height, $icon_type)
     }};
 }
+
+const LOGO_DEFAULT_BYTES: &[u8] = include_bytes!("../assets/owl-logo.png");
+const LOGO_RECORDING_BYTES: &[u8] = include_bytes!("../assets/owl-logo-recording.png");
+const HONK_0_BYTES: &[u8] = include_bytes!("../assets/goose_honk0.mp3");
+const HONK_1_BYTES: &[u8] = include_bytes!("../assets/goose_honk1.mp3");
 
 #[derive(Clone, PartialEq)]
 enum RecordingStatus {
@@ -156,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tray_menu.append(&quit_item)?;
     // create tray icon
     let tray_icon = TrayIconBuilder::new()
-        .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", tray_icon))
+        .with_icon(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon))
         .with_tooltip("OWL Control")
         .with_menu(Box::new(tray_menu))
         .build()?;
@@ -166,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_inner_size([600.0, 600.0])
             .with_resizable(false)
             .with_title("OWL Control")
-            .with_icon(load_icon_from_bytes!("../assets/owl-logo.png", egui_icon)),
+            .with_icon(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon)),
         ..Default::default()
     };
 
@@ -240,6 +244,7 @@ pub struct MainApp {
     local_credentials: Credentials, // local copy of the settings that is used to track
     local_preferences: Preferences, // user inputs before being saved to the ConfigManager
     tray_icon: TrayIcon, // maintains reference to tray icon to update based on recordingstate
+    sink: Sink,
     stream_handle: OutputStream,
 }
 impl MainApp {
@@ -258,6 +263,7 @@ impl MainApp {
             let rec_status = recording_state.state.read().unwrap().clone();
             let stream_handle = rodio::OutputStreamBuilder::open_default_stream()
                 .expect("open default audio stream");
+            let sink = Sink::connect_new(&stream_handle.mixer());
             Self {
                 recording_state,
                 frame: 0,
@@ -267,6 +273,7 @@ impl MainApp {
                 local_credentials: local_credentials,
                 local_preferences: local_preferences,
                 tray_icon,
+                sink,
                 stream_handle,
             }
         })
@@ -290,21 +297,19 @@ impl eframe::App for MainApp {
             self.rec_status = curr_state;
             match &self.rec_status {
                 RecordingStatus::Recording { .. } => {
-                    let _ = self.tray_icon.set_icon(Some(load_icon_from_bytes!(
-                        "../assets/owl-logo-recording.png",
-                        tray_icon
-                    )));
+                    let _ = self
+                        .tray_icon
+                        .set_icon(Some(load_icon_from_bytes!(LOGO_RECORDING_BYTES, tray_icon)));
                     ctx.send_viewport_cmd(ViewportCommand::Icon(Some(
-                        load_icon_from_bytes!("../assets/owl-logo-recording.png", egui_icon).into(),
+                        load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon).into(),
                     )));
                 }
                 _ => {
-                    let _ = self.tray_icon.set_icon(Some(load_icon_from_bytes!(
-                        "../assets/owl-logo.png",
-                        tray_icon
-                    )));
+                    let _ = self
+                        .tray_icon
+                        .set_icon(Some(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon)));
                     ctx.send_viewport_cmd(ViewportCommand::Icon(Some(
-                        load_icon_from_bytes!("../assets/owl-logo.png", egui_icon).into(),
+                        load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon).into(),
                     )));
                 }
             };
@@ -564,19 +569,24 @@ impl MainApp {
     fn play_audio(&self, recording_status: &RecordingStatus) {
         // Load a sound from a file, using a path relative to Cargo.toml
         tracing::info!("audio playing");
-        let file = match &recording_status {
-            &RecordingStatus::Recording {
-                start_time: _,
-                game_exe: _,
-            } => {
-                BufReader::new(File::open("./crates/owl-recorder/assets/goose_honk0.mp3").unwrap())
-            }
-            _ => {
-                BufReader::new(File::open("./crates/owl-recorder/assets/goose_honk1.mp3").unwrap())
-            }
-        };
+        self.sink
+            .append(Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("));
+        // match &recording_status {
+        //     &RecordingStatus::Recording {
+        //         start_time: _,
+        //         game_exe: _,
+        //     } => {
+        //         self.sink.append(
+        //             Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("),
+        //         );
+        //     }
+        //     _ => {
+        //         self.sink.append(
+        //             Decoder::new_mp3(Cursor::new(HONK_1_BYTES)).expect("Cannot decode honk :("),
+        //         );
+        //     }
+        // };
         // Note that the playback stops when the sink is dropped
-        let sink = rodio::play(&self.stream_handle.mixer(), file).unwrap();
-        sink.sleep_until_end();
+        self.sink.play();
     }
 }
