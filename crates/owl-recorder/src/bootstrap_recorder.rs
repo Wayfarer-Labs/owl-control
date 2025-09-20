@@ -32,7 +32,7 @@ use libobs_wrapper::{
 };
 use std::time::Instant;
 
-use crate::{RecordingState, recorder::RecorderBackend};
+use crate::{AppState, recorder::RecorderBackend};
 
 pub struct BootstrapRecorder {
     _recording_path: String,
@@ -201,12 +201,12 @@ static OBS_STATE: OnceLock<Mutex<ObsState>> = OnceLock::new();
 fn get_obs_state() -> MutexGuard<'static, ObsState> {
     OBS_STATE.get().unwrap().lock().unwrap()
 }
-pub async fn bootstrap_obs(recording_state: Arc<RecordingState>) -> Result<()> {
+pub async fn bootstrap_obs(app_state: Arc<AppState>) -> Result<()> {
     // Logging-based handler using tracing
     #[derive(Clone)]
     struct LoggingBootstrapHandler {
         start_time: Instant,
-        recording_state: Arc<RecordingState>,
+        app_state: Arc<AppState>,
     }
     impl std::fmt::Debug for LoggingBootstrapHandler {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -216,17 +216,17 @@ pub async fn bootstrap_obs(recording_state: Arc<RecordingState>) -> Result<()> {
         }
     }
     impl LoggingBootstrapHandler {
-        pub fn new(recording_state: Arc<RecordingState>) -> Self {
+        pub fn new(app_state: Arc<AppState>) -> Self {
             tracing::info!("Starting OBS bootstrap process");
-            *recording_state.boostrap_progress.write().unwrap() = 0.0;
+            *app_state.boostrap_progress.write().unwrap() = 0.0;
             Self {
                 start_time: Instant::now(),
-                recording_state: recording_state,
+                app_state: app_state,
             }
         }
         pub fn done(&self) {
             let elapsed = self.start_time.elapsed();
-            *self.recording_state.boostrap_progress.write().unwrap() = 1.0;
+            *self.app_state.boostrap_progress.write().unwrap() = 1.0;
             tracing::info!("OBS bootstrap completed in {:.2}s", elapsed.as_secs_f32());
         }
     }
@@ -235,7 +235,7 @@ pub async fn bootstrap_obs(recording_state: Arc<RecordingState>) -> Result<()> {
         async fn handle_downloading(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
             // Log major milestones
             if prog % 0.05 <= 0.01 && prog > 0. {
-                *self.recording_state.boostrap_progress.write().unwrap() = prog / 2.0;
+                *self.app_state.boostrap_progress.write().unwrap() = prog / 2.0;
                 tracing::info!("Downloading: {:.1}% - {}", prog * 100.0, msg);
             }
             Ok(())
@@ -244,7 +244,7 @@ pub async fn bootstrap_obs(recording_state: Arc<RecordingState>) -> Result<()> {
         async fn handle_extraction(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
             // Log major milestones
             if prog % 0.05 <= 0.01 && prog > 0. {
-                *self.recording_state.boostrap_progress.write().unwrap() = prog / 2.0 + 0.5;
+                *self.app_state.boostrap_progress.write().unwrap() = prog / 2.0 + 0.5;
                 tracing::info!("Extracting: {:.1}% - {}", prog * 100.0, msg);
             }
             Ok(())
@@ -252,7 +252,7 @@ pub async fn bootstrap_obs(recording_state: Arc<RecordingState>) -> Result<()> {
     }
 
     // Create a progress handler
-    let handler = LoggingBootstrapHandler::new(recording_state);
+    let handler = LoggingBootstrapHandler::new(app_state);
 
     // Initialize OBS with bootstrapper
     let (base_width, base_height) =

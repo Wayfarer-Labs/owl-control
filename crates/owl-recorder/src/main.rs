@@ -29,6 +29,7 @@ use std::{
 
 use clap::Parser;
 use color_eyre::Result;
+use obws::client::Config;
 
 use crate::{
     app_icon::set_app_icon_windows,
@@ -91,6 +92,7 @@ macro_rules! load_icon_from_bytes {
         load_icon_from_bytes!(@internal rgba, width, height, $icon_type)
     }};
 }
+pub(crate) use load_icon_from_bytes;
 
 const LOGO_DEFAULT_BYTES: &[u8] = include_bytes!("../assets/owl-logo.png");
 const LOGO_RECORDING_BYTES: &[u8] = include_bytes!("../assets/owl-logo-recording.png");
@@ -107,23 +109,27 @@ enum RecordingStatus {
     Paused,
 }
 
-struct RecordingState {
-    // holds the current state of recording, recorder <-> overlay
-    state: RwLock<RecordingStatus>,
-    // setting for opacity of overlay, main app <-> overlay
-    opacity: AtomicU8,
-    // bootstrap progress bar, recorder <-> main app
-    boostrap_progress: RwLock<f32>,
-    egui_ctx: Arc<Mutex<Option<egui::Context>>>,
+struct AppState {
+    state: RwLock<RecordingStatus>, // holds the current state of recording, recorder <-> overlay
+    opacity: AtomicU8,              // setting for opacity of overlay, main app <-> overlay
+    boostrap_progress: RwLock<f32>, // bootstrap progress bar, recorder <-> main app
+    configs: RwLock<ConfigManager>,
+    sink: Sink,                   // for honking
+    _stream_handle: OutputStream, // stream handle needs to stay alive for the sink to play audio
 }
 
-impl RecordingState {
+impl AppState {
     pub fn new() -> Self {
+        let stream_handle =
+            rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
+        let sink = Sink::connect_new(&stream_handle.mixer());
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             opacity: AtomicU8::new(85),
             boostrap_progress: RwLock::new(0.0),
-            egui_ctx: Arc::new(Mutex::new(None)),
+            configs: RwLock::new(ConfigManager::new().expect("failed to init configs")),
+            sink,
+            _stream_handle: stream_handle,
         }
     }
 }
@@ -140,18 +146,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
-    let recording_state = Arc::new(RecordingState::new());
+    let app_state = Arc::new(AppState::new());
 
     // launch overlay on seperate thread so non-blocking
-    let cloned_state = recording_state.clone();
+    let cloned_state = app_state.clone();
     thread::spawn(move || {
         egui_overlay::start(OverlayApp::new(cloned_state));
-    });
-
-    // launch recorder on seperate thread so non-blocking
-    let cloned_state = recording_state.clone();
-    thread::spawn(move || {
-        recording_thread::run(cloned_state, start_key, stop_key, recording_location).unwrap();
     });
 
     // main app built here on main thread, so if it's closed by user the entire program is killed
@@ -159,13 +159,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let quit_item = MenuItem::new("Quit", true, None);
     let quit_item_id = quit_item.id().clone();
     let tray_menu = Menu::new();
-    tray_menu.append(&quit_item)?;
+    let _ = tray_menu.append(&quit_item);
     // create tray icon
-    let tray_icon = TrayIconBuilder::new()
+    let _tray_icon = TrayIconBuilder::new()
         .with_icon(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon))
         .with_tooltip("OWL Control")
         .with_menu(Box::new(tray_menu))
-        .build()?;
+        .build()
+        .unwrap();
+    MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+        match event.id() {
+            id if id == &quit_item_id => {
+                // Close the application
+                // TODO: probably should be a more graceful way to close the app?
+                // probably need a atomicbool with close flag so we can close via
+                // context_menu.send_viewport_cmd(egui::ViewportCommand::Close);
+                // and then also clean up any uploading video process in progress.
+                std::process::exit(0);
+            }
+            _ => {}
+        }
+    }));
+
+    // launch recorder on seperate thread so non-blocking
+    let cloned_state = app_state.clone();
+    thread::spawn(move || {
+        recording_thread::run(cloned_state, start_key, stop_key, recording_location).unwrap();
+    });
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -176,7 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    let cloned_state = recording_state.clone();
+    let cloned_state = app_state.clone();
     let _ = eframe::run_native(
         "OWL Control",
         options,
@@ -184,20 +204,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
                 panic!("Unsupported platform");
             };
-
-            MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
-                match event.id() {
-                    id if id == &quit_item_id => {
-                        // Close the application
-                        // TODO: probably should be a more graceful way to close the app?
-                        // probably need a atomicbool with close flag so we can close via
-                        // context_menu.send_viewport_cmd(egui::ViewportCommand::Close);
-                        // and then also clean up any uploading video process in progress.
-                        std::process::exit(0);
-                    }
-                    _ => {}
-                }
-            }));
 
             let context = cc.egui_ctx.clone();
             TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
@@ -228,9 +234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     _ => return,
                 }
             }));
-
-            *cloned_state.egui_ctx.lock().unwrap() = Some(cc.egui_ctx.clone());
-            Ok(Box::new(MainApp::new(cloned_state, tray_icon).unwrap()))
+            Ok(Box::new(MainApp::new(cloned_state).unwrap()))
         }),
     );
 
@@ -238,45 +242,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub struct MainApp {
-    recording_state: Arc<RecordingState>,
+    app_state: Arc<AppState>,
     frame: u64,
-    rec_status: RecordingStatus, // local RecordingStatus to update tray icon
-    cached_progress: f32,        // from 0-1
-    configs: ConfigManager,      // this is the cache that is actually saved to file
+    cached_progress: f32,           // from 0-1
     local_credentials: Credentials, // local copy of the settings that is used to track
     local_preferences: Preferences, // user inputs before being saved to the ConfigManager
-    tray_icon: TrayIcon, // maintains reference to tray icon to update based on recordingstate
-    sink: Sink,          // for honking
-    _stream_handle: OutputStream, // stream handle needs to stay alive for the sink to play audio
 }
 impl MainApp {
-    fn new(
-        recording_state: Arc<RecordingState>,
-        tray_icon: TrayIcon,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn new(app_state: Arc<AppState>) -> Result<Self, Box<dyn std::error::Error>> {
         Ok({
-            let cm = ConfigManager::new()?;
-            let local_credentials = cm.credentials.clone();
-            let local_preferences = cm.preferences.clone();
+            let local_credentials: Credentials;
+            let local_preferences: Preferences;
+            {
+                let configs = app_state.configs.read().unwrap();
+                local_credentials = configs.credentials.clone();
+                local_preferences = configs.preferences.clone();
+            }
             // write the cached overlay opacity
-            recording_state
+            app_state
                 .opacity
                 .store(local_preferences.overlay_opacity, Ordering::Relaxed);
-            let rec_status = recording_state.state.read().unwrap().clone();
-            let stream_handle = rodio::OutputStreamBuilder::open_default_stream()
-                .expect("open default audio stream");
-            let sink = Sink::connect_new(&stream_handle.mixer());
             Self {
-                recording_state,
+                app_state,
                 frame: 0,
-                rec_status,
                 cached_progress: 0.0,
-                configs: cm,
                 local_credentials: local_credentials,
                 local_preferences: local_preferences,
-                tray_icon,
-                sink,
-                _stream_handle: stream_handle,
             }
         })
     }
@@ -291,40 +282,13 @@ impl eframe::App for MainApp {
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
         }
 
-        // TODO: https://github.com/emilk/egui/discussions/3971#discussioncomment-8368009
-        // known issue unable to change the taskbar icon at runtime, see ^
-        // update the tray icon based on recording state
-        let curr_state = self.recording_state.state.read().unwrap().clone();
-        if curr_state != self.rec_status {
-            self.rec_status = curr_state;
-            match &self.rec_status {
-                RecordingStatus::Recording { .. } => {
-                    let _ = self
-                        .tray_icon
-                        .set_icon(Some(load_icon_from_bytes!(LOGO_RECORDING_BYTES, tray_icon)));
-                    set_app_icon_windows(&load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon));
-                }
-                _ => {
-                    let _ = self
-                        .tray_icon
-                        .set_icon(Some(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon)));
-                    set_app_icon_windows(&load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon));
-                }
-            };
-            // honk if honk
-            if self.local_preferences.honk {
-                self.play_audio(&self.rec_status);
-            }
-            ctx.request_repaint();
-        }
-
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(egui::RichText::new("Settings").size(36.0).strong());
             ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
             ui.add_space(10.0);
 
             // progress bar for obs bootstrapper
-            if let Ok(progress) = self.recording_state.boostrap_progress.try_read() {
+            if let Ok(progress) = self.app_state.boostrap_progress.try_read() {
                 self.cached_progress = *progress;
             }
             if self.cached_progress <= 1.0 {
@@ -403,8 +367,7 @@ impl eframe::App for MainApp {
 
                     ui.horizontal(|ui| {
                         ui.label("Overlay Opacity:");
-                        let mut stored_opacity =
-                            self.recording_state.opacity.load(Ordering::Relaxed);
+                        let mut stored_opacity = self.app_state.opacity.load(Ordering::Relaxed);
 
                         let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
                         ui.add(
@@ -414,7 +377,7 @@ impl eframe::App for MainApp {
                         );
 
                         stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
-                        self.recording_state
+                        self.app_state
                             .opacity
                             .store(stored_opacity as u8, Ordering::Relaxed);
                         self.local_preferences.overlay_opacity = stored_opacity;
@@ -530,9 +493,10 @@ impl eframe::App for MainApp {
                 ui.horizontal(|ui| {
                     if ui.button("Save Settings").clicked() {
                         // Handle save settings
-                        self.configs.credentials = self.local_credentials.clone();
-                        self.configs.preferences = self.local_preferences.clone();
-                        let _ = self.configs.save_config();
+                        let mut configs = self.app_state.configs.write().unwrap();
+                        configs.credentials = self.local_credentials.clone();
+                        configs.preferences = self.local_preferences.clone();
+                        let _ = configs.save_config();
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
@@ -562,26 +526,5 @@ impl MainApp {
                 .size(10.0)
                 .color(egui::Color32::from_rgb(128, 128, 128)),
         );
-    }
-
-    fn play_audio(&self, recording_status: &RecordingStatus) {
-        // Load a sound from a file, using a path relative to Cargo.toml
-        tracing::info!("honking... 🦢");
-        match &recording_status {
-            &RecordingStatus::Recording {
-                start_time: _,
-                game_exe: _,
-            } => {
-                self.sink.append(
-                    Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("),
-                );
-            }
-            _ => {
-                self.sink.append(
-                    Decoder::new_mp3(Cursor::new(HONK_1_BYTES)).expect("Cannot decode honk :("),
-                );
-            }
-        };
-        self.sink.play();
     }
 }

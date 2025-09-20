@@ -15,22 +15,22 @@ use windows::Win32::{
     },
 };
 
-use crate::{RecordingState, RecordingStatus};
+use crate::{AppState, RecordingStatus};
 
 pub struct OverlayApp {
     frame: u64,
-    recording_state: Arc<RecordingState>,
+    app_state: Arc<AppState>,
     overlay_opacity: u8,         // local opacity tracker
     rec_status: RecordingStatus, // local rec status
     last_paint_time: Instant,
 }
 impl OverlayApp {
-    pub fn new(recording_state: Arc<RecordingState>) -> Self {
-        let overlay_opacity = recording_state.opacity.load(Ordering::Relaxed);
-        let rec_status = recording_state.state.read().unwrap().clone();
+    pub fn new(app_state: Arc<AppState>) -> Self {
+        let overlay_opacity = app_state.opacity.load(Ordering::Relaxed);
+        let rec_status = app_state.state.read().unwrap().clone();
         Self {
             frame: 0,
-            recording_state,
+            app_state,
             overlay_opacity,
             rec_status,
             last_paint_time: Instant::now(),
@@ -92,7 +92,7 @@ impl EguiOverlay for OverlayApp {
             egui_context.request_repaint();
         }
 
-        let curr_opacity = self.recording_state.opacity.load(Ordering::Relaxed);
+        let curr_opacity = self.app_state.opacity.load(Ordering::Relaxed);
         if curr_opacity != self.overlay_opacity {
             self.overlay_opacity = curr_opacity;
             egui_context.request_repaint();
@@ -107,7 +107,7 @@ impl EguiOverlay for OverlayApp {
         };
 
         // only repaint the window every 500ms or when the recording state changes
-        let curr_state = self.recording_state.state.read().unwrap().clone();
+        let curr_state = self.app_state.state.read().unwrap().clone();
         if self.last_paint_time.elapsed() > Duration::from_millis(500)
             || curr_state != self.rec_status
         {

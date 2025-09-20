@@ -1,8 +1,10 @@
 use crate::{
-    MAX_IDLE_DURATION, MAX_RECORDING_DURATION, RecordingState, RecordingStatus,
-    keycode::lookup_keycode,
+    AppState, HONK_0_BYTES, HONK_1_BYTES, LOGO_DEFAULT_BYTES, LOGO_RECORDING_BYTES,
+    MAX_IDLE_DURATION, MAX_RECORDING_DURATION, RecordingStatus, app_icon::set_app_icon_windows,
+    keycode::lookup_keycode, load_icon_from_bytes,
 };
 use std::{
+    io::Cursor,
     path::PathBuf,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -12,6 +14,7 @@ use color_eyre::{Result, eyre::eyre};
 
 use game_process::does_process_exist;
 use input_capture::InputCapture;
+use rodio::{Decoder, Sink};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 
 use crate::{
@@ -20,13 +23,13 @@ use crate::{
 };
 
 pub fn run(
-    recording_state: Arc<RecordingState>,
+    app_state: Arc<AppState>,
     start_key: String,
     stop_key: String,
     recording_location: PathBuf,
 ) -> Result<()> {
     tokio::runtime::Runtime::new().unwrap().block_on(main(
-        recording_state,
+        app_state,
         start_key,
         stop_key,
         recording_location,
@@ -34,7 +37,7 @@ pub fn run(
 }
 
 async fn main(
-    recording_state: Arc<RecordingState>,
+    app_state: Arc<AppState>,
     start_key: String,
     stop_key: String,
     recording_location: PathBuf,
@@ -54,7 +57,7 @@ async fn main(
                     .to_string(),
             )
         },
-        recording_state.clone(),
+        app_state.clone(),
     )
     .await
     {
@@ -67,7 +70,7 @@ async fn main(
                 // Defer the restart to the ObsContext::spawn_updater(). All we have to do is kill the main thread.
                 tracing::info!("Restarting OBS!");
                 // give it a sec to cleanup, no sense wasting the progress bar visuals either ;p
-                *recording_state.boostrap_progress.write().unwrap() = 1.0;
+                *app_state.boostrap_progress.write().unwrap() = 1.0;
                 std::thread::sleep(Duration::from_secs(1));
                 std::process::exit(0);
             } else {
@@ -80,7 +83,7 @@ async fn main(
 
     // give it a moment for the user to see that loading has actually completed
     std::thread::sleep(Duration::from_millis(300));
-    *recording_state.boostrap_progress.write().unwrap() = 1.337;
+    *app_state.boostrap_progress.write().unwrap() = 1.337;
 
     tracing::info!("recorder initialized");
     let (_input_capture, mut input_rx) = InputCapture::new()?;
@@ -112,14 +115,17 @@ async fn main(
                     if key == start_key {
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
+                        rec_start(&app_state.sink, app_state.configs.read().unwrap().preferences.honk);
                     } else if key == stop_key {
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
+                        rec_stop(&app_state.sink, app_state.configs.read().unwrap().preferences.honk);
                         start_on_activity = false;
                     }
                 } else if start_on_activity {
                     tracing::info!("Input detected, restarting recording");
                     recorder.start().await?;
+                    rec_start(&app_state.sink, app_state.configs.read().unwrap().preferences.honk);
                     start_on_activity = false;
                 }
                 idleness_tracker.update_activity();
@@ -129,11 +135,13 @@ async fn main(
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
                         recorder.stop().await?;
+                        rec_stop(&app_state.sink, app_state.configs.read().unwrap().preferences.honk);
                     } else if idleness_tracker.is_idle() {
                         tracing::info!("No input detected for 5 seconds, stopping recording");
                         recorder.stop().await?;
+                        rec_stop(&app_state.sink, app_state.configs.read().unwrap().preferences.honk);
                         {
-                            let mut state_writer = recording_state.state.write().unwrap();
+                            let mut state_writer = app_state.state.write().unwrap();
                             *state_writer = RecordingStatus::Paused;
                         }
                         start_on_activity = true;
@@ -151,6 +159,24 @@ async fn main(
     recorder.stop().await?;
 
     Ok(())
+}
+
+// TOOD: find some way to change tray icon during runtime. rn tray icon can only run in main event loop,
+// and can't be moved between threads, but it just also won't run at all when the app is minimized.
+fn rec_start(sink: &Sink, honk: bool) {
+    // let _ = tray_icon.set_icon(Some(load_icon_from_bytes!(LOGO_RECORDING_BYTES, tray_icon)));
+    set_app_icon_windows(&load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon));
+    if honk {
+        sink.append(Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("));
+    }
+}
+
+fn rec_stop(sink: &Sink, honk: bool) {
+    // let _ = tray_icon.set_icon(Some(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon)));
+    set_app_icon_windows(&load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon));
+    if honk {
+        sink.append(Decoder::new_mp3(Cursor::new(HONK_1_BYTES)).expect("Cannot decode honk :("));
+    }
 }
 
 fn wait_for_ctrl_c() -> oneshot::Receiver<()> {

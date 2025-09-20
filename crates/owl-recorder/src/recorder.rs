@@ -10,7 +10,7 @@ use windows::{
 };
 
 use crate::{
-    RecordingState, RecordingStatus,
+    AppState, RecordingStatus,
     bootstrap_recorder::bootstrap_obs,
     find_game::get_foregrounded_game,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
@@ -29,7 +29,7 @@ where
 {
     recording_dir: D,
     recording: Option<Recording<T>>,
-    recording_state: Arc<RecordingState>,
+    app_state: Arc<AppState>,
 }
 
 impl<D, T> Recorder<D, T>
@@ -37,18 +37,15 @@ where
     D: FnMut() -> PathBuf,
     T: RecorderBackend,
 {
-    pub(crate) async fn new(
-        recording_dir: D,
-        recording_state: Arc<RecordingState>,
-    ) -> Result<Self> {
+    pub(crate) async fn new(recording_dir: D, app_state: Arc<AppState>) -> Result<Self> {
         // Ensure that the OBS bootstrapper runs
         // TODO: if T is bootstrapper then run
-        bootstrap_obs(recording_state.clone()).await?;
+        bootstrap_obs(app_state.clone()).await?;
 
         Ok(Self {
             recording_dir,
             recording: None,
-            recording_state,
+            app_state,
         })
     }
 
@@ -143,20 +140,10 @@ where
         );
 
         self.recording = Some(recording);
-        *self.recording_state.state.write().unwrap() = RecordingStatus::Recording {
+        *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
             start_time: Instant::now(),
             game_exe,
         };
-        {
-            // request repaint here to refresh the eframe, forcing it to update the trayicon and play the audio
-            self.recording_state
-                .egui_ctx
-                .lock()
-                .unwrap()
-                .as_ref()
-                .expect("Expected egui_ctx, wtf.")
-                .request_repaint();
-        }
         Ok(())
     }
 
@@ -181,17 +168,7 @@ where
         );
 
         recording.stop().await?;
-        *self.recording_state.state.write().unwrap() = RecordingStatus::Stopped;
-        {
-            // request repaint here to refresh the eframe, forcing it to update the trayicon and play the audio
-            self.recording_state
-                .egui_ctx
-                .lock()
-                .unwrap()
-                .as_ref()
-                .expect("Expected egui_ctx, wtf.")
-                .request_repaint();
-        }
+        *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
         Ok(())
     }
 }
