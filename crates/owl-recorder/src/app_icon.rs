@@ -73,7 +73,16 @@ fn set_title_and_icon(_title: &str, _icon_data: Option<&IconData>) -> AppIconSta
 #[allow(unsafe_code)]
 pub fn set_app_icon_windows(icon_data: &IconData) -> AppIconStatus {
     use eframe::icon_data::IconDataExt;
-    use winapi::um::winuser;
+    use windows::Win32::{
+        Foundation::{LPARAM, WPARAM},
+        UI::{
+            Input::KeyboardAndMouse::GetActiveWindow,
+            WindowsAndMessaging::{
+                CreateIconFromResourceEx, GetSystemMetrics, HICON, ICON_BIG, ICON_SMALL,
+                LR_DEFAULTCOLOR, SM_CXICON, SM_CXSMICON, SendMessageW, WM_SETICON,
+            },
+        },
+    };
 
     // We would get fairly far already with winit's `set_window_icon` (which is exposed to eframe) actually!
     // However, it only sets ICON_SMALL, i.e. doesn't allow us to set a higher resolution icon for the task bar.
@@ -85,16 +94,13 @@ pub fn set_app_icon_windows(icon_data: &IconData) -> AppIconStatus {
     //      * using undocumented SetConsoleIcon method (successfully queried via GetProcAddress)
 
     // SAFETY: WinApi function without side-effects.
-    let window_handle = unsafe { winuser::GetActiveWindow() };
-    if window_handle.is_null() {
+    let window_handle = unsafe { GetActiveWindow() };
+    if window_handle.0.is_null() {
         // The Window isn't available yet. Try again later!
         return AppIconStatus::NotSetTryAgain;
     }
 
-    fn create_hicon_with_scale(
-        unscaled_image: &image::RgbaImage,
-        target_size: i32,
-    ) -> winapi::shared::windef::HICON {
+    fn create_hicon_with_scale(unscaled_image: &image::RgbaImage, target_size: i32) -> HICON {
         let image_scaled = image::imageops::resize(
             unscaled_image,
             target_size as _,
@@ -115,20 +121,20 @@ pub fn set_app_icon_windows(icon_data: &IconData) -> AppIconStatus {
             )
             .is_err()
         {
-            return std::ptr::null_mut();
+            return HICON(std::ptr::null_mut());
         }
 
         // SAFETY: Creating an HICON which should be readonly on our data.
         unsafe {
-            winuser::CreateIconFromResourceEx(
-                image_scaled_bytes.as_mut_ptr(),
-                image_scaled_bytes.len() as u32,
-                1,           // Means this is an icon, not a cursor.
+            CreateIconFromResourceEx(
+                &image_scaled_bytes,
+                true,
                 0x00030000,  // Version number of the HICON
                 target_size, // Note that this method can scale, but it does so *very* poorly. So let's avoid that!
                 target_size,
-                winuser::LR_DEFAULTCOLOR,
+                LR_DEFAULTCOLOR,
             )
+            .unwrap_or(HICON(std::ptr::null_mut()))
         }
     }
 
@@ -148,38 +154,38 @@ pub fn set_app_icon_windows(icon_data: &IconData) -> AppIconStatus {
     // Note that ICON_SMALL may be used even if we don't render a title bar as it may be used in alt+tab!
     {
         // SAFETY: WinAPI getter function with no known side effects.
-        let icon_size_big = unsafe { winuser::GetSystemMetrics(winuser::SM_CXICON) };
+        let icon_size_big = unsafe { GetSystemMetrics(SM_CXICON) };
         let icon_big = create_hicon_with_scale(&unscaled_image, icon_size_big);
-        if icon_big.is_null() {
+        if icon_big.0.is_null() {
             tracing::warn!("Failed to create HICON (for big icon) from embedded png data.");
             return AppIconStatus::NotSetIgnored; // We could try independently with the small icon but what's the point, it would look bad!
         } else {
             // SAFETY: Unsafe WinApi function, takes objects previously created with WinAPI, all checked for null prior.
             unsafe {
-                winuser::SendMessageW(
+                SendMessageW(
                     window_handle,
-                    winuser::WM_SETICON,
-                    winuser::ICON_BIG as usize,
-                    icon_big as isize,
+                    WM_SETICON,
+                    Some(WPARAM(ICON_BIG as usize)),
+                    Some(LPARAM(icon_big.0 as isize)),
                 );
             }
         }
     }
     {
         // SAFETY: WinAPI getter function with no known side effects.
-        let icon_size_small = unsafe { winuser::GetSystemMetrics(winuser::SM_CXSMICON) };
+        let icon_size_small = unsafe { GetSystemMetrics(SM_CXSMICON) };
         let icon_small = create_hicon_with_scale(&unscaled_image, icon_size_small);
-        if icon_small.is_null() {
+        if icon_small.0.is_null() {
             tracing::warn!("Failed to create HICON (for small icon) from embedded png data.");
             return AppIconStatus::NotSetIgnored;
         } else {
             // SAFETY: Unsafe WinApi function, takes objects previously created with WinAPI, all checked for null prior.
             unsafe {
-                winuser::SendMessageW(
+                SendMessageW(
                     window_handle,
-                    winuser::WM_SETICON,
-                    winuser::ICON_SMALL as usize,
-                    icon_small as isize,
+                    WM_SETICON,
+                    Some(WPARAM(ICON_SMALL as usize)),
+                    Some(LPARAM(icon_small.0 as isize)),
                 );
             }
         }
