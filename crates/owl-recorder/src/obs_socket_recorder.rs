@@ -29,7 +29,9 @@ use windows::{
     core::PCWSTR,
 };
 
-pub struct WindowRecorder {
+use crate::recorder::RecorderBackend;
+
+pub struct SocketRecorder {
     // Use an Option to allow it to be consumed within the destructor
     client: Option<Client>,
     _recording_path: PathBuf,
@@ -43,12 +45,12 @@ const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 const VIDEO_BITRATE: u32 = 2500;
 const SET_ENCODER: bool = false;
 
-impl WindowRecorder {
-    pub async fn start_recording(
+impl RecorderBackend for SocketRecorder {
+    async fn start_recording(
         dummy_video_path: &Path,
         _pid: u32,
         _hwnd: usize,
-    ) -> Result<WindowRecorder> {
+    ) -> Result<SocketRecorder> {
         let recording_path = dummy_video_path
             .parent()
             .ok_or_eyre("Video path must have a parent directory")?;
@@ -256,14 +258,14 @@ impl WindowRecorder {
             .wrap_err("Failed to start recording")?;
         tracing::info!("OBS recording started successfully");
 
-        Ok(WindowRecorder {
+        Ok(SocketRecorder {
             client: Some(client),
             _recording_path: recording_path,
             _existing_profile: existing_profile,
         })
     }
 
-    pub async fn stop_recording(&self) -> Result<()> {
+    async fn stop_recording(&self) -> Result<()> {
         tracing::info!("Stopping OBS recording");
         if let Some(client) = &self.client {
             // Log, but do not explode if it fails
@@ -275,7 +277,7 @@ impl WindowRecorder {
         Ok(())
     }
 }
-impl Drop for WindowRecorder {
+impl Drop for SocketRecorder {
     fn drop(&mut self) {
         tracing::info!("Shutting down window recorder");
         let client = self.client.take();

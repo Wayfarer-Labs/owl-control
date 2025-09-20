@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
 
 use color_eyre::{Result, eyre::Context as _};
 use tauri_winrt_notification::Toast;
@@ -8,28 +10,46 @@ use windows::{
 };
 
 use crate::{
+    AppState, RecordingStatus,
+    bootstrap_recorder::bootstrap_obs,
     find_game::get_foregrounded_game,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
 };
 use constants::unsupported_games::UNSUPPORTED_GAMES;
 
-pub(crate) struct Recorder<D> {
+pub(crate) trait RecorderBackend {
+    async fn start_recording(dummy_video_path: &Path, _pid: u32, _hwnd: usize) -> Result<Self>
+    where
+        Self: Sized;
+    async fn stop_recording(&self) -> Result<()>;
+}
+pub(crate) struct Recorder<D, T>
+where
+    T: RecorderBackend,
+{
     recording_dir: D,
-    recording: Option<Recording>,
+    recording: Option<Recording<T>>,
+    app_state: Arc<AppState>,
 }
 
-impl<D> Recorder<D>
+impl<D, T> Recorder<D, T>
 where
     D: FnMut() -> PathBuf,
+    T: RecorderBackend,
 {
-    pub(crate) fn new(recording_dir: D) -> Self {
-        Self {
+    pub(crate) async fn new(recording_dir: D, app_state: Arc<AppState>) -> Result<Self> {
+        // Ensure that the OBS bootstrapper runs
+        // TODO: if T is bootstrapper then run
+        bootstrap_obs(app_state.clone()).await?;
+
+        Ok(Self {
             recording_dir,
             recording: None,
-        }
+            app_state,
+        })
     }
 
-    pub(crate) fn recording(&self) -> Option<&Recording> {
+    pub(crate) fn recording(&self) -> Option<&Recording<T>> {
         self.recording.as_ref()
     }
 
@@ -114,13 +134,16 @@ where
 
         show_notification(
             "Started recording",
-            &format!("Recording `{}`", recording.game_exe()),
+            &format!("Recording `{game_exe}`"),
             "",
             NotificationType::Info,
         );
 
         self.recording = Some(recording);
-
+        *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
+            start_time: Instant::now(),
+            game_exe,
+        };
         Ok(())
     }
 
@@ -145,7 +168,7 @@ where
         );
 
         recording.stop().await?;
-
+        *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
         Ok(())
     }
 }
