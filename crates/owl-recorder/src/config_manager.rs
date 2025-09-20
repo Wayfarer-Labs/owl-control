@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::env;
 use std::fs;
@@ -265,7 +265,12 @@ impl UploadStats {
         };
 
         if let Ok(dt) = DateTime::parse_from_rfc3339(&self.last_upload_date) {
-            return dt.with_timezone(&Utc).to_string();
+            let dt = dt.with_timezone(&Local);
+            return format!(
+                "{} at {}",
+                dt.format("%m/%d/%Y").to_string(),
+                dt.format("%I:%M:%S %p").to_string()
+            );
         }
         String::from("Unknown")
     }
