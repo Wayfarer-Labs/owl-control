@@ -126,14 +126,16 @@ async fn main(
             },
             _ = perform_checks.tick() => {
                 if let Some(recording) = recorder.recording() {
-                    let mut state_writer = recording_state.state.write().unwrap();
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
                         recorder.stop().await?;
                     } else if idleness_tracker.is_idle() {
                         tracing::info!("No input detected for 5 seconds, stopping recording");
                         recorder.stop().await?;
-                        *state_writer = RecordingStatus::Paused;
+                        {
+                            let mut state_writer = recording_state.state.write().unwrap();
+                            *state_writer = RecordingStatus::Paused;
+                        }
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_RECORDING_DURATION {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_RECORDING_DURATION.as_secs());
