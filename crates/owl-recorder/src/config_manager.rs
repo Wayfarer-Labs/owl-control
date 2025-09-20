@@ -1,5 +1,7 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
+use std::env;
 use std::fs;
 use std::path::PathBuf;
 
@@ -157,5 +159,114 @@ impl ConfigManager {
         let contents = serde_json::to_string_pretty(&self)?;
         fs::write(&self.config_path, contents)?;
         Ok(())
+    }
+}
+
+// Define the structure of your upload stats
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UploadStats {
+    #[serde(rename = "totalDurationUploaded")]
+    pub total_duration_uploaded: f64,
+    #[serde(rename = "totalFilesUploaded")]
+    pub total_files_uploaded: u64,
+    #[serde(rename = "totalVolumeUploaded")]
+    pub total_volume_uploaded: u64,
+    #[serde(rename = "lastUploadDate")]
+    pub last_upload_date: String,
+}
+
+impl Default for UploadStats {
+    fn default() -> Self {
+        Self {
+            total_duration_uploaded: 0.,
+            total_files_uploaded: 0,
+            total_volume_uploaded: 0,
+            last_upload_date: String::from("None"),
+        }
+    }
+}
+
+impl UploadStats {
+    pub fn new() -> Result<Self> {
+        let mut upload_stats = Self::default();
+        let _ = upload_stats.get();
+        return Ok(upload_stats);
+    }
+
+    pub fn get(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut path = env::temp_dir();
+        path.push("owl-control-upload-stats.json");
+
+        // Check if file exists
+        if !path.exists() {
+            tracing::info!("Upload stats file doesn't exist, keeping current stats");
+            return Ok(());
+        }
+        tracing::info!("Upload stats file found {:?}", path);
+
+        // Read the file contents
+        let json_string = fs::read_to_string(&path)?;
+        tracing::info!("Upload stats read");
+        // Parse JSON
+        let stats: UploadStats =
+            serde_json::from_str(&json_string).expect("Failed to parse upload stats");
+        tracing::info!("Upload stats parsed");
+
+        self.total_duration_uploaded = stats.total_duration_uploaded;
+        self.total_files_uploaded = stats.total_files_uploaded;
+        self.total_volume_uploaded = stats.total_volume_uploaded;
+        self.last_upload_date = stats.last_upload_date;
+
+        tracing::info!("Loaded upload stats: {:?}", self);
+        Ok(())
+    }
+
+    pub fn get_total_duration_uploaded(&self) -> String {
+        let seconds = self.total_duration_uploaded as u64;
+        if seconds == 0 {
+            return String::from("0 min");
+        };
+
+        // rust int div is floor
+        let hours = seconds / 3600;
+        let minutes = (seconds % 3600) / 60;
+        if hours > 0 && minutes > 0 {
+            return format!("{}h {}m", &hours, &minutes);
+        } else if hours > 0 {
+            return format!("{}h", hours);
+        } else {
+            return format!("{}m", minutes);
+        }
+    }
+
+    pub fn get_total_files_uploaded(&self) -> String {
+        self.total_files_uploaded.to_string()
+    }
+
+    pub fn get_total_volume_uploaded(&self) -> String {
+        if self.total_volume_uploaded == 0 {
+            return String::from("0 MB");
+        }
+
+        let k = 1024_f64;
+        let mb = self.total_volume_uploaded as f64 / (k * k);
+        let gb = mb / k;
+
+        if gb >= 1.0 {
+            format!("{:.1} GB", gb)
+        } else {
+            format!("{:.1} MB", mb)
+        }
+    }
+
+    pub fn get_last_upload_date(&self) -> String {
+        if self.last_upload_date == "Never" {
+            return String::from("Never");
+        };
+
+        if let Ok(dt) = DateTime::parse_from_rfc3339(&self.last_upload_date) {
+            return dt.with_timezone(&Utc).to_string();
+        }
+        String::from("Unknown")
     }
 }

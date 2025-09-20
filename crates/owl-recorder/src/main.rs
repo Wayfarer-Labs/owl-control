@@ -16,6 +16,7 @@ mod recording_thread;
 mod upload_manager;
 
 use std::{
+    env,
     fs::File,
     io::{BufReader, Cursor},
     path::PathBuf,
@@ -33,7 +34,7 @@ use obws::client::Config;
 
 use crate::{
     app_icon::set_app_icon_windows,
-    config_manager::{ConfigManager, Credentials, Preferences},
+    config_manager::{ConfigManager, Credentials, Preferences, UploadStats},
     overlay::OverlayApp,
     upload_manager::{is_upload_bridge_running, start_upload_bridge},
 };
@@ -247,6 +248,7 @@ pub struct MainApp {
     cached_progress: f32,           // from 0-1
     local_credentials: Credentials, // local copy of the settings that is used to track
     local_preferences: Preferences, // user inputs before being saved to the ConfigManager
+    upload_stats: UploadStats,
 }
 impl MainApp {
     fn new(app_state: Arc<AppState>) -> Result<Self, Box<dyn std::error::Error>> {
@@ -266,14 +268,15 @@ impl MainApp {
                 app_state,
                 frame: 0,
                 cached_progress: 0.0,
-                local_credentials: local_credentials,
-                local_preferences: local_preferences,
+                local_credentials,
+                local_preferences,
+                upload_stats: UploadStats::new()?,
             }
         })
     }
 }
 impl eframe::App for MainApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         // if user closes the app instead minimize to tray
         if ctx.input(|i| i.viewport().close_requested()) {
             let mut visible = VISIBLE.lock().unwrap();
@@ -417,8 +420,7 @@ impl eframe::App for MainApp {
                                     ui,
                                     "📊", // Icon
                                     "Total Uploaded",
-                                    // &self.total_uploaded,
-                                    "604 min",
+                                    &self.upload_stats.get_total_duration_uploaded(),
                                 );
                             },
                         );
@@ -432,8 +434,7 @@ impl eframe::App for MainApp {
                                     ui,
                                     "📁", // Icon
                                     "Files Uploaded",
-                                    // &self.files_uploaded,
-                                    "20",
+                                    &self.upload_stats.get_total_files_uploaded(),
                                 );
                             },
                         );
@@ -447,8 +448,7 @@ impl eframe::App for MainApp {
                                     ui,
                                     "💾", // Icon
                                     "Volume Uploaded",
-                                    // &self.volume_uploaded,
-                                    "20 GB",
+                                    &self.upload_stats.get_total_volume_uploaded(),
                                 );
                             },
                         );
@@ -462,8 +462,7 @@ impl eframe::App for MainApp {
                                     ui,
                                     "🕒", // Icon
                                     "Last Upload",
-                                    // &self.last_upload,
-                                    "9/17/2025 at 5:34:22PM",
+                                    &self.upload_stats.get_last_upload_date(),
                                 );
                             },
                         );
@@ -526,5 +525,10 @@ impl MainApp {
                 .size(10.0)
                 .color(egui::Color32::from_rgb(128, 128, 128)),
         );
+    }
+
+    fn get_upload_stats(&self) {
+        let mut path = env::temp_dir();
+        path.push("owl-control-upload-stats.json");
     }
 }
