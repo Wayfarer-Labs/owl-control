@@ -47,6 +47,7 @@ async fn main(
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
+    // TODO: here we read the recorder type from app_state. then maybe force an application restart?
     let mut recorder: Recorder<_, BootstrapRecorder> = match Recorder::new(
         || {
             recording_location.join(

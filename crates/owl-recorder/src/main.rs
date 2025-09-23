@@ -1,4 +1,5 @@
 mod app_icon;
+mod auth_service;
 mod bootstrap_recorder;
 mod config_manager;
 mod find_game;

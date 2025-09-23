@@ -4612,6 +4612,7 @@ dependencies = [
  "libobs-window-helper",
  "libobs-wrapper",
  "obws",
+ "reqwest",
  "rodio",
  "serde",
  "serde_json",
