@@ -7,6 +7,8 @@ import shlex
 from tqdm import tqdm
 import time
 import hashlib
+import tempfile
+import json
 
 from ..constants import API_BASE_URL
 
@@ -62,9 +64,6 @@ def upload_archive(
     try:
         # Initialize progress tracking
         if progress_mode:
-            import tempfile
-            import json
-
             progress_file = os.path.join(
                 tempfile.gettempdir(), "owl-control-upload-progress.json"
             )
@@ -91,10 +90,6 @@ def upload_archive(
         ):
             """Write JSON progress data to file for UI consumption"""
             if progress_mode:
-                import json
-                import tempfile
-                import os
-
                 progress_data = {
                     "phase": "upload",
                     "action": "progress",
@@ -138,208 +133,63 @@ def upload_archive(
                     if not chunk_data:
                         break
 
-                # Calculate chunk hash
-                chunk_hash = hashlib.sha256(chunk_data).hexdigest()
-
-                # Get upload URL for this chunk
-                chunk_upload_info = get_multipart_chunk_upload_url(
-                    api_key=api_key,
-                    upload_id=upload_id,
-                    chunk_number=chunk_num,
-                    chunk_hash=chunk_hash,
-                    base_url=base_url,
-                )
-
-                # Upload chunk using the dedicated function
-                try:
-                    etag = upload_single_chunk(
-                        chunk_data=chunk_data,
-                        chunk_number=chunk_num,
-                        upload_url=chunk_upload_info["upload_url"],
-                    )
-
-                    chunk_etags.append(
-                        {
-                            "chunk_number": chunk_num,
-                            "etag": etag,
-                        }
-                    )
-
-                    # Update progress
-                    bytes_uploaded += len(chunk_data)
-                    pbar.update(len(chunk_data))
-
-                    # Calculate speed and emit progress
-                    if progress_mode:
-                        elapsed_time = time.time() - start_time
-                        speed_bps = (
-                            bytes_uploaded / elapsed_time if elapsed_time > 0 else 0
-                        )
-                        emit_upload_progress(
-                            bytes_uploaded, file_size, chunk_num, speed_bps
-                        )
-
-                    print(
-                        f"Uploaded chunk {chunk_num}/{total_chunks} ({len(chunk_data)} bytes, ETag: {etag})"
-                    )
-
-                except Exception as e:
-                    print(f"Failed to upload chunk {chunk_num}: {e}")
-                    raise
-
-        # Retry missing chunks and completion up to 3 times
-        max_completion_retries = 3
-        completion_success = False
-
-        for completion_attempt in range(max_completion_retries):
-            print(
-                f"Completion attempt {completion_attempt + 1}/{max_completion_retries}"
-            )
-
-            # Check upload status and retry missing chunks if needed
-            print("Verifying upload status before completion...")
-            status_result = get_multipart_upload_status(
-                api_key=api_key,
-                upload_id=upload_id,
-                base_url=base_url,
-            )
-
-            missing_chunks = status_result.get("missing_chunks", [])
-            if missing_chunks:
-                print(f"Found {len(missing_chunks)} missing chunks: {missing_chunks}")
-                print("Retrying missing chunks...")
-
-                # Retry missing chunks
-                with open(archive_path, "rb") as f:
-                    for chunk_num in missing_chunks:
-                        print(f"Retrying chunk {chunk_num}...")
-
-                        # Seek to the correct position in the file
-                        f.seek((chunk_num - 1) * chunk_size_bytes)
-                        chunk_data = f.read(chunk_size_bytes)
-
-                        if not chunk_data:
-                            print(f"Warning: No data for chunk {chunk_num}")
-                            continue
-
-                        # Calculate chunk hash
-                        chunk_hash = hashlib.sha256(chunk_data).hexdigest()
-
-                        # Get upload URL for this chunk
-                        chunk_upload_info = get_multipart_chunk_upload_url(
+                    # Upload chunk using the dedicated function
+                    try:
+                        etag = upload_single_chunk(
+                            base_url=base_url,
                             api_key=api_key,
                             upload_id=upload_id,
+                            chunk_data=chunk_data,
                             chunk_number=chunk_num,
-                            chunk_hash=chunk_hash,
-                            base_url=base_url,
                         )
 
-                        # Upload chunk using the dedicated function
-                        try:
-                            etag = upload_single_chunk(
-                                chunk_data=chunk_data,
-                                chunk_number=chunk_num,
-                                upload_url=chunk_upload_info["upload_url"],
+                        chunk_etags.append(
+                            {
+                                "chunk_number": chunk_num,
+                                "etag": etag,
+                            }
+                        )
+
+                        # Update progress
+                        bytes_uploaded += len(chunk_data)
+                        pbar.update(len(chunk_data))
+
+                        # Calculate speed and emit progress
+                        if progress_mode:
+                            elapsed_time = time.time() - start_time
+                            speed_bps = (
+                                bytes_uploaded / elapsed_time if elapsed_time > 0 else 0
+                            )
+                            emit_upload_progress(
+                                bytes_uploaded, file_size, chunk_num, speed_bps
                             )
 
-                            # Update the chunk_etags list
-                            for i, chunk_info in enumerate(chunk_etags):
-                                if chunk_info["chunk_number"] == chunk_num:
-                                    chunk_etags[i]["etag"] = etag
-                                    break
-                            else:
-                                # Chunk wasn't in the original list, add it
-                                chunk_etags.append(
-                                    {
-                                        "chunk_number": chunk_num,
-                                        "etag": etag,
-                                    }
-                                )
+                        print(
+                            f"Uploaded chunk {chunk_num}/{total_chunks} ({len(chunk_data)} bytes, ETag: {etag})"
+                        )
 
-                            print(
-                                f"Successfully retried chunk {chunk_num} (ETag: {etag})"
-                            )
+                    except Exception as e:
+                        print(f"Failed to upload chunk {chunk_num}: {e}")
+                        raise
 
-                        except Exception as e:
-                            print(f"Failed to retry chunk {chunk_num}: {e}")
-                            if completion_attempt == max_completion_retries - 1:
-                                raise Exception(
-                                    f"Failed to upload chunk {chunk_num} after all completion attempts"
-                                )
-                            else:
-                                # Not final attempt, break out of chunk loop and try completion anyway
-                                print(
-                                    f"Will retry in completion attempt {completion_attempt + 2}"
-                                )
-                                break
+        # Completing upload
+        print(f"Completing upload with {len(chunk_etags)} chunks...")
+        completion_result = complete_multipart_upload(
+            api_key=api_key,
+            upload_id=upload_id,
+            chunk_etags=chunk_etags,
+            base_url=base_url,
+        )
 
-                if missing_chunks:
-                    print(f"Retried {len(missing_chunks)} missing chunks")
-
-            # Attempt to complete upload
-            print(f"Attempting to complete upload with {len(chunk_etags)} chunks...")
-            try:
-                completion_result = complete_multipart_upload(
-                    api_key=api_key,
-                    upload_id=upload_id,
-                    chunk_etags=chunk_etags,
-                    base_url=base_url,
-                )
-
-                # Check if completion succeeded
-                if completion_result.get("success", True):
-                    print("Upload completed successfully!")
-                    completion_success = True
-                    break
-                else:
-                    # Completion failed, check if it's due to missing chunks
-                    server_missing_chunks = completion_result.get("missing_chunks", [])
-                    if server_missing_chunks:
-                        print(f"Server reports missing chunks: {server_missing_chunks}")
-                        if completion_attempt < max_completion_retries - 1:
-                            print("Will retry these chunks in next completion attempt")
-                            # Continue to next completion attempt
-                            continue
-                        else:
-                            raise Exception(
-                                f"Upload incomplete after all attempts - missing chunks: {server_missing_chunks}"
-                            )
-                    else:
-                        error_msg = completion_result.get("message", "Unknown error")
-                        print(f"Upload completion failed: {error_msg}")
-                        if completion_attempt < max_completion_retries - 1:
-                            print(
-                                f"Will retry completion attempt {completion_attempt + 2}"
-                            )
-                            continue
-                        else:
-                            raise Exception(
-                                f"Upload failed after all attempts: {error_msg}"
-                            )
-
-            except Exception as completion_error:
-                print(
-                    f"Completion attempt {completion_attempt + 1} failed: {completion_error}"
-                )
-                if completion_attempt < max_completion_retries - 1:
-                    print(f"Will retry completion attempt {completion_attempt + 2}")
-                    time.sleep(
-                        2**completion_attempt
-                    )  # Exponential backoff between completion attempts
-                    continue
-                else:
-                    raise Exception(
-                        f"Upload failed after {max_completion_retries} completion attempts: {completion_error}"
-                    )
-
-        if not completion_success:
-            raise Exception("Upload failed - maximum completion attempts exceeded")
+        # Check if completion succeeded
+        if completion_result.get("success", True):
+            print("Upload completed successfully!")
+        else:
+            error_msg = completion_result.get("message", "Unknown error")
+            raise Exception(f"Upload failed after all attempts: {error_msg}")
 
         # Write final progress
         if progress_mode:
-            import tempfile
-            import json
-
             progress_file = os.path.join(
                 tempfile.gettempdir(), "owl-control-upload-progress.json"
             )
@@ -385,7 +235,12 @@ def upload_archive(
 
 
 def upload_single_chunk(
-    chunk_data: bytes, chunk_number: int, upload_url: str, max_retries: int = 3
+    api_key: str,
+    upload_id: str,
+    base_url: str,
+    chunk_data: bytes,
+    chunk_number: int,
+    max_retries: int = 5,
 ) -> str:
     """
     Upload a single chunk using curl with retry logic.
@@ -393,7 +248,6 @@ def upload_single_chunk(
     Args:
         chunk_data: The chunk data to upload
         chunk_number: The chunk number (for logging)
-        upload_url: The pre-signed URL to upload to
         max_retries: Maximum number of retry attempts
 
     Returns:
@@ -402,18 +256,27 @@ def upload_single_chunk(
     Raises:
         Exception: If all retry attempts fail
     """
-    for retry in range(max_retries):
-        try:
-            # Write chunk data to a temporary file
-            import tempfile
+    # Calculate chunk hash
+    chunk_hash = hashlib.sha256(chunk_data).hexdigest()
 
-            with tempfile.NamedTemporaryFile(delete=False) as temp_chunk_file:
-                temp_chunk_file.write(chunk_data)
-                temp_chunk_path = temp_chunk_file.name
+    with tempfile.NamedTemporaryFile(delete=False) as temp_chunk_file:
+        temp_chunk_file.write(chunk_data)
+        temp_chunk_path = temp_chunk_file.name
 
+    try:
+        for retry in range(max_retries):
             try:
+                # Get upload URL for this chunk
+                chunk_upload_url = get_multipart_chunk_upload_url(
+                    api_key=api_key,
+                    upload_id=upload_id,
+                    chunk_number=chunk_number,
+                    chunk_hash=chunk_hash,
+                    base_url=base_url,
+                )
+
                 # Use curl to upload the chunk
-                curl_command = f'curl -X PUT -H "Content-Type: application/octet-stream" -T {shlex.quote(temp_chunk_path)} --silent --show-error --fail --max-time 300 --dump-header - {shlex.quote(upload_url)}'
+                curl_command = f'curl -X PUT -H "Content-Type: application/octet-stream" -T {shlex.quote(temp_chunk_path)} --silent --show-error --fail --max-time 300 --dump-header - {shlex.quote(chunk_upload_url)}'
 
                 # Execute curl command
                 result = subprocess.run(
@@ -440,25 +303,23 @@ def upload_single_chunk(
 
                 return etag
 
-            finally:
-                # Clean up temporary file
-                try:
-                    os.unlink(temp_chunk_path)
-                except Exception:
-                    pass
-
-        except Exception as e:
-            if retry == max_retries - 1:
-                print(
-                    f"Failed to upload chunk {chunk_number} after {max_retries} retries: {e}"
-                )
-                raise Exception(f"Chunk upload failed: {e}")
-            else:
-                print(f"Retry {retry + 1}/{max_retries} for chunk {chunk_number}: {e}")
-                time.sleep(2**retry)  # Exponential backoff
-
-    # Should never reach here, but for type safety
-    raise Exception(f"Failed to upload chunk {chunk_number}")
+            except Exception as e:
+                if retry == max_retries - 1:
+                    print(
+                        f"Failed to upload chunk {chunk_number} after {max_retries} retries: {e}"
+                    )
+                    raise Exception(f"Chunk upload failed: {e}")
+                else:
+                    print(
+                        f"Retry {retry + 1}/{max_retries} for chunk {chunk_number}: {e}"
+                    )
+                    time.sleep(2**retry)  # Exponential backoff
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(temp_chunk_path)
+        except Exception:
+            pass
 
 
 def init_multipart_upload(
@@ -517,7 +378,7 @@ def get_multipart_chunk_upload_url(
     chunk_number: int,
     chunk_hash: str,
     base_url: str = API_BASE_URL,
-) -> dict:
+) -> str:
     """Get a pre-signed URL for uploading a specific chunk."""
 
     payload = {
@@ -532,7 +393,7 @@ def get_multipart_chunk_upload_url(
     with requests.Session() as session:
         response = session.post(url, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
-        return response.json()
+        return response.json()["upload_url"]
 
 
 def complete_multipart_upload(
@@ -596,8 +457,6 @@ def get_hwid():
     except:
         try:
             # Fallback for Windows
-            import subprocess
-
             output = subprocess.check_output("wmic csproduct get uuid").decode()
             hardware_id = output.split("\n")[1].strip()
         except:
