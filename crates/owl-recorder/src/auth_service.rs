@@ -1,24 +1,65 @@
+use chrono::{DateTime, Utc};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
+
+use crate::config_manager::UploadStats;
 
 // Define the API base URL as a constant
 const API_BASE_URL: &str = "https://api.openworldlabs.ai"; // Replace with actual URL
 
 // Response struct for the user info endpoint
 #[derive(Deserialize)]
-struct UserInfoResponse {
+struct UserIDResponse {
     #[serde(rename = "userId")]
     user_id: String,
 }
 
-#[derive(Deserialize)]
-struct UserUploadStatsResponse {
-    #[serde(rename = "userId")]
+// Response structs for the user info endpoint
+#[derive(Deserialize, Debug)]
+struct UserStatsResponse {
+    success: bool,
     user_id: String,
+    statistics: Statistics,
+    uploads: Vec<Upload>, // idk format for this one
 }
 
+#[derive(Deserialize, Debug)]
+struct Statistics {
+    total_uploads: u64,
+    total_data: DataSize,
+    total_video_time: VideoTime,
+    verified_uploads: u32,
+}
+
+#[derive(Deserialize, Debug)]
+struct DataSize {
+    bytes: u64,
+    megabytes: f64,
+    gigabytes: f64,
+}
+
+#[derive(Deserialize, Debug)]
+struct VideoTime {
+    seconds: u32,
+    minutes: f64,
+    hours: f64,
+    formatted: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct Upload {
+    content_type: String,
+    created_at: DateTime<Utc>,
+    file_size_bytes: u64,
+    file_size_mb: f64,
+    filename: String,
+    id: String,
+    tags: Option<serde_json::Value>,
+    verified: bool,
+    video_duration_seconds: Option<u64>, // Null in your examples, but could be a number
+}
 // Custom result types for better error handling
 #[derive(Debug, Serialize)]
 pub struct ValidationSuccess {
@@ -91,7 +132,7 @@ impl ApiClient {
                 }
 
                 // Parse the JSON response
-                match response.json::<UserInfoResponse>().await {
+                match response.json::<UserIDResponse>().await {
                     Ok(user_info) => {
                         println!(
                             "validateApiKey: Successfully validated API key - user ID: {}",
@@ -126,8 +167,12 @@ impl ApiClient {
         }
     }
 
-    pub async fn get_user_upload_stats(&self) -> Result<ValidationSuccess, ValidationError> {
-        let url = format!("{}/tracker/uploads/user/{:?}", API_BASE_URL, self.user_id);
+    pub async fn get_user_upload_stats(&self) -> Result<UploadStats, ValidationError> {
+        let url = format!(
+            "{}/tracker/uploads/user/{}",
+            API_BASE_URL,
+            &self.user_id.clone().unwrap()
+        );
 
         match self
             .client
@@ -138,25 +183,23 @@ impl ApiClient {
             .await
         {
             Ok(response) => {
-                println!("{:?}", response.text().await);
-                Ok(ValidationSuccess {
-                    success: true,
-                    user_id: self.user_id.clone().unwrap(),
-                })
+                let server_stats = response.json::<UserStatsResponse>().await.unwrap();
+                let mut stats = UploadStats::default();
+
+                stats.total_files_uploaded = server_stats.statistics.total_uploads;
+                stats.total_duration_uploaded =
+                    server_stats.statistics.total_video_time.seconds.into();
+                stats.total_volume_uploaded = server_stats.statistics.total_data.megabytes as u64;
+                stats.last_upload_date = match &server_stats.uploads[0] {
+                    upload => upload.created_at.to_rfc3339(),
+                    _ => "Never".to_string(),
+                };
+                Ok(stats)
             }
             Err(err) => Err(ValidationError {
                 success: false,
                 message: Some("Request failed".to_string()),
             }),
         }
-    }
-
-    // Getter methods
-    pub fn get_api_key(&self) -> Option<&String> {
-        self.api_key.as_ref()
-    }
-
-    pub fn get_user_id(&self) -> Option<&String> {
-        self.user_id.as_ref()
     }
 }
