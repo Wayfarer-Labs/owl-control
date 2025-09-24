@@ -23,18 +23,16 @@ use libobs_sources::{
 };
 use libobs_window_helper::WindowSearchMode;
 use libobs_wrapper::{
-    bootstrap::{ObsBootstrapperOptions, status_handler::ObsBootstrapStatusHandler},
-    context::{ObsContext, ObsContextReturn},
+    context::ObsContext,
     data::{output::ObsOutputRef, video::ObsVideoInfoBuilder},
     encoders::ObsVideoEncoderType,
     sources::ObsSourceRef,
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
-use std::time::Instant;
 
 use crate::{AppState, recorder::RecorderBackend};
 
-pub struct BootstrapRecorder {
+pub struct ObsEmbeddedRecorder {
     _recording_path: String,
     source: ObsSourceRef,
 }
@@ -49,12 +47,12 @@ const VIDEO_BITRATE: u32 = 2500;
 // non-game content.
 const USE_WINDOW_CAPTURE: bool = false;
 
-impl RecorderBackend for BootstrapRecorder {
+impl RecorderBackend for ObsEmbeddedRecorder {
     async fn start_recording(
         dummy_video_path: &Path,
         pid: u32,
         _hwnd: usize,
-    ) -> Result<BootstrapRecorder> {
+    ) -> Result<ObsEmbeddedRecorder> {
         let recording_path: &str = dummy_video_path
             .to_str()
             .ok_or_eyre("Recording path must be valid UTF-8")?;
@@ -170,7 +168,7 @@ impl RecorderBackend for BootstrapRecorder {
         state.current_output = Some(output);
 
         tracing::debug!("OBS recording started successfully");
-        Ok(BootstrapRecorder {
+        Ok(ObsEmbeddedRecorder {
             _recording_path: recording_path.to_string(),
             source,
         })
@@ -201,65 +199,12 @@ static OBS_STATE: OnceLock<Mutex<ObsState>> = OnceLock::new();
 fn get_obs_state() -> MutexGuard<'static, ObsState> {
     OBS_STATE.get().unwrap().lock().unwrap()
 }
-pub async fn bootstrap_obs(app_state: Arc<AppState>) -> Result<()> {
-    // Logging-based handler using tracing
-    #[derive(Clone)]
-    struct LoggingBootstrapHandler {
-        start_time: Instant,
-        app_state: Arc<AppState>,
-    }
-    impl std::fmt::Debug for LoggingBootstrapHandler {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.debug_struct("LoggingBootstrapHandler")
-                .field("start_time", &self.start_time)
-                .finish()
-        }
-    }
-    impl LoggingBootstrapHandler {
-        pub fn new(app_state: Arc<AppState>) -> Self {
-            tracing::info!("Starting OBS bootstrap process");
-            *app_state.boostrap_progress.write().unwrap() = 0.0;
-            Self {
-                start_time: Instant::now(),
-                app_state: app_state,
-            }
-        }
-        pub fn done(&self) {
-            let elapsed = self.start_time.elapsed();
-            *self.app_state.boostrap_progress.write().unwrap() = 1.0;
-            tracing::info!("OBS bootstrap completed in {:.2}s", elapsed.as_secs_f32());
-        }
-    }
-    #[async_trait::async_trait]
-    impl ObsBootstrapStatusHandler for LoggingBootstrapHandler {
-        async fn handle_downloading(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
-            // Log major milestones
-            if prog % 0.05 <= 0.01 && prog > 0. {
-                *self.app_state.boostrap_progress.write().unwrap() = prog / 2.0;
-                tracing::info!("Downloading: {:.1}% - {}", prog * 100.0, msg);
-            }
-            Ok(())
-        }
 
-        async fn handle_extraction(&mut self, prog: f32, msg: String) -> anyhow::Result<()> {
-            // Log major milestones
-            if prog % 0.05 <= 0.01 && prog > 0. {
-                *self.app_state.boostrap_progress.write().unwrap() = prog / 2.0 + 0.5;
-                tracing::info!("Extracting: {:.1}% - {}", prog * 100.0, msg);
-            }
-            Ok(())
-        }
-    }
-
-    // Create a progress handler
-    let handler = LoggingBootstrapHandler::new(app_state);
-
-    // Initialize OBS with bootstrapper
+pub async fn initialize() -> Result<()> {
     let (base_width, base_height) =
         get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")?;
-    let context = ObsContext::builder()
-        .enable_bootstrapper(handler.clone(), ObsBootstrapperOptions::default())
-        .set_video_info(
+    let context = ObsContext::new(
+        ObsContext::builder().set_video_info(
             ObsVideoInfoBuilder::new()
                 .fps_num(FPS)
                 .fps_den(1)
@@ -268,20 +213,10 @@ pub async fn bootstrap_obs(app_state: Arc<AppState>) -> Result<()> {
                 .output_width(RECORDING_WIDTH)
                 .output_height(RECORDING_HEIGHT)
                 .build(),
-        )
-        .start()
-        .await?;
+        ),
+    )
+    .await?;
 
-    // Handle potential restart
-    let context = match context {
-        ObsContextReturn::Done(c) => c,
-        ObsContextReturn::Restart => {
-            println!("OBS has been downloaded and extracted. The application will now restart.");
-            bail!("OBS restart required during initialization");
-        }
-    };
-
-    handler.done();
     tracing::debug!("OBS context initialized successfully");
     let obs_set = OBS_STATE.set(Mutex::new(ObsState {
         obs_context: context,

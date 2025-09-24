@@ -11,8 +11,8 @@ use windows::{
 
 use crate::{
     AppState, RecordingStatus,
-    bootstrap_recorder::bootstrap_obs,
     find_game::get_foregrounded_game,
+    obs_embedded_recorder,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
 };
 use constants::unsupported_games::UNSUPPORTED_GAMES;
@@ -38,9 +38,9 @@ where
     T: RecorderBackend,
 {
     pub(crate) async fn new(recording_dir: D, app_state: Arc<AppState>) -> Result<Self> {
-        // Ensure that the OBS bootstrapper runs
-        // TODO: if T is bootstrapper then run
-        bootstrap_obs(app_state.clone()).await?;
+        // Ensure that the OBS initialized runs
+        // TODO: only initialize if using embedded reocrder
+        obs_embedded_recorder::initialize().await?;
 
         Ok(Self {
             recording_dir,

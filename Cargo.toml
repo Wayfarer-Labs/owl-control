@@ -29,15 +29,11 @@ sysinfo = "0.32.1"
 gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
 
 obws = "0.14.0"
-# For implementing the bootstrap status handler
 async-trait = "0.1"
-libobs-wrapper = { version = "4.0.1", features = ["bootstrapper"] }
+libobs-wrapper = "4.0.1"
 libobs-sources = "2.0.7"
 libobs-window-helper = "0.1.5"
 
 [workspace.metadata]
 # The libobs version to use (can either be a specific version or "latest")
 libobs-version = "31.0.3"
-
-# Optional: The directory to store the OBS buildlibobs-version = "31.0.3"
-# libobs-cache-dir = "../obs-build"

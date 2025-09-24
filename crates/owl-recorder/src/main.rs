@@ -1,6 +1,5 @@
 mod app_icon;
 mod auth_service;
-mod bootstrap_recorder;
 mod config_manager;
 mod find_game;
 mod hardware_id;
@@ -8,6 +7,7 @@ mod hardware_specs;
 mod idle;
 mod input_recorder;
 mod keycode;
+mod obs_embedded_recorder;
 mod obs_socket_recorder;
 mod overlay;
 mod raw_input_debouncer;
@@ -56,10 +56,6 @@ use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    // This is set because I'm lazy to specify cargo run location every time. And also because ObsContext::spawn_updater() breaks otherwise.
-    // I suspect that the libobs bootstrapper ObsContext::spawn_updater() which restarts the app after is bugged and doesn't accept args correctly.
-    // If run with a specified default value it doesn't call the relative path correctly on the restart, leading to the restarted app crashing immediately.
-    // But if you just run as is "cargo run" without params it will restart properly.
     #[arg(long, default_value = "./data_dump/games")]
     recording_location: PathBuf,
 
@@ -114,7 +110,6 @@ enum RecordingStatus {
 struct AppState {
     state: RwLock<RecordingStatus>, // holds the current state of recording, recorder <-> overlay
     opacity: AtomicU8,              // setting for opacity of overlay, main app <-> overlay
-    boostrap_progress: RwLock<f32>, // bootstrap progress bar, recorder <-> main app
     configs: RwLock<ConfigManager>,
     sink: Sink,                   // for honking
     _stream_handle: OutputStream, // stream handle needs to stay alive for the sink to play audio
@@ -128,7 +123,6 @@ impl AppState {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             opacity: AtomicU8::new(85),
-            boostrap_progress: RwLock::new(0.0),
             configs: RwLock::new(ConfigManager::new().expect("failed to init configs")),
             sink,
             _stream_handle: stream_handle,
@@ -246,7 +240,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub struct MainApp {
     app_state: Arc<AppState>,
     frame: u64,
-    cached_progress: f32,           // from 0-1
     local_credentials: Credentials, // local copy of the settings that is used to track
     local_preferences: Preferences, // user inputs before being saved to the ConfigManager
     upload_stats: UploadStats,
@@ -268,7 +261,6 @@ impl MainApp {
             Self {
                 app_state,
                 frame: 0,
-                cached_progress: 0.0,
                 local_credentials,
                 local_preferences,
                 upload_stats: UploadStats::new()?,
@@ -289,16 +281,6 @@ impl eframe::App for MainApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(egui::RichText::new("Settings").size(36.0).strong());
             ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
-            ui.add_space(10.0);
-
-            // progress bar for obs bootstrapper
-            if let Ok(progress) = self.app_state.boostrap_progress.try_read() {
-                self.cached_progress = *progress;
-            }
-            if self.cached_progress <= 1.0 {
-                ui.add(egui::ProgressBar::new(self.cached_progress).text("Loading OBS..."));
-                ctx.request_repaint();
-            };
             ui.add_space(10.0);
 
             egui::ScrollArea::vertical().show(ui, |ui| {

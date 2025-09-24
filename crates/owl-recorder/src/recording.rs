@@ -9,8 +9,9 @@ use serde::Serialize;
 use tracing::span::Record;
 
 use crate::{
-    bootstrap_recorder::BootstrapRecorder, hardware_id, hardware_specs,
-    input_recorder::InputRecorder, obs_socket_recorder::SocketRecorder, recorder::RecorderBackend,
+    hardware_id, hardware_specs, input_recorder::InputRecorder,
+    obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::SocketRecorder,
+    recorder::RecorderBackend,
 };
 
 pub(crate) struct Recording<T: RecorderBackend> {

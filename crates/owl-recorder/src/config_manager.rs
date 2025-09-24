@@ -1,5 +1,5 @@
-use anyhow::Result;
 use chrono::{DateTime, Local};
+use color_eyre::eyre::{Result, eyre};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::env;
 use std::fs;
@@ -106,7 +106,7 @@ impl ConfigManager {
     fn get_config_path() -> Result<PathBuf> {
         // Get user data directory (equivalent to app.getPath("userData"))
         let user_data_dir = dirs::data_dir()
-            .ok_or_else(|| anyhow::anyhow!("Could not find user data directory"))?
+            .ok_or_else(|| eyre!("Could not find user data directory"))?
             .join("vg-control");
         tracing::info!(
             "Config manager using data dir: {}",

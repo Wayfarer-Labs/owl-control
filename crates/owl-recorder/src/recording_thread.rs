@@ -18,7 +18,7 @@ use rodio::{Decoder, Sink};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 
 use crate::{
-    bootstrap_recorder::BootstrapRecorder, idle::IdlenessTracker,
+    idle::IdlenessTracker, obs_embedded_recorder::ObsEmbeddedRecorder,
     raw_input_debouncer::EventDebouncer, recorder::Recorder,
 };
 
@@ -48,7 +48,7 @@ async fn main(
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
     // TODO: here we read the recorder type from app_state. then maybe force an application restart?
-    let mut recorder: Recorder<_, BootstrapRecorder> = match Recorder::new(
+    let mut recorder: Recorder<_, ObsEmbeddedRecorder> = match Recorder::new(
         || {
             recording_location.join(
                 SystemTime::now()
