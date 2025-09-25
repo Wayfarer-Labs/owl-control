@@ -10,7 +10,8 @@ use color_eyre::Result;
 use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
-    app_state::AppState,
+    app_state::{AppState, Command, CommandReceiver},
+    auth_service::ApiClient,
     config::{Credentials, Preferences, UploadStats},
     upload_manager::{is_upload_bridge_running, start_upload_bridge},
 };
@@ -21,7 +22,7 @@ use egui::ViewportCommand;
 mod overlay;
 pub mod tray_icon;
 
-pub fn start(app_state: Arc<AppState>) -> Result<()> {
+pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([600.0, 600.0])
@@ -53,7 +54,7 @@ pub fn start(app_state: Arc<AppState>) -> Result<()> {
 
             tray_icon::post_initialize(cc.egui_ctx.clone(), handle, visible.clone());
 
-            Ok(Box::new(MainApp::new(app_state, visible)?))
+            Ok(Box::new(MainApp::new(app_state, visible, rx)?))
         }),
     )
     .unwrap();
@@ -64,7 +65,10 @@ pub fn start(app_state: Arc<AppState>) -> Result<()> {
 pub struct MainApp {
     app_state: Arc<AppState>,
     frame: u64,
+    /// Receives commands from various tx in other threads to perform some UI update
+    rx: CommandReceiver,
 
+    api_client: ApiClient,
     login_api_key: String,
     has_scrolled_to_bottom_of_consent: bool,
 
@@ -79,7 +83,11 @@ pub struct MainApp {
     visible: Arc<AtomicBool>,
 }
 impl MainApp {
-    fn new(app_state: Arc<AppState>, visible: Arc<AtomicBool>) -> Result<Self> {
+    fn new(
+        app_state: Arc<AppState>,
+        visible: Arc<AtomicBool>,
+        rx: CommandReceiver,
+    ) -> Result<Self> {
         let local_credentials: Credentials;
         let local_preferences: Preferences;
         {
@@ -87,10 +95,14 @@ impl MainApp {
             local_credentials = configs.credentials.clone();
             local_preferences = configs.preferences.clone();
         }
+        let mut api_client = ApiClient::new(app_state.tx.clone());
+        api_client.validate_api_key(&local_credentials.api_key.clone());
         Ok(Self {
             app_state,
             frame: 0,
+            rx,
 
+            api_client,
             login_api_key: local_credentials.api_key.clone(),
             has_scrolled_to_bottom_of_consent: false,
 
@@ -172,7 +184,7 @@ impl MainApp {
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        ui.label("User ID: TBD! Poke a dev!");
+                        ui.label(format!("User ID: {}", &self.local_credentials.user_id));
                         if ui.button("Log out").clicked() {
                             self.local_credentials.logout();
                         }
@@ -362,6 +374,14 @@ impl eframe::App for MainApp {
             ctx.send_viewport_cmd(ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
         }
+
+        match &self.rx.try_recv() {
+            Ok(Command::UpdateUserID(uid)) => {
+                println!("received uid {}", uid);
+                self.local_credentials.user_id = uid.to_string();
+            }
+            _ => {}
+        };
 
         let (has_api_key, has_consented) = (
             !self.local_credentials.api_key.is_empty(),

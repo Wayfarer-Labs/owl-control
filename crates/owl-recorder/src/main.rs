@@ -26,7 +26,8 @@ use std::sync::Arc;
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     #[derive(Parser, Debug)]
     #[command(version, about)]
     struct Args {
@@ -50,7 +51,8 @@ fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .init();
-    let app_state = Arc::new(app_state::AppState::new());
+    let (tx, rx) = app_state::command_channel(16);
+    let app_state = Arc::new(app_state::AppState::new(tx));
 
     // launch recorder on seperate thread so non-blocking
     std::thread::spawn({
@@ -60,5 +62,5 @@ fn main() -> Result<()> {
         }
     });
 
-    ui::start(app_state)
+    ui::start(app_state, rx)
 }

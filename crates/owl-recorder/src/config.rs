@@ -76,12 +76,15 @@ where
 pub struct Credentials {
     #[serde(default)]
     pub api_key: String,
+    #[serde(default)]
+    pub user_id: String,
     #[serde(default, deserialize_with = "deserialize_string_bool")]
     pub has_consented: bool,
 }
 impl Credentials {
     pub fn logout(&mut self) {
         self.api_key = String::new();
+        self.user_id = String::new();
         self.has_consented = false;
     }
 }
