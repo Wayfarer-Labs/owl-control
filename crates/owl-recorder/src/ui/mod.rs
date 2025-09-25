@@ -18,8 +18,6 @@ use egui::ViewportCommand;
 mod overlay;
 pub mod tray_icon;
 
-static VISIBLE: AtomicBool = AtomicBool::new(true);
-
 pub fn start(app_state: Arc<AppState>) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -31,6 +29,8 @@ pub fn start(app_state: Arc<AppState>) -> Result<()> {
     };
 
     let _tray_icon = tray_icon::initialize()?;
+
+    let visible = Arc::new(AtomicBool::new(true));
 
     // launch overlay on seperate thread so non-blocking
     std::thread::spawn({
@@ -48,9 +48,9 @@ pub fn start(app_state: Arc<AppState>) -> Result<()> {
                 panic!("Unsupported platform");
             };
 
-            tray_icon::post_initialize(cc.egui_ctx.clone(), handle);
+            tray_icon::post_initialize(cc.egui_ctx.clone(), handle, visible.clone());
 
-            Ok(Box::new(MainApp::new(app_state)?))
+            Ok(Box::new(MainApp::new(app_state, visible)?))
         }),
     )
     .unwrap();
@@ -66,9 +66,10 @@ pub struct MainApp {
     /// Local copy of preferences, used to track UI state before saving to config
     local_preferences: Preferences,
     upload_stats: UploadStats,
+    visible: Arc<AtomicBool>,
 }
 impl MainApp {
-    fn new(app_state: Arc<AppState>) -> Result<Self> {
+    fn new(app_state: Arc<AppState>, visible: Arc<AtomicBool>) -> Result<Self> {
         let local_credentials: Credentials;
         let local_preferences: Preferences;
         {
@@ -86,6 +87,7 @@ impl MainApp {
             local_credentials,
             local_preferences,
             upload_stats: UploadStats::new()?,
+            visible,
         })
     }
 }
@@ -93,7 +95,7 @@ impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         // if user closes the app instead minimize to tray
         if ctx.input(|i| i.viewport().close_requested()) {
-            VISIBLE.store(false, Ordering::Relaxed);
+            self.visible.store(false, Ordering::Relaxed);
             ctx.send_viewport_cmd(ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
         }

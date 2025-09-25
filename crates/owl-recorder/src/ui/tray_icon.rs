@@ -1,4 +1,7 @@
-use std::sync::atomic::Ordering;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use tray_icon::{
     MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
@@ -9,8 +12,6 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow},
 };
 use winit::raw_window_handle::Win32WindowHandle;
-
-use crate::ui::VISIBLE;
 
 const LOGO_DEFAULT_BYTES: &[u8] = include_bytes!("../../assets/owl-logo.png");
 const LOGO_RECORDING_BYTES: &[u8] = include_bytes!("../../assets/owl-logo-recording.png");
@@ -55,7 +56,11 @@ pub fn initialize() -> tray_icon::Result<TrayIcon> {
     Ok(tray_icon)
 }
 
-pub fn post_initialize(context: egui::Context, window_handle: Win32WindowHandle) {
+pub fn post_initialize(
+    context: egui::Context,
+    window_handle: Win32WindowHandle,
+    visible: Arc<AtomicBool>,
+) {
     TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
         let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
 
@@ -65,18 +70,18 @@ pub fn post_initialize(context: egui::Context, window_handle: Win32WindowHandle)
             ..
         } = event
         {
-            if VISIBLE.load(Ordering::Relaxed) {
+            if visible.load(Ordering::Relaxed) {
                 unsafe {
                     let _ = ShowWindow(hwnd, SW_HIDE);
                 }
-                VISIBLE.store(false, Ordering::Relaxed);
+                visible.store(false, Ordering::Relaxed);
             } else {
                 // set viewport visible true in case it was minimised to tray via closing the app
                 context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 unsafe {
                     let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
                 }
-                VISIBLE.store(true, Ordering::Relaxed);
+                visible.store(true, Ordering::Relaxed);
             }
             context.request_repaint();
         }
