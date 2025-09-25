@@ -21,3 +21,6 @@ obws.workspace = true
 windows.workspace = true
 
 constants = { path = "../constants" }
+
+[build-dependencies]
+embed-manifest = "1.3.1"
