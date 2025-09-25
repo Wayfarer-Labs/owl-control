@@ -6,13 +6,379 @@ import subprocess
 import shlex
 from tqdm import tqdm
 import time
+import hashlib
+import tempfile
+import json
 
 from ..constants import API_BASE_URL
 
 
-def get_upload_url(
+def upload_archive(
     api_key: str,
     archive_path: str,
+    tags: Optional[List[str]] = None,
+    base_url: str = API_BASE_URL,
+    progress_mode: bool = False,
+    video_filename: Optional[str] = None,
+    control_filename: Optional[str] = None,
+    video_duration_seconds: Optional[float] = None,
+    video_width: Optional[int] = None,
+    video_height: Optional[int] = None,
+    video_codec: Optional[str] = None,
+    video_fps: Optional[float] = None,
+) -> None:
+    """Upload an archive to the storage bucket using multipart upload for reliability and progress tracking."""
+
+    # Get file size
+    file_size = os.path.getsize(archive_path)
+
+    # Initialize multipart upload - server will determine chunk size
+    upload_session = init_multipart_upload(
+        api_key=api_key,
+        archive_path=archive_path,
+        total_size_bytes=file_size,
+        tags=tags,
+        base_url=base_url,
+        video_filename=video_filename,
+        control_filename=control_filename,
+        video_duration_seconds=video_duration_seconds,
+        video_width=video_width,
+        video_height=video_height,
+        video_codec=video_codec,
+        video_fps=video_fps,
+    )
+
+    upload_id = upload_session["upload_id"]
+    game_control_id = upload_session["game_control_id"]
+    total_chunks = upload_session["total_chunks"]
+    chunk_size_bytes = upload_session["chunk_size_bytes"]
+
+    print(
+        f"Starting upload: {file_size} bytes in {total_chunks} chunks of {chunk_size_bytes} bytes each"
+    )
+    print(f"Upload initiated: upload_id={upload_id}, game_control_id={game_control_id}")
+
+    # Track upload success for cleanup
+    upload_success = False
+
+    try:
+        # Initialize progress tracking
+        if progress_mode:
+            progress_file = os.path.join(
+                tempfile.gettempdir(), "owl-control-upload-progress.json"
+            )
+            initial_progress = {
+                "phase": "upload",
+                "action": "start",
+                "bytes_uploaded": 0,
+                "total_bytes": file_size,
+                "percent": 0,
+                "speed_mbps": 0,
+                "eta_seconds": 0,
+                "timestamp": time.time(),
+                "current_chunk": 0,
+                "total_chunks": total_chunks,
+            }
+            try:
+                with open(progress_file, "w") as f:
+                    json.dump(initial_progress, f)
+            except Exception as e:
+                print(f"Warning: Could not initialize progress file: {e}")
+
+        # Upload chunks
+        chunk_etags = []
+        bytes_uploaded = 0
+        start_time = time.time()
+
+        with open(archive_path, "rb") as f:
+            with tqdm(
+                total=file_size, unit="B", unit_scale=True, desc="Uploading"
+            ) as pbar:
+                for chunk_num in range(1, total_chunks + 1):
+                    # Read chunk data
+                    chunk_data = f.read(chunk_size_bytes)
+                    if not chunk_data:
+                        break
+
+                    # Upload chunk using the dedicated function
+                    try:
+                        etag = upload_single_chunk(
+                            base_url=base_url,
+                            api_key=api_key,
+                            upload_id=upload_id,
+                            chunk_data=chunk_data,
+                            chunk_number=chunk_num,
+                            progress_mode=progress_mode,
+                            start_time=start_time,
+                            total_bytes=file_size,
+                            total_chunks=total_chunks,
+                            bytes_uploaded_before_chunk=bytes_uploaded,
+                        )
+
+                        chunk_etags.append(
+                            {
+                                "chunk_number": chunk_num,
+                                "etag": etag,
+                            }
+                        )
+
+                        # Update progress
+                        bytes_uploaded += len(chunk_data)
+                        pbar.update(len(chunk_data))
+
+                        # Final progress update after chunk completion
+                        if progress_mode:
+                            emit_upload_progress(
+                                bytes_uploaded=bytes_uploaded,
+                                start_time=start_time,
+                                total_bytes=file_size,
+                                current_chunk=chunk_num,
+                                total_chunks=total_chunks,
+                            )
+
+                        print(
+                            f"Uploaded chunk {chunk_num}/{total_chunks} ({len(chunk_data)} bytes, ETag: {etag})"
+                        )
+
+                    except Exception as e:
+                        print(f"Failed to upload chunk {chunk_num}: {e}")
+                        raise
+
+        # Completing upload
+        print(f"Completing upload with {len(chunk_etags)} chunks...")
+        completion_result = complete_multipart_upload(
+            api_key=api_key,
+            upload_id=upload_id,
+            chunk_etags=chunk_etags,
+            base_url=base_url,
+        )
+
+        # Check if completion succeeded
+        if completion_result.get("success", True):
+            print("Upload completed successfully!")
+        else:
+            error_msg = completion_result.get("message", "Unknown error")
+            raise Exception(f"Upload failed after all attempts: {error_msg}")
+
+        # Write final progress
+        if progress_mode:
+            progress_file = os.path.join(
+                tempfile.gettempdir(), "owl-control-upload-progress.json"
+            )
+            try:
+                final_progress = {
+                    "phase": "upload",
+                    "action": "complete",
+                    "bytes_uploaded": file_size,
+                    "total_bytes": file_size,
+                    "percent": 100,
+                    "speed_mbps": 0,
+                    "eta_seconds": 0,
+                    "timestamp": time.time(),
+                    "current_chunk": total_chunks,
+                    "total_chunks": total_chunks,
+                    "game_control_id": completion_result["game_control_id"],
+                    "verified": completion_result.get("verified", False),
+                }
+                with open(progress_file, "w") as f:
+                    json.dump(final_progress, f)
+            except Exception as e:
+                print(f"Warning: Could not write final progress: {e}")
+
+            print("Upload completed successfully!")
+            print(f"Game Control ID: {completion_result['game_control_id']}")
+            print(f"Object Key: {completion_result['object_key']}")
+            print(f"Verified: {completion_result.get('verified', False)}")
+
+            # Mark upload as successful
+            upload_success = True
+
+    finally:
+        # If upload failed for any reason, abort the multipart upload
+        if not upload_success:
+            print("Aborting multipart upload due to upload failure...")
+            try:
+                abort_multipart_upload(
+                    api_key=api_key, upload_id=upload_id, base_url=base_url
+                )
+                print("Multipart upload aborted successfully")
+            except Exception as abort_error:
+                print(f"Warning: Failed to abort multipart upload: {abort_error}")
+
+
+def upload_single_chunk(
+    api_key: str,
+    upload_id: str,
+    base_url: str,
+    chunk_data: bytes,
+    chunk_number: int,
+    max_retries: int = 5,
+    progress_mode: bool = False,
+    start_time: float = 0,
+    total_bytes: int = 0,
+    total_chunks: int = 0,
+    bytes_uploaded_before_chunk: int = 0,
+) -> str:
+    """
+    Upload a single chunk using curl with retry logic and progress tracking.
+
+    Args:
+        chunk_data: The chunk data to upload
+        chunk_number: The chunk number (for logging)
+        max_retries: Maximum number of retry attempts
+        progress_mode: Whether to emit progress updates
+        start_time: Start time for speed calculations
+        total_bytes: Total file size for progress calculations
+        total_chunks: Total number of chunks
+        bytes_uploaded_before_chunk: Bytes uploaded before this chunk
+
+    Returns:
+        str: The ETag from the successful upload
+
+    Raises:
+        Exception: If all retry attempts fail
+    """
+    # Calculate chunk hash
+    chunk_hash = hashlib.sha256(chunk_data).hexdigest()
+
+    with tempfile.NamedTemporaryFile(delete=False) as temp_chunk_file:
+        temp_chunk_file.write(chunk_data)
+        temp_chunk_path = temp_chunk_file.name
+
+    try:
+        for retry in range(max_retries):
+            total_bytes_uploaded = bytes_uploaded_before_chunk
+            try:
+                # Get upload URL for this chunk
+                chunk_upload_url = get_multipart_chunk_upload_url(
+                    api_key=api_key,
+                    upload_id=upload_id,
+                    chunk_number=chunk_number,
+                    chunk_hash=chunk_hash,
+                    base_url=base_url,
+                )
+
+                # Use curl to upload the chunk with progress output
+                curl_command = f'curl -X PUT -H "Content-Type: application/octet-stream" -T {shlex.quote(temp_chunk_path)} -# --show-error --fail --max-time 300 --dump-header - {shlex.quote(chunk_upload_url)}'
+
+                # Execute curl command with real-time progress parsing
+                process = subprocess.Popen(
+                    shlex.split(curl_command),
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    bufsize=1,  # Line buffered
+                    universal_newlines=True,
+                )
+
+                # Parse curl progress output and headers
+                stdout_lines = []
+                stderr_lines = []
+                last_progress_update = 0
+                chunk_size = len(chunk_data)
+
+                while True:
+                    # Read from stderr (progress output) and stdout (headers)
+                    if process.stderr.readable():
+                        try:
+                            stderr_line = process.stderr.readline()
+                            if stderr_line:
+                                stderr_lines.append(stderr_line)
+                                # Parse progress from curl's -# output
+                                if progress_mode and "#" in stderr_line:
+                                    try:
+                                        # Extract percentage from the number of # characters
+                                        percent = min(
+                                            (stderr_line.count("#") / 50) * 100, 100
+                                        )
+                                        current_chunk_bytes = min(
+                                            int(chunk_size * (percent / 100)),
+                                            chunk_size,
+                                        )
+
+                                        # Only update if we've made progress to avoid unnecessary refreshes
+                                        if current_chunk_bytes > last_progress_update:
+                                            # Calculate total bytes uploaded including this chunk's progress
+                                            total_bytes_uploaded = (
+                                                bytes_uploaded_before_chunk
+                                                + current_chunk_bytes
+                                            )
+
+                                            # Emit progress update
+                                            emit_upload_progress(
+                                                bytes_uploaded=total_bytes_uploaded,
+                                                start_time=start_time,
+                                                total_bytes=total_bytes,
+                                                current_chunk=chunk_number,
+                                                total_chunks=total_chunks,
+                                            )
+
+                                            last_progress_update = current_chunk_bytes
+                                    except Exception as e:
+                                        # Don't fail the upload if progress parsing fails
+                                        print(f"Warning: Progress parsing error: {e}")
+                                        continue
+                        except Exception:
+                            pass
+
+                    # Check if process is still running
+                    if process.poll() is not None:
+                        break
+
+                try:
+                    if process.stdout.readable():
+                        while True:
+                            stdout_line = process.stdout.readline()
+                            if not stdout_line:
+                                break
+                            stdout_lines.append(stdout_line)
+                except Exception:
+                    pass
+
+                # Wait for process to complete
+                return_code = process.wait()
+
+                if return_code != 0:
+                    stderr_content = "".join(stderr_lines)
+                    raise Exception(
+                        f"Curl failed with code {return_code}: {stderr_content}"
+                    )
+
+                # Extract ETag from headers
+                etag = ""
+                stdout_content = "".join(stdout_lines)
+                for line in stdout_content.split("\n"):
+                    if line.lower().startswith("etag:"):
+                        etag = line.split(":", 1)[1].strip().strip('"')
+                        break
+
+                if not etag:
+                    raise Exception("No ETag found in response headers")
+
+                return etag
+
+            except Exception as e:
+                if retry == max_retries - 1:
+                    print(
+                        f"Failed to upload chunk {chunk_number} after {max_retries} retries: {e}"
+                    )
+                    raise Exception(f"Chunk upload failed: {e}")
+                else:
+                    print(
+                        f"Retry {retry + 1}/{max_retries} for chunk {chunk_number}: {e}"
+                    )
+                    time.sleep(2**retry)  # Exponential backoff
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(temp_chunk_path)
+        except Exception:
+            pass
+
+
+def init_multipart_upload(
+    api_key: str,
+    archive_path: str,
+    total_size_bytes: int,
     tags: Optional[List[str]] = None,
     base_url: str = API_BASE_URL,
     video_filename: Optional[str] = None,
@@ -22,19 +388,17 @@ def get_upload_url(
     video_height: Optional[int] = None,
     video_codec: Optional[str] = None,
     video_fps: Optional[float] = None,
-) -> str:
-    """Request a pre-signed S3 URL for uploading a tar archive."""
+) -> dict:
+    """Initialize an upload session."""
 
-    file_size = os.path.getsize(archive_path)
-    file_size_mb = file_size // (1024 * 1024)
     payload = {
         "filename": os.path.basename(archive_path),
         "content_type": "application/x-tar",
-        "file_size_mb": file_size_mb,
-        "expiration": 3600,
+        "total_size_bytes": total_size_bytes,
         "uploader_hwid": get_hwid(),
         "upload_timestamp": datetime.now().isoformat(),
     }
+
     if tags:
         payload["tags"] = tags
     if video_filename:
@@ -53,219 +417,142 @@ def get_upload_url(
         payload["video_fps"] = video_fps
 
     headers = {"Content-Type": "application/json", "X-API-Key": api_key}
-    url = f"{base_url}/tracker/upload/game_control"
+    url = f"{base_url}/tracker/upload/game_control/multipart/init"
 
     with requests.Session() as session:
         response = session.post(url, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
-        data = response.json()
-        return data.get("url") or data.get("upload_url") or data["uploadUrl"]
+        return response.json()
 
 
-def upload_archive(
+def get_multipart_chunk_upload_url(
     api_key: str,
-    archive_path: str,
-    tags: Optional[List[str]] = None,
+    upload_id: str,
+    chunk_number: int,
+    chunk_hash: str,
     base_url: str = API_BASE_URL,
-    progress_mode: bool = False,
-    video_filename: Optional[str] = None,
-    control_filename: Optional[str] = None,
-    video_duration_seconds: Optional[float] = None,
-    video_width: Optional[int] = None,
-    video_height: Optional[int] = None,
-    video_codec: Optional[str] = None,
-    video_fps: Optional[float] = None,
-) -> None:
-    """Upload an archive to the storage bucket via a pre-signed URL."""
+) -> str:
+    """Get a pre-signed URL for uploading a specific chunk."""
 
-    upload_url = get_upload_url(
-        api_key,
-        archive_path,
-        tags=tags,
-        base_url=base_url,
-        video_filename=video_filename,
-        control_filename=control_filename,
-        video_duration_seconds=video_duration_seconds,
-        video_width=video_width,
-        video_height=video_height,
-        video_codec=video_codec,
-        video_fps=video_fps,
+    payload = {
+        "upload_id": upload_id,
+        "chunk_number": chunk_number,
+        "chunk_hash": chunk_hash,
+    }
+
+    headers = {"Content-Type": "application/json", "X-API-Key": api_key}
+    url = f"{base_url}/tracker/upload/game_control/multipart/chunk"
+
+    with requests.Session() as session:
+        response = session.post(url, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        return response.json()["upload_url"]
+
+
+def complete_multipart_upload(
+    api_key: str,
+    upload_id: str,
+    chunk_etags: List[dict],
+    base_url: str = API_BASE_URL,
+) -> dict:
+    """Complete an upload by combining all chunks."""
+
+    payload = {
+        "upload_id": upload_id,
+        "chunk_etags": chunk_etags,
+    }
+
+    headers = {"Content-Type": "application/json", "X-API-Key": api_key}
+    url = f"{base_url}/tracker/upload/game_control/multipart/complete"
+
+    with requests.Session() as session:
+        response = session.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        return response.json()
+
+
+def get_multipart_upload_status(
+    api_key: str,
+    upload_id: str,
+    base_url: str = API_BASE_URL,
+) -> dict:
+    """Get the status of an upload to see which chunks need to be retried."""
+
+    headers = {"X-API-Key": api_key}
+    url = f"{base_url}/tracker/upload/game_control/multipart/status/{upload_id}"
+
+    with requests.Session() as session:
+        response = session.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.json()
+
+
+def abort_multipart_upload(
+    api_key: str,
+    upload_id: str,
+    base_url: str = API_BASE_URL,
+) -> dict:
+    """Abort an upload and clean up any uploaded chunks."""
+
+    headers = {"X-API-Key": api_key}
+    url = f"{base_url}/tracker/upload/game_control/multipart/abort/{upload_id}"
+
+    with requests.Session() as session:
+        response = session.delete(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.json()
+
+
+def emit_upload_progress(
+    bytes_uploaded: int,
+    start_time: float,
+    total_bytes: int,
+    current_chunk: int,
+    total_chunks: int,
+):
+    """Write JSON progress data to file for UI consumption"""
+
+    elapsed_time = time.time() - start_time
+    speed_bps = bytes_uploaded / elapsed_time if elapsed_time > 0 else 0
+
+    progress_data = {
+        "phase": "upload",
+        "action": "progress",
+        "bytes_uploaded": bytes_uploaded,
+        "total_bytes": total_bytes,
+        "percent": min((bytes_uploaded / total_bytes) * 100, 100)
+        if total_bytes > 0
+        else 0,
+        "speed_mbps": speed_bps / (1024 * 1024) if speed_bps > 0 else 0,
+        "eta_seconds": ((total_bytes - bytes_uploaded) / speed_bps)
+        if speed_bps > 0
+        else 0,
+        "timestamp": time.time(),
+        "current_chunk": current_chunk,
+        "total_chunks": total_chunks,
+    }
+
+    progress_file = os.path.join(
+        tempfile.gettempdir(), "owl-control-upload-progress.json"
     )
-
-    # Get file size for progress bar
-    import os
-
-    file_size = os.path.getsize(archive_path)
-
-    # Initialize progress file
-    if progress_mode:
-        import tempfile
-        import json
-
-        progress_file = os.path.join(
-            tempfile.gettempdir(), "owl-control-upload-progress.json"
-        )
-        initial_progress = {
-            "phase": "upload",
-            "action": "start",
-            "bytes_uploaded": 0,
-            "total_bytes": file_size,
-            "percent": 0,
-            "speed_mbps": 0,
-            "eta_seconds": 0,
-            "timestamp": time.time(),
-        }
-        try:
-            with open(progress_file, "w") as f:
-                json.dump(initial_progress, f)
-        except Exception as e:
-            print(f"Warning: Could not initialize progress file: {e}")
-
-    def emit_upload_progress(bytes_uploaded, total_bytes, speed_bps=0):
-        """Write JSON progress data to file for UI consumption"""
-        if progress_mode:
-            import json
-            import tempfile
-            import os
-
-            progress_data = {
-                "phase": "upload",
-                "action": "progress",
-                "bytes_uploaded": bytes_uploaded,
-                "total_bytes": total_bytes,
-                "percent": min((bytes_uploaded / total_bytes) * 100, 100)
-                if total_bytes > 0
-                else 0,
-                "speed_mbps": speed_bps / (1024 * 1024) if speed_bps > 0 else 0,
-                "eta_seconds": ((total_bytes - bytes_uploaded) / speed_bps)
-                if speed_bps > 0
-                else 0,
-                "timestamp": time.time(),
-            }
-
-            # Write to temp file for UI to read
-            progress_file = os.path.join(
-                tempfile.gettempdir(), "owl-control-upload-progress.json"
-            )
-            try:
-                with open(progress_file, "w") as f:
-                    json.dump(progress_data, f)
-            except Exception as e:
-                print(f"Warning: Could not write progress file: {e}")
-
-            # Also print for console (keep existing behavior)
-            print(f"PROGRESS: {json.dumps(progress_data)}")
-
-    # Use -# for a simpler progress indicator that's easier to parse
-    curl_command = f'curl -X PUT "{upload_url}" -k -H "Content-Type: application/x-tar" -T "{archive_path}" -# -m 1200'
-
-    # Debug: log the upload URL (hide sensitive parts)
-    from urllib.parse import urlparse
-
-    parsed_url = urlparse(upload_url)
-
-    # Write to debug log file
-    import tempfile
-
-    debug_log_path = os.path.join(tempfile.gettempdir(), "owl-control-debug.log")
     try:
-        with open(debug_log_path, "a") as debug_file:
-            debug_file.write(
-                f"[{datetime.now().isoformat()}] PYTHON: Uploading to host: {parsed_url.netloc}\n"
-            )
-            debug_file.write(
-                f"[{datetime.now().isoformat()}] PYTHON: Full URL length: {len(upload_url)} chars\n"
-            )
-    except:
-        pass  # Don't fail if debug logging fails
+        with open(progress_file, "w") as f:
+            json.dump(progress_data, f)
+    except Exception as e:
+        print(f"Warning: Could not write progress file: {e}")
 
-    with tqdm(total=file_size, unit="B", unit_scale=True, desc="Uploading") as pbar:
-        process = subprocess.Popen(
-            shlex.split(curl_command),
-            stderr=subprocess.PIPE,
-            bufsize=1,  # Line buffered
-            universal_newlines=True,
-        )
-
-        last_update = 0
-        start_time = time.time() if progress_mode else 0
-
-        # Read curl's progress output
-        while True:
-            line = process.stderr.readline()
-            if not line:
-                break
-
-            # Update progress bar based on curl's output
-            if "#" in line:
-                try:
-                    # Extract percentage from the number of # characters
-                    percent = min((line.count("#") / 50) * 100, 100)  # Cap at 100%
-                    current = min(
-                        int(file_size * (percent / 100)), file_size
-                    )  # Cap at file size
-
-                    # Only update if we've made progress to avoid unnecessary refreshes
-                    if current > last_update:
-                        pbar.n = current
-                        pbar.refresh()
-
-                        # Calculate speed and emit progress for UI
-                        if progress_mode and start_time > 0:
-                            elapsed_time = time.time() - start_time
-                            speed_bps = (
-                                current / elapsed_time if elapsed_time > 0 else 0
-                            )
-                            emit_upload_progress(current, file_size, speed_bps)
-
-                        last_update = current
-                except:
-                    continue
-
-        # Wait for process to complete
-        return_code = process.wait()
-
-        # Cleanup progress file
-        if progress_mode:
-            import tempfile
-            import os
-
-            progress_file = os.path.join(
-                tempfile.gettempdir(), "owl-control-upload-progress.json"
-            )
-            try:
-                if os.path.exists(progress_file):
-                    # Write final completion state
-                    final_progress = {
-                        "phase": "upload",
-                        "action": "complete",
-                        "bytes_uploaded": file_size,
-                        "total_bytes": file_size,
-                        "percent": 100,
-                        "speed_mbps": 0,
-                        "eta_seconds": 0,
-                        "timestamp": time.time(),
-                    }
-                    with open(progress_file, "w") as f:
-                        json.dump(final_progress, f)
-            except Exception as e:
-                print(f"Warning: Could not write final progress: {e}")
-
-        if return_code != 0:
-            raise Exception(f"Upload failed with return code {return_code}")
+    print(f"PROGRESS: {json.dumps(progress_data)}")
 
 
 def get_hwid():
     try:
         with open("/sys/class/dmi/id/product_uuid", "r") as f:
             hardware_id = f.read().strip()
-    except:
+    except Exception:
         try:
             # Fallback for Windows
-            import subprocess
-
             output = subprocess.check_output("wmic csproduct get uuid").decode()
             hardware_id = output.split("\n")[1].strip()
-        except:
+        except Exception:
             hardware_id = None
     return hardware_id
