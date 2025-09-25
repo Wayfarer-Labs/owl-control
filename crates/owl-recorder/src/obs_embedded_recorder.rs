@@ -5,8 +5,6 @@ use color_eyre::{
     eyre::{Context, OptionExt as _, bail, eyre},
 };
 use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
-use std::sync::OnceLock;
-use tokio::sync::{Mutex, MutexGuard};
 use windows::{
     Win32::{
         Foundation::POINT,
@@ -44,6 +42,8 @@ const VIDEO_BITRATE: u32 = 2500;
 const USE_WINDOW_CAPTURE: bool = false;
 
 pub struct ObsEmbeddedRecorder {
+    obs_context: ObsContext,
+    current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
 }
 impl ObsEmbeddedRecorder {
@@ -51,8 +51,28 @@ impl ObsEmbeddedRecorder {
     where
         Self: Sized,
     {
-        initialize().await?;
-        Ok(Self { source: None })
+        let (base_width, base_height) = get_primary_monitor_resolution()
+            .ok_or_eyre("Failed to get primary monitor resolution")?;
+        let obs_context = ObsContext::new(
+            ObsContext::builder().set_video_info(
+                ObsVideoInfoBuilder::new()
+                    .fps_num(FPS)
+                    .fps_den(1)
+                    .base_width(base_width)
+                    .base_height(base_height)
+                    .output_width(RECORDING_WIDTH)
+                    .output_height(RECORDING_HEIGHT)
+                    .build(),
+            ),
+        )
+        .await?;
+
+        tracing::debug!("OBS context initialized successfully");
+        Ok(Self {
+            obs_context,
+            current_output: None,
+            source: None,
+        })
     }
 }
 #[async_trait::async_trait(?Send)]
@@ -74,13 +94,12 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         tracing::debug!("Starting recording with path: {}", recording_path);
 
         // Check if already recording
-        let mut state = get_obs_state().await;
-        if state.current_output.is_some() {
+        if self.current_output.is_some() {
             bail!("Recording is already in progress");
         }
 
         // Set up scene and window capture based on input pid
-        let mut scene = state.obs_context.scene(OWL_SCENE_NAME).await?;
+        let mut scene = self.obs_context.scene(OWL_SCENE_NAME).await?;
 
         let source = if USE_WINDOW_CAPTURE {
             let window =
@@ -91,8 +110,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 .find(|w| w.0.pid == pid)
                 .ok_or_else(|| eyre!("No window found with PID: {}", pid))?;
 
-            state
-                .obs_context
+            self.obs_context
                 .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
                 .await?
                 .set_window(window)
@@ -115,8 +133,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 );
             }
 
-            state
-                .obs_context
+            self.obs_context
                 .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
                 .await?
                 .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
@@ -130,16 +147,16 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         scene.set_to_channel(0).await?;
 
         // Set up output
-        let mut output_settings = state.obs_context.data().await?;
+        let mut output_settings = self.obs_context.data().await?;
         output_settings
             .set_string("path", ObsPath::new(recording_path).build())
             .await?;
 
         let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
-        let mut output = state.obs_context.output(output_info).await?;
+        let mut output = self.obs_context.output(output_info).await?;
 
         // Register the video encoder
-        let mut video_settings = state.obs_context.data().await?;
+        let mut video_settings = self.obs_context.data().await?;
         video_settings
             .bulk_update()
             .set_int("bf", 2)
@@ -153,7 +170,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             .await?;
 
         // Get video handler and attach encoder to output
-        let video_handler = state.obs_context.get_video_ptr().await?;
+        let video_handler = self.obs_context.get_video_ptr().await?;
         output
             .video_encoder(
                 VideoEncoderInfo::new(
@@ -167,19 +184,19 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             .await?;
 
         // Register the audio encoder
-        let mut audio_settings = state.obs_context.data().await?;
+        let mut audio_settings = self.obs_context.data().await?;
         audio_settings.set_int("bitrate", 160).await?;
 
         let audio_info =
             AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
 
-        let audio_handler = state.obs_context.get_audio_ptr().await?;
+        let audio_handler = self.obs_context.get_audio_ptr().await?;
         output.audio_encoder(audio_info, 0, audio_handler).await?;
 
         output.start().await?;
 
         // Store the output and recording path
-        state.current_output = Some(output);
+        self.current_output = Some(output);
 
         tracing::debug!("OBS recording started successfully");
         self.source = Some(source);
@@ -189,10 +206,9 @@ impl VideoRecorder for ObsEmbeddedRecorder {
     async fn stop_recording(&mut self) -> Result<()> {
         tracing::debug!("Stopping OBS recording...");
 
-        let mut state = get_obs_state().await;
-        if let Some(mut output) = state.current_output.take() {
+        if let Some(mut output) = self.current_output.take() {
             output.stop().await.wrap_err("Failed to stop OBS output")?;
-            if let Some(mut scene) = state.obs_context.get_scene(OWL_SCENE_NAME).await
+            if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME).await
                 && let Some(source) = self.source.take()
             {
                 scene.remove_source(&source).await?;
@@ -204,48 +220,6 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
         Ok(())
     }
-}
-
-struct ObsState {
-    obs_context: ObsContext,
-    current_output: Option<ObsOutputRef>,
-}
-static OBS_STATE: OnceLock<Mutex<ObsState>> = OnceLock::new();
-async fn get_obs_state() -> MutexGuard<'static, ObsState> {
-    OBS_STATE.get().unwrap().lock().await
-}
-
-async fn initialize() -> Result<()> {
-    if OBS_STATE.get().is_some() {
-        return Ok(());
-    }
-
-    let (base_width, base_height) =
-        get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")?;
-    let context = ObsContext::new(
-        ObsContext::builder().set_video_info(
-            ObsVideoInfoBuilder::new()
-                .fps_num(FPS)
-                .fps_den(1)
-                .base_width(base_width)
-                .base_height(base_height)
-                .output_width(RECORDING_WIDTH)
-                .output_height(RECORDING_HEIGHT)
-                .build(),
-        ),
-    )
-    .await?;
-
-    tracing::debug!("OBS context initialized successfully");
-    let obs_set = OBS_STATE.set(Mutex::new(ObsState {
-        obs_context: context,
-        current_output: None,
-    }));
-    if obs_set.is_err() {
-        panic!("OBS context already initialized!");
-    }
-
-    Ok(())
 }
 
 // TODO: See if this is actually necessary; `ObsVideoInfoBuilder` already

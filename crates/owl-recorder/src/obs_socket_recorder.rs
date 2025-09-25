@@ -1,7 +1,4 @@
-use std::{
-    path::Path,
-    time::Duration,
-};
+use std::{path::Path, time::Duration};
 
 use color_eyre::{
     Result,
