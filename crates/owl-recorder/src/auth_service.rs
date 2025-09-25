@@ -76,6 +76,7 @@ pub struct ValidationError {
     pub message: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct ApiClient {
     sender: CommandSender,
     client: reqwest::Client,
@@ -89,85 +90,83 @@ impl ApiClient {
         }
     }
 
-    pub fn validate_api_key(&mut self, api_key: &str) {
+    pub async fn validate_api_key(
+        &mut self,
+        api_key: String,
+    ) -> Result<ValidationSuccess, ValidationError> {
         let sender = self.sender.clone();
         let client = self.client.clone();
-        let api_key = api_key.to_string();
 
-        tokio::spawn(async move {
-            // Validate input
-            if api_key.is_empty() || api_key.trim().is_empty() {
-                return Err(ValidationError {
-                    success: false,
-                    message: Some("API key cannot be empty".to_string()),
-                });
-            }
+        // Validate input
+        if api_key.is_empty() || api_key.trim().is_empty() {
+            return Err(ValidationError {
+                success: false,
+                message: Some("API key cannot be empty".to_string()),
+            });
+        }
 
-            // Simple validation - check if it starts with 'sk_'
-            if !api_key.starts_with("sk_") {
-                return Err(ValidationError {
-                    success: false,
-                    message: Some("Invalid API key format".to_string()),
-                });
-            }
+        // Simple validation - check if it starts with 'sk_'
+        if !api_key.starts_with("sk_") {
+            return Err(ValidationError {
+                success: false,
+                message: Some("Invalid API key format".to_string()),
+            });
+        }
 
-            // Make the API request
-            let url = format!("{}/api/v1/user/info", API_BASE_URL);
+        // Make the API request
+        let url = format!("{}/api/v1/user/info", API_BASE_URL);
 
-            match client
-                .get(&url)
-                .header("Content-Type", "application/json")
-                .header("X-API-Key", api_key)
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    if !response.status().is_success() {
-                        let error_msg = format!(
-                            "Invalid API key, or server unavailable: {}",
-                            response.status()
-                        );
-                        return Err(ValidationError {
-                            success: false,
-                            message: Some(error_msg),
-                        });
-                    }
-
-                    // Parse the JSON response
-                    match response.json::<UserIDResponse>().await {
-                        Ok(user_info) => {
-                            println!(
-                                "validateApiKey: Successfully validated API key - user ID: {}",
-                                user_info.user_id
-                            );
-
-                            println!("sending uid {}", user_info.user_id);
-                            let _ =
-                                sender.try_send(Command::UpdateUserID(user_info.user_id.clone()));
-
-                            Ok(ValidationSuccess {
-                                success: true,
-                                user_id: user_info.user_id,
-                            })
-                        }
-                        Err(e) => {
-                            eprintln!("validateApiKey: Failed to parse response: {}", e);
-                            Err(ValidationError {
-                                success: false,
-                                message: Some("API key validation failed".to_string()),
-                            })
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("validateApiKey: API key validation error: {}", e);
-                    Err(ValidationError {
+        match client
+            .get(&url)
+            .header("Content-Type", "application/json")
+            .header("X-API-Key", api_key)
+            .send()
+            .await
+        {
+            Ok(response) => {
+                if !response.status().is_success() {
+                    let error_msg = format!(
+                        "Invalid API key, or server unavailable: {}",
+                        response.status()
+                    );
+                    return Err(ValidationError {
                         success: false,
-                        message: Some("API key validation failed".to_string()),
-                    })
+                        message: Some(error_msg),
+                    });
+                }
+
+                // Parse the JSON response
+                match response.json::<UserIDResponse>().await {
+                    Ok(user_info) => {
+                        println!(
+                            "validateApiKey: Successfully validated API key - user ID: {}",
+                            user_info.user_id
+                        );
+
+                        let _ = sender.try_send(Command::UpdateUserID(user_info.user_id.clone()));
+
+                        Ok(ValidationSuccess {
+                            success: true,
+                            user_id: user_info.user_id,
+                        })
+                    }
+                    Err(e) => {
+                        eprintln!("validateApiKey: Failed to parse response: {}", e);
+                        Err(ValidationError {
+                            success: false,
+                            message: Some("API key validation failed".to_string()),
+                        })
+                    }
                 }
             }
-        });
+            Err(e) => {
+                eprintln!("validateApiKey: API key validation error: {}", e);
+                Err(ValidationError {
+                    success: false,
+                    message: Some("API key validation failed".to_string()),
+                })
+            }
+        }
     }
 
     pub async fn get_user_upload_stats(

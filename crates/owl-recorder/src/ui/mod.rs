@@ -68,7 +68,6 @@ pub struct MainApp {
     /// Receives commands from various tx in other threads to perform some UI update
     rx: CommandReceiver,
 
-    api_client: ApiClient,
     login_api_key: String,
     has_scrolled_to_bottom_of_consent: bool,
 
@@ -95,14 +94,11 @@ impl MainApp {
             local_credentials = configs.credentials.clone();
             local_preferences = configs.preferences.clone();
         }
-        let mut api_client = ApiClient::new(app_state.tx.clone());
-        api_client.validate_api_key(&local_credentials.api_key.clone());
         Ok(Self {
             app_state,
             frame: 0,
             rx,
 
-            api_client,
             login_api_key: local_credentials.api_key.clone(),
             has_scrolled_to_bottom_of_consent: false,
 
@@ -377,7 +373,6 @@ impl eframe::App for MainApp {
 
         match &self.rx.try_recv() {
             Ok(Command::UpdateUserID(uid)) => {
-                println!("received uid {}", uid);
                 self.local_credentials.user_id = uid.to_string();
             }
             _ => {}

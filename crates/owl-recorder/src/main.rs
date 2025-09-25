@@ -26,8 +26,7 @@ use std::sync::Arc;
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     #[derive(Parser, Debug)]
     #[command(version, about)]
     struct Args {

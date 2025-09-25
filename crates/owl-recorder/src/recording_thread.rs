@@ -1,6 +1,7 @@
 use crate::{
     MAX_IDLE_DURATION, MAX_RECORDING_DURATION,
     app_state::{AppState, RecordingStatus},
+    auth_service::ApiClient,
     keycode::lookup_keycode,
     ui::tray_icon,
 };
@@ -81,6 +82,16 @@ async fn main(
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
     let mut debouncer = EventDebouncer::new();
+
+    let api_client = ApiClient::new(app_state.tx.clone());
+
+    {
+        let mut api_client_clone = api_client.clone();
+        let api_key = app_state.config.read().unwrap().credentials.api_key.clone();
+        tokio::spawn(async move {
+            let _ = api_client_clone.validate_api_key(api_key).await;
+        });
+    }
 
     loop {
         tokio::select! {
