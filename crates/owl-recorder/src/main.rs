@@ -9,7 +9,6 @@ mod input_recorder;
 mod keycode;
 mod obs_embedded_recorder;
 mod obs_socket_recorder;
-mod overlay;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;
@@ -17,12 +16,10 @@ mod recording_thread;
 mod ui;
 mod upload_manager;
 
-use std::{path::PathBuf, thread, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use clap::Parser;
 use color_eyre::Result;
-
-use crate::overlay::OverlayApp;
 
 use std::sync::Arc;
 
@@ -55,16 +52,8 @@ fn main() -> Result<()> {
         .init();
     let app_state = Arc::new(app_state::AppState::new());
 
-    // launch overlay on seperate thread so non-blocking
-    thread::spawn({
-        let app_state = app_state.clone();
-        move || {
-            egui_overlay::start(OverlayApp::new(app_state));
-        }
-    });
-
     // launch recorder on seperate thread so non-blocking
-    thread::spawn({
+    std::thread::spawn({
         let app_state = app_state.clone();
         move || {
             recording_thread::run(app_state, start_key, stop_key, recording_location).unwrap();

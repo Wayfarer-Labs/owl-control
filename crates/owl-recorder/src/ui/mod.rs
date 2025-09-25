@@ -15,6 +15,7 @@ use crate::{
 use eframe::egui;
 use egui::ViewportCommand;
 
+mod overlay;
 pub mod tray_icon;
 
 static VISIBLE: AtomicBool = AtomicBool::new(true);
@@ -52,6 +53,14 @@ pub fn start(app_state: Arc<AppState>) -> Result<()> {
     };
 
     let _tray_icon = tray_icon::initialize()?;
+
+    // launch overlay on seperate thread so non-blocking
+    std::thread::spawn({
+        let app_state = app_state.clone();
+        move || {
+            egui_overlay::start(overlay::OverlayApp::new(app_state));
+        }
+    });
 
     eframe::run_native(
         "OWL Control",

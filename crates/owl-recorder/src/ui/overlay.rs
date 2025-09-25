@@ -37,6 +37,56 @@ impl OverlayApp {
         }
     }
 }
+impl OverlayApp {
+    fn first_frame_init(
+        &mut self,
+        egui_context: &egui::Context,
+        glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
+    ) {
+        // install image loaders
+        egui_extras::install_image_loaders(egui_context);
+
+        // don't show transparent window outline
+        glfw_backend.window.set_decorated(false);
+        glfw_backend.set_window_size([600.0, 50.0]);
+        // anchor top left always
+        glfw_backend.window.set_pos(0, 0);
+        // always allow input to passthrough
+        glfw_backend.set_passthrough(true);
+
+        // hide glfw overlay icon from taskbar and alt+tab
+        let hwnd = glfw_backend.window.get_win32_window() as isize;
+        if hwnd != 0 {
+            unsafe {
+                let hwnd = HWND(hwnd as *mut std::ffi::c_void);
+
+                // https://stackoverflow.com/a/7219089
+                // glfw window might bug sometimes, if user is alt tabbed / focusing another window while glfw starts up
+                // hiding it from taskbar might break. so we have to do this shit per microsoft:
+                // "you must hide the window first (by calling ShowWindow with SW_HIDE), change the window style, and then show the window."
+                let flash_info = FLASHWINFO {
+                    cbSize: std::mem::size_of::<FLASHWINFO>() as u32,
+                    hwnd,
+                    dwFlags: FLASHW_STOP,
+                    uCount: 0,
+                    dwTimeout: 0,
+                };
+                let _ = FlashWindowEx(&flash_info);
+
+                let _ = ShowWindow(hwnd, SW_HIDE); // hide the window
+
+                // set the style
+                let mut ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+                ex_style |= WS_EX_TOOLWINDOW.0 as isize; // Hide from taskbar
+                ex_style |= WS_EX_NOACTIVATE.0 as isize; // Don't steal focus
+                ex_style &= !(WS_EX_APPWINDOW.0 as isize); // Remove from Alt+Tab
+                SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
+
+                let _ = ShowWindow(hwnd, SW_SHOWDEFAULT); // show the window for the new style to come into effect
+            }
+        }
+    }
+}
 impl EguiOverlay for OverlayApp {
     fn gui_run(
         &mut self,
@@ -47,48 +97,7 @@ impl EguiOverlay for OverlayApp {
         // kind of cringe that we are forced to check first frame setup logic like this, but egui_overlay doesn't expose
         // any setup/init interface
         if self.frame == 0 {
-            // install image loaders
-            egui_extras::install_image_loaders(egui_context);
-
-            // don't show transparent window outline
-            glfw_backend.window.set_decorated(false);
-            glfw_backend.set_window_size([600.0, 50.0]);
-            // anchor top left always
-            glfw_backend.window.set_pos(0, 0);
-            // always allow input to passthrough
-            glfw_backend.set_passthrough(true);
-
-            // hide glfw overlay icon from taskbar and alt+tab
-            let hwnd = glfw_backend.window.get_win32_window() as isize;
-            if hwnd != 0 {
-                unsafe {
-                    let hwnd = HWND(hwnd as *mut std::ffi::c_void);
-
-                    // https://stackoverflow.com/a/7219089
-                    // glfw window might bug sometimes, if user is alt tabbed / focusing another window while glfw starts up
-                    // hiding it from taskbar might break. so we have to do this shit per microsoft:
-                    // "you must hide the window first (by calling ShowWindow with SW_HIDE), change the window style, and then show the window."
-                    let flash_info = FLASHWINFO {
-                        cbSize: std::mem::size_of::<FLASHWINFO>() as u32,
-                        hwnd,
-                        dwFlags: FLASHW_STOP,
-                        uCount: 0,
-                        dwTimeout: 0,
-                    };
-                    let _ = FlashWindowEx(&flash_info);
-
-                    let _ = ShowWindow(hwnd, SW_HIDE); // hide the window
-
-                    // set the style
-                    let mut ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-                    ex_style |= WS_EX_TOOLWINDOW.0 as isize; // Hide from taskbar
-                    ex_style |= WS_EX_NOACTIVATE.0 as isize; // Don't steal focus
-                    ex_style &= !(WS_EX_APPWINDOW.0 as isize); // Remove from Alt+Tab
-                    SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
-
-                    let _ = ShowWindow(hwnd, SW_SHOWDEFAULT); // show the window for the new style to come into effect
-                }
-            }
+            self.first_frame_init(egui_context, glfw_backend);
             egui_context.request_repaint();
         }
 
@@ -127,7 +136,7 @@ impl EguiOverlay for OverlayApp {
                 self.frame += 1;
                 ui.horizontal(|ui| {
                     ui.add(
-                        egui::Image::new(egui::include_image!("../assets/owl.png"))
+                        egui::Image::new(egui::include_image!("../../assets/owl.png"))
                             .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
                             .tint(Color32::from_white_alpha(self.overlay_opacity)),
                     );
