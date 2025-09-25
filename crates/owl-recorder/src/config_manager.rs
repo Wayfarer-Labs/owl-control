@@ -6,28 +6,29 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+// camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
+#[serde(rename_all = "camelCase")]
 pub struct Preferences {
-    // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
-    #[serde(rename = "startRecordingKey", default = "default_start_key")]
+    #[serde(default = "default_start_key")]
     pub start_recording_key: String,
-    #[serde(rename = "stopRecordingKey", default = "default_stop_key")]
+    #[serde(default = "default_stop_key")]
     pub stop_recording_key: String,
-    #[serde(rename = "overlayOpacity", default = "default_opacity")]
+    #[serde(default = "default_opacity")]
     pub overlay_opacity: u8,
-    #[serde(rename = "deleteUploadedFiles", default)]
+    #[serde(default)]
     pub delete_uploaded_files: bool,
-    #[serde(rename = "honk", default)]
+    #[serde(default)]
     pub honk: bool,
 }
 
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            start_recording_key: "F4".to_string(),
-            stop_recording_key: "F5".to_string(),
-            overlay_opacity: 85,
+            start_recording_key: default_start_key(),
+            stop_recording_key: default_stop_key(),
+            overlay_opacity: default_opacity(),
             delete_uploaded_files: false,
-            honk: true,
+            honk: false,
         }
     }
 }
@@ -61,14 +62,11 @@ where
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Credentials {
-    #[serde(rename = "apiKey", default)]
+    #[serde(default)]
     pub api_key: String,
-    #[serde(
-        rename = "hasConsented",
-        default,
-        deserialize_with = "deserialize_string_bool"
-    )]
+    #[serde(default, deserialize_with = "deserialize_string_bool")]
     pub has_consented: bool,
 }
 
@@ -134,10 +132,10 @@ impl ConfigManager {
 
                         // Ensure hotkeys have default values if not set
                         if self.preferences.start_recording_key.is_empty() {
-                            self.preferences.start_recording_key = "F4".to_string();
+                            self.preferences.start_recording_key = default_start_key();
                         }
                         if self.preferences.stop_recording_key.is_empty() {
-                            self.preferences.stop_recording_key = "F5".to_string();
+                            self.preferences.stop_recording_key = default_stop_key();
                         }
                     }
                     Err(e) => {
