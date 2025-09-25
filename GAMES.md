@@ -116,7 +116,6 @@ Please do not submit data for these games.
 - Valorant
 - Counter-Strike: Source
 - Counter-Strike 2
-- Fortnite
 - Overwatch 2
 - Team Fortress 2
 - Apex Legends
