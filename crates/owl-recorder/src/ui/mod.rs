@@ -25,7 +25,7 @@ pub fn start(app_state: Arc<AppState>) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([600.0, 600.0])
-            .with_resizable(false)
+            .with_resizable(true)
             .with_title("OWL Control")
             .with_icon(tray_icon::egui_icon()),
         ..Default::default()
@@ -65,6 +65,9 @@ pub struct MainApp {
     app_state: Arc<AppState>,
     frame: u64,
 
+    login_api_key: String,
+    has_scrolled_to_bottom_of_consent: bool,
+
     /// Local copy of credentials, used to track UI state before saving to config
     local_credentials: Credentials,
     /// Local copy of preferences, used to track UI state before saving to config
@@ -88,6 +91,9 @@ impl MainApp {
             app_state,
             frame: 0,
 
+            login_api_key: local_credentials.api_key.clone(),
+            has_scrolled_to_bottom_of_consent: false,
+
             local_credentials,
             local_preferences,
             config_last_edit: None,
@@ -97,44 +103,82 @@ impl MainApp {
         })
     }
 }
-impl eframe::App for MainApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-        // if user closes the app instead minimize to tray
-        if ctx.input(|i| i.viewport().close_requested()) {
-            self.visible.store(false, Ordering::Relaxed);
-            ctx.send_viewport_cmd(ViewportCommand::CancelClose);
-            ctx.send_viewport_cmd(ViewportCommand::Visible(false));
-        }
+impl MainApp {
+    pub fn login_view(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading(egui::RichText::new("Login").size(36.0).strong());
+            ui.label(egui::RichText::new("Please enter your API key.").size(20.0));
 
+            ui.add(egui::TextEdit::singleline(&mut self.login_api_key));
+
+            if ui.button("Submit").clicked() {
+                self.local_credentials.api_key = self.login_api_key.clone();
+                self.local_credentials.has_consented = false;
+                self.has_scrolled_to_bottom_of_consent = false;
+            }
+        });
+    }
+
+    pub fn consent_view(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("consent_panel_top").show(ctx, |ui| {
+            ui.heading(
+                egui::RichText::new("Informed Consent & Terms of Service")
+                    .size(36.0)
+                    .strong(),
+            );
+            ui.label(
+                egui::RichText::new("Please read the following information carefully.").size(20.0),
+            );
+        });
+
+        egui::TopBottomPanel::bottom("consent_panel_bottom").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Cancel").clicked() {
+                    self.local_credentials.logout();
+                }
+
+                if ui
+                    .add_enabled(
+                        self.has_scrolled_to_bottom_of_consent,
+                        egui::Button::new("Accept"),
+                    )
+                    .clicked()
+                {
+                    self.local_credentials.has_consented = true;
+                }
+            });
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let output = egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.label(include_str!("consent.md"));
+            });
+
+            self.has_scrolled_to_bottom_of_consent |=
+                (output.state.offset.y + output.inner_rect.height()) >= output.content_size.y;
+        });
+    }
+
+    pub fn main_view(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(egui::RichText::new("Settings").size(36.0).strong());
             ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
             ui.add_space(10.0);
 
             egui::ScrollArea::vertical().show(ui, |ui| {
-                // OWL API Token Section
+                // Account Section
                 ui.group(|ui| {
-                    ui.label(egui::RichText::new("OWL API Token").size(18.0).strong());
+                    ui.label(egui::RichText::new("Account").size(18.0).strong());
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        ui.label("API Token:");
-                        ui.add_sized(
-                            [400.0, 15.0],
-                            egui::TextEdit::singleline(&mut self.local_credentials.api_key),
-                        );
+                        ui.label("User ID: TBD! Poke a dev!");
+                        if ui.button("Log out").clicked() {
+                            self.local_credentials.logout();
+                        }
                     });
-
-                    ui.add_space(5.0);
-                    ui.label(
-                        egui::RichText::new(
-                            "Keep your API token secure and don't share it with others.",
-                        )
-                        .italics()
-                        .color(egui::Color32::GRAY),
-                    );
                 });
-                ui.add_space(15.0);
+                ui.add_space(10.0);
 
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
@@ -168,7 +212,7 @@ impl eframe::App for MainApp {
                         );
                     });
                 });
-                ui.add_space(15.0);
+                ui.add_space(10.0);
 
                 // Overlay Settings Section
                 ui.group(|ui| {
@@ -208,7 +252,7 @@ impl eframe::App for MainApp {
                     })
                 });
 
-                ui.add_space(15.0);
+                ui.add_space(10.0);
 
                 // Upload Manager Section
                 ui.group(|ui| {
@@ -277,24 +321,27 @@ impl eframe::App for MainApp {
                         );
                     });
 
-                    ui.add_space(15.0);
-                    ui.centered_and_justified(|ui| {
-                        if ui
-                            .button(egui::RichText::new("Upload Recordings").size(12.0).strong())
-                            .clicked()
-                        {
-                            // Handle upload
-                            if !is_upload_bridge_running() {
-                                let api_key = self.local_credentials.api_key.clone();
-                                std::thread::spawn(move || {
-                                    start_upload_bridge(&api_key);
-                                });
-                            }
+                    ui.add_space(10.0);
+                    if ui
+                        .add_sized(
+                            egui::vec2(ui.available_width(), 32.0),
+                            egui::Button::new(
+                                egui::RichText::new("Upload Recordings").size(12.0).strong(),
+                            ),
+                        )
+                        .clicked()
+                    {
+                        // Handle upload
+                        if !is_upload_bridge_running() {
+                            let api_key = self.local_credentials.api_key.clone();
+                            std::thread::spawn(move || {
+                                start_upload_bridge(&api_key);
+                            });
                         }
-                    });
+                    }
                 });
 
-                // Save/Reset buttons at the bottom
+                // Logo
                 ui.separator();
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(
@@ -305,7 +352,29 @@ impl eframe::App for MainApp {
                 });
             });
         });
+    }
+}
+impl eframe::App for MainApp {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        // if user closes the app instead minimize to tray
+        if ctx.input(|i| i.viewport().close_requested()) {
+            self.visible.store(false, Ordering::Relaxed);
+            ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+        }
 
+        let (has_api_key, has_consented) = (
+            !self.local_credentials.api_key.is_empty(),
+            self.local_credentials.has_consented,
+        );
+
+        match (has_api_key, has_consented) {
+            (true, true) => self.main_view(ctx),
+            (true, false) => self.consent_view(ctx),
+            (false, _) => self.login_view(ctx),
+        }
+
+        // Queue up a save if any state has changed
         {
             let mut config = self.app_state.config.write().unwrap();
             let mut requires_save = false;
@@ -324,7 +393,7 @@ impl eframe::App for MainApp {
 
         if self
             .config_last_edit
-            .is_some_and(|t| t.elapsed() > Duration::from_secs(1))
+            .is_some_and(|t| t.elapsed() > Duration::from_millis(250))
         {
             let _ = self.app_state.config.read().unwrap().save();
             self.config_last_edit = None;

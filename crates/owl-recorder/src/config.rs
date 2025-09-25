@@ -79,6 +79,12 @@ pub struct Credentials {
     #[serde(default, deserialize_with = "deserialize_string_bool")]
     pub has_consented: bool,
 }
+impl Credentials {
+    pub fn logout(&mut self) {
+        self.api_key = String::new();
+        self.has_consented = false;
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Config {
