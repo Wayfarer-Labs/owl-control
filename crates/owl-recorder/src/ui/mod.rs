@@ -1,6 +1,9 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 use color_eyre::Result;
@@ -61,10 +64,14 @@ pub fn start(app_state: Arc<AppState>) -> Result<()> {
 pub struct MainApp {
     app_state: Arc<AppState>,
     frame: u64,
+
     /// Local copy of credentials, used to track UI state before saving to config
     local_credentials: Credentials,
     /// Local copy of preferences, used to track UI state before saving to config
     local_preferences: Preferences,
+    /// Time since last requested config edit: we only attempt to save once enough time has passed
+    config_last_edit: Option<Instant>,
+
     upload_stats: UploadStats,
     visible: Arc<AtomicBool>,
 }
@@ -80,8 +87,11 @@ impl MainApp {
         Ok(Self {
             app_state,
             frame: 0,
+
             local_credentials,
             local_preferences,
+            config_last_edit: None,
+
             upload_stats: UploadStats::new()?,
             visible,
         })
@@ -308,8 +318,16 @@ impl eframe::App for MainApp {
                 requires_save = true;
             }
             if requires_save {
-                let _ = config.save();
+                self.config_last_edit = Some(Instant::now());
             }
+        }
+
+        if self
+            .config_last_edit
+            .is_some_and(|t| t.elapsed() > Duration::from_secs(1))
+        {
+            let _ = self.app_state.config.read().unwrap().save();
+            self.config_last_edit = None;
         }
 
         self.frame += 1;
