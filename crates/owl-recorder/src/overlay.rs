@@ -154,7 +154,7 @@ impl EguiOverlay for OverlayApp {
                                 },
                             );
                             job.append(
-                                &game_exe,
+                                game_exe,
                                 0.0,
                                 TextFormat {
                                     font_id: font_id.clone(),

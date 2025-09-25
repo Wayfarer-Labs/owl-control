@@ -72,20 +72,12 @@ where
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct Credentials {
     #[serde(default)]
     pub api_key: String,
     #[serde(default, deserialize_with = "deserialize_string_bool")]
     pub has_consented: bool,
-}
-
-impl Default for Credentials {
-    fn default() -> Self {
-        Self {
-            api_key: String::new(),
-            has_consented: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,11 +188,11 @@ impl Default for UploadStats {
 impl UploadStats {
     pub fn new() -> Result<Self> {
         let mut upload_stats = Self::default();
-        let _ = upload_stats.get();
-        return Ok(upload_stats);
+        upload_stats.load_from_disk().ok();
+        Ok(upload_stats)
     }
 
-    pub fn get(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn load_from_disk(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut path = env::temp_dir();
         path.push("owl-control-upload-stats.json");
 
@@ -238,11 +230,11 @@ impl UploadStats {
         let hours = seconds / 3600;
         let minutes = (seconds % 3600) / 60;
         if hours > 0 && minutes > 0 {
-            return format!("{}h {}m", &hours, &minutes);
+            format!("{}h {}m", &hours, &minutes)
         } else if hours > 0 {
-            return format!("{}h", hours);
+            format!("{}h", hours)
         } else {
-            return format!("{}m", minutes);
+            format!("{}m", minutes)
         }
     }
 
@@ -268,17 +260,12 @@ impl UploadStats {
 
     pub fn get_last_upload_date(&self) -> String {
         if self.last_upload_date == "Never" {
-            return String::from("Never");
+            return "Never".to_string();
         };
 
-        if let Ok(dt) = DateTime::parse_from_rfc3339(&self.last_upload_date) {
-            let dt = dt.with_timezone(&Local);
-            return format!(
-                "{} at {}",
-                dt.format("%m/%d/%Y").to_string(),
-                dt.format("%I:%M:%S %p").to_string()
-            );
-        }
-        String::from("Unknown")
+        DateTime::parse_from_rfc3339(&self.last_upload_date)
+            .map(|dt| dt.with_timezone(&Local))
+            .map(|dt| format!("{} at {}", dt.format("%m/%d/%Y"), dt.format("%I:%M:%S %p")))
+            .unwrap_or_else(|_| "Unknown".to_string())
     }
 }

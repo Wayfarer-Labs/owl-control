@@ -18,7 +18,7 @@ use rodio::{Decoder, Sink};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 
 use crate::{
-    idle::IdlenessTracker, obs_embedded_recorder::ObsEmbeddedRecorder,
+    idle::IdlenessTracker,
     raw_input_debouncer::EventDebouncer, recorder::Recorder,
 };
 

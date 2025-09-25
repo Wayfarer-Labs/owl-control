@@ -17,9 +17,6 @@ mod recording_thread;
 mod upload_manager;
 
 use std::{
-    env,
-    fs::File,
-    io::{BufReader, Cursor},
     path::PathBuf,
     sync::{
         RwLock,
@@ -31,10 +28,8 @@ use std::{
 
 use clap::Parser;
 use color_eyre::Result;
-use obws::client::Config;
 
 use crate::{
-    app_icon::set_app_icon_windows,
     config_manager::{ConfigManager, Credentials, Preferences, UploadStats},
     overlay::OverlayApp,
     upload_manager::{is_upload_bridge_running, start_upload_bridge},
@@ -43,10 +38,10 @@ use crate::{
 use eframe::egui;
 use egui::ViewportCommand;
 
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::{OutputStream, Sink};
 use std::sync::{Arc, Mutex};
 use tray_icon::{
-    MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
+    MouseButtonState, TrayIconBuilder, TrayIconEvent,
     menu::{Menu, MenuEvent, MenuItem},
 };
 use windows::Win32::Foundation::HWND;
@@ -119,7 +114,7 @@ impl AppState {
     pub fn new() -> Self {
         let stream_handle =
             rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
-        let sink = Sink::connect_new(&stream_handle.mixer());
+        let sink = Sink::connect_new(stream_handle.mixer());
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             opacity: AtomicU8::new(85),
@@ -203,31 +198,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let context = cc.egui_ctx.clone();
             TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-                match event {
-                    TrayIconEvent::Click {
-                        button: tray_icon::MouseButton::Left,
-                        button_state: MouseButtonState::Down,
-                        ..
-                    } => {
-                        let mut visible = VISIBLE.lock().unwrap();
-                        if *visible {
-                            let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
-                            unsafe {
-                                let _ = ShowWindow(window_handle, SW_HIDE);
-                            }
-                            *visible = false;
-                        } else {
-                            // set viewport visible true in case it was minimised to tray via closing the app
-                            context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                            let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
-                            unsafe {
-                                let _ = ShowWindow(window_handle, SW_SHOWDEFAULT);
-                            }
-                            *visible = true;
+                if let TrayIconEvent::Click {
+                    button: tray_icon::MouseButton::Left,
+                    button_state: MouseButtonState::Down,
+                    ..
+                } = event
+                {
+                    let mut visible = VISIBLE.lock().unwrap();
+                    if *visible {
+                        let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
+                        unsafe {
+                            let _ = ShowWindow(window_handle, SW_HIDE);
                         }
-                        context.request_repaint();
+                        *visible = false;
+                    } else {
+                        // set viewport visible true in case it was minimised to tray via closing the app
+                        context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                        let window_handle = HWND(handle.hwnd.get() as *mut std::ffi::c_void);
+                        unsafe {
+                            let _ = ShowWindow(window_handle, SW_SHOWDEFAULT);
+                        }
+                        *visible = true;
                     }
-                    _ => return,
+                    context.request_repaint();
                 }
             }));
             Ok(Box::new(MainApp::new(cloned_state).unwrap()))
@@ -365,7 +358,7 @@ impl eframe::App for MainApp {
                         stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
                         self.app_state
                             .opacity
-                            .store(stored_opacity as u8, Ordering::Relaxed);
+                            .store(stored_opacity, Ordering::Relaxed);
                         self.local_preferences.overlay_opacity = stored_opacity;
                     });
 
@@ -508,10 +501,5 @@ impl MainApp {
                 .size(10.0)
                 .color(egui::Color32::from_rgb(128, 128, 128)),
         );
-    }
-
-    fn get_upload_stats(&self) {
-        let mut path = env::temp_dir();
-        path.push("owl-control-upload-stats.json");
     }
 }

@@ -26,7 +26,7 @@ pub fn start_upload_bridge(api_token: &str) -> bool {
     };
 
     let mut child = match Command::new("uv")
-        .args(&[
+        .args([
             "run",
             "-m",
             "vg_control.upload_bridge",

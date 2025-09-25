@@ -6,7 +6,6 @@ use std::{
 use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
-use tracing::span::Record;
 
 use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder, recorder::VideoRecorder};
 

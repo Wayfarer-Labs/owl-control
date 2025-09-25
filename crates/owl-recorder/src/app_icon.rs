@@ -1,37 +1,6 @@
 // shamelessly stolen from https://github.com/emilk/egui/blob/a5973e5cac461a23c853cb174b28c8e9317ecce6/crates/eframe/src/native/app_icon.rs#L78-L99
 
-use std::sync::Arc;
-
 use egui::IconData;
-
-pub struct AppTitleIconSetter {
-    title: String,
-    icon_data: Option<Arc<IconData>>,
-    status: AppIconStatus,
-}
-
-impl AppTitleIconSetter {
-    pub fn new(title: String, mut icon_data: Option<Arc<IconData>>) -> Self {
-        if let Some(icon) = &icon_data {
-            if **icon == IconData::default() {
-                icon_data = None;
-            }
-        }
-
-        Self {
-            title,
-            icon_data,
-            status: AppIconStatus::NotSetTryAgain,
-        }
-    }
-
-    /// Call once per frame; we will set the icon when we can.
-    pub fn update(&mut self) {
-        if self.status == AppIconStatus::NotSetTryAgain {
-            self.status = set_title_and_icon(&self.title, self.icon_data.as_deref());
-        }
-    }
-}
 
 /// In which state the app icon is (as far as we know).
 #[derive(PartialEq, Eq)]
@@ -47,25 +16,6 @@ pub enum AppIconStatus {
     /// We successfully set the icon and it should be visible now.
     #[allow(dead_code)] // Not used on Linux
     Set,
-}
-
-/// Sets app icon at runtime.
-///
-/// By setting the icon at runtime and not via resource files etc. we ensure that we'll get the chance
-/// to set the same icon when the process/window is started from python (which sets its own icon ahead of us!).
-///
-/// Since window creation can be lazy, call this every frame until it's either successfully or gave up.
-/// (See [`AppIconStatus`])
-fn set_title_and_icon(_title: &str, _icon_data: Option<&IconData>) -> AppIconStatus {
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(icon_data) = _icon_data {
-            return set_app_icon_windows(icon_data);
-        }
-    }
-
-    #[allow(unreachable_code)]
-    AppIconStatus::NotSetIgnored
 }
 
 /// Set icon for Windows applications.

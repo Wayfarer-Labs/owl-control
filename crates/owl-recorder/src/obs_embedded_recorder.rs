@@ -1,11 +1,12 @@
-use std::{path::Path, sync::MutexGuard};
+use std::path::Path;
 
 use color_eyre::{
     Result,
     eyre::{Context, OptionExt as _, bail, eyre},
 };
 use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::OnceLock;
+use tokio::sync::{Mutex, MutexGuard};
 use windows::{
     Win32::{
         Foundation::POINT,
@@ -30,7 +31,7 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::{AppState, recorder::VideoRecorder};
+use crate::recorder::VideoRecorder;
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
@@ -73,7 +74,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         tracing::debug!("Starting recording with path: {}", recording_path);
 
         // Check if already recording
-        let mut state = get_obs_state();
+        let mut state = get_obs_state().await;
         if state.current_output.is_some() {
             bail!("Recording is already in progress");
         }
@@ -188,13 +189,13 @@ impl VideoRecorder for ObsEmbeddedRecorder {
     async fn stop_recording(&mut self) -> Result<()> {
         tracing::debug!("Stopping OBS recording...");
 
-        let mut state = get_obs_state();
+        let mut state = get_obs_state().await;
         if let Some(mut output) = state.current_output.take() {
             output.stop().await.wrap_err("Failed to stop OBS output")?;
-            if let Some(mut scene) = state.obs_context.get_scene(OWL_SCENE_NAME).await {
-                if let Some(source) = self.source.take() {
-                    scene.remove_source(&source).await?;
-                }
+            if let Some(mut scene) = state.obs_context.get_scene(OWL_SCENE_NAME).await
+                && let Some(source) = self.source.take()
+            {
+                scene.remove_source(&source).await?;
             }
             tracing::debug!("OBS recording stopped");
         } else {
@@ -210,8 +211,8 @@ struct ObsState {
     current_output: Option<ObsOutputRef>,
 }
 static OBS_STATE: OnceLock<Mutex<ObsState>> = OnceLock::new();
-fn get_obs_state() -> MutexGuard<'static, ObsState> {
-    OBS_STATE.get().unwrap().lock().unwrap()
+async fn get_obs_state() -> MutexGuard<'static, ObsState> {
+    OBS_STATE.get().unwrap().lock().await
 }
 
 async fn initialize() -> Result<()> {

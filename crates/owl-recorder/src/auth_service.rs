@@ -1,8 +1,6 @@
+#![allow(dead_code)]
 use chrono::{DateTime, Utc};
-use reqwest;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
-use std::fmt;
 
 use crate::config_manager::UploadStats;
 
@@ -184,21 +182,23 @@ impl ApiClient {
         {
             Ok(response) => {
                 let server_stats = response.json::<UserStatsResponse>().await.unwrap();
-                let mut stats = UploadStats::default();
-
-                stats.total_files_uploaded = server_stats.statistics.total_uploads;
-                stats.total_duration_uploaded =
-                    server_stats.statistics.total_video_time.seconds.into();
-                stats.total_volume_uploaded = server_stats.statistics.total_data.megabytes as u64;
-                stats.last_upload_date = match &server_stats.uploads[0] {
-                    upload => upload.created_at.to_rfc3339(),
-                    _ => "Never".to_string(),
-                };
-                Ok(stats)
+                Ok(UploadStats {
+                    total_duration_uploaded: server_stats
+                        .statistics
+                        .total_video_time
+                        .seconds
+                        .into(),
+                    total_files_uploaded: server_stats.statistics.total_uploads,
+                    total_volume_uploaded: server_stats.statistics.total_data.megabytes as u64,
+                    last_upload_date: match server_stats.uploads.first() {
+                        Some(upload) => upload.created_at.to_rfc3339(),
+                        None => "Never".to_string(),
+                    },
+                })
             }
             Err(err) => Err(ValidationError {
                 success: false,
-                message: Some("Request failed".to_string()),
+                message: Some(format!("Request failed: {err}")),
             }),
         }
     }
