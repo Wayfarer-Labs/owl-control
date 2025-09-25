@@ -10,13 +10,13 @@ use windows::Win32::{
 };
 use winit::raw_window_handle::Win32WindowHandle;
 
-use crate::ui::{VISIBLE, load_icon_from_bytes};
+use crate::ui::VISIBLE;
 
 const LOGO_DEFAULT_BYTES: &[u8] = include_bytes!("../../assets/owl-logo.png");
 const LOGO_RECORDING_BYTES: &[u8] = include_bytes!("../../assets/owl-logo-recording.png");
 
 pub fn egui_icon() -> egui::IconData {
-    load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon)
+    load_egui_icon_from_bytes(LOGO_DEFAULT_BYTES)
 }
 
 /// Initial creation of tray icon
@@ -28,8 +28,12 @@ pub fn initialize() -> tray_icon::Result<TrayIcon> {
     let _ = tray_menu.append(&quit_item);
 
     // create tray icon
+    let (rgba, (width, height)) = load_icon_data_from_bytes(LOGO_DEFAULT_BYTES);
+    let tray_icon_data =
+        tray_icon::Icon::from_rgba(rgba, width, height).expect("Failed to create tray icon");
+
     let tray_icon = TrayIconBuilder::new()
-        .with_icon(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon))
+        .with_icon(tray_icon_data)
         .with_tooltip("OWL Control")
         .with_menu(Box::new(tray_menu))
         .build()?;
@@ -80,11 +84,29 @@ pub fn post_initialize(context: egui::Context, window_handle: Win32WindowHandle)
 }
 
 pub fn set_icon_recording(recording: bool) {
-    set_app_icon_windows(&if recording {
-        load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon)
+    set_app_icon_windows(&load_egui_icon_from_bytes(if recording {
+        LOGO_RECORDING_BYTES
     } else {
-        load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon)
-    });
+        LOGO_DEFAULT_BYTES
+    }));
+}
+
+fn load_egui_icon_from_bytes(bytes: &[u8]) -> egui::IconData {
+    let (rgba, (width, height)) = load_icon_data_from_bytes(bytes);
+    egui::IconData {
+        rgba,
+        width,
+        height,
+    }
+}
+
+fn load_icon_data_from_bytes(bytes: &[u8]) -> (Vec<u8>, (u32, u32)) {
+    let image = image::load_from_memory(bytes)
+        .expect("Failed to load embedded icon")
+        .into_rgba8();
+    let dimensions = image.dimensions();
+    let rgba = image.into_raw();
+    (rgba, dimensions)
 }
 
 // shamelessly stolen from https://github.com/emilk/egui/blob/a5973e5cac461a23c853cb174b28c8e9317ecce6/crates/eframe/src/native/app_icon.rs#L78-L99

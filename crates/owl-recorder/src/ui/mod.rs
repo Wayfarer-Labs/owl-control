@@ -20,28 +20,6 @@ pub mod tray_icon;
 
 static VISIBLE: AtomicBool = AtomicBool::new(true);
 
-// lots of repeated code to just load bytes, especially tray_icon needs different type, so use a macro here
-macro_rules! load_icon_from_bytes {
-    (@internal $rgba:expr, $width:expr, $height:expr, egui_icon) => {
-        egui::IconData { rgba: $rgba, width: $width, height: $height }
-    };
-
-    (@internal $rgba:expr, $width:expr, $height:expr, tray_icon) => {
-        tray_icon::Icon::from_rgba($rgba, $width, $height)
-            .expect("Failed to create tray icon")
-    };
-
-    ($bytes:expr, $icon_type:ident) => {{
-        let image = image::load_from_memory($bytes)
-            .expect("Failed to load embedded icon")
-            .into_rgba8();
-        let (width, height) = image.dimensions();
-        let rgba = image.into_raw();
-        load_icon_from_bytes!(@internal rgba, width, height, $icon_type)
-    }};
-}
-pub(crate) use load_icon_from_bytes;
-
 pub fn start(app_state: Arc<AppState>) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
