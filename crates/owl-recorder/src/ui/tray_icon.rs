@@ -1,6 +1,93 @@
-// shamelessly stolen from https://github.com/emilk/egui/blob/a5973e5cac461a23c853cb174b28c8e9317ecce6/crates/eframe/src/native/app_icon.rs#L78-L99
+use std::sync::atomic::Ordering;
 
-use egui::IconData;
+use tray_icon::{
+    MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
+    menu::{Menu, MenuEvent, MenuItem},
+};
+use windows::Win32::{
+    Foundation::HWND,
+    UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow},
+};
+use winit::raw_window_handle::Win32WindowHandle;
+
+use crate::ui::{VISIBLE, load_icon_from_bytes};
+
+const LOGO_DEFAULT_BYTES: &[u8] = include_bytes!("../../assets/owl-logo.png");
+const LOGO_RECORDING_BYTES: &[u8] = include_bytes!("../../assets/owl-logo-recording.png");
+
+pub fn egui_icon() -> egui::IconData {
+    load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon)
+}
+
+/// Initial creation of tray icon
+pub fn initialize() -> tray_icon::Result<TrayIcon> {
+    // tray icon right click menu for quit option
+    let quit_item = MenuItem::new("Quit", true, None);
+    let quit_item_id = quit_item.id().clone();
+    let tray_menu = Menu::new();
+    let _ = tray_menu.append(&quit_item);
+
+    // create tray icon
+    let tray_icon = TrayIconBuilder::new()
+        .with_icon(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon))
+        .with_tooltip("OWL Control")
+        .with_menu(Box::new(tray_menu))
+        .build()?;
+
+    MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+        match event.id() {
+            id if id == &quit_item_id => {
+                // Close the application
+                // TODO: probably should be a more graceful way to close the app?
+                // probably need a atomicbool with close flag so we can close via
+                // context_menu.send_viewport_cmd(egui::ViewportCommand::Close);
+                // and then also clean up any uploading video process in progress.
+                std::process::exit(0);
+            }
+            _ => {}
+        }
+    }));
+
+    Ok(tray_icon)
+}
+
+pub fn post_initialize(context: egui::Context, window_handle: Win32WindowHandle) {
+    TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+        let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
+
+        if let TrayIconEvent::Click {
+            button: tray_icon::MouseButton::Left,
+            button_state: MouseButtonState::Down,
+            ..
+        } = event
+        {
+            if VISIBLE.load(Ordering::Relaxed) {
+                unsafe {
+                    let _ = ShowWindow(hwnd, SW_HIDE);
+                }
+                VISIBLE.store(false, Ordering::Relaxed);
+            } else {
+                // set viewport visible true in case it was minimised to tray via closing the app
+                context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                unsafe {
+                    let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
+                }
+                VISIBLE.store(true, Ordering::Relaxed);
+            }
+            context.request_repaint();
+        }
+    }));
+}
+
+pub fn set_icon_recording(recording: bool) {
+    set_app_icon_windows(&if recording {
+        load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon)
+    } else {
+        load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon)
+    });
+}
+
+// shamelessly stolen from https://github.com/emilk/egui/blob/a5973e5cac461a23c853cb174b28c8e9317ecce6/crates/eframe/src/native/app_icon.rs#L78-L99
 
 /// In which state the app icon is (as far as we know).
 #[derive(PartialEq, Eq)]
@@ -21,7 +108,7 @@ pub enum AppIconStatus {
 /// Set icon for Windows applications.
 #[cfg(target_os = "windows")]
 #[allow(unsafe_code)]
-pub fn set_app_icon_windows(icon_data: &IconData) -> AppIconStatus {
+fn set_app_icon_windows(icon_data: &egui::IconData) -> AppIconStatus {
     use eframe::icon_data::IconDataExt;
     use windows::Win32::{
         Foundation::{LPARAM, WPARAM},

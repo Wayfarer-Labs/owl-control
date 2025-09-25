@@ -9,12 +9,12 @@ use windows::{
     core::HSTRING,
 };
 
-use crate::config::RecordingBackend;
-use crate::obs_socket_recorder::ObsSocketRecorder;
 use crate::{
-    AppState, RecordingStatus,
+    app_state::{AppState, RecordingStatus},
+    config::RecordingBackend,
     find_game::get_foregrounded_game,
     obs_embedded_recorder::ObsEmbeddedRecorder,
+    obs_socket_recorder::ObsSocketRecorder,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
 };
 use constants::unsupported_games::UNSUPPORTED_GAMES;

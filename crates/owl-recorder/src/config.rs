@@ -188,11 +188,11 @@ impl Default for UploadStats {
 impl UploadStats {
     pub fn new() -> Result<Self> {
         let mut upload_stats = Self::default();
-        upload_stats.load_from_disk().ok();
+        upload_stats.load_from_disk()?;
         Ok(upload_stats)
     }
 
-    pub fn load_from_disk(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn load_from_disk(&mut self) -> Result<()> {
         let mut path = env::temp_dir();
         path.push("owl-control-upload-stats.json");
 

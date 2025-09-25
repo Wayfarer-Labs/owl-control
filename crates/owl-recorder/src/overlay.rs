@@ -15,7 +15,7 @@ use windows::Win32::{
     },
 };
 
-use crate::{AppState, RecordingStatus};
+use crate::app_state::{AppState, RecordingStatus};
 
 pub struct OverlayApp {
     frame: u64,

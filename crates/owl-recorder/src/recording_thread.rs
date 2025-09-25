@@ -1,7 +1,8 @@
 use crate::{
-    AppState, HONK_0_BYTES, HONK_1_BYTES, LOGO_DEFAULT_BYTES, LOGO_RECORDING_BYTES,
-    MAX_IDLE_DURATION, MAX_RECORDING_DURATION, RecordingStatus, app_icon::set_app_icon_windows,
-    keycode::lookup_keycode, load_icon_from_bytes,
+    MAX_IDLE_DURATION, MAX_RECORDING_DURATION,
+    app_state::{AppState, RecordingStatus},
+    keycode::lookup_keycode,
+    ui::tray_icon,
 };
 use std::{
     io::Cursor,
@@ -18,6 +19,9 @@ use rodio::{Decoder, Sink};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 
 use crate::{idle::IdlenessTracker, raw_input_debouncer::EventDebouncer, recorder::Recorder};
+
+const HONK_0_BYTES: &[u8] = include_bytes!("../assets/goose_honk0.mp3");
+const HONK_1_BYTES: &[u8] = include_bytes!("../assets/goose_honk1.mp3");
 
 pub fn run(
     app_state: Arc<AppState>,
@@ -116,10 +120,7 @@ async fn main(
                         tracing::info!("No input detected for 5 seconds, stopping recording");
                         recorder.stop().await?;
                         rec_stop(&app_state.sink, app_state.config.read().unwrap().preferences.honk);
-                        {
-                            let mut state_writer = app_state.state.write().unwrap();
-                            *state_writer = RecordingStatus::Paused;
-                        }
+                        *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_RECORDING_DURATION {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_RECORDING_DURATION.as_secs());
@@ -140,16 +141,14 @@ async fn main(
 // TOOD: find some way to change tray icon during runtime. rn tray icon can only run in main event loop,
 // and can't be moved between threads, but it just also won't run at all when the app is minimized.
 fn rec_start(sink: &Sink, honk: bool) {
-    // let _ = tray_icon.set_icon(Some(load_icon_from_bytes!(LOGO_RECORDING_BYTES, tray_icon)));
-    set_app_icon_windows(&load_icon_from_bytes!(LOGO_RECORDING_BYTES, egui_icon));
+    tray_icon::set_icon_recording(true);
     if honk {
         sink.append(Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("));
     }
 }
 
 fn rec_stop(sink: &Sink, honk: bool) {
-    // let _ = tray_icon.set_icon(Some(load_icon_from_bytes!(LOGO_DEFAULT_BYTES, tray_icon)));
-    set_app_icon_windows(&load_icon_from_bytes!(LOGO_DEFAULT_BYTES, egui_icon));
+    tray_icon::set_icon_recording(false);
     if honk {
         sink.append(Decoder::new_mp3(Cursor::new(HONK_1_BYTES)).expect("Cannot decode honk :("));
     }
