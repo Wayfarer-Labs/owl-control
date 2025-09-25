@@ -48,6 +48,10 @@ async fn main(
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
+    let stream_handle =
+        rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
+    let sink = Sink::connect_new(stream_handle.mixer());
+
     let mut recorder = Recorder::new(
         Box::new(move || {
             recording_location.join(
@@ -95,17 +99,17 @@ async fn main(
                     if key == start_key {
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
-                        rec_start(&app_state.sink, app_state.config.read().unwrap().preferences.honk);
+                        rec_start(&sink, app_state.config.read().unwrap().preferences.honk);
                     } else if key == stop_key {
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
-                        rec_stop(&app_state.sink, app_state.config.read().unwrap().preferences.honk);
+                        rec_stop(&sink, app_state.config.read().unwrap().preferences.honk);
                         start_on_activity = false;
                     }
                 } else if start_on_activity {
                     tracing::info!("Input detected, restarting recording");
                     recorder.start().await?;
-                    rec_start(&app_state.sink, app_state.config.read().unwrap().preferences.honk);
+                    rec_start(&sink, app_state.config.read().unwrap().preferences.honk);
                     start_on_activity = false;
                 }
                 idleness_tracker.update_activity();
@@ -115,11 +119,11 @@ async fn main(
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
                         recorder.stop().await?;
-                        rec_stop(&app_state.sink, app_state.config.read().unwrap().preferences.honk);
+                        rec_stop(&sink, app_state.config.read().unwrap().preferences.honk);
                     } else if idleness_tracker.is_idle() {
                         tracing::info!("No input detected for 5 seconds, stopping recording");
                         recorder.stop().await?;
-                        rec_stop(&app_state.sink, app_state.config.read().unwrap().preferences.honk);
+                        rec_stop(&sink, app_state.config.read().unwrap().preferences.honk);
                         *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_RECORDING_DURATION {
