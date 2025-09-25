@@ -12,7 +12,7 @@ use obws::{
     Client,
     requests::{
         config::SetVideoSettings,
-        inputs::{InputId, Volume},
+        inputs::{InputId, SetSettings, Volume},
         profiles::SetParameter,
         scene_items::{Position, Scale, SceneItemTransform, SetTransform},
         scenes::SceneId,
@@ -20,11 +20,12 @@ use obws::{
 };
 use windows::{
     Win32::{
-        Foundation::POINT,
+        Foundation::{HWND, POINT, RECT},
         Graphics::Gdi::{
             DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, MONITORINFO,
             MONITORINFOEXW, MonitorFromPoint,
         },
+        UI::WindowsAndMessaging::GetClientRect,
     },
     core::PCWSTR,
 };
@@ -47,7 +48,8 @@ impl WindowRecorder {
     pub async fn start_recording(
         dummy_video_path: &Path,
         _pid: u32,
-        _hwnd: usize,
+        hwnd: HWND,
+        game_exe: &str,
     ) -> Result<WindowRecorder> {
         let recording_path = dummy_video_path
             .parent()
@@ -105,19 +107,33 @@ impl WindowRecorder {
 
         // Create OWL capture input
         let all_inputs = inputs.list(None).await.wrap_err("Failed to get inputs")?;
-        if !all_inputs
+        let input_settings = {
+            serde_json::json!({
+                "capture_mode": "window",
+                "window": get_obs_window_encoding(hwnd, game_exe),
+                "priority": 2 /* WINDOW_PRIORITY_EXE */,
+                "capture_audio": true,
+            })
+        };
+        if let Some(input) = all_inputs
             .iter()
-            .any(|input| input.id.name == OWL_CAPTURE_NAME)
+            .find(|input| input.id.name == OWL_CAPTURE_NAME)
         {
+            inputs
+                .set_settings(SetSettings {
+                    input: input.id.clone().into(),
+                    settings: &input_settings,
+                    overlay: Some(false),
+                })
+                .await
+                .wrap_err("Failed to set input settings")?;
+        } else {
             inputs
                 .create(obws::requests::inputs::Create {
                     scene: SceneId::Name(OWL_SCENE_NAME),
                     input: OWL_CAPTURE_NAME,
                     kind: "game_capture",
-                    settings: Some(serde_json::json!({
-                        "capture_mode": "any_fullscreen",
-                        "capture_audio": true,
-                    })),
+                    settings: Some(input_settings),
                     enabled: Some(true),
                 })
                 .await
@@ -176,11 +192,17 @@ impl WindowRecorder {
         tracing::info!("OBS confirmed recording path: {:?}", current_path.value);
 
         // Monitor/resolution info
-        let resolution = get_primary_monitor_resolution()
-            .ok_or_eyre("Failed to get primary monitor resolution")?;
+        let resolution = match get_window_inner_size(hwnd) {
+            Some(size) => size,
+            None => {
+                tracing::info!("Failed to get window inner size, using primary monitor resolution");
+                get_primary_monitor_resolution()
+                    .ok_or_eyre("Failed to get primary monitor resolution")?
+            }
+        };
 
-        // Log both resolutions for debugging
-        tracing::info!("Monitor resolution: {resolution:?}");
+        // Log resolution for debugging
+        tracing::info!("Base recording resolution: {resolution:?}");
 
         // Set video settings
         config
@@ -287,6 +309,49 @@ impl Drop for WindowRecorder {
                 }
             }
         });
+    }
+}
+
+fn get_obs_window_encoding(hwnd: HWND, game_exe: &str) -> String {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetClassNameW, GetWindowTextLengthW, GetWindowTextW,
+    };
+
+    // Get window title
+    let title_len = unsafe { GetWindowTextLengthW(hwnd) };
+    let mut title = String::new();
+    if title_len > 0 {
+        let mut buf = vec![0u16; (title_len + 1) as usize];
+        let copied = unsafe { GetWindowTextW(hwnd, &mut buf) };
+        if copied > 0 {
+            if let Some(end) = buf.iter().position(|&c| c == 0) {
+                title = String::from_utf16_lossy(&buf[..end]);
+            } else {
+                title = String::from_utf16_lossy(&buf);
+            }
+        }
+    }
+
+    // Get window class
+    let mut class_buf = [0u16; 256];
+    let class_len = unsafe { GetClassNameW(hwnd, &mut class_buf) };
+    let class = if class_len > 0 {
+        String::from_utf16_lossy(&class_buf[..class_len as usize])
+    } else {
+        String::new()
+    };
+    format!("{title}:{class}:{game_exe}")
+}
+
+/// Returns the size (width, height) of the inner area of a window given its HWND.
+/// Returns None if the window does not exist or the call fails.
+fn get_window_inner_size(hwnd: HWND) -> Option<(u32, u32)> {
+    unsafe {
+        let mut rect = RECT::default();
+        GetClientRect(hwnd, &mut rect).ok()?;
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+        Some((width as u32, height as u32))
     }
 }
 

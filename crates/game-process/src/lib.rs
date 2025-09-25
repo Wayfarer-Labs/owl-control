@@ -81,23 +81,6 @@ pub fn foreground_window() -> Result<(HWND, Pid), Error> {
     }
 }
 
-pub fn is_window_fullscreen(hwnd: HWND) -> Result<bool> {
-    unsafe {
-        let mut window_rect = RECT::default();
-        windows::Win32::UI::WindowsAndMessaging::GetWindowRect(hwnd, &mut window_rect)?;
-
-        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
-        let mut monitor_info = windows::Win32::Graphics::Gdi::MONITORINFO {
-            cbSize: std::mem::size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32,
-            ..Default::default()
-        };
-        windows::Win32::Graphics::Gdi::GetMonitorInfoA(monitor, &mut monitor_info).ok()?;
-        let monitor_rect = monitor_info.rcMonitor;
-
-        Ok(window_rect == monitor_rect)
-    }
-}
-
 struct CloseHandleOnDrop(HANDLE);
 
 impl Drop for CloseHandleOnDrop {
