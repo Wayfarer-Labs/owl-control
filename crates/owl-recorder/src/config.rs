@@ -5,7 +5,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
 #[serde(rename_all = "camelCase")]
 pub struct Preferences {
@@ -70,7 +70,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
 pub struct Credentials {
@@ -80,8 +80,8 @@ pub struct Credentials {
     pub has_consented: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConfigManager {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Config {
     #[serde(default)]
     pub credentials: Credentials,
     #[serde(default)]
@@ -90,19 +90,19 @@ pub struct ConfigManager {
     pub config_path: PathBuf,
 }
 
-impl ConfigManager {
+impl Config {
     pub fn new() -> Result<Self> {
-        let config_path = Self::get_config_path()?;
+        let config_path = Self::get_path()?;
         let mut manager = Self {
             credentials: Credentials::default(),
             preferences: Preferences::default(),
             config_path,
         };
-        manager.load_config()?;
+        manager.load()?;
         Ok(manager)
     }
 
-    fn get_config_path() -> Result<PathBuf> {
+    fn get_path() -> Result<PathBuf> {
         // Get user data directory (equivalent to app.getPath("userData"))
         let user_data_dir = dirs::data_dir()
             .ok_or_else(|| eyre!("Could not find user data directory"))?
@@ -117,7 +117,7 @@ impl ConfigManager {
         Ok(user_data_dir.join("config.json"))
     }
 
-    pub fn load_config(&mut self) -> Result<()> {
+    pub fn load(&mut self) -> Result<()> {
         if !self.config_path.exists() {
             // Config doesn't exist, use defaults
             return Ok(());
@@ -125,7 +125,7 @@ impl ConfigManager {
 
         match fs::read_to_string(&self.config_path) {
             Ok(contents) => {
-                match serde_json::from_str::<ConfigManager>(&contents) {
+                match serde_json::from_str::<Config>(&contents) {
                     Ok(mut config) => {
                         // Preserve the config_path
                         config.config_path = self.config_path.clone();
@@ -153,7 +153,7 @@ impl ConfigManager {
         Ok(())
     }
 
-    pub fn save_config(&self) -> Result<()> {
+    pub fn save(&self) -> Result<()> {
         tracing::info!("Saving configs to {}", self.config_path.to_string_lossy());
         let contents = serde_json::to_string_pretty(&self)?;
         fs::write(&self.config_path, contents)?;

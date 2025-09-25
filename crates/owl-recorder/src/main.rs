@@ -1,6 +1,6 @@
 mod app_icon;
 mod auth_service;
-mod config_manager;
+mod config;
 mod find_game;
 mod hardware_id;
 mod hardware_specs;
@@ -30,7 +30,7 @@ use clap::Parser;
 use color_eyre::Result;
 
 use crate::{
-    config_manager::{ConfigManager, Credentials, Preferences, UploadStats},
+    config::{Config, Credentials, Preferences, UploadStats},
     overlay::OverlayApp,
     upload_manager::{is_upload_bridge_running, start_upload_bridge},
 };
@@ -105,7 +105,7 @@ enum RecordingStatus {
 struct AppState {
     state: RwLock<RecordingStatus>, // holds the current state of recording, recorder <-> overlay
     opacity: AtomicU8,              // setting for opacity of overlay, main app <-> overlay
-    configs: RwLock<ConfigManager>,
+    config: RwLock<Config>,
     sink: Sink,                   // for honking
     _stream_handle: OutputStream, // stream handle needs to stay alive for the sink to play audio
 }
@@ -118,7 +118,7 @@ impl AppState {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             opacity: AtomicU8::new(85),
-            configs: RwLock::new(ConfigManager::new().expect("failed to init configs")),
+            config: RwLock::new(Config::new().expect("failed to init configs")),
             sink,
             _stream_handle: stream_handle,
         }
@@ -243,7 +243,7 @@ impl MainApp {
             let local_credentials: Credentials;
             let local_preferences: Preferences;
             {
-                let configs = app_state.configs.read().unwrap();
+                let configs = app_state.config.read().unwrap();
                 local_credentials = configs.credentials.clone();
                 local_preferences = configs.preferences.clone();
             }
@@ -462,27 +462,33 @@ impl eframe::App for MainApp {
                 });
 
                 // Save/Reset buttons at the bottom
-                ui.add_space(10.0);
                 ui.separator();
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    if ui.button("Save Settings").clicked() {
-                        // Handle save settings
-                        let mut configs = self.app_state.configs.write().unwrap();
-                        configs.credentials = self.local_credentials.clone();
-                        configs.preferences = self.local_preferences.clone();
-                        let _ = configs.save_config();
-                    }
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            egui::RichText::new("Wayfarer Labs")
-                                .italics()
-                                .color(egui::Color32::GRAY),
-                        );
-                    });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        egui::RichText::new("Wayfarer Labs")
+                            .italics()
+                            .color(egui::Color32::GRAY),
+                    );
                 });
             });
         });
+
+        {
+            let mut config = self.app_state.config.write().unwrap();
+            let mut requires_save = false;
+            if config.credentials != self.local_credentials {
+                config.credentials = self.local_credentials.clone();
+                requires_save = true;
+            }
+            if config.preferences != self.local_preferences {
+                config.preferences = self.local_preferences.clone();
+                requires_save = true;
+            }
+            if requires_save {
+                let _ = config.save();
+            }
+        }
+
         self.frame += 1;
     }
 }

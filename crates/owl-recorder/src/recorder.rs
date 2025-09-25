@@ -9,7 +9,7 @@ use windows::{
     core::HSTRING,
 };
 
-use crate::config_manager::RecordingBackend;
+use crate::config::RecordingBackend;
 use crate::obs_socket_recorder::ObsSocketRecorder;
 use crate::{
     AppState, RecordingStatus,
@@ -44,7 +44,7 @@ impl Recorder {
         app_state: Arc<AppState>,
     ) -> Result<Self> {
         let backend = app_state
-            .configs
+            .config
             .read()
             .unwrap()
             .preferences

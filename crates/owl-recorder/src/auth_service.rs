@@ -2,7 +2,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::config_manager::UploadStats;
+use crate::config::UploadStats;
 
 // Define the API base URL as a constant
 const API_BASE_URL: &str = "https://api.openworldlabs.ai"; // Replace with actual URL
