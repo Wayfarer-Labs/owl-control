@@ -9,47 +9,62 @@ use windows::{
     core::HSTRING,
 };
 
+use crate::config_manager::RecordingBackend;
+use crate::obs_socket_recorder::ObsSocketRecorder;
 use crate::{
     AppState, RecordingStatus,
     find_game::get_foregrounded_game,
-    obs_embedded_recorder,
+    obs_embedded_recorder::ObsEmbeddedRecorder,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
 };
 use constants::unsupported_games::UNSUPPORTED_GAMES;
 
-pub(crate) trait RecorderBackend {
-    async fn start_recording(dummy_video_path: &Path, _pid: u32, _hwnd: usize) -> Result<Self>
-    where
-        Self: Sized;
-    async fn stop_recording(&self) -> Result<()>;
+#[async_trait::async_trait(?Send)]
+pub(crate) trait VideoRecorder {
+    fn id(&self) -> &'static str;
+
+    async fn start_recording(
+        &mut self,
+        dummy_video_path: &Path,
+        pid: u32,
+        hwnd: usize,
+    ) -> Result<()>;
+    async fn stop_recording(&mut self) -> Result<()>;
 }
-pub(crate) struct Recorder<D, T>
-where
-    T: RecorderBackend,
-{
-    recording_dir: D,
-    recording: Option<Recording<T>>,
+pub(crate) struct Recorder {
+    recording_dir: Box<dyn FnMut() -> PathBuf>,
+    recording: Option<Recording>,
     app_state: Arc<AppState>,
+    video_recorder: Box<dyn VideoRecorder>,
 }
 
-impl<D, T> Recorder<D, T>
-where
-    D: FnMut() -> PathBuf,
-    T: RecorderBackend,
-{
-    pub(crate) async fn new(recording_dir: D, app_state: Arc<AppState>) -> Result<Self> {
-        // Ensure that the OBS initialized runs
-        // TODO: only initialize if using embedded reocrder
-        obs_embedded_recorder::initialize().await?;
+impl Recorder {
+    pub(crate) async fn new(
+        recording_dir: Box<dyn FnMut() -> PathBuf>,
+        app_state: Arc<AppState>,
+    ) -> Result<Self> {
+        let backend = app_state
+            .configs
+            .read()
+            .unwrap()
+            .preferences
+            .recording_backend;
 
+        let video_recorder: Box<dyn VideoRecorder> = match backend {
+            RecordingBackend::Embedded => Box::new(ObsEmbeddedRecorder::new().await?),
+            RecordingBackend::Socket => Box::new(ObsSocketRecorder::new().await?),
+        };
+
+        tracing::info!("Using {} as video recorder", video_recorder.id());
         Ok(Self {
             recording_dir,
             recording: None,
             app_state,
+            video_recorder,
         })
     }
 
-    pub(crate) fn recording(&self) -> Option<&Recording<T>> {
+    pub(crate) fn recording(&self) -> Option<&Recording> {
         self.recording.as_ref()
     }
 
@@ -103,6 +118,7 @@ where
         );
 
         let recording = Recording::start(
+            self.video_recorder.as_mut(),
             MetadataParameters {
                 path: recording_location.join("metadata.json"),
                 game_exe: game_exe.clone(),
@@ -167,7 +183,7 @@ where
             NotificationType::Info,
         );
 
-        recording.stop().await?;
+        recording.stop(self.video_recorder.as_mut()).await?;
         *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
         Ok(())
     }

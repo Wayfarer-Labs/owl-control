@@ -47,9 +47,8 @@ async fn main(
     let stop_key =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
-    // TODO: here we read the recorder type from app_state. then maybe force an application restart?
-    let mut recorder: Recorder<_, ObsEmbeddedRecorder> = match Recorder::new(
-        || {
+    let mut recorder = Recorder::new(
+        Box::new(move || {
             recording_location.join(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -57,34 +56,13 @@ async fn main(
                     .as_secs()
                     .to_string(),
             )
-        },
+        }),
         app_state.clone(),
     )
-    .await
-    {
-        Ok(recorder) => recorder,
-        Err(e) => {
-            // so technically the best practice would be to create a custom error type and check that, but cba make it just to use it once
-            if e.to_string()
-                .contains("OBS restart required during initialization")
-            {
-                // Defer the restart to the ObsContext::spawn_updater(). All we have to do is kill the main thread.
-                tracing::info!("Restarting OBS!");
-                // give it a sec to cleanup, no sense wasting the progress bar visuals either ;p
-                *app_state.boostrap_progress.write().unwrap() = 1.0;
-                std::thread::sleep(Duration::from_secs(1));
-                std::process::exit(0);
-            } else {
-                // Handle other errors
-                tracing::error!(e=?e, "Failed to initialize recorder");
-                return Err(e);
-            }
-        }
-    };
+    .await?;
 
     // give it a moment for the user to see that loading has actually completed
     std::thread::sleep(Duration::from_millis(300));
-    *app_state.boostrap_progress.write().unwrap() = 1.337;
 
     tracing::info!("recorder initialized");
     let (_input_capture, mut input_rx) = InputCapture::new()?;

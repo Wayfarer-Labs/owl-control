@@ -19,8 +19,9 @@ pub struct Preferences {
     pub delete_uploaded_files: bool,
     #[serde(default)]
     pub honk: bool,
+    #[serde(default)]
+    pub recording_backend: RecordingBackend,
 }
-
 impl Default for Preferences {
     fn default() -> Self {
         Self {
@@ -29,8 +30,16 @@ impl Default for Preferences {
             overlay_opacity: default_opacity(),
             delete_uploaded_files: false,
             honk: false,
+            recording_backend: RecordingBackend::default(),
         }
     }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub enum RecordingBackend {
+    #[default]
+    Embedded,
+    Socket,
 }
 
 fn default_start_key() -> String {

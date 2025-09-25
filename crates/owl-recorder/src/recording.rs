@@ -8,14 +8,9 @@ use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
 use tracing::span::Record;
 
-use crate::{
-    hardware_id, hardware_specs, input_recorder::InputRecorder,
-    obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::SocketRecorder,
-    recorder::RecorderBackend,
-};
+use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder, recorder::VideoRecorder};
 
-pub(crate) struct Recording<T: RecorderBackend> {
-    window_recorder: T,
+pub(crate) struct Recording {
     input_recorder: InputRecorder,
 
     metadata_path: PathBuf,
@@ -42,13 +37,9 @@ pub(crate) struct InputParameters {
     pub(crate) path: PathBuf,
 }
 
-// pub(crate) enum RecorderBackend {
-//     Bootstrap(BootstrapRecorder),
-//     Socket(SocketRecorder),
-// }
-
-impl<T: RecorderBackend> Recording<T> {
+impl Recording {
     pub(crate) async fn start(
+        video_recorder: &mut dyn VideoRecorder,
         MetadataParameters {
             path: metadata_path,
             game_exe,
@@ -63,12 +54,12 @@ impl<T: RecorderBackend> Recording<T> {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
 
-        let window_recorder =
-            T::start_recording(&video_path, pid.0, hwnd.0.expose_provenance()).await?;
+        video_recorder
+            .start_recording(&video_path, pid.0, hwnd.0.expose_provenance())
+            .await?;
         let input_recorder = InputRecorder::start(&csv_path).await?;
 
         Ok(Self {
-            window_recorder,
             input_recorder,
             metadata_path,
             game_exe,
@@ -114,8 +105,8 @@ impl<T: RecorderBackend> Recording<T> {
         self.input_recorder.seen_input(e).await
     }
 
-    pub(crate) async fn stop(self) -> Result<()> {
-        self.window_recorder.stop_recording().await?;
+    pub(crate) async fn stop(self, recorder: &mut dyn VideoRecorder) -> Result<()> {
+        recorder.stop_recording().await?;
         self.input_recorder.stop().await?;
 
         Self::write_metadata(

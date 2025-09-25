@@ -29,14 +29,7 @@ use windows::{
     core::PCWSTR,
 };
 
-use crate::recorder::RecorderBackend;
-
-pub struct SocketRecorder {
-    // Use an Option to allow it to be consumed within the destructor
-    client: Option<Client>,
-    _recording_path: PathBuf,
-    _existing_profile: String,
-}
+use crate::recorder::VideoRecorder;
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -45,22 +38,40 @@ const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 const VIDEO_BITRATE: u32 = 2500;
 const SET_ENCODER: bool = false;
 
-impl RecorderBackend for SocketRecorder {
+pub struct ObsSocketRecorder {
+    // Use an Option to allow it to be consumed within the destructor
+    client: Option<Client>,
+}
+impl ObsSocketRecorder {
+    pub async fn new() -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self { client: None })
+    }
+}
+#[async_trait::async_trait(?Send)]
+impl VideoRecorder for ObsSocketRecorder {
+    fn id(&self) -> &'static str {
+        "ObsSocket"
+    }
+
     async fn start_recording(
+        &mut self,
         dummy_video_path: &Path,
         _pid: u32,
         _hwnd: usize,
-    ) -> Result<SocketRecorder> {
+    ) -> Result<()> {
+        // Connect to OBS
+        let client = Client::connect("localhost", 4455, None::<&str>)
+            .await
+            .wrap_err("Failed to connect to OBS. Is it running?")?;
+
         let recording_path = dummy_video_path
             .parent()
             .ok_or_eyre("Video path must have a parent directory")?;
         let recording_path = std::fs::canonicalize(recording_path)
             .wrap_err("Failed to get absolute path for recording directory")?;
-
-        // Connect to OBS
-        let client = Client::connect("localhost", 4455, None::<&str>)
-            .await
-            .wrap_err("Failed to connect to OBS. Is it running?")?;
 
         // Pull out sub-APIs for easier access
         let profiles = client.profiles();
@@ -71,7 +82,6 @@ impl RecorderBackend for SocketRecorder {
 
         // Get current profiles
         let all_profiles = profiles.list().await.wrap_err("Failed to get profiles")?;
-        let existing_profile = all_profiles.current;
 
         // Create and activate OWL profile
         if !all_profiles
@@ -258,14 +268,12 @@ impl RecorderBackend for SocketRecorder {
             .wrap_err("Failed to start recording")?;
         tracing::info!("OBS recording started successfully");
 
-        Ok(SocketRecorder {
-            client: Some(client),
-            _recording_path: recording_path,
-            _existing_profile: existing_profile,
-        })
+        self.client = Some(client);
+
+        Ok(())
     }
 
-    async fn stop_recording(&self) -> Result<()> {
+    async fn stop_recording(&mut self) -> Result<()> {
         tracing::info!("Stopping OBS recording");
         if let Some(client) = &self.client {
             // Log, but do not explode if it fails
@@ -277,9 +285,9 @@ impl RecorderBackend for SocketRecorder {
         Ok(())
     }
 }
-impl Drop for SocketRecorder {
+impl Drop for ObsSocketRecorder {
     fn drop(&mut self) {
-        tracing::info!("Shutting down window recorder");
+        tracing::info!("Shutting down OBS socket recorder");
         let client = self.client.take();
         tokio::spawn(async move {
             if let Some(client) = &client {

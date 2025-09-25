@@ -30,12 +30,7 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::{AppState, recorder::RecorderBackend};
-
-pub struct ObsEmbeddedRecorder {
-    _recording_path: String,
-    source: ObsSourceRef,
-}
+use crate::{AppState, recorder::VideoRecorder};
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
@@ -47,12 +42,30 @@ const VIDEO_BITRATE: u32 = 2500;
 // non-game content.
 const USE_WINDOW_CAPTURE: bool = false;
 
-impl RecorderBackend for ObsEmbeddedRecorder {
+pub struct ObsEmbeddedRecorder {
+    source: Option<ObsSourceRef>,
+}
+impl ObsEmbeddedRecorder {
+    pub async fn new() -> Result<Self>
+    where
+        Self: Sized,
+    {
+        initialize().await?;
+        Ok(Self { source: None })
+    }
+}
+#[async_trait::async_trait(?Send)]
+impl VideoRecorder for ObsEmbeddedRecorder {
+    fn id(&self) -> &'static str {
+        "ObsEmbedded"
+    }
+
     async fn start_recording(
+        &mut self,
         dummy_video_path: &Path,
         pid: u32,
         _hwnd: usize,
-    ) -> Result<ObsEmbeddedRecorder> {
+    ) -> Result<()> {
         let recording_path: &str = dummy_video_path
             .to_str()
             .ok_or_eyre("Recording path must be valid UTF-8")?;
@@ -168,19 +181,20 @@ impl RecorderBackend for ObsEmbeddedRecorder {
         state.current_output = Some(output);
 
         tracing::debug!("OBS recording started successfully");
-        Ok(ObsEmbeddedRecorder {
-            _recording_path: recording_path.to_string(),
-            source,
-        })
+        self.source = Some(source);
+        Ok(())
     }
 
-    async fn stop_recording(&self) -> Result<()> {
+    async fn stop_recording(&mut self) -> Result<()> {
         tracing::debug!("Stopping OBS recording...");
+
         let mut state = get_obs_state();
         if let Some(mut output) = state.current_output.take() {
             output.stop().await.wrap_err("Failed to stop OBS output")?;
             if let Some(mut scene) = state.obs_context.get_scene(OWL_SCENE_NAME).await {
-                scene.remove_source(&self.source).await?;
+                if let Some(source) = self.source.take() {
+                    scene.remove_source(&source).await?;
+                }
             }
             tracing::debug!("OBS recording stopped");
         } else {
@@ -200,7 +214,11 @@ fn get_obs_state() -> MutexGuard<'static, ObsState> {
     OBS_STATE.get().unwrap().lock().unwrap()
 }
 
-pub async fn initialize() -> Result<()> {
+async fn initialize() -> Result<()> {
+    if OBS_STATE.get().is_some() {
+        return Ok(());
+    }
+
     let (base_width, base_height) =
         get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")?;
     let context = ObsContext::new(
