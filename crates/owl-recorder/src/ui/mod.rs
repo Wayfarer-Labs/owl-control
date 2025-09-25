@@ -77,10 +77,6 @@ impl MainApp {
             local_credentials = configs.credentials.clone();
             local_preferences = configs.preferences.clone();
         }
-        // write the cached overlay opacity
-        app_state
-            .opacity
-            .store(local_preferences.overlay_opacity, Ordering::Relaxed);
         Ok(Self {
             app_state,
             frame: 0,
@@ -175,20 +171,18 @@ impl eframe::App for MainApp {
 
                     ui.horizontal(|ui| {
                         ui.label("Overlay Opacity:");
-                        let mut stored_opacity = self.app_state.opacity.load(Ordering::Relaxed);
+                        let mut stored_opacity = self.local_preferences.overlay_opacity;
 
                         let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
-                        ui.add(
+                        let r = ui.add(
                             egui::Slider::new(&mut egui_opacity, 0.0..=100.0)
                                 .suffix("%")
                                 .integer(),
                         );
-
-                        stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
-                        self.app_state
-                            .opacity
-                            .store(stored_opacity, Ordering::Relaxed);
-                        self.local_preferences.overlay_opacity = stored_opacity;
+                        if r.changed() {
+                            stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
+                            self.local_preferences.overlay_opacity = stored_opacity;
+                        }
                     });
 
                     ui.horizontal(|ui| {
