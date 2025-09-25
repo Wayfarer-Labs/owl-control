@@ -9,24 +9,15 @@ use obws::{
     Client,
     requests::{
         config::SetVideoSettings,
-        inputs::{InputId, Volume},
+        inputs::{InputId, SetSettings, Volume},
         profiles::SetParameter,
         scene_items::{Position, Scale, SceneItemTransform, SetTransform},
         scenes::SceneId,
     },
 };
-use windows::{
-    Win32::{
-        Foundation::POINT,
-        Graphics::Gdi::{
-            DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, MONITORINFO,
-            MONITORINFOEXW, MonitorFromPoint,
-        },
-    },
-    core::PCWSTR,
-};
+use windows::Win32::Foundation::HWND;
 
-use crate::recorder::VideoRecorder;
+use crate::recorder::{VideoRecorder, get_recording_base_resolution};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -57,7 +48,8 @@ impl VideoRecorder for ObsSocketRecorder {
         &mut self,
         dummy_video_path: &Path,
         _pid: u32,
-        _hwnd: usize,
+        hwnd: HWND,
+        game_exe: &str,
     ) -> Result<()> {
         // Connect to OBS
         let client = Client::connect("localhost", 4455, None::<&str>)
@@ -114,19 +106,33 @@ impl VideoRecorder for ObsSocketRecorder {
 
         // Create OWL capture input
         let all_inputs = inputs.list(None).await.wrap_err("Failed to get inputs")?;
-        if !all_inputs
+        let input_settings = {
+            serde_json::json!({
+                "capture_mode": "window",
+                "window": get_obs_window_encoding(hwnd, game_exe),
+                "priority": 2 /* WINDOW_PRIORITY_EXE */,
+                "capture_audio": true,
+            })
+        };
+        if let Some(input) = all_inputs
             .iter()
-            .any(|input| input.id.name == OWL_CAPTURE_NAME)
+            .find(|input| input.id.name == OWL_CAPTURE_NAME)
         {
+            inputs
+                .set_settings(SetSettings {
+                    input: input.id.clone().into(),
+                    settings: &input_settings,
+                    overlay: Some(false),
+                })
+                .await
+                .wrap_err("Failed to set input settings")?;
+        } else {
             inputs
                 .create(obws::requests::inputs::Create {
                     scene: SceneId::Name(OWL_SCENE_NAME),
                     input: OWL_CAPTURE_NAME,
                     kind: "game_capture",
-                    settings: Some(serde_json::json!({
-                        "capture_mode": "any_fullscreen",
-                        "capture_audio": true,
-                    })),
+                    settings: Some(input_settings),
                     enabled: Some(true),
                 })
                 .await
@@ -185,11 +191,10 @@ impl VideoRecorder for ObsSocketRecorder {
         tracing::info!("OBS confirmed recording path: {:?}", current_path.value);
 
         // Monitor/resolution info
-        let resolution = get_primary_monitor_resolution()
-            .ok_or_eyre("Failed to get primary monitor resolution")?;
+        let resolution = get_recording_base_resolution(hwnd)?;
 
-        // Log both resolutions for debugging
-        tracing::info!("Monitor resolution: {resolution:?}");
+        // Log resolution for debugging
+        tracing::info!("Base recording resolution: {resolution:?}");
 
         // Set video settings
         config
@@ -297,49 +302,33 @@ impl Drop for ObsSocketRecorder {
     }
 }
 
-fn get_primary_monitor_resolution() -> Option<(u32, u32)> {
-    // Get the primary monitor handle
-    let primary_monitor = unsafe {
-        MonitorFromPoint(
-            POINT { x: 0, y: 0 },
-            windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY,
-        )
+fn get_obs_window_encoding(hwnd: HWND, game_exe: &str) -> String {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetClassNameW, GetWindowTextLengthW, GetWindowTextW,
     };
-    if primary_monitor.is_invalid() {
-        return None;
+
+    // Get window title
+    let title_len = unsafe { GetWindowTextLengthW(hwnd) };
+    let mut title = String::new();
+    if title_len > 0 {
+        let mut buf = vec![0u16; (title_len + 1) as usize];
+        let copied = unsafe { GetWindowTextW(hwnd, &mut buf) };
+        if copied > 0 {
+            if let Some(end) = buf.iter().position(|&c| c == 0) {
+                title = String::from_utf16_lossy(&buf[..end]);
+            } else {
+                title = String::from_utf16_lossy(&buf);
+            }
+        }
     }
 
-    // Get the monitor info
-    let mut monitor_info = MONITORINFOEXW {
-        monitorInfo: MONITORINFO {
-            cbSize: std::mem::size_of::<MONITORINFOEXW>() as u32,
-            ..Default::default()
-        },
-        ..Default::default()
+    // Get window class
+    let mut class_buf = [0u16; 256];
+    let class_len = unsafe { GetClassNameW(hwnd, &mut class_buf) };
+    let class = if class_len > 0 {
+        String::from_utf16_lossy(&class_buf[..class_len as usize])
+    } else {
+        String::new()
     };
-    unsafe {
-        GetMonitorInfoW(
-            primary_monitor,
-            &mut monitor_info as *mut _ as *mut MONITORINFO,
-        )
-    }
-    .ok()
-    .ok()?;
-
-    // Get the display mode
-    let mut devmode = DEVMODEW {
-        dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-        ..Default::default()
-    };
-    unsafe {
-        EnumDisplaySettingsW(
-            PCWSTR(monitor_info.szDevice.as_ptr()),
-            ENUM_CURRENT_SETTINGS,
-            &mut devmode,
-        )
-    }
-    .ok()
-    .ok()?;
-
-    Some((devmode.dmPelsWidth as u32, devmode.dmPelsHeight as u32))
+    format!("{title}:{class}:{game_exe}")
 }

@@ -2,8 +2,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
+use color_eyre::eyre::OptionExt as _;
 use color_eyre::{Result, eyre::Context as _};
 use tauri_winrt_notification::Toast;
+use windows::Win32::Foundation::HWND;
 use windows::{
     Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MessageBoxW},
     core::HSTRING,
@@ -27,7 +29,8 @@ pub(crate) trait VideoRecorder {
         &mut self,
         dummy_video_path: &Path,
         pid: u32,
-        hwnd: usize,
+        hwnd: HWND,
+        game_exe: &str,
     ) -> Result<()>;
     async fn stop_recording(&mut self) -> Result<()>;
 }
@@ -220,5 +223,86 @@ fn show_notification(title: &str, text1: &str, text2: &str, notification_type: N
                 MB_ICONERROR,
             );
         },
+    }
+}
+
+pub fn get_recording_base_resolution(hwnd: HWND) -> Result<(u32, u32)> {
+    use windows::{
+        Win32::{
+            Foundation::{POINT, RECT},
+            Graphics::Gdi::{
+                DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW,
+                MONITORINFO, MONITORINFOEXW, MonitorFromPoint,
+            },
+            UI::WindowsAndMessaging::GetClientRect,
+        },
+        core::PCWSTR,
+    };
+
+    /// Returns the size (width, height) of the inner area of a window given its HWND.
+    /// Returns None if the window does not exist or the call fails.
+    fn get_window_inner_size(hwnd: HWND) -> Option<(u32, u32)> {
+        unsafe {
+            let mut rect = RECT::default();
+            GetClientRect(hwnd, &mut rect).ok()?;
+            let width = rect.right - rect.left;
+            let height = rect.bottom - rect.top;
+            Some((width as u32, height as u32))
+        }
+    }
+
+    fn get_primary_monitor_resolution() -> Option<(u32, u32)> {
+        // Get the primary monitor handle
+        let primary_monitor = unsafe {
+            MonitorFromPoint(
+                POINT { x: 0, y: 0 },
+                windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY,
+            )
+        };
+        if primary_monitor.is_invalid() {
+            return None;
+        }
+
+        // Get the monitor info
+        let mut monitor_info = MONITORINFOEXW {
+            monitorInfo: MONITORINFO {
+                cbSize: std::mem::size_of::<MONITORINFOEXW>() as u32,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        unsafe {
+            GetMonitorInfoW(
+                primary_monitor,
+                &mut monitor_info as *mut _ as *mut MONITORINFO,
+            )
+        }
+        .ok()
+        .ok()?;
+
+        // Get the display mode
+        let mut devmode = DEVMODEW {
+            dmSize: std::mem::size_of::<DEVMODEW>() as u16,
+            ..Default::default()
+        };
+        unsafe {
+            EnumDisplaySettingsW(
+                PCWSTR(monitor_info.szDevice.as_ptr()),
+                ENUM_CURRENT_SETTINGS,
+                &mut devmode,
+            )
+        }
+        .ok()
+        .ok()?;
+
+        Some((devmode.dmPelsWidth as u32, devmode.dmPelsHeight as u32))
+    }
+
+    match get_window_inner_size(hwnd) {
+        Some(size) => Ok(size),
+        None => {
+            tracing::info!("Failed to get window inner size, using primary monitor resolution");
+            get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")
+        }
     }
 }

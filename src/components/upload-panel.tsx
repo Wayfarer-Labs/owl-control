@@ -130,11 +130,6 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({
     }
   };
 
-  const progressPercentage =
-    progress.totalFiles > 0
-      ? Math.round((progress.uploadedFiles / progress.totalFiles) * 100)
-      : 0;
-
   const bytesPercentage =
     progress.totalBytes > 0
       ? Math.round((progress.bytesUploaded / progress.totalBytes) * 100)
@@ -204,33 +199,23 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({
         {/* Progress Bar */}
         {isUploading && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-400">
-                File {progress.uploadedFiles} of {progress.totalFiles}
-              </span>
-              <span className="text-gray-400">
-                {progress.speed} • ETA: {progress.eta}
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>
+                Current upload: {bytesPercentage}% (
+                {formatBytes(progress.bytesUploaded)} /{" "}
+                {formatBytes(progress.totalBytes)})
               </span>
             </div>
-
             <div className="w-full bg-[#2a2d35] rounded-full h-2">
               <div
                 className="bg-[#42e2f5] h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progressPercentage}%` }}
+                style={{ width: `${bytesPercentage}%` }}
               />
             </div>
 
-            {progress.currentFile && (
-              <p className="text-xs text-gray-400 truncate">
-                Uploading: {progress.currentFile}
-              </p>
-            )}
-
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>Progress: {progressPercentage}%</span>
-              <span>
-                {formatBytes(progress.bytesUploaded)} /{" "}
-                {formatBytes(progress.totalBytes)}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-400">
+                {progress.speed} • ETA: {progress.eta}
               </span>
             </div>
           </div>

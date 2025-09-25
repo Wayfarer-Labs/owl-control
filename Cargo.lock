@@ -1774,6 +1774,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "embed-manifest"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41cd446c890d6bed1d8b53acef5f240069ebef91d6fae7c5f52efe61fe8b5eae"
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4500,6 +4506,7 @@ dependencies = [
  "egui_overlay",
  "egui_render_three_d",
  "egui_window_glfw_passthrough",
+ "embed-manifest",
  "game-process",
  "image",
  "input-capture",

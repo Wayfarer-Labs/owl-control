@@ -5,16 +5,7 @@ use color_eyre::{
     eyre::{Context, OptionExt as _, bail, eyre},
 };
 use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
-use windows::{
-    Win32::{
-        Foundation::POINT,
-        Graphics::Gdi::{
-            DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, MONITORINFO,
-            MONITORINFOEXW, MonitorFromPoint,
-        },
-    },
-    core::PCWSTR,
-};
+use windows::Win32::Foundation::HWND;
 
 use libobs_sources::{
     ObsSourceBuilder,
@@ -29,7 +20,7 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::recorder::VideoRecorder;
+use crate::recorder::{VideoRecorder, get_recording_base_resolution};
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
@@ -51,21 +42,7 @@ impl ObsEmbeddedRecorder {
     where
         Self: Sized,
     {
-        let (base_width, base_height) = get_primary_monitor_resolution()
-            .ok_or_eyre("Failed to get primary monitor resolution")?;
-        let obs_context = ObsContext::new(
-            ObsContext::builder().set_video_info(
-                ObsVideoInfoBuilder::new()
-                    .fps_num(FPS)
-                    .fps_den(1)
-                    .base_width(base_width)
-                    .base_height(base_height)
-                    .output_width(RECORDING_WIDTH)
-                    .output_height(RECORDING_HEIGHT)
-                    .build(),
-            ),
-        )
-        .await?;
+        let obs_context = ObsContext::new(ObsContext::builder()).await?;
 
         tracing::debug!("OBS context initialized successfully");
         Ok(Self {
@@ -85,7 +62,8 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         &mut self,
         dummy_video_path: &Path,
         pid: u32,
-        _hwnd: usize,
+        hwnd: HWND,
+        _game_exe: &str,
     ) -> Result<()> {
         let recording_path: &str = dummy_video_path
             .to_str()
@@ -100,6 +78,25 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
         // Set up scene and window capture based on input pid
         let mut scene = self.obs_context.scene(OWL_SCENE_NAME).await?;
+
+        let (base_width, base_height) = get_recording_base_resolution(hwnd)?;
+        tracing::info!("Base recording resolution: {base_width}x{base_height}");
+
+        //
+        // TODO!!! Make this work! This doesn't actually update the resolution!
+        //
+        self.obs_context
+            .reset_video(
+                ObsVideoInfoBuilder::new()
+                    .fps_num(FPS)
+                    .fps_den(1)
+                    .base_width(base_width)
+                    .base_height(base_height)
+                    .output_width(RECORDING_WIDTH)
+                    .output_height(RECORDING_HEIGHT)
+                    .build(),
+            )
+            .await?;
 
         let source = if USE_WINDOW_CAPTURE {
             let window =
@@ -220,53 +217,4 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
         Ok(())
     }
-}
-
-// TODO: See if this is actually necessary; `ObsVideoInfoBuilder` already
-// gets the primary monitor's resolution, but I'm not sure if it handles DPI woes
-fn get_primary_monitor_resolution() -> Option<(u32, u32)> {
-    // Get the primary monitor handle
-    let primary_monitor = unsafe {
-        MonitorFromPoint(
-            POINT { x: 0, y: 0 },
-            windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY,
-        )
-    };
-    if primary_monitor.is_invalid() {
-        return None;
-    }
-
-    // Get the monitor info
-    let mut monitor_info = MONITORINFOEXW {
-        monitorInfo: MONITORINFO {
-            cbSize: std::mem::size_of::<MONITORINFOEXW>() as u32,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    unsafe {
-        GetMonitorInfoW(
-            primary_monitor,
-            &mut monitor_info as *mut _ as *mut MONITORINFO,
-        )
-    }
-    .ok()
-    .ok()?;
-
-    // Get the display mode
-    let mut devmode = DEVMODEW {
-        dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-        ..Default::default()
-    };
-    unsafe {
-        EnumDisplaySettingsW(
-            PCWSTR(monitor_info.szDevice.as_ptr()),
-            ENUM_CURRENT_SETTINGS,
-            &mut devmode,
-        )
-    }
-    .ok()
-    .ok()?;
-
-    Some((devmode.dmPelsWidth as u32, devmode.dmPelsHeight as u32))
 }
