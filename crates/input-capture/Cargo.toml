@@ -17,7 +17,15 @@ windows = { workspace = true, features = [
 ] }
 color-eyre.workspace = true
 tokio.workspace = true
-gilrs.workspace = true
+
+# See gamepad_capture.rs for more details as to why we import gilrs twice. We use a git dependency
+# here to allow cargo to import the same package twice. Disgusting.
+gilrs-xinput = { package = "gilrs", git = "https://gitlab.com/gilrs-project/gilrs.git", default-features = false, features = [
+    "xinput",
+] }
+gilrs-wgi = { package = "gilrs", version = "0.11.0", default-features = false, features = [
+    "wgi",
+] }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
