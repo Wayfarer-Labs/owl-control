@@ -7,12 +7,9 @@ use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 use serde::Serialize;
 
-use crate::{
-    hardware_id, hardware_specs, input_recorder::InputRecorder, window_recorder::WindowRecorder,
-};
+use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder, recorder::VideoRecorder};
 
 pub(crate) struct Recording {
-    window_recorder: WindowRecorder,
     input_recorder: InputRecorder,
 
     metadata_path: PathBuf,
@@ -41,6 +38,7 @@ pub(crate) struct InputParameters {
 
 impl Recording {
     pub(crate) async fn start(
+        video_recorder: &mut dyn VideoRecorder,
         MetadataParameters {
             path: metadata_path,
             game_exe,
@@ -55,14 +53,13 @@ impl Recording {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
 
-        let window_recorder =
-            WindowRecorder::start_recording(&video_path, pid.0, hwnd, &game_exe).await?;
+        video_recorder
+            .start_recording(&video_path, pid.0, hwnd, &game_exe)
+            .await?;
         let input_recorder = InputRecorder::start(&csv_path).await?;
 
         Ok(Self {
-            window_recorder,
             input_recorder,
-
             metadata_path,
             game_exe,
             start_time,
@@ -107,8 +104,8 @@ impl Recording {
         self.input_recorder.seen_input(e).await
     }
 
-    pub(crate) async fn stop(self) -> Result<()> {
-        self.window_recorder.stop_recording().await?;
+    pub(crate) async fn stop(self, recorder: &mut dyn VideoRecorder) -> Result<()> {
+        recorder.stop_recording().await?;
         self.input_recorder.stop().await?;
 
         Self::write_metadata(

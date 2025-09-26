@@ -7,8 +7,7 @@ use color_eyre::Result;
 
 use windows::{
     Win32::{
-        Foundation::{CloseHandle, HANDLE, HWND, RECT, STILL_ACTIVE},
-        Graphics::Gdi::{MONITOR_DEFAULTTOPRIMARY, MonitorFromWindow},
+        Foundation::{CloseHandle, HANDLE, HWND, STILL_ACTIVE},
         System::{
             Diagnostics::ToolHelp::{
                 CreateToolhelp32Snapshot, PROCESSENTRY32, Process32First, Process32Next,
@@ -65,7 +64,7 @@ pub fn exe_name_for_pid(Pid(pid): Pid) -> Result<PathBuf> {
         )?;
         let process_name = CString::new(&process_name[..process_name_size.try_into().unwrap()])?;
         let process_name = OsString::from_encoded_bytes_unchecked(process_name.into_bytes());
-        let process_name = PathBuf::try_from(process_name)?;
+        let process_name = PathBuf::from(process_name);
         Ok(process_name)
     }
 }

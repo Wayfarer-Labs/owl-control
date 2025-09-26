@@ -1,32 +1,70 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
 
+use color_eyre::eyre::OptionExt as _;
 use color_eyre::{Result, eyre::Context as _};
 use tauri_winrt_notification::Toast;
+use windows::Win32::Foundation::HWND;
 use windows::{
     Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MessageBoxW},
     core::HSTRING,
 };
 
 use crate::{
+    app_state::{AppState, RecordingStatus},
+    config::RecordingBackend,
     find_game::get_foregrounded_game,
+    obs_embedded_recorder::ObsEmbeddedRecorder,
+    obs_socket_recorder::ObsSocketRecorder,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
 };
 use constants::unsupported_games::UNSUPPORTED_GAMES;
 
-pub(crate) struct Recorder<D> {
-    recording_dir: D,
+#[async_trait::async_trait(?Send)]
+pub(crate) trait VideoRecorder {
+    fn id(&self) -> &'static str;
+
+    async fn start_recording(
+        &mut self,
+        dummy_video_path: &Path,
+        pid: u32,
+        hwnd: HWND,
+        game_exe: &str,
+    ) -> Result<()>;
+    async fn stop_recording(&mut self) -> Result<()>;
+}
+pub(crate) struct Recorder {
+    recording_dir: Box<dyn FnMut() -> PathBuf>,
     recording: Option<Recording>,
+    app_state: Arc<AppState>,
+    video_recorder: Box<dyn VideoRecorder>,
 }
 
-impl<D> Recorder<D>
-where
-    D: FnMut() -> PathBuf,
-{
-    pub(crate) fn new(recording_dir: D) -> Self {
-        Self {
+impl Recorder {
+    pub(crate) async fn new(
+        recording_dir: Box<dyn FnMut() -> PathBuf>,
+        app_state: Arc<AppState>,
+    ) -> Result<Self> {
+        let backend = app_state
+            .config
+            .read()
+            .unwrap()
+            .preferences
+            .recording_backend;
+
+        let video_recorder: Box<dyn VideoRecorder> = match backend {
+            RecordingBackend::Embedded => Box::new(ObsEmbeddedRecorder::new().await?),
+            RecordingBackend::Socket => Box::new(ObsSocketRecorder::new().await?),
+        };
+
+        tracing::info!("Using {} as video recorder", video_recorder.id());
+        Ok(Self {
             recording_dir,
             recording: None,
-        }
+            app_state,
+            video_recorder,
+        })
     }
 
     pub(crate) fn recording(&self) -> Option<&Recording> {
@@ -83,6 +121,7 @@ where
         );
 
         let recording = Recording::start(
+            self.video_recorder.as_mut(),
             MetadataParameters {
                 path: recording_location.join("metadata.json"),
                 game_exe: game_exe.clone(),
@@ -114,13 +153,16 @@ where
 
         show_notification(
             "Started recording",
-            &format!("Recording `{}`", recording.game_exe()),
+            &format!("Recording `{game_exe}`"),
             "",
             NotificationType::Info,
         );
 
         self.recording = Some(recording);
-
+        *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
+            start_time: Instant::now(),
+            game_exe,
+        };
         Ok(())
     }
 
@@ -144,8 +186,8 @@ where
             NotificationType::Info,
         );
 
-        recording.stop().await?;
-
+        recording.stop(self.video_recorder.as_mut()).await?;
+        *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
         Ok(())
     }
 }
@@ -181,5 +223,86 @@ fn show_notification(title: &str, text1: &str, text2: &str, notification_type: N
                 MB_ICONERROR,
             );
         },
+    }
+}
+
+pub fn get_recording_base_resolution(hwnd: HWND) -> Result<(u32, u32)> {
+    use windows::{
+        Win32::{
+            Foundation::{POINT, RECT},
+            Graphics::Gdi::{
+                DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW,
+                MONITORINFO, MONITORINFOEXW, MonitorFromPoint,
+            },
+            UI::WindowsAndMessaging::GetClientRect,
+        },
+        core::PCWSTR,
+    };
+
+    /// Returns the size (width, height) of the inner area of a window given its HWND.
+    /// Returns None if the window does not exist or the call fails.
+    fn get_window_inner_size(hwnd: HWND) -> Option<(u32, u32)> {
+        unsafe {
+            let mut rect = RECT::default();
+            GetClientRect(hwnd, &mut rect).ok()?;
+            let width = rect.right - rect.left;
+            let height = rect.bottom - rect.top;
+            Some((width as u32, height as u32))
+        }
+    }
+
+    fn get_primary_monitor_resolution() -> Option<(u32, u32)> {
+        // Get the primary monitor handle
+        let primary_monitor = unsafe {
+            MonitorFromPoint(
+                POINT { x: 0, y: 0 },
+                windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY,
+            )
+        };
+        if primary_monitor.is_invalid() {
+            return None;
+        }
+
+        // Get the monitor info
+        let mut monitor_info = MONITORINFOEXW {
+            monitorInfo: MONITORINFO {
+                cbSize: std::mem::size_of::<MONITORINFOEXW>() as u32,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        unsafe {
+            GetMonitorInfoW(
+                primary_monitor,
+                &mut monitor_info as *mut _ as *mut MONITORINFO,
+            )
+        }
+        .ok()
+        .ok()?;
+
+        // Get the display mode
+        let mut devmode = DEVMODEW {
+            dmSize: std::mem::size_of::<DEVMODEW>() as u16,
+            ..Default::default()
+        };
+        unsafe {
+            EnumDisplaySettingsW(
+                PCWSTR(monitor_info.szDevice.as_ptr()),
+                ENUM_CURRENT_SETTINGS,
+                &mut devmode,
+            )
+        }
+        .ok()
+        .ok()?;
+
+        Some((devmode.dmPelsWidth as u32, devmode.dmPelsHeight as u32))
+    }
+
+    match get_window_inner_size(hwnd) {
+        Some(size) => Ok(size),
+        None => {
+            tracing::info!("Failed to get window inner size, using primary monitor resolution");
+            get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")
+        }
     }
 }
