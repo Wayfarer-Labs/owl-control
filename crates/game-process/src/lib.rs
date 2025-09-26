@@ -7,8 +7,7 @@ use color_eyre::Result;
 
 use windows::{
     Win32::{
-        Foundation::{CloseHandle, HANDLE, HWND, RECT, STILL_ACTIVE},
-        Graphics::Gdi::{MONITOR_DEFAULTTOPRIMARY, MonitorFromWindow},
+        Foundation::{CloseHandle, HANDLE, HWND, STILL_ACTIVE},
         System::{
             Diagnostics::ToolHelp::{
                 CreateToolhelp32Snapshot, PROCESSENTRY32, Process32First, Process32Next,
