@@ -85,13 +85,27 @@ async fn main(
 
     let api_client = ApiClient::new(app_state.tx.clone());
 
-    {
-        let mut api_client_clone = api_client.clone();
-        let api_key = app_state.config.read().unwrap().credentials.api_key.clone();
-        tokio::spawn(async move {
-            let _ = api_client_clone.validate_api_key(api_key).await;
-        });
-    }
+    // user had previously consented, api key should be present and we can grab uid immediately
+    // otherwise, we keep periodically checking for user having consented (and therefore inputted api key)
+    let mut api_client_clone = api_client.clone();
+    let app_state_clone = app_state.clone();
+    tokio::spawn(async move {
+        loop {
+            let api_key: String;
+            let has_consented: bool;
+            {
+                let cfg = app_state_clone.config.read().unwrap();
+                api_key = cfg.credentials.api_key.clone();
+                has_consented = cfg.credentials.has_consented.clone();
+            }
+            if has_consented {
+                tracing::info!("API KEY VALIDATION RUN");
+                let _ = api_client_clone.validate_api_key(api_key).await;
+                break;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    });
 
     loop {
         tokio::select! {
