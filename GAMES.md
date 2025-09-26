@@ -53,7 +53,6 @@ Note that not all games in the below list necessarily meet the above criteria, a
 - Far Cry 4 — FP
 - Far Cry 5 — FP
 - Far Cry 6 — FP
-- Destiny 2
 
 ### Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)
 
@@ -126,4 +125,5 @@ Please do not submit data for these games.
 ## Unsupported games
 
 - Roblox: Recorded footage is all-black.
+- Destiny 2: Recorded footage is all-black.
 - Split Fiction: Split-screen games are unsupported.

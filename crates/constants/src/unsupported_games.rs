@@ -49,6 +49,11 @@ pub const UNSUPPORTED_GAMES: &[UnsupportedGame] = &[
         "Recorded footage is all-black.",
     ),
     ug(
+        "Destiny 2",
+        &["destiny2launcher", "destiny2"],
+        "Recorded footage is all-black.",
+    ),
+    ug(
         "Split Fiction",
         &["splitfiction"],
         "Split-screen games are unsupported.",
