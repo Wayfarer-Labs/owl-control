@@ -331,7 +331,10 @@ fn get_obs_window_encoding(hwnd: HWND, game_exe: &str) -> String {
             }
         }
     }
-
+    
+    // Sanitize colons in title (OBS uses ':' as a separator)
+    let title = title.replace(':', "-");
+    
     // Get window class
     let mut class_buf = [0u16; 256];
     let class_len = unsafe { GetClassNameW(hwnd, &mut class_buf) };
