@@ -121,6 +121,11 @@ Please do not submit data for these games.
 - Rainbow Six Siege
 - Squad
 - Hell Let Loose
+- GTA III
+- GTA: Vice City
+- GTA: San Andreas
+- GTA IV
+- GTA V
 
 ## Unsupported games
 

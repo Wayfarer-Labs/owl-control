@@ -43,6 +43,11 @@ pub const UNSUPPORTED_GAMES: &[UnsupportedGame] = &[
         &["hll-win64-shipping"],
         ENOUGH_DATA_REASON,
     ),
+    ug("GTA III", &["gta3"], ENOUGH_DATA_REASON),
+    ug("GTA: Vice City", &["gta-vc"], ENOUGH_DATA_REASON),
+    ug("GTA: San Andreas", &["gta_sa"], ENOUGH_DATA_REASON),
+    ug("GTA IV", &["gtaiv"], ENOUGH_DATA_REASON),
+    ug("GTA V", &["gta5"], ENOUGH_DATA_REASON),
     ug(
         "Roblox",
         &["robloxstudiobeta", "robloxplayerbeta"],
