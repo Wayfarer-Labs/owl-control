@@ -492,7 +492,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbb2c998745a3c1ac90f64f4f7b3a54219fd3612d7705e7798212935641ed18f"
 dependencies = [
  "fnv",
- "gilrs-core",
+ "gilrs-core 0.6.4",
+ "log",
+ "uuid",
+ "vec_map",
+]
+
+[[package]]
+name = "gilrs"
+version = "0.11.0"
+source = "git+https://gitlab.com/gilrs-project/gilrs.git#e07b360284de694cbea9571aa93e8a0f87215b2a"
+dependencies = [
+ "fnv",
+ "gilrs-core 0.6.5",
  "log",
  "uuid",
  "vec_map",
@@ -511,7 +523,27 @@ dependencies = [
  "libc",
  "libudev-sys",
  "log",
- "nix",
+ "nix 0.29.0",
+ "uuid",
+ "vec_map",
+ "wasm-bindgen",
+ "web-sys",
+ "windows 0.57.0",
+]
+
+[[package]]
+name = "gilrs-core"
+version = "0.6.5"
+source = "git+https://gitlab.com/gilrs-project/gilrs.git#e07b360284de694cbea9571aa93e8a0f87215b2a"
+dependencies = [
+ "core-foundation",
+ "inotify",
+ "io-kit-sys",
+ "js-sys",
+ "libc",
+ "libudev-sys",
+ "log",
+ "nix 0.30.1",
  "rusty-xinput",
  "uuid",
  "vec_map",
@@ -650,7 +682,8 @@ name = "input-capture"
 version = "0.0.0"
 dependencies = [
  "color-eyre",
- "gilrs",
+ "gilrs 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gilrs 0.11.0 (git+https://gitlab.com/gilrs-project/gilrs.git)",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -778,6 +811,18 @@ name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
+name = "nix"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
 dependencies = [
  "bitflags",
  "cfg-if",
