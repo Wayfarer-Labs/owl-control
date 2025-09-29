@@ -1,6 +1,6 @@
 {
   "name": "vg-control",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Video game control input tracking application",
   "main": "dist/main.js",
   "scripts": {
