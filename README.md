@@ -71,8 +71,34 @@ and features some minor debugging. It should be watched in full before you use t
 
 ## 💻 System Requirements
 
-An NVIDIA GPU is reccomended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.
+An NVIDIA GPU is recommended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.
 Video upload can be bandwidth intensive, though we downsample videos to 360p and set an appropriate bitrate to lighten the load as much as possible.
+
+## ⚠️ Restrictions
+
+### Input Device Support
+
+- **Keyboard + Mouse**: Supported
+- **Wireless Xbox Controllers**: Supported
+- **Wired PlayStation Controllers**: Supported
+- **Wireless PlayStation Controllers**: _Not supported_
+- **Other controllers (joysticks, etc)**: Potentially supported, but not recommended
+
+### Recording Validation Criteria
+
+Recordings are automatically validated before upload. The following conditions will cause recordings to be rejected:
+
+**Video Requirements:**
+
+The recording must be at least 30 seconds long, and its file size should be reasonable relative to duration (e.g. it should not be corrupted).
+
+**Input Activity Requirements:**
+
+- **Keyboard**: At least 10 WASD actions per minute OR at least 50 total keyboard events
+- **Mouse**: The range of movement should be reasonable (e.g. not fully idle, and not all over the place)
+- **Gamepad**: At least 20 total gamepad events AND at least 5 button presses per minute AND axis activity above 0.01 (prevents idle recordings)
+
+**Important**: A recording will only be rejected if ALL three input types (keyboard, mouse, and gamepad) fail their respective validation criteria. This means you can use any combination of supported input devices.
 
 ## ⚙️ Uploading
 
