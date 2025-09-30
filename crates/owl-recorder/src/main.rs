@@ -47,7 +47,11 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     tracing_subscriber::fmt::init();
 
-    tracing::info!("OWL Recorder v{} ({})", env!("CARGO_PKG_VERSION"), git_version::git_version!());
+    tracing::info!(
+        "OWL Recorder v{} ({})",
+        env!("CARGO_PKG_VERSION"),
+        git_version::git_version!()
+    );
 
     let Args {
         recording_location,
