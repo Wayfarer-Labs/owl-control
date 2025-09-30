@@ -69,6 +69,14 @@ and features some minor debugging. It should be watched in full before you use t
 - **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. That being said, OWL Control specifically sets OBS to record full screen applications, so there is no risk of accidental desktop capture.
 - **Data Verification**: You can press "file -> show recordings" in OBS if you want to verify your data is recording properly before upload.
 
+## ⚠️ Potential Incompatibilities
+
+Some software and system configurations may interfere with OWL Control's recording functionality:
+
+- **RivaTuner Statistics Server**: Often installed with MSI Afterburner, this software can cause compatibility issues with recordings. If you experience recording problems, try disabling or uninstalling RivaTuner Statistics Server.
+- **OBS Administrator Mode**: Some games require OBS to be run in administrator mode for Game Capture to work properly. If you're having trouble recording certain games, try running OBS as an administrator.
+- **Antivirus Software**: Some antivirus programs may interfere with the recording process or block OWL Control's functionality. You may need to add OWL Control and OBS to your antivirus whitelist.
+
 ## 💻 System Requirements
 
 An NVIDIA GPU is recommended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.
