@@ -295,7 +295,7 @@ pub fn get_recording_base_resolution(hwnd: HWND) -> Result<(u32, u32)> {
         .ok()
         .ok()?;
 
-        Some((devmode.dmPelsWidth as u32, devmode.dmPelsHeight as u32))
+        Some((devmode.dmPelsWidth, devmode.dmPelsHeight))
     }
 
     match get_window_inner_size(hwnd) {
