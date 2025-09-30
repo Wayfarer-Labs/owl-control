@@ -40,6 +40,8 @@ fn main() -> Result<()> {
         stop_key: String,
     }
 
+    tracing::info!("OWL Recorder v{} ({})", env!("CARGO_PKG_VERSION"), git_version::git_version!());
+
     let Args {
         recording_location,
         start_key,

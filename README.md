@@ -69,10 +69,44 @@ and features some minor debugging. It should be watched in full before you use t
 - **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. That being said, OWL Control specifically sets OBS to record full screen applications, so there is no risk of accidental desktop capture.
 - **Data Verification**: You can press "file -> show recordings" in OBS if you want to verify your data is recording properly before upload.
 
+## ⚠️ Potential Incompatibilities
+
+Some software and system configurations may interfere with OWL Control's recording functionality:
+
+- **RivaTuner Statistics Server**: Often installed with MSI Afterburner, this software can cause compatibility issues with recordings. If you experience recording problems, try disabling or uninstalling RivaTuner Statistics Server.
+- **OBS Administrator Mode**: Some games require OBS to be run in administrator mode for Game Capture to work properly. If you're having trouble recording certain games, try running OBS as an administrator.
+- **Antivirus Software**: Some antivirus programs may interfere with the recording process or block OWL Control's functionality. You may need to add OWL Control and OBS to your antivirus whitelist.
+
 ## 💻 System Requirements
 
-An NVIDIA GPU is reccomended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.
+An NVIDIA GPU is recommended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.
 Video upload can be bandwidth intensive, though we downsample videos to 360p and set an appropriate bitrate to lighten the load as much as possible.
+
+## ⚠️ Restrictions
+
+### Input Device Support
+
+- **Keyboard + Mouse**: Supported
+- **Wireless Xbox Controllers**: Supported
+- **Wired PlayStation Controllers**: Supported
+- **Wireless PlayStation Controllers**: _Not supported_
+- **Other controllers (joysticks, etc)**: Potentially supported, but not recommended
+
+### Recording Validation Criteria
+
+Recordings are automatically validated before upload. The following conditions will cause recordings to be rejected:
+
+**Video Requirements:**
+
+The recording must be at least 30 seconds long, and its file size should be reasonable relative to duration (e.g. it should not be corrupted).
+
+**Input Activity Requirements:**
+
+- **Keyboard**: At least 10 WASD actions per minute OR at least 50 total keyboard events
+- **Mouse**: The range of movement should be reasonable (e.g. not fully idle, and not all over the place)
+- **Gamepad**: At least 20 total gamepad events AND at least 5 button presses per minute AND axis activity above 0.01 (prevents idle recordings)
+
+**Important**: A recording will only be rejected if ALL three input types (keyboard, mouse, and gamepad) fail their respective validation criteria. This means you can use any combination of supported input devices.
 
 ## ⚙️ Uploading
 

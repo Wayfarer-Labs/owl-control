@@ -1,6 +1,7 @@
 from .data.owl import upload_all_files
 import argparse
 import sys
+from importlib.metadata import version
 
 
 def main():
@@ -19,7 +20,9 @@ def main():
     token = args.api_token.strip()
     progress_mode = args.progress
 
-    print(f"Upload bridge starting with token={token[:4]}... progress={progress_mode}")
+    print(
+        f"Upload bridge v{version('vg-control')} starting with token={token[:4]}... progress={progress_mode}"
+    )
 
     try:
         upload_all_files(token, progress_mode=progress_mode)

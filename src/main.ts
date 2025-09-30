@@ -18,7 +18,7 @@ import { join } from "path";
 import "./log";
 
 // Log app startup
-console.log("=== OWL Control Debug Log Started ===");
+console.log(`=== OWL Control v${app.getVersion()} Debug Log Started ===`);
 
 // Keep references
 let mainWindow: BrowserWindow | null = null;

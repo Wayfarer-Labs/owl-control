@@ -53,7 +53,6 @@ Note that not all games in the below list necessarily meet the above criteria, a
 - Far Cry 4 — FP
 - Far Cry 5 — FP
 - Far Cry 6 — FP
-- Destiny 2
 
 ### Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)
 
@@ -116,15 +115,20 @@ Please do not submit data for these games.
 - Valorant
 - Counter-Strike: Source
 - Counter-Strike 2
-- Fortnite
 - Overwatch 2
 - Team Fortress 2
 - Apex Legends
 - Rainbow Six Siege
 - Squad
 - Hell Let Loose
+- GTA III
+- GTA: Vice City
+- GTA: San Andreas
+- GTA IV
+- GTA V
 
 ## Unsupported games
 
 - Roblox: Recorded footage is all-black.
+- Destiny 2: Recorded footage is all-black.
 - Split Fiction: Split-screen games are unsupported.

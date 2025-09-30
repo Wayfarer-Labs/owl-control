@@ -24,6 +24,7 @@ windows = { version = "0.61.3", features = [
 uuid = { version = "1.17.0", features = ["v4"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+git-version = "0.3"
 tauri-winrt-notification = "0.7.2"
 sysinfo = "0.32.1"
 gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
@@ -36,4 +37,28 @@ libobs-window-helper = "0.1.5"
 
 [workspace.metadata]
 # The libobs version to use (can either be a specific version or "latest")
-libobs-version = "31.0.3"
+
+input-capture = { path = "crates/input-capture" }
+game-process = { path = "crates/game-process" }
+clap = { version = "4.5.39", features = ["derive"] }
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+tokio = { version = "1.45.1", features = ["full"] }
+tokio-util = { version = "0.7.15", features = ["rt"] }
+futures-util = "0.3.31"
+color-eyre = "0.6.5"
+derive_more = { version = "2.0.1", features = ["full"] }
+windows = { version = "0.61.3", features = [
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+] }
+uuid = { version = "1.17.0", features = ["v4"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+git-version = "0.3"
+tauri-winrt-notification = "0.7.2"
+sysinfo = "0.32.1"
+obws = "0.14.0"

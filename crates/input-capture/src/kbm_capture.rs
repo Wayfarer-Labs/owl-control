@@ -11,17 +11,19 @@ use windows::{
             Input::{
                 self, GetRawInputData, HRAWINPUT,
                 KeyboardAndMouse::{VK_LBUTTON, VK_MBUTTON, VK_RBUTTON, VK_XBUTTON1, VK_XBUTTON2},
-                RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER, RID_INPUT, RIDEV_INPUTSINK,
-                RegisterRawInputDevices,
+                MOUSE_MOVE_ABSOLUTE, MOUSE_VIRTUAL_DESKTOP, RAWINPUT, RAWINPUTDEVICE,
+                RAWINPUTHEADER, RID_INPUT, RIDEV_INPUTSINK, RegisterRawInputDevices,
             },
             WindowsAndMessaging::{
                 self, CreateWindowExA, DefWindowProcA, DestroyWindow, DispatchMessageA,
-                GetMessageA, HWND_MESSAGE, MSG, PostQuitMessage, RI_KEY_BREAK,
+                GetMessageA, GetSystemMetrics, HWND_MESSAGE, MSG, PostQuitMessage, RI_KEY_BREAK,
                 RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP, RI_MOUSE_BUTTON_5_DOWN,
                 RI_MOUSE_BUTTON_5_UP, RI_MOUSE_LEFT_BUTTON_DOWN, RI_MOUSE_LEFT_BUTTON_UP,
                 RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP, RI_MOUSE_RIGHT_BUTTON_DOWN,
-                RI_MOUSE_RIGHT_BUTTON_UP, RI_MOUSE_WHEEL, RegisterClassA, TranslateMessage,
-                UnregisterClassA, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSA,
+                RI_MOUSE_RIGHT_BUTTON_UP, RI_MOUSE_WHEEL, RegisterClassA, SM_CXSCREEN,
+                SM_CXVIRTUALSCREEN, SM_CYSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
+                SM_YVIRTUALSCREEN, TranslateMessage, UnregisterClassA, WINDOW_EX_STYLE,
+                WINDOW_STYLE, WNDCLASSA,
             },
         },
     },
@@ -111,11 +113,12 @@ impl KbmCapture {
     pub fn run_queue(mut event_callback: impl FnMut(Event)) -> Result<()> {
         unsafe {
             let mut msg = MSG::default();
+            let mut last_absolute: Option<(i32, i32)> = None;
             while GetMessageA(&mut msg, None, 0, 0).as_bool() {
                 let _ = TranslateMessage(&msg);
                 DispatchMessageA(&msg);
                 if msg.message == WindowsAndMessaging::WM_INPUT {
-                    for event in parse_wm_input(msg.lParam) {
+                    for event in parse_wm_input(msg.lParam, &mut last_absolute) {
                         event_callback(event);
                     }
                 }
@@ -150,7 +153,7 @@ impl KbmCapture {
     }
 }
 
-fn parse_wm_input(lparam: LPARAM) -> Vec<Event> {
+fn parse_wm_input(lparam: LPARAM, last_absolute: &mut Option<(i32, i32)>) -> Vec<Event> {
     unsafe {
         let hrawinput = HRAWINPUT(std::ptr::with_exposed_provenance_mut(lparam.0 as usize));
         let mut rawinput = RAWINPUT::default();
@@ -173,8 +176,35 @@ fn parse_wm_input(lparam: LPARAM) -> Vec<Event> {
                 let mut events = Vec::new();
 
                 let mouse = rawinput.data.mouse;
+                let us_flags = mouse.usFlags.0;
+
+                // Handle mouse movement
                 if mouse.lLastX != 0 || mouse.lLastY != 0 {
-                    events.push(Event::MouseMove([mouse.lLastX, mouse.lLastY]));
+                    let (delta_x, delta_y) = if (us_flags & MOUSE_MOVE_ABSOLUTE.0) != 0 {
+                        // Absolute movement - convert to screen coordinates and calculate delta
+                        let is_virtual_desktop = (us_flags & MOUSE_VIRTUAL_DESKTOP.0) != 0;
+                        let (screen_x, screen_y) = convert_absolute_to_screen_coords(
+                            mouse.lLastX,
+                            mouse.lLastY,
+                            is_virtual_desktop,
+                        );
+
+                        let delta = last_absolute
+                            .map(|(last_x, last_y)| (screen_x - last_x, screen_y - last_y))
+                            .unwrap_or_default();
+
+                        // Update stored absolute position
+                        *last_absolute = Some((screen_x, screen_y));
+
+                        delta
+                    } else {
+                        // Relative movement - use raw values directly
+                        (mouse.lLastX, mouse.lLastY)
+                    };
+
+                    if delta_x != 0 || delta_y != 0 {
+                        events.push(Event::MouseMove([delta_x, delta_y]));
+                    }
                 }
 
                 let us_button_flags = u32::from(mouse.Anonymous.Anonymous.usButtonFlags);
@@ -262,4 +292,34 @@ fn parse_wm_input(lparam: LPARAM) -> Vec<Event> {
             _ => vec![],
         }
     }
+}
+
+/// Convert normalized absolute mouse coordinates to screen coordinates
+/// Based on Microsoft documentation: coordinates are normalized between 0 and 65535
+/// Accounts for virtual desktop if the MOUSE_VIRTUAL_DESKTOP flag is set
+fn convert_absolute_to_screen_coords(x: i32, y: i32, is_virtual_desktop: bool) -> (i32, i32) {
+    let (left, top, right, bottom) = unsafe {
+        if is_virtual_desktop {
+            (
+                GetSystemMetrics(SM_XVIRTUALSCREEN),
+                GetSystemMetrics(SM_YVIRTUALSCREEN),
+                GetSystemMetrics(SM_CXVIRTUALSCREEN),
+                GetSystemMetrics(SM_CYVIRTUALSCREEN),
+            )
+        } else {
+            (
+                0,
+                0,
+                GetSystemMetrics(SM_CXSCREEN),
+                GetSystemMetrics(SM_CYSCREEN),
+            )
+        }
+    };
+
+    // Convert from normalized coordinates (0-65535) to screen coordinates
+    // Using MulDiv equivalent: (x * (right - left)) / 65535 + left
+    let screen_x = (x * (right - left)) / 65535 + left;
+    let screen_y = (y * (bottom - top)) / 65535 + top;
+
+    (screen_x, screen_y)
 }
