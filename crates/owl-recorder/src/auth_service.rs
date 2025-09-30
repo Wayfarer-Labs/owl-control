@@ -2,7 +2,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::Sender;
 
 use crate::{
     app_state::{Command, CommandSender},

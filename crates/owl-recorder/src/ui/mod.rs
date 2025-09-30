@@ -426,11 +426,8 @@ impl eframe::App for MainApp {
             })
         }
 
-        match &self.rx.try_recv() {
-            Ok(Command::UpdateUserID(uid)) => {
-                self.local_credentials.user_id = uid.to_string();
-            }
-            _ => {}
+        if let Ok(Command::UpdateUserID(uid)) = self.rx.try_recv() {
+            self.local_credentials.user_id = uid.to_string();
         };
 
         let (has_api_key, has_consented) = (

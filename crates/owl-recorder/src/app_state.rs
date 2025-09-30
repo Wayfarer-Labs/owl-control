@@ -56,7 +56,7 @@ pub struct CommandReceiver {
 
 impl CommandReceiver {
     pub fn try_recv(&mut self) -> Result<Command, tokio::sync::mpsc::error::TryRecvError> {
-        return self.rx.try_recv();
+        self.rx.try_recv()
     }
 }
 

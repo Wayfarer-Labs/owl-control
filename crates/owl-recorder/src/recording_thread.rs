@@ -96,7 +96,7 @@ async fn main(
             {
                 let cfg = app_state_clone.config.read().unwrap();
                 api_key = cfg.credentials.api_key.clone();
-                has_consented = cfg.credentials.has_consented.clone();
+                has_consented = cfg.credentials.has_consented;
             }
             if has_consented {
                 tracing::info!("API KEY VALIDATION RUN");
