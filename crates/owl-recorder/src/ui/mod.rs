@@ -11,7 +11,6 @@ use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
     app_state::{AppState, Command, CommandReceiver},
-    auth_service::ApiClient,
     config::{Credentials, Preferences, UploadStats},
     upload_manager::{is_upload_bridge_running, start_upload_bridge},
 };
@@ -21,6 +20,13 @@ use egui::ViewportCommand;
 
 mod overlay;
 pub mod tray_icon;
+
+#[derive(PartialEq)]
+enum HotkeyState {
+    Chilling,
+    ListenStart,
+    ListenStop,
+}
 
 pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
     let options = eframe::NativeOptions {
@@ -77,6 +83,8 @@ pub struct MainApp {
     local_preferences: Preferences,
     /// Time since last requested config edit: we only attempt to save once enough time has passed
     config_last_edit: Option<Instant>,
+    /// Is the UI currently listening for user to select a new hotkey for recording shortcut
+    hotkey_state: HotkeyState,
 
     upload_stats: UploadStats,
     visible: Arc<AtomicBool>,
@@ -105,6 +113,7 @@ impl MainApp {
             local_credentials,
             local_preferences,
             config_last_edit: None,
+            hotkey_state: HotkeyState::Chilling,
 
             upload_stats: UploadStats::new()?,
             visible,
@@ -200,24 +209,47 @@ impl MainApp {
                     // TODO: eventually implement a better keyboard shortcut system
                     ui.horizontal(|ui| {
                         ui.label("Start Recording:");
-                        // ui.code(&mut self.local_preferences.start_recording_key);
-                        ui.add_sized(
-                            [60.0, 15.0],
-                            egui::TextEdit::singleline(
-                                &mut self.local_preferences.start_recording_key,
-                            ),
-                        );
+                        let button_text = if self.hotkey_state == HotkeyState::ListenStart {
+                            "Press any key...".to_string()
+                        } else {
+                            self.local_preferences.start_recording_key.clone()
+                        };
+
+                        if ui
+                            .add_sized([50.0, 15.0], egui::Button::new(button_text))
+                            .clicked()
+                        {
+                            self.hotkey_state = HotkeyState::ListenStart;
+                        }
+                        // ui.add_sized(
+                        //     [60.0, 15.0],
+                        //     egui::TextEdit::singleline(
+                        //         &mut self.local_preferences.start_recording_key,
+                        //     ),
+                        // );
                     });
 
                     ui.horizontal(|ui| {
                         ui.label("Stop Recording:");
-                        // ui.code(&mut self.local_preferences.stop_recording_key);
-                        ui.add_sized(
-                            [60.0, 15.0],
-                            egui::TextEdit::singleline(
-                                &mut self.local_preferences.stop_recording_key,
-                            ),
-                        );
+                        let button_text = if self.hotkey_state == HotkeyState::ListenStop {
+                            "Press any key...".to_string()
+                        } else {
+                            self.local_preferences.stop_recording_key.clone()
+                        };
+
+                        if ui
+                            .add_sized([50.0, 15.0], egui::Button::new(button_text))
+                            .clicked()
+                        {
+                            self.hotkey_state = HotkeyState::ListenStop;
+                        }
+
+                        // ui.add_sized(
+                        //     [60.0, 15.0],
+                        //     egui::TextEdit::singleline(
+                        //         &mut self.local_preferences.stop_recording_key,
+                        //     ),
+                        // );
                     });
                 });
                 ui.add_space(10.0);
@@ -369,6 +401,29 @@ impl eframe::App for MainApp {
             self.visible.store(false, Ordering::Relaxed);
             ctx.send_viewport_cmd(ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+        }
+
+        if self.hotkey_state != HotkeyState::Chilling {
+            ctx.input(|i| {
+                if i.keys_down.len() == 1 {
+                    println!("{:?} {:?} {} ", i.keys_down, i.modifiers, i.keys_down.len());
+                    let key = i
+                        .keys_down
+                        .iter()
+                        .next()
+                        .expect("keycode expected")
+                        .name()
+                        .to_string();
+                    match self.hotkey_state {
+                        HotkeyState::ListenStart => {
+                            self.local_preferences.start_recording_key = key
+                        }
+                        HotkeyState::ListenStop => self.local_preferences.stop_recording_key = key,
+                        HotkeyState::Chilling => (), // will never hit this, just to make rust compiler happy
+                    }
+                    self.hotkey_state = HotkeyState::Chilling;
+                }
+            })
         }
 
         match &self.rx.try_recv() {
