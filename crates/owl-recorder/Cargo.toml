@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 input-capture.workspace = true
+git-version.workspace = true
 game-process.workspace = true
 clap.workspace = true
 tracing.workspace = true

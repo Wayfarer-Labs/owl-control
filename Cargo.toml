@@ -23,6 +23,7 @@ windows = { version = "0.61.3", features = [
 uuid = { version = "1.17.0", features = ["v4"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+git-version = "0.3"
 tauri-winrt-notification = "0.7.2"
 sysinfo = "0.32.1"
 obws = "0.14.0"
