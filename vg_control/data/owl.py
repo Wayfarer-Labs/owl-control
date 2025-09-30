@@ -238,7 +238,7 @@ class OWLDataManager:
         self.staged_bytes = 0  # Track bytes staged so far
         os.makedirs(self.staging_dir, exist_ok=True)
 
-    def process_individual_sessions(self, verbose=False):
+    def process_individual_sessions(self):
         """Process each session as an individual tar file and upload immediately."""
         sessions_processed = 0
 
@@ -270,14 +270,9 @@ class OWLDataManager:
                 if len(invalid_reasons) > 0:
                     invalid_path = os.path.join(root, ".invalid")
 
-                    if not verbose:
-                        print(
-                            f"Failed to process {os.path.abspath(mp4_path)}; see {os.path.abspath(invalid_path)} for details"
-                        )
-                    else:
-                        print(f"Failed to process {os.path.abspath(mp4_path)}:")
-                        for reason in invalid_reasons:
-                            print(f"  - {reason}")
+                    print(f"Failed to process {os.path.abspath(mp4_path)}:")
+                    for reason in invalid_reasons:
+                        print(f"  - {reason}")
 
                     with open(invalid_path, "w") as f:
                         for reason in invalid_reasons:
