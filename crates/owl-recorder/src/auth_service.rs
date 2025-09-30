@@ -9,8 +9,7 @@ use crate::{
     config::UploadStats,
 };
 
-// Define the API base URL as a constant
-const API_BASE_URL: &str = "https://api.openworldlabs.ai"; // Replace with actual URL
+const API_BASE_URL: &str = "https://api.openworldlabs.ai";
 
 // Response struct for the user info endpoint
 #[derive(Deserialize)]
@@ -61,7 +60,7 @@ struct Upload {
     id: String,
     tags: Option<serde_json::Value>,
     verified: bool,
-    video_duration_seconds: Option<u64>, // Null in your examples, but could be a number
+    video_duration_seconds: Option<u64>,
 }
 // Custom result types for better error handling
 #[derive(Debug, Serialize)]
