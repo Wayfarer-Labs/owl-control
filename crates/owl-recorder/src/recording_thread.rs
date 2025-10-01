@@ -44,9 +44,11 @@ async fn main(
     stop_key: String,
     recording_location: PathBuf,
 ) -> Result<()> {
-    let start_key =
+    let mut start_key = start_key;
+    let mut stop_key = stop_key;
+    let mut start_keycode =
         lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-    let stop_key =
+    let mut stop_keycode =
         lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
 
     let stream_handle =
@@ -108,6 +110,27 @@ async fn main(
     });
 
     loop {
+        let honk: bool;
+        let start_key_cfg: String;
+        let stop_key_cfg: String;
+        {
+            let cfg = app_state.config.read().unwrap();
+            honk = cfg.preferences.honk;
+            start_key_cfg = cfg.preferences.start_recording_key.clone();
+            stop_key_cfg = cfg.preferences.stop_recording_key.clone();
+        }
+        // instead of performing lookup_keycode every iteration, we check if it's changed from original
+        // and only then do we do the lookup
+        if start_key_cfg != start_key {
+            start_key = start_key_cfg;
+            start_keycode = lookup_keycode(&start_key)
+                .ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
+        }
+        if stop_key_cfg != stop_key {
+            stop_key = stop_key_cfg;
+            stop_keycode =
+                lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
+        }
         tokio::select! {
             r = &mut stop_rx => {
                 r.expect("signal handler was closed early");
@@ -121,20 +144,20 @@ async fn main(
 
                 recorder.seen_input(e).await?;
                 if let Some(key) = e.key_press_keycode() {
-                    if key == start_key {
+                    if key == start_keycode {
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
-                        rec_start(&sink, app_state.config.read().unwrap().preferences.honk);
-                    } else if key == stop_key {
+                        rec_start(&sink, honk);
+                    } else if key == stop_keycode {
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
-                        rec_stop(&sink, app_state.config.read().unwrap().preferences.honk);
+                        rec_stop(&sink, honk);
                         start_on_activity = false;
                     }
                 } else if start_on_activity {
                     tracing::info!("Input detected, restarting recording");
                     recorder.start().await?;
-                    rec_start(&sink, app_state.config.read().unwrap().preferences.honk);
+                    rec_start(&sink, honk);
                     start_on_activity = false;
                 }
                 idleness_tracker.update_activity();
@@ -144,11 +167,11 @@ async fn main(
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
                         recorder.stop().await?;
-                        rec_stop(&sink, app_state.config.read().unwrap().preferences.honk);
+                        rec_stop(&sink, honk);
                     } else if idleness_tracker.is_idle() {
                         tracing::info!("No input detected for 5 seconds, stopping recording");
                         recorder.stop().await?;
-                        rec_stop(&sink, app_state.config.read().unwrap().preferences.honk);
+                        rec_stop(&sink, honk);
                         *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_RECORDING_DURATION {
