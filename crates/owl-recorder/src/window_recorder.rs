@@ -332,9 +332,6 @@ fn get_obs_window_encoding(hwnd: HWND, game_exe: &str) -> String {
         }
     }
 
-    // Sanitize colons in title (OBS uses ':' as a separator)
-    let title = title.replace(':', "-");
-
     // Get window class
     let mut class_buf = [0u16; 256];
     let class_len = unsafe { GetClassNameW(hwnd, &mut class_buf) };
@@ -343,7 +340,20 @@ fn get_obs_window_encoding(hwnd: HWND, game_exe: &str) -> String {
     } else {
         String::new()
     };
-    format!("{title}:{class}:{game_exe}")
+
+    format!(
+        "{}:{}:{}",
+        sanitize_string_for_obs(&title),
+        sanitize_string_for_obs(&class),
+        sanitize_string_for_obs(game_exe)
+    )
+}
+
+/// Sanitize a string for OBS to avoid interfering with the separators it uses
+///
+/// https://github.com/obsproject/obs-studio/blob/0b1229632063a13dfd26cf1cd9dd43431d8c68f6/libobs/util/windows/window-helpers.c#L8-L12
+fn sanitize_string_for_obs(s: &str) -> String {
+    s.replace('#', "#22").replace(':', "#3A")
 }
 
 /// Returns the size (width, height) of the inner area of a window given its HWND.
