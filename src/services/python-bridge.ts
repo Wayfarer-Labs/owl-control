@@ -106,17 +106,4 @@ export class PythonBridge {
       return false;
     }
   }
-
-  /**
-   * Start upload bridge
-   */
-  public async startUploadBridge(apiToken: string): Promise<boolean> {
-    try {
-      // Call Electron service to start Python upload bridge process
-      return await ElectronService.startUploadBridge(apiToken);
-    } catch (error) {
-      console.error("Error starting upload bridge:", error);
-      return false;
-    }
-  }
 }

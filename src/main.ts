@@ -558,38 +558,6 @@ function recorderCommand() {
   }
 }
 
-// Start Python upload bridge
-function startUploadBridge(apiToken: string) {
-  try {
-    console.log(`Starting upload bridge module from vg_control package`);
-
-    const uploadProcess = spawnUv(
-      ["run", "-m", "vg_control.upload_bridge", "--api-token", apiToken],
-      {
-        cwd: rootDir(),
-      },
-    );
-
-    // Handle output
-    uploadProcess.stdout.on("data", (data: Buffer) => {
-      console.log(`Upload bridge stdout: ${data.toString()}`);
-    });
-
-    uploadProcess.stderr.on("data", (data: Buffer) => {
-      console.error(`Upload bridge stderr: ${data.toString()}`);
-    });
-
-    uploadProcess.on("close", (code: number) => {
-      console.log(`Upload bridge process exited with code ${code}`);
-    });
-
-    return true;
-  } catch (error) {
-    console.error("Error starting upload bridge:", error);
-    return false;
-  }
-}
-
 function rootDir() {
   if (process.env.NODE_ENV === "development") {
     return ".";
@@ -815,11 +783,6 @@ function setupIpcHandlers() {
       return startRecordingBridge(startKey, stopKey);
     },
   );
-
-  // Start upload bridge
-  ipcMain.handle("start-upload-bridge", async (_, apiToken: string) => {
-    return startUploadBridge(apiToken);
-  });
 
   // Close settings window
   ipcMain.handle("close-settings", async () => {

@@ -58,13 +58,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       stopRecordingKey,
     });
 
-    // After saving preferences, automatically start the Python bridges
+    // After saving preferences, automatically restart the recording bridge
     pythonBridge.startRecordingBridge();
-    if (userInfo && userInfo.authenticated) {
-      pythonBridge.startUploadBridge(userInfo.apiKey);
-    } else {
-      console.error("User info not found or not authenticated");
-    }
   };
 
   const handleLogout = async () => {
