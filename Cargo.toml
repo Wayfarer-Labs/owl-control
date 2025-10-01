@@ -6,6 +6,7 @@ members = ["crates/*"]
 input-capture = { path = "crates/input-capture" }
 game-process = { path = "crates/game-process" }
 clap = { version = "4.5.39", features = ["derive"] }
+dunce = "1.0.5"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 tokio = { version = "1.45.1", features = ["full"] }

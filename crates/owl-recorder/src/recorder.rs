@@ -11,7 +11,7 @@ use crate::{
     find_game::get_foregrounded_game,
     recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
 };
-use constants::unsupported_games::UNSUPPORTED_GAMES;
+use constants::{MIN_FREE_SPACE_MB, unsupported_games::UNSUPPORTED_GAMES};
 
 pub(crate) struct Recorder<D> {
     recording_dir: D,
@@ -42,6 +42,21 @@ where
 
         std::fs::create_dir_all(&recording_location)
             .wrap_err("Failed to create recording directory")?;
+
+        let free_space_mb = get_free_space_in_mb(&recording_location);
+        if let Some(free_space_mb) = free_space_mb
+            && free_space_mb < MIN_FREE_SPACE_MB
+        {
+            show_notification(
+                "Not enough free space",
+                "There is not enough free space on the disk to record. Please free up some space.",
+                &format!(
+                    "Required: at least {MIN_FREE_SPACE_MB} MB, available: {free_space_mb} MB"
+                ),
+                NotificationType::Error,
+            );
+            return Ok(());
+        }
 
         let Some((game_exe, pid, hwnd)) =
             get_foregrounded_game().wrap_err("failed to get foregrounded game")?
@@ -148,6 +163,18 @@ where
 
         Ok(())
     }
+}
+
+fn get_free_space_in_mb(path: &std::path::Path) -> Option<u64> {
+    let disks = sysinfo::Disks::new_with_refreshed_list();
+    let path = dunce::canonicalize(path).ok()?;
+
+    // Find the disk with the longest matching mount point
+    disks
+        .iter()
+        .filter(|disk| path.starts_with(disk.mount_point()))
+        .max_by_key(|disk| disk.mount_point().as_os_str().len())
+        .map(|disk| disk.available_space() / 1024 / 1024)
 }
 
 pub enum NotificationType {

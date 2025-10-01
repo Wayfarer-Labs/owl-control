@@ -8,6 +8,7 @@ input-capture.workspace = true
 git-version.workspace = true
 game-process.workspace = true
 clap.workspace = true
+dunce.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tokio.workspace = true
