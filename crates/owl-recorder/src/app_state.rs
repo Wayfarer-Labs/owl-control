@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::config::Config;
+use crate::upload_manager::ProgressData;
 
 #[derive(Clone, PartialEq)]
 pub enum RecordingStatus {
@@ -37,6 +38,7 @@ impl AppState {
 /// to send information back to the rx running on the main UI thread
 pub enum Command {
     UpdateUserID(String),
+    UpdateUploadProgress(ProgressData),
 }
 
 #[derive(Clone)]
