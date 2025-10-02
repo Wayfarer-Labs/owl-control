@@ -33,7 +33,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   };
 
   const authService = AuthService.getInstance();
-  const pythonBridge = new PythonBridge();
 
   const loadUserInfo = useCallback(async () => {
     try {
@@ -230,7 +229,13 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           </div>
 
           {/* Upload Manager */}
-          <UploadPanel isAuthenticated={userInfo?.authenticated || false} />
+          <UploadPanel
+            isAuthenticated={userInfo?.authenticated || false}
+            unreliableConnection={unreliableConnection}
+            setUnreliableConnection={(value) => {
+              setUnreliableConnection(value);
+            }}
+          />
         </div>
 
         {/* Footer */}
