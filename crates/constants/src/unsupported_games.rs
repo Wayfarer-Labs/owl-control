@@ -48,6 +48,13 @@ pub const UNSUPPORTED_GAMES: &[UnsupportedGame] = &[
     ug("GTA: San Andreas", &["gta_sa"], ENOUGH_DATA_REASON),
     ug("GTA IV", &["gtaiv"], ENOUGH_DATA_REASON),
     ug("GTA V", &["gta5"], ENOUGH_DATA_REASON),
+    ug("Subnautica", &["subnautica"], ENOUGH_DATA_REASON),
+    ug("Far Cry", &["farcry"], ENOUGH_DATA_REASON),
+    ug("Far Cry 2", &["farcry2"], ENOUGH_DATA_REASON),
+    ug("Far Cry 3", &["farcry3"], ENOUGH_DATA_REASON),
+    ug("Far Cry 4", &["farcry4"], ENOUGH_DATA_REASON),
+    ug("Far Cry 5", &["farcry5"], ENOUGH_DATA_REASON),
+    ug("Far Cry 6", &["farcry6"], ENOUGH_DATA_REASON),
     ug(
         "Roblox",
         &["robloxstudiobeta", "robloxplayerbeta"],
