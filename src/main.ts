@@ -12,7 +12,11 @@ import {
 } from "electron";
 import * as path from "path";
 import * as fs from "fs";
-import { spawn, SpawnOptionsWithoutStdio } from "child_process";
+import {
+  ChildProcessWithoutNullStreams,
+  spawn,
+  SpawnOptionsWithoutStdio,
+} from "child_process";
 import { join } from "path";
 
 import "./log";
@@ -24,7 +28,9 @@ console.log(`=== OWL Control v${app.getVersion()} Debug Log Started ===`);
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let pythonProcess: any = null;
+
+let recordingBridgeProcess: ChildProcessWithoutNullStreams | null = null;
+let recordingRestartInterval: NodeJS.Timeout | null = null;
 let isRecording = false;
 
 // Secure store for credentials and preferences
@@ -489,65 +495,89 @@ async function ensurePythonDependencies() {
   });
 }
 
-// Start Python bridges after authentication
-
-// Start Python recording bridge
-function startRecordingBridge(startKey: string, stopKey: string) {
+function startRecordingBridge(reason: string) {
   try {
     // Stop existing process if running
-    if (pythonProcess) {
-      pythonProcess.kill();
-      pythonProcess = null;
-    }
+    if (recordingBridgeProcess) {
+      console.log("Stopping existing recording bridge");
+      recordingBridgeProcess.kill();
 
-    console.log(`Starting recording bridge`);
-    console.log(`Executing: ${recorderCommand()}`);
-    console.log(`Working directory: ${rootDir()}`);
-
-    pythonProcess = spawn(
-      recorderCommand(),
-      [
-        "--recording-location",
-        "./data_dump/games/",
-        "--start-key",
-        startKey,
-        "--stop-key",
-        stopKey,
-      ],
-      {
-        cwd: rootDir(),
-      },
-    );
-
-    // Handle output
-    pythonProcess.stdout.on("data", (data: Buffer) => {
-      console.log(`Recording bridge stdout: ${data.toString()}`);
-    });
-
-    pythonProcess.stderr.on("data", (data: Buffer) => {
-      console.error(`Recording bridge stderr: ${data.toString()}`);
-    });
-
-    pythonProcess.on("error", (error: Error) => {
-      console.error(`Recording bridge process error: ${error.message}`);
-      console.error(
-        `This usually means the executable was not found: ${recorderCommand()}`,
-      );
-    });
-
-    pythonProcess.on("close", (code: number) => {
-      console.log(`Recording bridge process exited with code ${code}`);
-      if (code !== 0) {
-        console.error(`Recording bridge failed with exit code ${code}`);
+      // Keep trying to restart until the previous process is dead
+      if (recordingRestartInterval) {
+        clearInterval(recordingRestartInterval);
+        recordingRestartInterval = null;
+        console.log("Stopped existing recording restart interval");
       }
-      pythonProcess = null;
-    });
 
-    return true;
+      console.log("Starting new recording restart interval");
+      recordingRestartInterval = setInterval(() => {
+        if (recordingBridgeProcess) {
+          console.log(
+            "Can't start new recording bridge, old process is still running",
+          );
+          return;
+        }
+
+        console.log("Old process is dead, starting new recording bridge");
+        startRecordingBridgeImmediately(reason);
+
+        if (recordingRestartInterval) {
+          clearInterval(recordingRestartInterval);
+          recordingRestartInterval = null;
+        }
+      }, 250);
+    } else {
+      console.log("Starting recording bridge immediately");
+      startRecordingBridgeImmediately(reason);
+    }
   } catch (error) {
     console.error("Error starting recording bridge:", error);
-    return false;
   }
+}
+
+function startRecordingBridgeImmediately(reason: string) {
+  console.log(`Starting recording bridge (reason: ${reason})`);
+  console.log(`Executing: ${recorderCommand()}`);
+  console.log(`Working directory: ${rootDir()}`);
+
+  recordingBridgeProcess = spawn(
+    recorderCommand(),
+    [
+      "--recording-location",
+      "./data_dump/games/",
+      "--start-key",
+      secureStore.preferences.startRecordingKey,
+      "--stop-key",
+      secureStore.preferences.stopRecordingKey,
+    ],
+    {
+      cwd: rootDir(),
+    },
+  );
+
+  // Handle output
+  recordingBridgeProcess.stdout.on("data", (data: Buffer) => {
+    console.log(`Recording bridge stdout: ${data.toString()}`);
+  });
+
+  recordingBridgeProcess.stderr.on("data", (data: Buffer) => {
+    console.error(`Recording bridge stderr: ${data.toString()}`);
+  });
+
+  recordingBridgeProcess.on("error", (error: Error) => {
+    console.error(`Recording bridge process error: ${error.message}`);
+    console.error(
+      `This usually means the executable was not found: ${recorderCommand()}`,
+    );
+  });
+
+  recordingBridgeProcess.on("close", (code: number | null) => {
+    console.log(`Recording bridge process exited with code ${code}`);
+    if (code !== 0 && code !== null) {
+      console.error(`Recording bridge failed with exit code ${code}`);
+    }
+    recordingBridgeProcess = null;
+  });
 }
 
 function recorderCommand() {
@@ -568,8 +598,7 @@ function rootDir() {
 }
 
 /**
- * Spawns uv with the same behavior as spawn_uv() in crates/video-audio-recorder/src/lib.rs.
- * These functions should be kept synchronized.
+ * Spawns Python code with a bundled / development uv.
  */
 function spawnUv(args: string[], options?: SpawnOptionsWithoutStdio) {
   const isDevelopment = process.env.NODE_ENV === "development";
@@ -639,14 +668,7 @@ app.on("ready", async () => {
     );
   }
 
-  // Start the Python bridges if authenticated
-  if (isAuthenticated()) {
-    const startKey = secureStore.preferences.startRecordingKey || "f4";
-    const stopKey = secureStore.preferences.stopRecordingKey || "f5";
-
-    // Start the recording bridge
-    startRecordingBridge(startKey, stopKey);
-  }
+  startRecordingBridge("ready");
 
   // If not authenticated, show main window for setup
   if (!isAuthenticated()) {
@@ -669,13 +691,11 @@ app.on("activate", () => {
 
 // Quit app completely when exiting
 app.on("before-quit", () => {
-  // Kill any running Python processes
-  if (pythonProcess) {
-    pythonProcess.kill();
-    pythonProcess = null;
+  // Kill the recording bridge process
+  if (recordingBridgeProcess) {
+    recordingBridgeProcess.kill();
+    recordingBridgeProcess = null;
   }
-
-  // Additional cleanup if needed
 });
 
 // Set up IPC handlers
@@ -756,7 +776,7 @@ function setupIpcHandlers() {
         const stopKey = secureStore.preferences.stopRecordingKey || "f5";
 
         // Restart the recording bridge
-        startRecordingBridge(startKey, stopKey);
+        startRecordingBridge("save-preferences");
       }
 
       return { success: true };
@@ -776,14 +796,6 @@ function setupIpcHandlers() {
     }
   });
 
-  // Start recording bridge
-  ipcMain.handle(
-    "start-recording-bridge",
-    async (_, startKey: string, stopKey: string) => {
-      return startRecordingBridge(startKey, stopKey);
-    },
-  );
-
   // Close settings window
   ipcMain.handle("close-settings", async () => {
     if (settingsWindow) {
@@ -795,13 +807,6 @@ function setupIpcHandlers() {
   // Authentication completed
   ipcMain.handle("authentication-completed", async () => {
     updateTrayMenu();
-
-    // Start the Python bridges after authentication
-    const startKey = secureStore.preferences.startRecordingKey || "f4";
-    const stopKey = secureStore.preferences.stopRecordingKey || "f5";
-
-    // Start the recording bridge
-    startRecordingBridge(startKey, stopKey);
 
     // Close main window if it exists
     if (mainWindow) {
