@@ -18,92 +18,93 @@ Games marked as `(admin)` have been reported to require running OBS+OWL Control 
 
 ## Top-Priority Games
 
-- Outer Wilds
-- The Witness
-- Edith Finch
-- The Unfinished Swan
-- Superliminal
-- Talos Principle
-- The Beginner's Guide
-- Stanley Parable
-- Thief
-- Satisfactory
-- Gone Home
-- Dear Esther
-- Everyone's Gone to the Rapture
-- Layers of Fear
-- Madison
-- Visage
-- Close to the Sun
-- Conundrum
+- [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
+- [The Witness](https://store.steampowered.com/app/210970/The_Witness/)
+- [What Remains of Edith Finch](https://store.steampowered.com/app/501300/What_Remains_of_Edith_Finch/)
+- [The Unfinished Swan](https://store.steampowered.com/app/1206430/The_Unfinished_Swan/)
+- [Superliminal](https://store.steampowered.com/app/1049410/Superliminal/)
+- [The Talos Principle](https://store.steampowered.com/app/257510/The_Talos_Principle/)
+- [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
+- [The Stanley Parable: Ultra Deluxe](https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/)
+- [Thief](https://store.steampowered.com/app/239160/Thief/)
+- [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/)
+- [Gone Home](https://store.steampowered.com/app/232430/Gone_Home/)
+- [Dear Esther](https://store.steampowered.com/app/203810/Dear_Esther_Landmark_Edition/)
+- [Everyone's Gone to the Rapture](https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/)
+- [Layers of Fear](https://store.steampowered.com/app/391720/Layers_of_Fear/)
+- [Madison](https://store.steampowered.com/app/1670870/MADiSON/)
+- [Visage](https://store.steampowered.com/app/594330/Visage/)
+- [Close to the Sun](https://store.steampowered.com/app/968870/Close_to_the_Sun/)
+- [Conundrum](https://store.steampowered.com/app/1744140/Conundrum/)
 
 ## Lower-Priority Games
 
 ### Movement / Parkour (continuous control, momentum, traversal)
 
-- Mirror’s Edge
-- Mirror’s Edge Catalyst
-- Titanfall 2
-- Dying Light
-- Dying Light 2
-- Ghostrunner
+- [Mirror's Edge](https://store.steampowered.com/app/17410/Mirrors_Edge/)
+- [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
+- [Titanfall 2](https://store.steampowered.com/app/1237970/Titanfall_2/)
+- [Dying Light](https://store.steampowered.com/app/239140/Dying_Light/)
+- [Dying Light 2](https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human/)
+- [Ghostrunner](https://store.steampowered.com/app/1139900/Ghostrunner/)
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
-- The Elder Scrolls V: Skyrim
-- Fallout 4
-- Fallout: New Vegas
-- Cyberpunk 2077
-- Red Dead Redemption 2
+- [The Elder Scrolls IV: Oblivion Remastered](https://store.steampowered.com/app/2623190/The_Elder_Scrolls_IV_Oblivion_Remastered/)
+- [The Elder Scrolls V: Skyrim](https://store.steampowered.com/app/489830/The_Elder_Scrolls_V_Skyrim_Special_Edition/)
+- [Fallout 4](https://store.steampowered.com/app/377160/Fallout_4/)
+- [Fallout: New Vegas](https://store.steampowered.com/app/22380/Fallout_New_Vegas/)
+- [Cyberpunk 2077](https://store.steampowered.com/app/1091500/Cyberpunk_2077/)
+- [Red Dead Redemption 2](https://store.steampowered.com/app/1174180/Red_Dead_Redemption_2/)
 
 ### Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)
 
-- Portal
-- Portal 2
-- The Talos Principle
-- Prey (2017)
-- Half‑Life
-- Half‑Life 2
-- Half‑Life 2: Episode Two
-- System Shock (2023 Remake)
+- [Portal](https://store.steampowered.com/app/400/Portal/)
+- [Portal 2](https://store.steampowered.com/app/620/Portal_2/)
+- [The Talos Principle](https://store.steampowered.com/app/257510/The_Talos_Principle/)
+- [Prey (2017)](https://store.steampowered.com/app/480490/Prey/)
+- [Half‑Life](https://store.steampowered.com/app/70/HalfLife/)
+- [Half‑Life 2](https://store.steampowered.com/app/220/HalfLife_2/)
+- [Half‑Life 2: Episode Two](https://store.steampowered.com/app/420/HalfLife_2_Episode_Two/)
+- [System Shock (2023 Remake)](https://store.steampowered.com/app/482400/System_Shock/)
 
 ### Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
 
-- F.E.A.R.
-- Deus Ex: Human Revolution
-- Deus Ex: Mankind Divided
-- BioShock
-- BioShock Infinite
+- [F.E.A.R.](https://store.steampowered.com/app/21090/FEAR/)
+- [Deus Ex: Human Revolution](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/)
+- [Deus Ex: Mankind Divided](https://store.steampowered.com/app/337000/Deus_Ex_Mankind_Divided/)
+- [BioShock](https://store.steampowered.com/app/7670/BioShock/)
+- [BioShock Infinite](https://store.steampowered.com/app/8870/BioShock_Infinite/)
 
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
-- Crysis
-- Crysis 2
-- Crysis 3 (admin)
-- S.T.A.L.K.E.R.: Shadow of Chernobyl
-- S.T.A.L.K.E.R.: Call of Pripyat
-- Metro 2033 Redux
-- Metro: Last Light Redux
-- Metro Exodus
+- [Crysis](https://store.steampowered.com/app/17300/Crysis/)
+- [Crysis 2](https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/)
+- [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/) (admin)
+- [S.T.A.L.K.E.R.: Shadow of Chernobyl](https://store.steampowered.com/app/4500/STALKER_Shadow_of_Chernobyl/)
+- [S.T.A.L.K.E.R.: Call of Pripyat](https://store.steampowered.com/app/41700/STALKER_Call_of_Pripyat/)
+- [Metro 2033 Redux](https://store.steampowered.com/app/286690/Metro_2033_Redux/)
+- [Metro: Last Light Redux](https://store.steampowered.com/app/287390/Metro_Last_Light_Redux/)
+- [Metro Exodus](https://store.steampowered.com/app/412020/Metro_Exodus/)
 
 ### Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
 
-- Alien: Isolation
-- Outlast
-- Amnesia: The Dark Descent
-- Resident Evil 7: Biohazard
-- Resident Evil Village
-- Condemned: Criminal Origins
+- [Alien: Isolation](https://store.steampowered.com/app/214490/Alien_Isolation/)
+- [Outlast](https://store.steampowered.com/app/238320/Outlast/)
+- [Amnesia: The Dark Descent](https://store.steampowered.com/app/57300/Amnesia_The_Dark_Descent/)
+- [Resident Evil 7: Biohazard](https://store.steampowered.com/app/418370/RESIDENT_EVIL_7_biohazard/)
+- [Resident Evil Village](https://store.steampowered.com/app/1196590/Resident_Evil_Village/)
+- [Condemned: Criminal Origins](https://store.steampowered.com/app/4720/Condemned_Criminal_Origins/)
 
 ### Campaign Shooters / Combined Arms (vehicles, squad AI, large arenas)
 
-- Halo: Combat Evolved Anniversary (MCC)
-- Halo 2 Anniversary (MCC)
-- Halo 3 (MCC)
-- Battlefield 3
-- Battlefield 4
-- Call of Duty 4: Modern Warfare
-- Call of Duty: Modern Warfare (2019) (admin)
+- [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
+- [Halo 2 Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
+- [Halo 3 (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
+- [Battlefield 3](https://store.steampowered.com/app/1238820/Battlefield_3/)
+- [Battlefield 4](https://store.steampowered.com/app/1238860/Battlefield_4/)
+- [Call of Duty 4: Modern Warfare](https://store.steampowered.com/app/7940/Call_of_Duty_4_Modern_Warfare/)
+- [Call of Duty: Modern Warfare (2019)](https://store.steampowered.com/app/2000950/Call_of_Duty_Modern_Warfare/) (admin)
 
 # Unwanted games
 
