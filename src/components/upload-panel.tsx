@@ -101,13 +101,13 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({
     try {
       const credentialsResult = await ElectronService.loadCredentials();
 
-      if (!credentialsResult.success || !credentialsResult.data.apiKey) {
+      if (!credentialsResult.apiKey) {
         setError("No API key found. Please configure your API key first.");
         return;
       }
 
       const result = await uploadService.startUpload(
-        credentialsResult.data.apiKey,
+        credentialsResult.apiKey,
         (progressData) => {
           setProgress(progressData);
           setIsUploading(progressData.isUploading);

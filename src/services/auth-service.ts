@@ -41,12 +41,9 @@ export class AuthService {
   private async loadApiKey(): Promise<void> {
     try {
       const result = await ElectronService.loadCredentials();
-      if (result.success && result.data.apiKey) {
-        this.apiKey = result.data.apiKey;
-        // Convert stored consent value to a strict boolean
-        const consentVal = result.data.hasConsented;
-        this.hasConsented = consentVal === true || consentVal === "true";
-      }
+      this.apiKey = result.apiKey;
+      this.hasConsented =
+        result.hasConsented === true || result.hasConsented === "true";
     } catch (error) {
       console.error("loadApiKey: Error loading API key:", error);
     }
@@ -109,7 +106,7 @@ export class AuthService {
       this.userId = response.userId;
 
       // Save to secure storage
-      await ElectronService.saveCredentials("apiKey", apiKey);
+      await ElectronService.saveCredentials({ apiKey });
 
       return { success: true, userId: response.userId };
     } catch (error) {
@@ -125,10 +122,7 @@ export class AuthService {
     this.hasConsented = hasConsented;
 
     // Save to secure storage
-    await ElectronService.saveCredentials(
-      "hasConsented",
-      hasConsented ? "true" : "false",
-    );
+    await ElectronService.saveCredentials({ hasConsented });
   }
 
   /**
@@ -185,7 +179,6 @@ export class AuthService {
     this.userId = null;
 
     // Remove from secure storage
-    await ElectronService.saveCredentials("apiKey", "");
-    await ElectronService.saveCredentials("hasConsented", "false");
+    await ElectronService.saveCredentials({ apiKey: "", hasConsented: false });
   }
 }

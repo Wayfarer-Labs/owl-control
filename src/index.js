@@ -66,8 +66,7 @@ const App = () => {
 
     // Resize window for consent page
     try {
-      const { ipcRenderer } = window.require("electron");
-      await ipcRenderer.invoke("resize-for-consent");
+      await ElectronService.resizeForConsent();
     } catch (error) {
       console.error("Error resizing window for consent:", error);
     }
@@ -84,8 +83,7 @@ const App = () => {
 
     // Resize window back to API key size
     try {
-      const { ipcRenderer } = window.require("electron");
-      await ipcRenderer.invoke("resize-for-api-key");
+      await ElectronService.resizeForApiKey();
     } catch (error) {
       console.error("Error resizing window for API key:", error);
     }

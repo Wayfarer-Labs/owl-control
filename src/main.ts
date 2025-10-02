@@ -20,6 +20,13 @@ import {
 import { join } from "path";
 
 import "./log";
+import {
+  Credentials,
+  DEFAULT_CREDENTIALS,
+  DEFAULT_PREFERENCES,
+  IpcResponse,
+  Preferences,
+} from "./settings";
 
 // Log app startup
 console.log(`=== OWL Control v${app.getVersion()} Debug Log Started ===`);
@@ -35,12 +42,8 @@ let isRecording = false;
 
 // Secure store for credentials and preferences
 const secureStore = {
-  credentials: {} as Record<string, string>,
-  preferences: {
-    startRecordingKey: "f4",
-    stopRecordingKey: "f5",
-    apiToken: "",
-  } as Record<string, any>,
+  credentials: DEFAULT_CREDENTIALS,
+  preferences: DEFAULT_PREFERENCES,
 };
 
 // Path to store config
@@ -52,17 +55,16 @@ function loadConfig() {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       if (config.credentials) {
-        secureStore.credentials = config.credentials;
+        secureStore.credentials = {
+          ...DEFAULT_CREDENTIALS,
+          ...config.credentials,
+        };
       }
       if (config.preferences) {
-        secureStore.preferences = { ...config.preferences };
-        // Ensure hotkeys have default values if not set
-        if (!secureStore.preferences.startRecordingKey) {
-          secureStore.preferences.startRecordingKey = "f4";
-        }
-        if (!secureStore.preferences.stopRecordingKey) {
-          secureStore.preferences.stopRecordingKey = "f5";
-        }
+        secureStore.preferences = {
+          ...DEFAULT_PREFERENCES,
+          ...config.preferences,
+        };
       }
     }
   } catch (error) {
@@ -89,11 +91,10 @@ function saveConfig() {
 function isAuthenticated() {
   return (
     secureStore.credentials.apiKey &&
-    secureStore.credentials.hasConsented === "true"
+    (secureStore.credentials.hasConsented === "true" ||
+      secureStore.credentials.hasConsented === true)
   );
 }
-
-// Note: Hotkeys are handled by the Python recording bridge
 
 // Create the main window
 function createMainWindow() {
@@ -737,64 +738,80 @@ function setupIpcHandlers() {
   });
 
   // Save credentials
-  ipcMain.handle("save-credentials", async (_, key: string, value: string) => {
-    try {
-      secureStore.credentials[key] = value;
-      saveConfig();
+  ipcMain.handle(
+    "save-credentials",
+    async (
+      _,
+      credentials: Partial<Credentials>,
+    ): Promise<IpcResponse<void>> => {
+      try {
+        secureStore.credentials = {
+          ...secureStore.credentials,
+          ...credentials,
+        };
+        saveConfig();
 
-      // Update tray menu if authentication state changed
-      if (key === "apiKey" || key === "hasConsented") {
         updateTrayMenu();
-      }
 
-      return { success: true };
-    } catch (error) {
-      console.error("Error saving credentials:", error);
-      return { success: false, error: String(error) };
-    }
-  });
+        return { success: true, data: undefined };
+      } catch (error) {
+        console.error("Error saving credentials:", error);
+        return { success: false, error: String(error) };
+      }
+    },
+  );
 
   // Load credentials
-  ipcMain.handle("load-credentials", async () => {
-    try {
-      return { success: true, data: secureStore.credentials };
-    } catch (error) {
-      console.error("Error loading credentials:", error);
-      return { success: false, data: {}, error: String(error) };
-    }
-  });
+  ipcMain.handle(
+    "load-credentials",
+    async (): Promise<IpcResponse<Credentials>> => {
+      try {
+        return {
+          success: true,
+          data: { ...DEFAULT_CREDENTIALS, ...secureStore.credentials },
+        };
+      } catch (error) {
+        console.error("Error loading credentials:", error);
+        return { success: false, error: String(error) };
+      }
+    },
+  );
 
   // Save preferences
-  ipcMain.handle("save-preferences", async (_, preferences: any) => {
-    try {
-      secureStore.preferences = { ...secureStore.preferences, ...preferences };
-      saveConfig();
-
-      // Restart the Python bridges with new preferences if authenticated
-      if (isAuthenticated()) {
-        const startKey = secureStore.preferences.startRecordingKey || "f4";
-        const stopKey = secureStore.preferences.stopRecordingKey || "f5";
-
-        // Restart the recording bridge
+  ipcMain.handle(
+    "save-preferences",
+    async (_, preferences: any): Promise<IpcResponse<void>> => {
+      try {
+        secureStore.preferences = {
+          ...secureStore.preferences,
+          ...preferences,
+        };
+        saveConfig();
         startRecordingBridge("save-preferences");
-      }
 
-      return { success: true };
-    } catch (error) {
-      console.error("Error saving preferences:", error);
-      return { success: false, error: String(error) };
-    }
-  });
+        return { success: true, data: undefined };
+      } catch (error) {
+        console.error("Error saving preferences:", error);
+        return { success: false, error: String(error) };
+      }
+    },
+  );
 
   // Load preferences
-  ipcMain.handle("load-preferences", async () => {
-    try {
-      return { success: true, data: secureStore.preferences };
-    } catch (error) {
-      console.error("Error loading preferences:", error);
-      return { success: false, data: {}, error: String(error) };
-    }
-  });
+  ipcMain.handle(
+    "load-preferences",
+    async (): Promise<IpcResponse<Preferences>> => {
+      try {
+        return {
+          success: true,
+          data: { ...DEFAULT_PREFERENCES, ...secureStore.preferences },
+        };
+      } catch (error) {
+        console.error("Error loading preferences:", error);
+        return { success: false, error: String(error) };
+      }
+    },
+  );
 
   // Close settings window
   ipcMain.handle("close-settings", async () => {
