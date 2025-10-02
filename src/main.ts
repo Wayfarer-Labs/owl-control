@@ -227,13 +227,6 @@ function createSettingsWindow() {
         color: #f8f9fa !important;
       }
 
-      /* Form inputs */
-      input, select, textarea, [type="text"], [type="password"], [type="email"], [class*="input"] {
-        background-color: #1f2028 !important;
-        border-color: #2a2d35 !important;
-        color: #f8f9fa !important;
-      }
-
       /* Text colors */
       p, h1, h2, h3, h4, h5, h6, span, label {
         color: #f8f9fa !important;
@@ -864,6 +857,7 @@ function setupIpcHandlers() {
           "--api-token",
           options.apiToken,
           "--progress", // Add progress flag for detailed output
+          ...(options.unreliableConnection ? ["--unreliable-connections"] : []),
         ],
         {
           cwd: rootDir(),
