@@ -1,6 +1,6 @@
 [package]
 name = "owl-recorder"
-version = "0.10.2"
+version = "0.11.0"
 edition = "2024"
 
 [dependencies]
@@ -8,6 +8,7 @@ input-capture.workspace = true
 git-version.workspace = true
 game-process.workspace = true
 clap.workspace = true
+dunce.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tokio.workspace = true

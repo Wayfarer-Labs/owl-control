@@ -1540,6 +1540,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
+name = "dunce"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
+
+[[package]]
 name = "duplicate"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4545,7 +4551,7 @@ dependencies = [
 
 [[package]]
 name = "owl-recorder"
-version = "0.10.2"
+version = "0.11.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4553,6 +4559,7 @@ dependencies = [
  "color-eyre",
  "constants",
  "dirs 6.0.0",
+ "dunce",
  "eframe",
  "egui",
  "egui_extras",

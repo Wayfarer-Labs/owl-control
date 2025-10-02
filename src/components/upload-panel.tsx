@@ -8,12 +8,16 @@ import { ElectronService } from "../services/electron-service";
 
 interface UploadPanelProps {
   isAuthenticated: boolean;
+  unreliableConnection: boolean;
+  setUnreliableConnection: (unreliableConnection: boolean) => void;
   className?: string;
 }
 
 export const UploadPanel: React.FC<UploadPanelProps> = ({
   className = "",
   isAuthenticated,
+  unreliableConnection,
+  setUnreliableConnection,
 }) => {
   const [uploadService] = useState(() => UploadService.getInstance());
   const [isUploading, setIsUploading] = useState(false);
@@ -101,13 +105,14 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({
     try {
       const credentialsResult = await ElectronService.loadCredentials();
 
-      if (!credentialsResult.success || !credentialsResult.data.apiKey) {
+      if (!credentialsResult.apiKey) {
         setError("No API key found. Please configure your API key first.");
         return;
       }
 
       const result = await uploadService.startUpload(
-        credentialsResult.data.apiKey,
+        credentialsResult.apiKey,
+        unreliableConnection,
         (progressData) => {
           setProgress(progressData);
           setIsUploading(progressData.isUploading);
@@ -220,6 +225,25 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({
             </div>
           </div>
         )}
+
+        {/* Unreliable Connection Setting */}
+        <div className="space-y-2">
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={unreliableConnection}
+              onChange={(e) => setUnreliableConnection(e.target.checked)}
+              disabled={isUploading}
+            />
+            <span className="text-sm text-white">
+              Optimize for unreliable connections
+            </span>
+          </label>
+          <p className="text-xs text-gray-400">
+            Enable this if you have a slow or unstable internet connection. This
+            will use smaller file chunks to improve upload success rates.
+          </p>
+        </div>
 
         {/* Control Button */}
         <button

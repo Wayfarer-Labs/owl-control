@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { AuthService } from "@/services/auth-service";
+import { ElectronService } from "@/services/electron-service";
 
 interface ConsentPageProps {
   apiKey: string;
@@ -56,8 +57,7 @@ export function ConsentPage({ apiKey, onConsent, onCancel }: ConsentPageProps) {
 
       // Notify Electron to update the tray menu and close the window
       try {
-        const { ipcRenderer } = window.require("electron");
-        await ipcRenderer.invoke("authentication-completed");
+        await ElectronService.authenticationCompleted();
       } catch (error) {
         console.error(
           "Error notifying Electron about authentication completion:",

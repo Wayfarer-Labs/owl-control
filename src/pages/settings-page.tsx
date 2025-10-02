@@ -3,8 +3,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthService, UserInfo } from "@/services/auth-service";
-import { PythonBridge } from "@/services/python-bridge";
 import { UploadPanel } from "@/components/upload-panel";
+import { ElectronService } from "@/services/electron-service";
 
 interface SettingsPageProps {
   onClose: () => void;
@@ -12,8 +12,12 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [startRecordingKey, setStartRecordingKey] = useState("f4");
-  const [stopRecordingKey, setStopRecordingKey] = useState("f5");
+  const [startRecordingKey, setStartRecordingKey] = useState<string | null>(
+    null,
+  );
+  const [stopRecordingKey, setStopRecordingKey] = useState<string | null>(null);
+  const [unreliableConnection, setUnreliableConnection] =
+    useState<boolean>(false);
 
   // Define the button styles directly in the component for reliability
   const buttonStyle = {
@@ -29,7 +33,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   };
 
   const authService = AuthService.getInstance();
-  const pythonBridge = new PythonBridge();
 
   const loadUserInfo = useCallback(async () => {
     try {
@@ -43,28 +46,26 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
   // Load preferences on component mount
   useEffect(() => {
-    // Load preferences
-    const prefs = pythonBridge.loadPreferences();
-    if (prefs.startRecordingKey) setStartRecordingKey(prefs.startRecordingKey);
-    if (prefs.stopRecordingKey) setStopRecordingKey(prefs.stopRecordingKey);
+    (async () => {
+      // Load preferences
+      const prefs = await ElectronService.loadPreferences();
+      if (prefs.startRecordingKey)
+        setStartRecordingKey(prefs.startRecordingKey);
+      if (prefs.stopRecordingKey) setStopRecordingKey(prefs.stopRecordingKey);
+      if (prefs.unreliableConnection)
+        setUnreliableConnection(prefs.unreliableConnection);
 
-    // Always load user info after preferences
-    loadUserInfo();
+      // Always load user info after preferences
+      loadUserInfo();
+    })();
   }, [loadUserInfo]);
 
-  const savePreferences = () => {
-    pythonBridge.savePreferences({
-      startRecordingKey,
-      stopRecordingKey,
+  const savePreferences = async () => {
+    await ElectronService.savePreferences({
+      startRecordingKey: startRecordingKey || "f4",
+      stopRecordingKey: stopRecordingKey || "f5",
+      unreliableConnection: unreliableConnection,
     });
-
-    // After saving preferences, automatically start the Python bridges
-    pythonBridge.startRecordingBridge();
-    if (userInfo && userInfo.authenticated) {
-      pythonBridge.startUploadBridge(userInfo.apiKey);
-    } else {
-      console.error("User info not found or not authenticated");
-    }
   };
 
   const handleLogout = async () => {
@@ -77,8 +78,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
     if (isSettingsDirectNavigation) {
       // Close the window via IPC if it's a direct settings window
       try {
-        const { ipcRenderer } = window.require("electron");
-        await ipcRenderer.invoke("close-settings");
+        await ElectronService.closeSettingsWindow();
       } catch (error) {
         console.error("Error closing settings window:", error);
       }
@@ -88,17 +88,16 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
     }
   };
 
-  const handleSaveAndExit = () => {
+  const handleSaveAndExit = async () => {
     // Save preferences
-    savePreferences();
+    await savePreferences();
 
     // Close window right after saving
     const isSettingsDirectNavigation =
       window.location.search.includes("page=settings");
     if (isSettingsDirectNavigation) {
       try {
-        const { ipcRenderer } = window.require("electron");
-        ipcRenderer.invoke("close-settings");
+        await ElectronService.closeSettingsWindow();
       } catch (error) {
         console.error("Error closing settings window:", error);
       }
@@ -166,7 +165,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                 </Label>
                 <Input
                   id="startRecordingKey"
-                  value={startRecordingKey}
+                  value={startRecordingKey || ""}
                   onChange={(e) => setStartRecordingKey(e.target.value)}
                   placeholder="e.g., f4"
                   className="bg-[#0c0c0f] border-[#2a2d35] text-white"
@@ -198,7 +197,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                 </Label>
                 <Input
                   id="stopRecordingKey"
-                  value={stopRecordingKey}
+                  value={stopRecordingKey || ""}
                   onChange={(e) => setStopRecordingKey(e.target.value)}
                   placeholder="e.g., f5"
                   className="bg-[#0c0c0f] border-[#2a2d35] text-white"
@@ -230,7 +229,13 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           </div>
 
           {/* Upload Manager */}
-          <UploadPanel isAuthenticated={userInfo?.authenticated || false} />
+          <UploadPanel
+            isAuthenticated={userInfo?.authenticated || false}
+            unreliableConnection={unreliableConnection}
+            setUnreliableConnection={(value) => {
+              setUnreliableConnection(value);
+            }}
+          />
         </div>
 
         {/* Footer */}

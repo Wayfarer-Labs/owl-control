@@ -19,6 +19,7 @@ def upload_archive(
     tags: Optional[List[str]] = None,
     base_url: str = API_BASE_URL,
     progress_mode: bool = False,
+    unreliable_connections: bool = False,
     video_filename: Optional[str] = None,
     control_filename: Optional[str] = None,
     video_duration_seconds: Optional[float] = None,
@@ -46,6 +47,7 @@ def upload_archive(
         video_height=video_height,
         video_codec=video_codec,
         video_fps=video_fps,
+        chunk_size_bytes=5 * 1024 * 1024 if unreliable_connections else None,
     )
 
     upload_id = upload_session["upload_id"]
@@ -113,6 +115,7 @@ def upload_archive(
                             total_bytes=file_size,
                             total_chunks=total_chunks,
                             bytes_uploaded_before_chunk=bytes_uploaded,
+                            unreliable_connections=unreliable_connections,
                         )
 
                         chunk_etags.append(
@@ -218,6 +221,7 @@ def upload_single_chunk(
     total_bytes: int = 0,
     total_chunks: int = 0,
     bytes_uploaded_before_chunk: int = 0,
+    unreliable_connections: bool = False,
 ) -> str:
     """
     Upload a single chunk using curl with retry logic and progress tracking.
@@ -258,8 +262,10 @@ def upload_single_chunk(
                     base_url=base_url,
                 )
 
+                timeout = 60 * 60 if unreliable_connections else 5 * 60
+
                 # Use curl to upload the chunk with progress output
-                curl_command = f'curl -X PUT -H "Content-Type: application/octet-stream" -T {shlex.quote(temp_chunk_path)} -# --show-error --fail --max-time 300 --dump-header - {shlex.quote(chunk_upload_url)}'
+                curl_command = f'curl -X PUT -H "Content-Type: application/octet-stream" -T {shlex.quote(temp_chunk_path)} -# --show-error --fail --max-time {timeout} --dump-header - {shlex.quote(chunk_upload_url)}'
 
                 # Execute curl command with real-time progress parsing
                 process = subprocess.Popen(
@@ -388,6 +394,7 @@ def init_multipart_upload(
     video_height: Optional[int] = None,
     video_codec: Optional[str] = None,
     video_fps: Optional[float] = None,
+    chunk_size_bytes: Optional[int] = None,
 ) -> dict:
     """Initialize an upload session."""
 
@@ -415,6 +422,8 @@ def init_multipart_upload(
         payload["video_codec"] = video_codec
     if video_fps is not None:
         payload["video_fps"] = video_fps
+    if chunk_size_bytes is not None:
+        payload["chunk_size_bytes"] = chunk_size_bytes
 
     headers = {"Content-Type": "application/json", "X-API-Key": api_key}
     url = f"{base_url}/tracker/upload/game_control/multipart/init"

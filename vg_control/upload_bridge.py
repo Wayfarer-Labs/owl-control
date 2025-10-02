@@ -13,6 +13,11 @@ def main():
     parser.add_argument(
         "--progress", action="store_true", help="Enable progress output for UI"
     )
+    parser.add_argument(
+        "--unreliable-connections",
+        action="store_true",
+        help="Tweak upload settings for unreliable connections",
+    )
 
     # Parse arguments
     args = parser.parse_args()
@@ -25,7 +30,11 @@ def main():
     )
 
     try:
-        upload_all_files(token, progress_mode=progress_mode)
+        upload_all_files(
+            token,
+            progress_mode=progress_mode,
+            unreliable_connections=args.unreliable_connections,
+        )
         print("Upload completed successfully")
         return 0
     except Exception as e:

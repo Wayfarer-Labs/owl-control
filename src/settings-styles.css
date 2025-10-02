@@ -99,9 +99,9 @@ textarea,
 [type="password"],
 [type="email"],
 [class*="input"] {
-  background-color: #1f2028 !important;
-  border-color: #2a2d35 !important;
-  color: #f8f9fa !important;
+  background-color: #1f2028;
+  border-color: #2a2d35;
+  color: #f8f9fa;
 }
 
 /* Text elements with higher specificity */

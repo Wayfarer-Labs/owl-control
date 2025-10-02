@@ -431,6 +431,7 @@ input[type="checkbox"] {
   vertical-align: middle;
   cursor: pointer;
   transition: all 0.3s ease;
+  color: white;
 }
 
 input[type="checkbox"]:checked {
