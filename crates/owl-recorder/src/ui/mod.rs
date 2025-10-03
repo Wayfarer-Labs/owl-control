@@ -31,7 +31,7 @@ enum HotkeyState {
 pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([600.0, 600.0])
+            .with_inner_size([600.0, 630.0])
             .with_resizable(true)
             .with_title("OWL Control")
             .with_icon(tray_icon::egui_icon()),
@@ -95,13 +95,10 @@ impl MainApp {
         visible: Arc<AtomicBool>,
         rx: CommandReceiver,
     ) -> Result<Self> {
-        let local_credentials: Credentials;
-        let local_preferences: Preferences;
-        {
+        let (local_credentials, local_preferences) = {
             let configs = app_state.config.read().unwrap();
-            local_credentials = configs.credentials.clone();
-            local_preferences = configs.preferences.clone();
-        }
+            (configs.credentials.clone(), configs.preferences.clone())
+        };
         Ok(Self {
             app_state,
             frame: 0,
@@ -361,24 +358,41 @@ impl MainApp {
                         );
                     });
 
+
+                    // Unreliable Connection Setting
                     ui.add_space(10.0);
-                    if ui
-                        .add_sized(
-                            egui::vec2(ui.available_width(), 32.0),
-                            egui::Button::new(
-                                egui::RichText::new("Upload Recordings").size(12.0).strong(),
-                            ),
-                        )
-                        .clicked()
-                    {
-                        // Handle upload
-                        if !is_upload_bridge_running() {
+                    ui.horizontal(|ui| {
+                        ui.add(egui::Checkbox::new(
+                            &mut self.local_preferences.unreliable_connection,
+                            "Optimize for unreliable connections",
+                        ));
+                    });
+                    ui.label(
+                        egui::RichText::new("Enable this if you have a slow or unstable internet connection. This will use smaller file chunks to improve upload success rates.")
+                            .size(10.0)
+                            .color(egui::Color32::from_rgb(128, 128, 128)),
+                    );
+
+                    // Upload Button
+                    ui.add_space(10.0);
+                    ui.add_enabled_ui(!is_upload_bridge_running(), |ui| {
+                        if ui
+                            .add_sized(
+                                egui::vec2(ui.available_width(), 32.0),
+                                egui::Button::new(
+                                    egui::RichText::new("Upload Recordings").size(12.0).strong(),
+                                ),
+                            )
+                            .clicked()
+                        {
+                            // Handle upload
                             let api_key = self.local_credentials.api_key.clone();
+                            let unreliable_connection = self.local_preferences.unreliable_connection;
                             std::thread::spawn(move || {
-                                start_upload_bridge(&api_key);
+                                start_upload_bridge(&api_key, unreliable_connection);
                             });
                         }
-                    }
+                    });
                 });
 
                 // Logo

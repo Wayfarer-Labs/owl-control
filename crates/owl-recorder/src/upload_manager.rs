@@ -19,7 +19,7 @@ pub struct ProgressData {
     action: Option<String>,
 }
 
-pub fn start_upload_bridge(api_token: &str) -> bool {
+pub fn start_upload_bridge(api_token: &str, unreliable_connection: bool) -> bool {
     let progress_filepath: PathBuf = env::temp_dir().join("owl-control-upload-progress.json");
     // Check if already running
     if IS_RUNNING.load(Ordering::SeqCst) {
@@ -42,14 +42,19 @@ pub fn start_upload_bridge(api_token: &str) -> bool {
         }
     };
 
+    let mut args = vec![
+        "run",
+        "-m",
+        "vg_control.upload_bridge",
+        "--api-token",
+        api_token,
+    ];
+    if unreliable_connection {
+        args.push("--unreliable-connections");
+    }
+
     let mut child = match Command::new("uv")
-        .args([
-            "run",
-            "-m",
-            "vg_control.upload_bridge",
-            "--api-token",
-            api_token,
-        ])
+        .args(args)
         .current_dir(root_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

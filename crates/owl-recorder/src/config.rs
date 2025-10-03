@@ -13,6 +13,8 @@ pub struct Preferences {
     pub start_recording_key: String,
     #[serde(default = "default_stop_key")]
     pub stop_recording_key: String,
+    #[serde(default)]
+    pub unreliable_connection: bool,
     #[serde(default = "default_opacity")]
     pub overlay_opacity: u8,
     #[serde(default)]
@@ -27,10 +29,11 @@ impl Default for Preferences {
         Self {
             start_recording_key: default_start_key(),
             stop_recording_key: default_stop_key(),
+            unreliable_connection: Default::default(),
             overlay_opacity: default_opacity(),
-            delete_uploaded_files: false,
-            honk: false,
-            recording_backend: RecordingBackend::default(),
+            delete_uploaded_files: Default::default(),
+            honk: Default::default(),
+            recording_backend: Default::default(),
         }
     }
 }
