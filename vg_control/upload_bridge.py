@@ -11,9 +11,6 @@ def main():
         "--api-token", type=str, required=True, help="API token for upload"
     )
     parser.add_argument(
-        "--progress", action="store_true", help="Enable progress output for UI"
-    )
-    parser.add_argument(
         "--unreliable-connections",
         action="store_true",
         help="Tweak upload settings for unreliable connections",
@@ -23,16 +20,12 @@ def main():
     args = parser.parse_args()
 
     token = args.api_token.strip()
-    progress_mode = args.progress
 
-    print(
-        f"Upload bridge v{version('vg-control')} starting with token={token[:4]}... progress={progress_mode}"
-    )
+    print(f"Upload bridge v{version('vg-control')} starting with token={token[:4]}")
 
     try:
         upload_all_files(
             token,
-            progress_mode=progress_mode,
             unreliable_connections=args.unreliable_connections,
         )
         print("Upload completed successfully")

@@ -22,6 +22,7 @@ pub struct AppState {
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
     pub upload_stats: RwLock<UploadStats>,
+    pub upload_progress: RwLock<Option<ProgressData>>,
     pub tx: CommandSender,
 }
 
@@ -31,6 +32,7 @@ impl AppState {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
             upload_stats: RwLock::new(UploadStats::load().expect("failed to init upload stats")),
+            upload_progress: RwLock::new(None),
             tx,
         }
     }
@@ -40,7 +42,6 @@ impl AppState {
 /// to send information back to the rx running on the main UI thread
 pub enum Command {
     UpdateUserID(String),
-    UpdateUploadProgress(ProgressData),
 }
 
 #[derive(Clone)]

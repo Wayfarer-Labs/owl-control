@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 import tarfile
 import json
+import sys
 
 from ..constants import (
     ROOT_DIR,
@@ -227,12 +228,11 @@ def filter_invalid_sample(vid_path, csv_path, meta_path) -> list[str]:
 
 
 class OWLDataManager:
-    def __init__(self, token, progress_mode=False, unreliable_connections=False):
+    def __init__(self, token, unreliable_connections=False):
         self.staged_files = []
         self.staging_dir = "staging"
         self.current_tar_uuid = None
         self.token = token
-        self.progress_mode = progress_mode
         self.unreliable_connections = unreliable_connections
         self.total_duration = 0.0  # Track total duration of uploaded videos
         self.total_bytes = 0  # Track total bytes of files
@@ -312,7 +312,6 @@ class OWLDataManager:
                     upload_archive(
                         self.token,
                         tar_name,
-                        progress_mode=self.progress_mode,
                         unreliable_connections=self.unreliable_connections,
                         video_filename=mp4_file,
                         control_filename=csv_file,
@@ -340,23 +339,21 @@ class OWLDataManager:
                 os.remove(os.path.join(root, ".uploaded"))
 
 
-def upload_all_files(token, progress_mode=False, unreliable_connections=False):
+def upload_all_files(token, unreliable_connections=False):
     manager = OWLDataManager(
         token,
-        progress_mode=progress_mode,
         unreliable_connections=unreliable_connections,
     )
     has_files = manager.process_individual_sessions()
 
     # Output final stats for the main process to capture
-    if progress_mode:
-        final_stats = {
-            "phase": "complete",
-            "total_files_uploaded": len(manager.staged_files),
-            "total_duration_uploaded": manager.total_duration,
-            "total_bytes_uploaded": manager.total_bytes,
-        }
-        print(f"FINAL_STATS: {json.dumps(final_stats)}")
+    final_stats = {
+        "phase": "complete",
+        "total_files_uploaded": len(manager.staged_files),
+        "total_duration_uploaded": manager.total_duration,
+        "total_bytes_uploaded": manager.total_bytes,
+    }
+    print(f"FINAL_STATS: {json.dumps(final_stats)}", file=sys.stderr)
 
     return {
         "files_uploaded": len(manager.staged_files) if has_files else 0,

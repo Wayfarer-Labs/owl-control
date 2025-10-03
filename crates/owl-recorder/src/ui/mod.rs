@@ -12,7 +12,7 @@ use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 use crate::{
     app_state::{AppState, Command, CommandReceiver},
     config::{Credentials, Preferences},
-    upload_manager::{is_upload_bridge_running, start_upload_bridge},
+    upload,
 };
 
 use eframe::egui;
@@ -365,6 +365,25 @@ impl MainApp {
                         );
                     });
 
+                    // Progress Bar
+                    let current_upload_progress =
+                        self.app_state.upload_progress.read().unwrap().clone();
+                    let is_uploading = current_upload_progress.is_some();
+                    if let Some(progress) = current_upload_progress {
+                        ui.add_space(10.0);
+                        ui.label(format!(
+                            "Current upload: {}% ({}/{})",
+                            progress.percent,
+                            util::format_bytes(progress.bytes_uploaded),
+                            util::format_bytes(progress.total_bytes),
+                        ));
+                        ui.add(egui::ProgressBar::new(progress.percent as f32 / 100.0));
+                        ui.label(format!(
+                            "Speed: {:.1} MB/s • ETA: {}",
+                            progress.speed_mbps,
+                            util::format_seconds(progress.eta_seconds as u64),
+                        ));
+                    }
 
                     // Unreliable Connection Setting
                     ui.add_space(10.0);
@@ -375,28 +394,39 @@ impl MainApp {
                         ));
                     });
                     ui.label(
-                        egui::RichText::new("Enable this if you have a slow or unstable internet connection. This will use smaller file chunks to improve upload success rates.")
-                            .size(10.0)
-                            .color(egui::Color32::from_rgb(128, 128, 128)),
+                        egui::RichText::new(concat!(
+                            "Enable this if you have a slow or unstable internet connection. ",
+                            "This will use smaller file chunks to improve upload success rates."
+                        ))
+                        .size(10.0)
+                        .color(egui::Color32::from_rgb(128, 128, 128)),
                     );
 
                     // Upload Button
                     ui.add_space(10.0);
-                    ui.add_enabled_ui(!is_upload_bridge_running(), |ui| {
+                    ui.add_enabled_ui(!is_uploading, |ui| {
                         if ui
                             .add_sized(
                                 egui::vec2(ui.available_width(), 32.0),
                                 egui::Button::new(
-                                    egui::RichText::new("Upload Recordings").size(12.0).strong(),
+                                    egui::RichText::new(if is_uploading {
+                                        "Upload in Progress..."
+                                    } else {
+                                        "Upload Recordings"
+                                    })
+                                    .size(12.0)
+                                    .strong(),
                                 ),
                             )
                             .clicked()
                         {
                             // Handle upload
+                            let app_state = self.app_state.clone();
                             let api_key = self.local_credentials.api_key.clone();
-                            let unreliable_connection = self.local_preferences.unreliable_connection;
+                            let unreliable_connection =
+                                self.local_preferences.unreliable_connection;
                             std::thread::spawn(move || {
-                                start_upload_bridge(&api_key, unreliable_connection);
+                                upload::start(app_state, &api_key, unreliable_connection);
                             });
                         }
                     });

@@ -14,7 +14,7 @@ mod recorder;
 mod recording;
 mod recording_thread;
 mod ui;
-mod upload_manager;
+mod upload;
 
 use std::{path::PathBuf, time::Duration};
 
