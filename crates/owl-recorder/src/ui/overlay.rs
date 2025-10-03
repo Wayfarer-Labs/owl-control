@@ -15,7 +15,10 @@ use windows::Win32::{
     },
 };
 
-use crate::app_state::{AppState, RecordingStatus};
+use crate::{
+    app_state::{AppState, RecordingStatus},
+    ui::util,
+};
 
 pub struct OverlayApp {
     frame: u64,
@@ -179,7 +182,10 @@ impl EguiOverlay for OverlayApp {
                                 },
                             );
                             job.append(
-                                &format!(" ({}s)", start_time.elapsed().as_secs()),
+                                &format!(
+                                    " ({})",
+                                    util::format_seconds(start_time.elapsed().as_secs())
+                                ),
                                 0.0,
                                 TextFormat {
                                     font_id,

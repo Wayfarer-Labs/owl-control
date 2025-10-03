@@ -20,6 +20,7 @@ use egui::ViewportCommand;
 
 mod overlay;
 pub mod tray_icon;
+mod util;
 
 #[derive(PartialEq)]
 enum HotkeyState {
