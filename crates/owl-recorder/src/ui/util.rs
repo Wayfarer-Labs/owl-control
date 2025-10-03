@@ -25,7 +25,7 @@ pub fn format_seconds(total_seconds: u64) -> String {
     }
 }
 
-/// Give a datetime, formats it into a human-readable string (e.g., "10/03/2025 at 10:00:00 AM").
+/// Give a datetime, formats it into a human-readable string (e.g., "2025-03-10 10:00:00").
 pub fn format_datetime(dt: chrono::DateTime<chrono::Local>) -> String {
-    format!("{} at {}", dt.format("%m/%d/%Y"), dt.format("%I:%M:%S %p"))
+    dt.format("%Y-%m-%d %H:%M:%S").to_string()
 }
