@@ -171,7 +171,7 @@ impl Default for UploadStats {
 pub enum LastUploadDate {
     None,
     Never,
-    Date(String),
+    Date(chrono::DateTime<chrono::Local>),
 }
 impl serde::Serialize for LastUploadDate {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -181,7 +181,7 @@ impl serde::Serialize for LastUploadDate {
         match self {
             LastUploadDate::None => serializer.serialize_str("None"),
             LastUploadDate::Never => serializer.serialize_str("Never"),
-            LastUploadDate::Date(s) => serializer.serialize_str(s),
+            LastUploadDate::Date(s) => serializer.serialize_str(&s.to_rfc3339()),
         }
     }
 }
@@ -205,7 +205,10 @@ impl<'de> serde::Deserialize<'de> for LastUploadDate {
                 match value {
                     "None" => Ok(LastUploadDate::None),
                     "Never" => Ok(LastUploadDate::Never),
-                    other => Ok(LastUploadDate::Date(other.to_string())),
+                    other => Ok(chrono::DateTime::parse_from_rfc3339(other)
+                        .map(|d| d.with_timezone(&chrono::Local))
+                        .map(LastUploadDate::Date)
+                        .unwrap_or(LastUploadDate::None)),
                 }
             }
         }
@@ -214,9 +217,9 @@ impl<'de> serde::Deserialize<'de> for LastUploadDate {
     }
 }
 impl LastUploadDate {
-    pub fn as_date(&self) -> Option<&str> {
+    pub fn as_date(&self) -> Option<chrono::DateTime<chrono::Local>> {
         match self {
-            LastUploadDate::Date(s) => Some(s),
+            LastUploadDate::Date(d) => Some(*d),
             _ => None,
         }
     }
@@ -254,7 +257,7 @@ impl UploadStats {
         self.total_duration_uploaded += additional_duration;
         self.total_files_uploaded += additional_files;
         self.total_volume_uploaded += additional_volume;
-        self.last_upload_date = LastUploadDate::Date(chrono::Local::now().to_rfc3339());
+        self.last_upload_date = LastUploadDate::Date(chrono::Local::now());
         self.save()
     }
 }

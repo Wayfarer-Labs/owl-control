@@ -193,7 +193,9 @@ impl ApiClient {
                     total_files_uploaded: server_stats.statistics.total_uploads,
                     total_volume_uploaded: server_stats.statistics.total_data.megabytes as u64,
                     last_upload_date: match server_stats.uploads.first() {
-                        Some(upload) => LastUploadDate::Date(upload.created_at.to_rfc3339()),
+                        Some(upload) => {
+                            LastUploadDate::Date(upload.created_at.with_timezone(&chrono::Local))
+                        }
                         None => LastUploadDate::Never,
                     },
                 })

@@ -25,10 +25,7 @@ pub fn format_seconds(total_seconds: u64) -> String {
     }
 }
 
-/// Given a RFC3339 date string, formats it into a human-readable string (e.g., "10/03/2025 at 10:00:00 AM").
-pub fn format_rfc3339_date(date: &str) -> String {
-    chrono::DateTime::parse_from_rfc3339(date)
-        .map(|dt| dt.with_timezone(&chrono::Local))
-        .map(|dt| format!("{} at {}", dt.format("%m/%d/%Y"), dt.format("%I:%M:%S %p")))
-        .unwrap_or_else(|_| "Unknown".to_string())
+/// Give a datetime, formats it into a human-readable string (e.g., "10/03/2025 at 10:00:00 AM").
+pub fn format_datetime(dt: chrono::DateTime<chrono::Local>) -> String {
+    format!("{} at {}", dt.format("%m/%d/%Y"), dt.format("%I:%M:%S %p"))
 }

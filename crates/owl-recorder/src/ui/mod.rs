@@ -358,7 +358,7 @@ impl MainApp {
                                     &upload_stats
                                         .last_upload_date
                                         .as_date()
-                                        .map(util::format_rfc3339_date)
+                                        .map(util::format_datetime)
                                         .unwrap_or_else(|| "Never".to_string()),
                                 );
                             },
