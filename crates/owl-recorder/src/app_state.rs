@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::{sync::RwLock, time::Instant};
 
 use tokio::sync::mpsc;
@@ -19,16 +18,16 @@ pub enum RecordingStatus {
 
 pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
-    pub state: Arc<RwLock<RecordingStatus>>,
-    pub config: Arc<RwLock<Config>>,
+    pub state: RwLock<RecordingStatus>,
+    pub config: RwLock<Config>,
     pub tx: CommandSender,
 }
 
 impl AppState {
     pub fn new(tx: CommandSender) -> Self {
         Self {
-            state: Arc::new(RwLock::new(RecordingStatus::Stopped)),
-            config: Arc::new(RwLock::new(Config::new().expect("failed to init configs"))),
+            state: RwLock::new(RecordingStatus::Stopped),
+            config: RwLock::new(Config::new().expect("failed to init configs")),
             tx,
         }
     }
