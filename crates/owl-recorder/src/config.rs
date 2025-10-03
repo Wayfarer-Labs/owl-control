@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local};
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{Context, Result, eyre};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::env;
 use std::fs;
@@ -92,26 +92,35 @@ impl Credentials {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Config {
     #[serde(default)]
     pub credentials: Credentials,
     #[serde(default)]
     pub preferences: Preferences,
-    #[serde(skip)]
-    pub config_path: PathBuf,
 }
 
 impl Config {
-    pub fn new() -> Result<Self> {
+    pub fn load() -> Result<Self> {
         let config_path = Self::get_path()?;
-        let mut manager = Self {
-            credentials: Credentials::default(),
-            preferences: Preferences::default(),
-            config_path,
-        };
-        manager.load()?;
-        Ok(manager)
+        if !config_path.exists() {
+            // Config doesn't exist, use defaults
+            return Ok(Self::default());
+        }
+
+        let contents = fs::read_to_string(&config_path).context("Failed to read config file")?;
+        let mut config =
+            serde_json::from_str::<Config>(&contents).context("Failed to parse config file")?;
+
+        // Ensure hotkeys have default values if not set
+        if config.preferences.start_recording_key.is_empty() {
+            config.preferences.start_recording_key = default_start_key();
+        }
+        if config.preferences.stop_recording_key.is_empty() {
+            config.preferences.stop_recording_key = default_stop_key();
+        }
+
+        Ok(config)
     }
 
     fn get_path() -> Result<PathBuf> {
@@ -129,46 +138,10 @@ impl Config {
         Ok(user_data_dir.join("config.json"))
     }
 
-    pub fn load(&mut self) -> Result<()> {
-        if !self.config_path.exists() {
-            // Config doesn't exist, use defaults
-            return Ok(());
-        }
-
-        match fs::read_to_string(&self.config_path) {
-            Ok(contents) => {
-                match serde_json::from_str::<Config>(&contents) {
-                    Ok(mut config) => {
-                        // Preserve the config_path
-                        config.config_path = self.config_path.clone();
-                        *self = config;
-
-                        // Ensure hotkeys have default values if not set
-                        if self.preferences.start_recording_key.is_empty() {
-                            self.preferences.start_recording_key = default_start_key();
-                        }
-                        if self.preferences.stop_recording_key.is_empty() {
-                            self.preferences.stop_recording_key = default_stop_key();
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error parsing config: {}", e);
-                        // Keep defaults on parse error
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("Error loading config: {}", e);
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn save(&self) -> Result<()> {
-        tracing::info!("Saving configs to {}", self.config_path.to_string_lossy());
-        let contents = serde_json::to_string_pretty(&self)?;
-        fs::write(&self.config_path, contents)?;
+        let config_path = Self::get_path()?;
+        tracing::info!("Saving configs to {}", config_path.to_string_lossy());
+        fs::write(&config_path, serde_json::to_string_pretty(&self)?)?;
         Ok(())
     }
 }

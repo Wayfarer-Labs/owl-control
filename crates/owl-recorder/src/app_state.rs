@@ -27,7 +27,7 @@ impl AppState {
     pub fn new(tx: CommandSender) -> Self {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
-            config: RwLock::new(Config::new().expect("failed to init configs")),
+            config: RwLock::new(Config::load().expect("failed to init configs")),
             tx,
         }
     }
