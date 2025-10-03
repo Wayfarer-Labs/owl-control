@@ -6,7 +6,7 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::app_state::AppState;
+use crate::app_state::{self, AppState};
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ProgressData {
@@ -25,14 +25,11 @@ pub struct FinalStats {
 }
 
 pub fn start(app_state: Arc<AppState>, api_token: &str, unreliable_connection: bool) -> bool {
-    // Check if already running
-    if app_state.upload_progress.read().unwrap().is_some() {
-        tracing::info!("Upload bridge is already running, skipping...");
-        return true;
-    }
-
+    let tx = app_state.tx.clone();
     tracing::info!("Starting upload bridge module from vg_control package");
-    *app_state.upload_progress.write().unwrap() = Some(ProgressData::default());
+    let _ = tx.try_send(app_state::Command::UpdateUploadProgress(Some(
+        ProgressData::default(),
+    )));
 
     let root_dir = {
         if cfg!(debug_assertions) {
@@ -91,7 +88,7 @@ pub fn start(app_state: Arc<AppState>, api_token: &str, unreliable_connection: b
                 }
             };
 
-            app_state.upload_progress.write().unwrap().replace(data);
+            let _ = tx.try_send(app_state::Command::UpdateUploadProgress(Some(data)));
         } else if let Some(data) = line.strip_prefix("FINAL_STATS: ") {
             let data = match serde_json::from_str::<FinalStats>(data) {
                 Ok(data) => data,
@@ -110,8 +107,7 @@ pub fn start(app_state: Arc<AppState>, api_token: &str, unreliable_connection: b
             }
         }
     }
-
-    app_state.upload_progress.write().unwrap().take();
+    let _ = tx.try_send(app_state::Command::UpdateUploadProgress(None));
 
     true
 }

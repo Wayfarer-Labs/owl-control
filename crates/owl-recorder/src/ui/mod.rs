@@ -86,6 +86,8 @@ pub struct MainApp {
     config_last_edit: Option<Instant>,
     /// Is the UI currently listening for user to select a new hotkey for recording shortcut
     hotkey_state: HotkeyState,
+    /// Current upload progress, updated from upload bridge via mpsc channel
+    current_upload_progress: Option<upload::ProgressData>,
 
     visible: Arc<AtomicBool>,
 }
@@ -111,6 +113,7 @@ impl MainApp {
             local_preferences,
             config_last_edit: None,
             hotkey_state: HotkeyState::Chilling,
+            current_upload_progress: None,
 
             visible,
         })
@@ -202,7 +205,6 @@ impl MainApp {
                     );
                     ui.separator();
 
-                    // TODO: eventually implement a better keyboard shortcut system
                     ui.horizontal(|ui| {
                         ui.label("Start Recording:");
                         let button_text = if self.hotkey_state == HotkeyState::ListenStart {
@@ -217,12 +219,6 @@ impl MainApp {
                         {
                             self.hotkey_state = HotkeyState::ListenStart;
                         }
-                        // ui.add_sized(
-                        //     [60.0, 15.0],
-                        //     egui::TextEdit::singleline(
-                        //         &mut self.local_preferences.start_recording_key,
-                        //     ),
-                        // );
                     });
 
                     ui.horizontal(|ui| {
@@ -239,13 +235,6 @@ impl MainApp {
                         {
                             self.hotkey_state = HotkeyState::ListenStop;
                         }
-
-                        // ui.add_sized(
-                        //     [60.0, 15.0],
-                        //     egui::TextEdit::singleline(
-                        //         &mut self.local_preferences.stop_recording_key,
-                        //     ),
-                        // );
                     });
                 });
                 ui.add_space(10.0);
@@ -366,13 +355,11 @@ impl MainApp {
                     });
 
                     // Progress Bar
-                    let current_upload_progress =
-                        self.app_state.upload_progress.read().unwrap().clone();
-                    let is_uploading = current_upload_progress.is_some();
-                    if let Some(progress) = current_upload_progress {
+                    let is_uploading = self.current_upload_progress.is_some();
+                    if let Some(progress) = &self.current_upload_progress {
                         ui.add_space(10.0);
                         ui.label(format!(
-                            "Current upload: {}% ({}/{})",
+                            "Current upload: {:.2}% ({}/{})",
                             progress.percent,
                             util::format_bytes(progress.bytes_uploaded),
                             util::format_bytes(progress.total_bytes),
@@ -477,8 +464,15 @@ impl eframe::App for MainApp {
             })
         }
 
-        if let Ok(Command::UpdateUserID(uid)) = self.rx.try_recv() {
-            self.local_credentials.user_id = uid.to_string();
+        match self.rx.try_recv() {
+            Ok(Command::UpdateUploadProgress(progress_data)) => {
+                // handled in main_view directly from app_state
+                self.current_upload_progress = progress_data;
+            }
+            Ok(Command::UpdateUserID(uid)) => {
+                self.local_credentials.user_id = uid.to_string();
+            }
+            Err(_) => {}
         };
 
         let (has_api_key, has_consented) = (
