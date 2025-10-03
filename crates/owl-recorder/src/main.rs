@@ -45,7 +45,7 @@ fn main() -> Result<()> {
     let log_file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(&std::env::temp_dir().join("owl-control-debug.log"))?;
+        .open(std::env::temp_dir().join("owl-control-debug.log"))?;
 
     let env_filter = tracing_subscriber::EnvFilter::from_default_env()
         .add_directive(tracing_subscriber::filter::LevelFilter::INFO.into());
