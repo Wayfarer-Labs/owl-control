@@ -1,10 +1,11 @@
 use std::{sync::RwLock, time::Instant};
 
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::config::Config;
-use crate::upload_manager::ProgressData;
+use crate::{
+    config::{Config, UploadStats},
+    upload::ProgressData,
+};
 
 #[derive(Clone, PartialEq)]
 pub enum RecordingStatus {
@@ -20,6 +21,7 @@ pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
+    pub upload_stats: RwLock<UploadStats>,
     pub tx: CommandSender,
 }
 
@@ -28,6 +30,7 @@ impl AppState {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
+            upload_stats: RwLock::new(UploadStats::load().expect("failed to init upload stats")),
             tx,
         }
     }
@@ -42,7 +45,7 @@ pub enum Command {
 
 #[derive(Clone)]
 pub struct CommandSender {
-    tx: Sender<Command>,
+    tx: mpsc::Sender<Command>,
 }
 
 impl CommandSender {
@@ -52,7 +55,7 @@ impl CommandSender {
 }
 
 pub struct CommandReceiver {
-    rx: Receiver<Command>,
+    rx: mpsc::Receiver<Command>,
 }
 
 impl CommandReceiver {

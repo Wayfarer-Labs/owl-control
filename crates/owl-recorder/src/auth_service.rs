@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     app_state::{Command, CommandSender},
-    config::UploadStats,
+    config::{LastUploadDate, UploadStats},
 };
 
 const API_BASE_URL: &str = "https://api.openworldlabs.ai";
@@ -193,8 +193,8 @@ impl ApiClient {
                     total_files_uploaded: server_stats.statistics.total_uploads,
                     total_volume_uploaded: server_stats.statistics.total_data.megabytes as u64,
                     last_upload_date: match server_stats.uploads.first() {
-                        Some(upload) => upload.created_at.to_rfc3339(),
-                        None => "Never".to_string(),
+                        Some(upload) => LastUploadDate::Date(upload.created_at.to_rfc3339()),
+                        None => LastUploadDate::Never,
                     },
                 })
             }

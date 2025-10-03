@@ -11,7 +11,7 @@ use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
     app_state::{AppState, Command, CommandReceiver},
-    config::{Credentials, Preferences, UploadStats},
+    config::{Credentials, Preferences},
     upload_manager::{is_upload_bridge_running, start_upload_bridge},
 };
 
@@ -87,7 +87,6 @@ pub struct MainApp {
     /// Is the UI currently listening for user to select a new hotkey for recording shortcut
     hotkey_state: HotkeyState,
 
-    upload_stats: UploadStats,
     visible: Arc<AtomicBool>,
 }
 impl MainApp {
@@ -113,7 +112,6 @@ impl MainApp {
             config_last_edit: None,
             hotkey_state: HotkeyState::Chilling,
 
-            upload_stats: UploadStats::new()?,
             visible,
         })
     }
@@ -302,6 +300,8 @@ impl MainApp {
                         let available_width = ui.available_width() - 40.0;
                         let cell_width = available_width / 4.0;
 
+                        let upload_stats = self.app_state.upload_stats.read().unwrap().clone();
+
                         // Cell 1: Total Uploaded
                         ui.allocate_ui_with_layout(
                             egui::vec2(cell_width, ui.available_height()),
@@ -311,7 +311,9 @@ impl MainApp {
                                     ui,
                                     "📊", // Icon
                                     "Total Uploaded",
-                                    &self.upload_stats.get_total_duration_uploaded(),
+                                    &util::format_seconds(
+                                        upload_stats.total_duration_uploaded as u64,
+                                    ),
                                 );
                             },
                         );
@@ -325,7 +327,7 @@ impl MainApp {
                                     ui,
                                     "📁", // Icon
                                     "Files Uploaded",
-                                    &self.upload_stats.get_total_files_uploaded(),
+                                    &upload_stats.total_files_uploaded.to_string(),
                                 );
                             },
                         );
@@ -339,7 +341,7 @@ impl MainApp {
                                     ui,
                                     "💾", // Icon
                                     "Volume Uploaded",
-                                    &self.upload_stats.get_total_volume_uploaded(),
+                                    &util::format_bytes(upload_stats.total_volume_uploaded),
                                 );
                             },
                         );
@@ -353,7 +355,11 @@ impl MainApp {
                                     ui,
                                     "🕒", // Icon
                                     "Last Upload",
-                                    &self.upload_stats.get_last_upload_date(),
+                                    &upload_stats
+                                        .last_upload_date
+                                        .as_date()
+                                        .map(util::format_rfc3339_date)
+                                        .unwrap_or_else(|| "Never".to_string()),
                                 );
                             },
                         );
