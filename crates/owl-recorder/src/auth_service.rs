@@ -136,7 +136,7 @@ impl ApiClient {
                 // Parse the JSON response
                 match response.json::<UserIDResponse>().await {
                     Ok(user_info) => {
-                        println!(
+                        tracing::info!(
                             "validateApiKey: Successfully validated API key - user ID: {}",
                             user_info.user_id
                         );
@@ -149,7 +149,7 @@ impl ApiClient {
                         })
                     }
                     Err(e) => {
-                        eprintln!("validateApiKey: Failed to parse response: {}", e);
+                        tracing::error!("validateApiKey: Failed to parse response: {}", e);
                         Err(ValidationError {
                             success: false,
                             message: Some("API key validation failed".to_string()),
@@ -158,7 +158,7 @@ impl ApiClient {
                 }
             }
             Err(e) => {
-                eprintln!("validateApiKey: API key validation error: {}", e);
+                tracing::error!("validateApiKey: API key validation error: {}", e);
                 Err(ValidationError {
                     success: false,
                     message: Some("API key validation failed".to_string()),

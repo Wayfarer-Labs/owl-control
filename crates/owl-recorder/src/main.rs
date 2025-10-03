@@ -20,6 +20,7 @@ use std::{path::PathBuf, time::Duration};
 
 use clap::Parser;
 use color_eyre::Result;
+use tracing_subscriber::{Layer, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 use std::sync::Arc;
 
@@ -40,6 +41,30 @@ fn main() -> Result<()> {
         stop_key: String,
     }
 
+    // Set up logging, including to file
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&std::env::temp_dir().join("owl-control-debug.log"))?;
+
+    let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(tracing_subscriber::filter::LevelFilter::INFO.into());
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(std::io::stdout)
+                .pretty()
+                .with_filter(env_filter.clone()),
+        )
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(log_file)
+                .with_ansi(false)
+                .with_filter(env_filter),
+        )
+        .init();
+
     tracing::info!(
         "OWL Recorder v{} ({})",
         env!("CARGO_PKG_VERSION"),
@@ -53,9 +78,7 @@ fn main() -> Result<()> {
     } = Args::parse();
 
     color_eyre::install()?;
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
+
     let (tx, rx) = app_state::command_channel(16);
     let app_state = Arc::new(app_state::AppState::new(tx));
 
