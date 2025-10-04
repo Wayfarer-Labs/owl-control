@@ -1667,6 +1667,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_commonmark"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26c9caff9c964af1e3d913acd85e86d2170e3169a43cf4ff84eea3106691c14d"
+dependencies = [
+ "egui",
+ "egui_commonmark_backend",
+ "egui_commonmark_macros",
+ "egui_extras",
+ "pulldown-cmark",
+]
+
+[[package]]
+name = "egui_commonmark_backend"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e317aa4031f27be77d4c1c33cb038cdf02d77790c28e5cf1283a66cceb88695"
+dependencies = [
+ "egui",
+ "egui_extras",
+ "pulldown-cmark",
+]
+
+[[package]]
+name = "egui_commonmark_macros"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89d8b097288a2021b2c5a26f36c8badccb44817d960668137acd5661be49eafa"
+dependencies = [
+ "egui",
+ "egui_commonmark_backend",
+ "proc-macro-crate 3.3.0",
+ "proc-macro2",
+ "pulldown-cmark",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "egui_extras"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4571,6 +4610,7 @@ dependencies = [
  "dunce",
  "eframe",
  "egui",
+ "egui_commonmark",
  "egui_extras",
  "egui_overlay",
  "egui_render_three_d",
@@ -4957,6 +4997,17 @@ checksum = "52717f9a02b6965224f95ca2a81e2e0c5c43baacd28ca057577988930b6c3d5b"
 dependencies = [
  "quote",
  "syn 2.0.106",
+]
+
+[[package]]
+name = "pulldown-cmark"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e8bbe1a966bd2f362681a44f6edce3c2310ac21e4d5067a6e7ec396297a6ea0"
+dependencies = [
+ "bitflags 2.9.4",
+ "memchr",
+ "unicase",
 ]
 
 [[package]]

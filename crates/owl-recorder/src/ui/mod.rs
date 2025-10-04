@@ -7,6 +7,7 @@ use std::{
 };
 
 use color_eyre::Result;
+use egui_commonmark::{CommonMarkCache, commonmark_str};
 use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
@@ -89,6 +90,7 @@ pub struct MainApp {
     /// Current upload progress, updated from upload bridge via mpsc channel
     current_upload_progress: Option<upload::ProgressData>,
 
+    md_cache: CommonMarkCache,
     visible: Arc<AtomicBool>,
 }
 impl MainApp {
@@ -115,6 +117,7 @@ impl MainApp {
             hotkey_state: HotkeyState::Chilling,
             current_upload_progress: None,
 
+            md_cache: CommonMarkCache::default(),
             visible,
         })
     }
@@ -145,29 +148,36 @@ impl MainApp {
             ui.label(
                 egui::RichText::new("Please read the following information carefully.").size(20.0),
             );
+            ui.add_space(10.0);
         });
 
         egui::TopBottomPanel::bottom("consent_panel_bottom").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Cancel").clicked() {
-                    self.local_credentials.logout();
-                }
-
-                if ui
-                    .add_enabled(
-                        self.has_scrolled_to_bottom_of_consent,
-                        egui::Button::new("Accept"),
-                    )
-                    .clicked()
-                {
-                    self.local_credentials.has_consented = true;
-                }
+            ui.add_space(10.0);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_enabled(
+                            self.has_scrolled_to_bottom_of_consent,
+                            egui::Button::new("Accept"),
+                        )
+                        .clicked()
+                    {
+                        self.local_credentials.has_consented = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        self.local_credentials.logout();
+                    }
+                });
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let output = egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.label(include_str!("consent.md"));
+                commonmark_str!(
+                    ui,
+                    &mut self.md_cache,
+                    "./crates/owl-recorder/src/ui/consent.md"
+                );
             });
 
             self.has_scrolled_to_bottom_of_consent |=
@@ -432,6 +442,7 @@ impl MainApp {
         });
     }
 }
+
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         // if user closes the app instead minimize to tray
