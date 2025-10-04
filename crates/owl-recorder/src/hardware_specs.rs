@@ -101,7 +101,7 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
 
     // Try to get GPU info using wmic
     let output = Command::new("wmic")
-        .args(&[
+        .args([
             "path",
             "win32_VideoController",
             "get",
@@ -145,7 +145,7 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
     if gpus.is_empty() {
         // Fallback: try a simpler wmic command
         let output = Command::new("wmic")
-            .args(&["path", "win32_VideoController", "get", "name"])
+            .args(["path", "win32_VideoController", "get", "name"])
             .output()?;
 
         let output_str = String::from_utf8_lossy(&output.stdout);

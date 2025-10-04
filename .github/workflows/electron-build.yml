@@ -2,6 +2,7 @@ name: Build Electron App
 
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -47,6 +48,9 @@ jobs:
 
       - name: Check Rust formatting
         run: cargo fmt -- --check
+
+      - name: Check Rust with Clippy
+        run: cargo clippy -- -D warnings
 
       - name: Check Prettier formatting
         run: npm run format:check

@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{path::Path, time::Duration};
 
 use color_eyre::{
     Result,
@@ -18,24 +15,9 @@ use obws::{
         scenes::SceneId,
     },
 };
-use windows::{
-    Win32::{
-        Foundation::{HWND, POINT, RECT},
-        Graphics::Gdi::{
-            DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, MONITORINFO,
-            MONITORINFOEXW, MonitorFromPoint,
-        },
-        UI::WindowsAndMessaging::GetClientRect,
-    },
-    core::PCWSTR,
-};
+use windows::Win32::Foundation::HWND;
 
-pub struct WindowRecorder {
-    // Use an Option to allow it to be consumed within the destructor
-    client: Option<Client>,
-    _recording_path: PathBuf,
-    _existing_profile: String,
-}
+use crate::recorder::{VideoRecorder, get_recording_base_resolution};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -44,23 +26,41 @@ const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 const VIDEO_BITRATE: u32 = 2500;
 const SET_ENCODER: bool = false;
 
-impl WindowRecorder {
-    pub async fn start_recording(
+pub struct ObsSocketRecorder {
+    // Use an Option to allow it to be consumed within the destructor
+    client: Option<Client>,
+}
+impl ObsSocketRecorder {
+    pub async fn new() -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self { client: None })
+    }
+}
+#[async_trait::async_trait(?Send)]
+impl VideoRecorder for ObsSocketRecorder {
+    fn id(&self) -> &'static str {
+        "ObsSocket"
+    }
+
+    async fn start_recording(
+        &mut self,
         dummy_video_path: &Path,
         _pid: u32,
         hwnd: HWND,
         game_exe: &str,
-    ) -> Result<WindowRecorder> {
+    ) -> Result<()> {
+        // Connect to OBS
+        let client = Client::connect("localhost", 4455, None::<&str>)
+            .await
+            .wrap_err("Failed to connect to OBS. Is it running?")?;
+
         let recording_path = dummy_video_path
             .parent()
             .ok_or_eyre("Video path must have a parent directory")?;
         let recording_path = std::fs::canonicalize(recording_path)
             .wrap_err("Failed to get absolute path for recording directory")?;
-
-        // Connect to OBS
-        let client = Client::connect("localhost", 4455, None::<&str>)
-            .await
-            .wrap_err("Failed to connect to OBS. Is it running?")?;
 
         // Pull out sub-APIs for easier access
         let profiles = client.profiles();
@@ -71,7 +71,6 @@ impl WindowRecorder {
 
         // Get current profiles
         let all_profiles = profiles.list().await.wrap_err("Failed to get profiles")?;
-        let existing_profile = all_profiles.current;
 
         // Create and activate OWL profile
         if !all_profiles
@@ -192,14 +191,7 @@ impl WindowRecorder {
         tracing::info!("OBS confirmed recording path: {:?}", current_path.value);
 
         // Monitor/resolution info
-        let resolution = match get_window_inner_size(hwnd) {
-            Some(size) => size,
-            None => {
-                tracing::info!("Failed to get window inner size, using primary monitor resolution");
-                get_primary_monitor_resolution()
-                    .ok_or_eyre("Failed to get primary monitor resolution")?
-            }
-        };
+        let resolution = get_recording_base_resolution(hwnd)?;
 
         // Log resolution for debugging
         tracing::info!("Base recording resolution: {resolution:?}");
@@ -278,14 +270,12 @@ impl WindowRecorder {
             .wrap_err("Failed to start recording")?;
         tracing::info!("OBS recording started successfully");
 
-        Ok(WindowRecorder {
-            client: Some(client),
-            _recording_path: recording_path,
-            _existing_profile: existing_profile,
-        })
+        self.client = Some(client);
+
+        Ok(())
     }
 
-    pub async fn stop_recording(&self) -> Result<()> {
+    async fn stop_recording(&mut self) -> Result<()> {
         tracing::info!("Stopping OBS recording");
         if let Some(client) = &self.client {
             // Log, but do not explode if it fails
@@ -297,9 +287,9 @@ impl WindowRecorder {
         Ok(())
     }
 }
-impl Drop for WindowRecorder {
+impl Drop for ObsSocketRecorder {
     fn drop(&mut self) {
-        tracing::info!("Shutting down window recorder");
+        tracing::info!("Shutting down OBS socket recorder");
         let client = self.client.take();
         tokio::spawn(async move {
             if let Some(client) = &client {
@@ -354,63 +344,4 @@ fn get_obs_window_encoding(hwnd: HWND, game_exe: &str) -> String {
 /// https://github.com/obsproject/obs-studio/blob/0b1229632063a13dfd26cf1cd9dd43431d8c68f6/libobs/util/windows/window-helpers.c#L8-L12
 fn sanitize_string_for_obs(s: &str) -> String {
     s.replace('#', "#22").replace(':', "#3A")
-}
-
-/// Returns the size (width, height) of the inner area of a window given its HWND.
-/// Returns None if the window does not exist or the call fails.
-fn get_window_inner_size(hwnd: HWND) -> Option<(u32, u32)> {
-    unsafe {
-        let mut rect = RECT::default();
-        GetClientRect(hwnd, &mut rect).ok()?;
-        let width = rect.right - rect.left;
-        let height = rect.bottom - rect.top;
-        Some((width as u32, height as u32))
-    }
-}
-
-fn get_primary_monitor_resolution() -> Option<(u32, u32)> {
-    // Get the primary monitor handle
-    let primary_monitor = unsafe {
-        MonitorFromPoint(
-            POINT { x: 0, y: 0 },
-            windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY,
-        )
-    };
-    if primary_monitor.is_invalid() {
-        return None;
-    }
-
-    // Get the monitor info
-    let mut monitor_info = MONITORINFOEXW {
-        monitorInfo: MONITORINFO {
-            cbSize: std::mem::size_of::<MONITORINFOEXW>() as u32,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    unsafe {
-        GetMonitorInfoW(
-            primary_monitor,
-            &mut monitor_info as *mut _ as *mut MONITORINFO,
-        )
-    }
-    .ok()
-    .ok()?;
-
-    // Get the display mode
-    let mut devmode = DEVMODEW {
-        dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-        ..Default::default()
-    };
-    unsafe {
-        EnumDisplaySettingsW(
-            PCWSTR(monitor_info.szDevice.as_ptr()),
-            ENUM_CURRENT_SETTINGS,
-            &mut devmode,
-        )
-    }
-    .ok()
-    .ok()?;
-
-    Some((devmode.dmPelsWidth as u32, devmode.dmPelsHeight as u32))
 }
