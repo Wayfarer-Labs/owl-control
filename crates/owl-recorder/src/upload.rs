@@ -107,7 +107,8 @@ pub fn start(app_state: Arc<AppState>, api_token: &str, unreliable_connection: b
             }
         }
     }
-    let _ = tx.try_send(app_state::Command::UpdateUploadProgress(None));
+    // force the thread to block until the update goes through, in case buffer is full
+    let _ = tx.blocking_send(app_state::Command::UpdateUploadProgress(None));
 
     true
 }

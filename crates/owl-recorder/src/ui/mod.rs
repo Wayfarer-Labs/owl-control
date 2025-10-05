@@ -380,6 +380,10 @@ impl MainApp {
                             progress.speed_mbps,
                             util::format_seconds(progress.eta_seconds as u64),
                         ));
+                        // if the UI is not focused the ctx never repaints so the message queue is never flushed.
+                        // so if uploading is occuring we have to force the app to repaint periodically, and pop messages from the
+                        // message queue. Eventually the final blocking send on tx side will be pushed through and end this process.
+                        ctx.request_repaint_after(Duration::from_millis(100));
                     }
 
                     // Unreliable Connection Setting

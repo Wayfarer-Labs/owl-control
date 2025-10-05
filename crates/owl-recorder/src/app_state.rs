@@ -52,6 +52,9 @@ impl CommandSender {
     pub fn try_send(&self, cmd: Command) -> Result<(), mpsc::error::TrySendError<Command>> {
         self.tx.try_send(cmd)
     }
+    pub fn blocking_send(&self, cmd: Command) -> Result<(), mpsc::error::SendError<Command>> {
+        self.tx.blocking_send(cmd)
+    }
 }
 
 pub struct CommandReceiver {
