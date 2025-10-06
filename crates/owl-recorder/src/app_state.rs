@@ -25,18 +25,25 @@ pub struct AppState {
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
     pub upload_stats: RwLock<UploadStats>,
+    pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
 }
 
 impl AppState {
-    pub fn new(ui_update_tx: UiUpdateSender) -> Self {
+    pub fn new(async_request_tx: mpsc::Sender<AsyncRequest>, ui_update_tx: UiUpdateSender) -> Self {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
             upload_stats: RwLock::new(UploadStats::load().expect("failed to init upload stats")),
+            async_request_tx,
             ui_update_tx,
         }
     }
+}
+
+/// A request for some async action to happen. Response will be delivered via [`UiUpdate`].
+pub enum AsyncRequest {
+    ValidateApiKey { api_key: String },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
@@ -44,6 +51,8 @@ pub enum UiUpdate {
     UpdateUserId(Result<String, String>),
     UpdateUploadProgress(Option<ProgressData>),
 }
+
+/// A sender for [`UiUpdate`] messages. Will automatically repaint the UI after sending a message.
 #[derive(Clone)]
 pub struct UiUpdateSender {
     tx: mpsc::Sender<UiUpdate>,

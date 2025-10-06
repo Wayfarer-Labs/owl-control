@@ -1,6 +1,6 @@
 use crate::{
     MAX_IDLE_DURATION, MAX_RECORDING_DURATION,
-    app_state::{AppState, UiUpdate, RecordingStatus},
+    app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
     auth_service::ApiClient,
     keycode::lookup_keycode,
     ui::tray_icon,
@@ -30,12 +30,14 @@ pub fn run(
     start_key: String,
     stop_key: String,
     recording_location: PathBuf,
+    async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
 ) -> Result<()> {
     tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
         start_key,
         stop_key,
         recording_location,
+        async_request_rx,
     ))
 }
 
@@ -44,6 +46,7 @@ async fn main(
     start_key: String,
     stop_key: String,
     recording_location: PathBuf,
+    mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
 ) -> Result<()> {
     let mut start_key = start_key;
     let mut stop_key = stop_key;
@@ -85,35 +88,6 @@ async fn main(
     let mut debouncer = EventDebouncer::new();
 
     let mut api_client = ApiClient::new();
-
-    // user had previously consented, api key should be present and we can grab uid immediately
-    // otherwise, we keep periodically checking for user having consented (and therefore inputted api key)
-    tokio::spawn({
-        let app_state = app_state.clone();
-        async move {
-            loop {
-                let (api_key, has_consented) = {
-                    let cfg = app_state.config.read().unwrap();
-                    (
-                        cfg.credentials.api_key.clone(),
-                        cfg.credentials.has_consented,
-                    )
-                };
-                if has_consented {
-                    tracing::info!("API KEY VALIDATION RUN");
-                    let response = api_client.validate_api_key(api_key).await;
-                    tracing::info!("API KEY VALIDATION RESPONSE: {response:?}");
-                    app_state
-                        .ui_update_tx
-                        .try_send(UiUpdate::UpdateUserId(response))
-                        .ok();
-
-                    break;
-                }
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-        }
-    });
 
     loop {
         let honk: bool;
@@ -171,6 +145,20 @@ async fn main(
                     start_on_activity = false;
                 }
                 idleness_tracker.update_activity();
+            },
+            e = async_request_rx.recv() => {
+                let e = e.expect("async request reader was closed early");
+                match e {
+                    AsyncRequest::ValidateApiKey { api_key } => {
+                        tracing::info!("API KEY VALIDATION RUN");
+                        let response = api_client.validate_api_key(api_key).await;
+                        tracing::info!("API KEY VALIDATION RESPONSE: {response:?}");
+                        app_state
+                            .ui_update_tx
+                            .try_send(UiUpdate::UpdateUserId(response))
+                            .ok();
+                    }
+                }
             },
             _ = perform_checks.tick() => {
                 if let Some(recording) = recorder.recording() {

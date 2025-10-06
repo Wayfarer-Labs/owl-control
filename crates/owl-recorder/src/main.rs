@@ -12,7 +12,7 @@ mod obs_socket_recorder;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;
-mod recording_thread;
+mod tokio_thread;
 mod ui;
 mod upload;
 
@@ -79,14 +79,22 @@ fn main() -> Result<()> {
 
     color_eyre::install()?;
 
+    let (async_request_tx, async_request_rx) = tokio::sync::mpsc::channel(16);
     let (ui_update_tx, ui_update_rx) = app_state::UiUpdateSender::build(16);
-    let app_state = Arc::new(app_state::AppState::new(ui_update_tx));
+    let app_state = Arc::new(app_state::AppState::new(async_request_tx, ui_update_tx));
 
-    // launch recorder on seperate thread so non-blocking
+    // launch tokio (which hosts the recorder) on seperate thread
     std::thread::spawn({
         let app_state = app_state.clone();
         move || {
-            recording_thread::run(app_state, start_key, stop_key, recording_location).unwrap();
+            tokio_thread::run(
+                app_state,
+                start_key,
+                stop_key,
+                recording_location,
+                async_request_rx,
+            )
+            .unwrap();
         }
     });
 

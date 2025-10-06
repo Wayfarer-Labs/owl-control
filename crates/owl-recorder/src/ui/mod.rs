@@ -11,7 +11,7 @@ use egui_commonmark::{CommonMarkCache, commonmark_str};
 use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
-    app_state::{AppState, UiUpdate},
+    app_state::{AppState, AsyncRequest, UiUpdate},
     config::{Credentials, Preferences},
     upload,
 };
@@ -119,6 +119,17 @@ impl MainApp {
             let configs = app_state.config.read().unwrap();
             (configs.credentials.clone(), configs.preferences.clone())
         };
+
+        // If we're fully authenticated, submit a request to validate our existing API key
+        if !local_credentials.api_key.is_empty() && local_credentials.has_consented {
+            app_state
+                .async_request_tx
+                .blocking_send(AsyncRequest::ValidateApiKey {
+                    api_key: local_credentials.api_key.clone(),
+                })
+                .ok();
+        }
+
         Ok(Self {
             app_state,
             frame: 0,
