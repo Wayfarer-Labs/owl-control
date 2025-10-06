@@ -18,6 +18,7 @@ use game_process::does_process_exist;
 use input_capture::InputCapture;
 use rodio::{Decoder, Sink};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
+use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::GetForegroundWindow};
 
 use crate::{idle::IdlenessTracker, raw_input_debouncer::EventDebouncer, recorder::Recorder};
 
@@ -79,6 +80,7 @@ async fn main(
 
     let mut idleness_tracker = IdlenessTracker::new(MAX_IDLE_DURATION);
     let mut start_on_activity = false;
+    let mut actively_recording_window: Option<HWND> = None;
 
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -148,13 +150,17 @@ async fn main(
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
                         rec_start(&sink, honk);
+
+                        actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
+                        tracing::info!("Recording started with HWND {actively_recording_window:?}");
                     } else if key == stop_keycode {
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
                         rec_stop(&sink, honk);
+                        actively_recording_window = None;
                         start_on_activity = false;
                     }
-                } else if start_on_activity {
+                } else if start_on_activity && actively_recording_window.is_some_and(is_window_focused) {
                     tracing::info!("Input detected, restarting recording");
                     recorder.start().await?;
                     rec_start(&sink, honk);
@@ -179,7 +185,17 @@ async fn main(
                         recorder.stop().await?;
                         recorder.start().await?;
                         idleness_tracker.update_activity();
-                    };
+                    } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
+                        tracing::info!("Window {window:?} lost focus, stopping recording");
+                        recorder.stop().await?;
+                        rec_stop(&sink, honk);
+                    }
+                } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
+                    // If we're not currently in a recording, but we were actively recording this window, and this window
+                    // is now focused, and we're not waiting on input, let's restart the recording.
+                    tracing::info!("Window {window:?} regained focus, restarting recording");
+                    recorder.start().await?;
+                    rec_start(&sink, honk);
                 }
             },
         }
@@ -216,4 +232,8 @@ fn wait_for_ctrl_c() -> oneshot::Receiver<()> {
         let _ = ctrl_c_tx.send(());
     });
     ctrl_c_rx
+}
+
+fn is_window_focused(hwnd: HWND) -> bool {
+    unsafe { GetForegroundWindow() == hwnd }
 }
