@@ -33,7 +33,7 @@ enum HotkeyState {
 pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([600.0, 630.0])
+            .with_inner_size([600.0, 650.0])
             .with_resizable(true)
             .with_title("OWL Control")
             .with_icon(tray_icon::egui_icon()),
@@ -63,6 +63,14 @@ pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
             tray_icon::post_initialize(cc.egui_ctx.clone(), handle, visible.clone());
             let _ = app_state.tx.ctx.set(cc.egui_ctx.clone());
 
+            catppuccin_egui::set_theme(&cc.egui_ctx, catppuccin_egui::MACCHIATO);
+
+            cc.egui_ctx.style_mut(|style| {
+                let bg_color = egui::Color32::from_rgb(19, 21, 26);
+                style.visuals.window_fill = bg_color;
+                style.visuals.panel_fill = bg_color;
+            });
+
             Ok(Box::new(MainApp::new(app_state, visible, rx)?))
         }),
     )
@@ -70,6 +78,9 @@ pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
 
     Ok(())
 }
+
+const HEADING_TEXT_SIZE: f32 = 24.0;
+const SUBHEADING_TEXT_SIZE: f32 = 16.0;
 
 pub struct MainApp {
     app_state: Arc<AppState>,
@@ -126,70 +137,200 @@ impl MainApp {
 impl MainApp {
     pub fn login_view(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(egui::RichText::new("Login").size(36.0).strong());
-            ui.label(egui::RichText::new("Please enter your API key.").size(20.0));
+            // Center the content vertically and horizontally
+            ui.vertical_centered(|ui| {
+                // Extremely ugly bodge. I assume there's a way to do this correctly, but I can't find it at a glance.
+                let content_height = 240.0;
+                let available_height = ui.available_height();
+                ui.add_space((available_height - content_height) / 2.0);
 
-            ui.add(egui::TextEdit::singleline(&mut self.login_api_key));
+                ui.set_max_width(ui.available_width().min(400.0));
+                ui.vertical_centered(|ui| {
+                    // Logo/Icon area (placeholder for now)
+                    ui.add_space(20.0);
 
-            if ui.button("Submit").clicked() {
-                self.local_credentials.api_key = self.login_api_key.clone();
-                self.local_credentials.has_consented = false;
-                self.has_scrolled_to_bottom_of_consent = false;
-            }
+                    // Main heading with better styling
+                    ui.heading(
+                        egui::RichText::new("Welcome to OWL Control")
+                            .size(28.0)
+                            .strong()
+                            .color(egui::Color32::from_rgb(220, 220, 220)),
+                    );
+
+                    ui.add_space(8.0);
+
+                    // Subtitle
+                    ui.label(
+                        egui::RichText::new("Please enter your API key to continue")
+                            .size(16.0)
+                            .color(egui::Color32::from_rgb(180, 180, 180)),
+                    );
+
+                    ui.add_space(20.0);
+
+                    // API Key input section
+                    ui.vertical_centered(|ui| {
+                        // Styled text input
+                        let text_edit = egui::TextEdit::singleline(&mut self.login_api_key)
+                            .desired_width(ui.available_width())
+                            .desired_rows(1);
+
+                        ui.add_sized(egui::vec2(ui.available_width(), 40.0), text_edit);
+
+                        ui.add_space(20.0);
+
+                        // Submit button with better styling
+                        let submit_button = ui.add_sized(
+                            egui::vec2(120.0, 36.0),
+                            egui::Button::new(egui::RichText::new("Continue").size(16.0).strong()),
+                        );
+
+                        if submit_button.clicked() {
+                            self.local_credentials.api_key = self.login_api_key.clone();
+                            self.local_credentials.has_consented = false;
+                            self.has_scrolled_to_bottom_of_consent = false;
+                        }
+                    });
+                    ui.add_space(20.0);
+
+                    // Help text
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
+                        ui.label(
+                            egui::RichText::new("Don't have an API key? Please sign up at ")
+                                .size(12.0)
+                                .color(egui::Color32::from_rgb(140, 140, 140)),
+                        );
+                        ui.hyperlink_to(
+                            egui::RichText::new("our website.").size(12.0),
+                            "https://wayfarerlabs.ai/handler/sign-in",
+                        );
+                    });
+                });
+            });
         });
     }
 
     pub fn consent_view(&mut self, ctx: &egui::Context) {
+        let padding = 8;
+        let button_font_size = 14.0;
+
         egui::TopBottomPanel::top("consent_panel_top").show(ctx, |ui| {
-            ui.heading(
-                egui::RichText::new("Informed Consent & Terms of Service")
-                    .size(36.0)
-                    .strong(),
-            );
-            ui.label(
-                egui::RichText::new("Please read the following information carefully.").size(20.0),
-            );
-            ui.add_space(10.0);
+            egui::Frame::new()
+                .inner_margin(egui::Margin::same(padding))
+                .show(ui, |ui| {
+                    ui.heading(
+                        egui::RichText::new("Informed Consent & Terms of Service")
+                            .size(HEADING_TEXT_SIZE)
+                            .strong(),
+                    );
+                    ui.label(
+                        egui::RichText::new("Please read the following information carefully.")
+                            .size(SUBHEADING_TEXT_SIZE),
+                    );
+                });
         });
 
         egui::TopBottomPanel::bottom("consent_panel_bottom").show(ctx, |ui| {
-            ui.add_space(10.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(
-                            self.has_scrolled_to_bottom_of_consent,
-                            egui::Button::new("Accept"),
-                        )
-                        .clicked()
-                    {
-                        self.local_credentials.has_consented = true;
-                    }
-                    if ui.button("Cancel").clicked() {
-                        self.local_credentials.logout();
-                    }
+            egui::Frame::new()
+                .inner_margin(egui::Margin::same(padding))
+                .show(ui, |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().button_padding = egui::vec2(8.0, 2.0);
+                            if ui
+                                .add_enabled(
+                                    self.has_scrolled_to_bottom_of_consent,
+                                    egui::Button::new(
+                                        egui::RichText::new("Accept")
+                                            .size(button_font_size)
+                                            .strong(),
+                                    ),
+                                )
+                                .clicked()
+                            {
+                                self.local_credentials.has_consented = true;
+                            }
+                            if ui
+                                .button(
+                                    egui::RichText::new("Cancel")
+                                        .size(button_font_size)
+                                        .strong(),
+                                )
+                                .clicked()
+                            {
+                                self.local_credentials.logout();
+                            }
+                        });
+                    });
                 });
-            });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let output = egui::ScrollArea::vertical().show(ui, |ui| {
-                commonmark_str!(
-                    ui,
-                    &mut self.md_cache,
-                    "./crates/owl-recorder/src/ui/consent.md"
-                );
-            });
+            egui::Frame::new()
+                .inner_margin(egui::Margin::same(padding))
+                .show(ui, |ui| {
+                    let output = egui::ScrollArea::vertical().show(ui, |ui| {
+                        commonmark_str!(
+                            ui,
+                            &mut self.md_cache,
+                            "./crates/owl-recorder/src/ui/consent.md"
+                        );
+                    });
 
-            self.has_scrolled_to_bottom_of_consent |=
-                (output.state.offset.y + output.inner_rect.height()) >= output.content_size.y;
+                    self.has_scrolled_to_bottom_of_consent |= (output.state.offset.y
+                        + output.inner_rect.height())
+                        >= output.content_size.y;
+                });
         });
     }
 
     pub fn main_view(&mut self, ctx: &egui::Context) {
+        const SETTINGS_TEXT_WIDTH: f32 = 150.0;
+        const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
+
+        fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+            ui.allocate_ui_with_layout(
+                egui::vec2(SETTINGS_TEXT_WIDTH, SETTINGS_TEXT_HEIGHT),
+                egui::Layout {
+                    main_dir: egui::Direction::LeftToRight,
+                    main_wrap: false,
+                    main_align: egui::Align::RIGHT,
+                    main_justify: true,
+                    cross_align: egui::Align::Center,
+                    cross_justify: true,
+                },
+                |ui| ui.add(widget),
+            )
+            .inner
+        }
+
+        fn add_settings_widget(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+            ui.allocate_ui_with_layout(
+                egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+                egui::Layout {
+                    main_dir: egui::Direction::LeftToRight,
+                    main_wrap: false,
+                    main_align: egui::Align::LEFT,
+                    main_justify: true,
+                    cross_align: egui::Align::Center,
+                    cross_justify: true,
+                },
+                |ui| ui.add(widget),
+            )
+            .inner
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(egui::RichText::new("Settings").size(36.0).strong());
-            ui.label(egui::RichText::new("Configure your recording preferences").size(20.0));
+            ui.heading(
+                egui::RichText::new("Settings")
+                    .size(HEADING_TEXT_SIZE)
+                    .strong(),
+            );
+            ui.label(
+                egui::RichText::new("Configure your recording preferences")
+                    .size(SUBHEADING_TEXT_SIZE),
+            );
             ui.add_space(10.0);
 
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -198,11 +339,31 @@ impl MainApp {
                     ui.label(egui::RichText::new("Account").size(18.0).strong());
                     ui.separator();
 
-                    ui.horizontal(|ui| {
-                        ui.label(format!("User ID: {}", &self.local_credentials.user_id));
-                        if ui.button("Log out").clicked() {
-                            self.local_credentials.logout();
-                        }
+                    ui.vertical(|ui| {
+                        ui.label("User ID:");
+                        ui.horizontal(|ui| {
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui
+                                        .add_sized(
+                                            egui::vec2(0.0, SETTINGS_TEXT_HEIGHT),
+                                            egui::Button::new("Log out"),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.local_credentials.logout();
+                                    }
+
+                                    ui.add_sized(
+                                        egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+                                        egui::TextEdit::singleline(
+                                            &mut self.local_credentials.user_id.clone(),
+                                        ),
+                                    );
+                                },
+                            );
+                        });
                     });
                 });
                 ui.add_space(10.0);
@@ -217,33 +378,27 @@ impl MainApp {
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        ui.label("Start Recording:");
+                        add_settings_text(ui, egui::Label::new("Start Recording:"));
                         let button_text = if self.hotkey_state == HotkeyState::ListenStart {
                             "Press any key...".to_string()
                         } else {
                             self.local_preferences.start_recording_key.clone()
                         };
 
-                        if ui
-                            .add_sized([50.0, 15.0], egui::Button::new(button_text))
-                            .clicked()
-                        {
+                        if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
                             self.hotkey_state = HotkeyState::ListenStart;
                         }
                     });
 
                     ui.horizontal(|ui| {
-                        ui.label("Stop Recording:");
+                        add_settings_text(ui, egui::Label::new("Stop Recording:"));
                         let button_text = if self.hotkey_state == HotkeyState::ListenStop {
                             "Press any key...".to_string()
                         } else {
                             self.local_preferences.stop_recording_key.clone()
                         };
 
-                        if ui
-                            .add_sized([50.0, 15.0], egui::Button::new(button_text))
-                            .clicked()
-                        {
+                        if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
                             self.hotkey_state = HotkeyState::ListenStop;
                         }
                     });
@@ -260,15 +415,23 @@ impl MainApp {
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        ui.label("Overlay Opacity:");
+                        add_settings_text(ui, egui::Label::new("Overlay Opacity:"));
                         let mut stored_opacity = self.local_preferences.overlay_opacity;
 
                         let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
-                        let r = ui.add(
-                            egui::Slider::new(&mut egui_opacity, 0.0..=100.0)
-                                .suffix("%")
-                                .integer(),
-                        );
+
+                        let r = ui
+                            .scope(|ui| {
+                                // one day egui will make sliders respect their width properly
+                                ui.spacing_mut().slider_width = ui.available_width() - 50.0;
+                                add_settings_widget(
+                                    ui,
+                                    egui::Slider::new(&mut egui_opacity, 0.0..=100.0)
+                                        .suffix("%")
+                                        .integer(),
+                                )
+                            })
+                            .inner;
                         if r.changed() {
                             stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
                             self.local_preferences.overlay_opacity = stored_opacity;
@@ -276,15 +439,18 @@ impl MainApp {
                     });
 
                     ui.horizontal(|ui| {
-                        ui.label("Recording Audio Cue:");
+                        add_settings_text(ui, egui::Label::new("Recording Audio Cue:"));
                         let honk = self.local_preferences.honk;
-                        ui.add(egui::Checkbox::new(
-                            &mut self.local_preferences.honk,
-                            match honk {
-                                true => "Honk.",
-                                false => "Honk?",
-                            },
-                        ));
+                        add_settings_widget(
+                            ui,
+                            egui::Checkbox::new(
+                                &mut self.local_preferences.honk,
+                                match honk {
+                                    true => "Honk.",
+                                    false => "Honk?",
+                                },
+                            ),
+                        );
                     })
                 });
 
@@ -412,8 +578,7 @@ impl MainApp {
                                     } else {
                                         "Upload Recordings"
                                     })
-                                    .size(12.0)
-                                    .strong(),
+                                    .size(12.0),
                                 ),
                             )
                             .clicked()

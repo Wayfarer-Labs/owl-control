@@ -877,6 +877,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "catppuccin-egui"
+version = "5.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62cca484c0a36096745da413bacbd290322fd194eb1ed2d9910deec392649f2a"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4602,6 +4611,7 @@ name = "owl-recorder"
 version = "0.11.0"
 dependencies = [
  "async-trait",
+ "catppuccin-egui",
  "chrono",
  "clap",
  "color-eyre",

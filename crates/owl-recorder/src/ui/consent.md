@@ -1,6 +1,7 @@
 # Research Study: Wayfarer Labs Interactive Game Data Pilot
 
 Principal Investigators: Louis Castricato, Shahbuland Matiana
+
 Contact: louis@wayfarerlabs.ai, shahbuland@wayfarerlabs.ai
 
 ## Purpose of Study

@@ -45,6 +45,9 @@ rodio = "0.21.1"
 chrono = { version = "0.4.42", features = ["serde"] }
 reqwest = { version = "0.12.23", features = ["json"] }
 egui_commonmark = { version = "0.21.1", features = ["macros"] }
+catppuccin-egui = { version = "5.6.0", default-features = false, features = [
+    "egui32",
+] }
 
 [build-dependencies]
 embed-manifest = "1.3.1"
