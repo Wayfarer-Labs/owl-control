@@ -40,7 +40,7 @@ struct Args {
     stop_key: String,
 }
 
-const MAX_IDLE_DURATION: Duration = Duration::from_secs(10);
+const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
 #[tokio::main]
