@@ -61,6 +61,7 @@ pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
             };
 
             tray_icon::post_initialize(cc.egui_ctx.clone(), handle, visible.clone());
+            app_state.tx.clone().set_context(cc.egui_ctx.clone());
 
             Ok(Box::new(MainApp::new(app_state, visible, rx)?))
         }),
@@ -380,10 +381,6 @@ impl MainApp {
                             progress.speed_mbps,
                             util::format_seconds(progress.eta_seconds as u64),
                         ));
-                        // if the UI is not focused the ctx never repaints so the message queue is never flushed.
-                        // so if uploading is occuring we have to force the app to repaint periodically, and pop messages from the
-                        // message queue. Eventually the final blocking send on tx side will be pushed through and end this process.
-                        ctx.request_repaint_after(Duration::from_millis(100));
                     }
 
                     // Unreliable Connection Setting

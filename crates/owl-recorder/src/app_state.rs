@@ -1,4 +1,7 @@
-use std::{sync::RwLock, time::Instant};
+use std::{
+    sync::RwLock,
+    time::{Duration, Instant},
+};
 
 use tokio::sync::mpsc;
 
@@ -46,14 +49,27 @@ pub enum Command {
 #[derive(Clone)]
 pub struct CommandSender {
     tx: mpsc::Sender<Command>,
+    ctx: Option<egui::Context>,
 }
 
 impl CommandSender {
     pub fn try_send(&self, cmd: Command) -> Result<(), mpsc::error::TrySendError<Command>> {
+        // if the UI is not focused the ctx never repaints so the message queue is never flushed. so if uploading
+        // is occuring we have to force the app to repaint periodically, and pop messages from the message queue
+        if let Some(ctx) = &self.ctx {
+            ctx.request_repaint_after(Duration::from_millis(10));
+        }
         self.tx.try_send(cmd)
     }
     pub fn blocking_send(&self, cmd: Command) -> Result<(), mpsc::error::SendError<Command>> {
-        self.tx.blocking_send(cmd)
+        let res = self.tx.blocking_send(cmd);
+        if let Some(ctx) = &self.ctx {
+            ctx.request_repaint_after(Duration::from_millis(10));
+        }
+        res
+    }
+    pub fn set_context(&mut self, ctx: egui::Context) {
+        self.ctx = Some(ctx);
     }
 }
 
@@ -70,5 +86,5 @@ impl CommandReceiver {
 // Factory function to create the shared channel
 pub fn command_channel(buffer: usize) -> (CommandSender, CommandReceiver) {
     let (tx, rx) = mpsc::channel(buffer);
-    (CommandSender { tx }, CommandReceiver { rx })
+    (CommandSender { tx, ctx: None }, CommandReceiver { rx })
 }
