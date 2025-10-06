@@ -56,17 +56,17 @@ impl CommandSender {
     pub fn try_send(&self, cmd: Command) -> Result<(), mpsc::error::TrySendError<Command>> {
         // if the UI is not focused the ctx never repaints so the message queue is never flushed. so if uploading
         // is occuring we have to force the app to repaint periodically, and pop messages from the message queue
-        self.ctx
-            .get()
-            .map(|ctx| ctx.request_repaint_after(Duration::from_millis(10)));
+        if let Some(ctx) = self.ctx.get() {
+            ctx.request_repaint_after(Duration::from_millis(10))
+        }
         self.tx.try_send(cmd)
     }
 
     pub fn blocking_send(&self, cmd: Command) -> Result<(), mpsc::error::SendError<Command>> {
         let res = self.tx.blocking_send(cmd);
-        self.ctx
-            .get()
-            .map(|ctx| ctx.request_repaint_after(Duration::from_millis(10)));
+        if let Some(ctx) = self.ctx.get() {
+            ctx.request_repaint_after(Duration::from_millis(10))
+        }
         res
     }
 }
