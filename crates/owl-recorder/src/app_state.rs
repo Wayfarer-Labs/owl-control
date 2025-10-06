@@ -42,7 +42,7 @@ impl AppState {
 /// implementation for app state mpsc, allowing other threads to use a cloned tx
 /// to send information back to the rx running on the main UI thread
 pub enum Command {
-    UpdateUserID(String),
+    UpdateUserId(String),
     UpdateUploadProgress(Option<ProgressData>),
 }
 

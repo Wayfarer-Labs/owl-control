@@ -12,8 +12,8 @@ const API_BASE_URL: &str = "https://api.openworldlabs.ai";
 
 // Response struct for the user info endpoint
 #[derive(Deserialize)]
-struct UserIDResponse {
-    #[serde(rename = "userId")]
+#[serde(rename_all = "camelCase")]
+struct UserIdResponse {
     user_id: String,
 }
 
@@ -134,14 +134,14 @@ impl ApiClient {
                 }
 
                 // Parse the JSON response
-                match response.json::<UserIDResponse>().await {
+                match response.json::<UserIdResponse>().await {
                     Ok(user_info) => {
                         tracing::info!(
                             "validateApiKey: Successfully validated API key - user ID: {}",
                             user_info.user_id
                         );
 
-                        let _ = sender.try_send(Command::UpdateUserID(user_info.user_id.clone()));
+                        let _ = sender.try_send(Command::UpdateUserId(user_info.user_id.clone()));
 
                         Ok(ValidationSuccess {
                             success: true,

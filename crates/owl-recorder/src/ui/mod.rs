@@ -89,6 +89,7 @@ pub struct MainApp {
     rx: CommandReceiver,
 
     login_api_key: String,
+    authenticated_user_id: Option<String>,
     has_scrolled_to_bottom_of_consent: bool,
 
     /// Local copy of credentials, used to track UI state before saving to config
@@ -121,6 +122,7 @@ impl MainApp {
             rx,
 
             login_api_key: local_credentials.api_key.clone(),
+            authenticated_user_id: None,
             has_scrolled_to_bottom_of_consent: false,
 
             local_credentials,
@@ -135,6 +137,21 @@ impl MainApp {
     }
 }
 impl MainApp {
+    fn go_to_login(&mut self) {
+        self.local_credentials.logout();
+        self.authenticated_user_id = None;
+    }
+
+    fn go_to_consent(&mut self) {
+        self.local_credentials.api_key = self.login_api_key.clone();
+        self.local_credentials.has_consented = false;
+        self.has_scrolled_to_bottom_of_consent = false;
+    }
+
+    fn go_to_main(&mut self) {
+        self.local_credentials.has_consented = true;
+    }
+
     pub fn login_view(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // Center the content vertically and horizontally
@@ -186,9 +203,7 @@ impl MainApp {
                         );
 
                         if submit_button.clicked() {
-                            self.local_credentials.api_key = self.login_api_key.clone();
-                            self.local_credentials.has_consented = false;
-                            self.has_scrolled_to_bottom_of_consent = false;
+                            self.go_to_consent();
                         }
                     });
                     ui.add_space(20.0);
@@ -249,7 +264,7 @@ impl MainApp {
                                 )
                                 .clicked()
                             {
-                                self.local_credentials.has_consented = true;
+                                self.go_to_main();
                             }
                             if ui
                                 .button(
@@ -259,7 +274,7 @@ impl MainApp {
                                 )
                                 .clicked()
                             {
-                                self.local_credentials.logout();
+                                self.go_to_login();
                             }
                         });
                     });
@@ -352,14 +367,16 @@ impl MainApp {
                                         )
                                         .clicked()
                                     {
-                                        self.local_credentials.logout();
+                                        self.go_to_login();
                                     }
 
+                                    let mut user_id = self
+                                        .authenticated_user_id
+                                        .clone()
+                                        .unwrap_or_else(|| "Authenticating...".to_string());
                                     ui.add_sized(
                                         egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-                                        egui::TextEdit::singleline(
-                                            &mut self.local_credentials.user_id.clone(),
-                                        ),
+                                        egui::TextEdit::singleline(&mut user_id),
                                     );
                                 },
                             );
@@ -646,8 +663,8 @@ impl eframe::App for MainApp {
                 // handled in main_view directly from app_state
                 self.current_upload_progress = progress_data;
             }
-            Ok(Command::UpdateUserID(uid)) => {
-                self.local_credentials.user_id = uid.to_string();
+            Ok(Command::UpdateUserId(uid)) => {
+                self.authenticated_user_id = Some(uid);
             }
             Err(_) => {}
         };
