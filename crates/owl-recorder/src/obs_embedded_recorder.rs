@@ -42,7 +42,19 @@ impl ObsEmbeddedRecorder {
     where
         Self: Sized,
     {
-        let obs_context = ObsContext::new(ObsContext::builder()).await?;
+        let obs_context = ObsContext::new(
+            ObsContext::builder().set_video_info(
+                ObsVideoInfoBuilder::new()
+                    .fps_num(FPS)
+                    .fps_den(1)
+                    .base_width(RECORDING_WIDTH)
+                    .base_height(RECORDING_HEIGHT)
+                    .output_width(RECORDING_WIDTH)
+                    .output_height(RECORDING_HEIGHT)
+                    .build(),
+            ),
+        )
+        .await?;
 
         tracing::debug!("OBS context initialized successfully");
         Ok(Self {
@@ -82,9 +94,6 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         let (base_width, base_height) = get_recording_base_resolution(hwnd)?;
         tracing::info!("Base recording resolution: {base_width}x{base_height}");
 
-        //
-        // TODO!!! Make this work! This doesn't actually update the resolution!
-        //
         self.obs_context
             .reset_video(
                 ObsVideoInfoBuilder::new()

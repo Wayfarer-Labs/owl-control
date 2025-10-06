@@ -3527,9 +3527,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-sources"
-version = "2.0.7"
+version = "2.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a5085178744912adb937266a38764f3a65e08cd2e574f12134704f19341f78c"
+checksum = "347db1ee417434daf4fcb2c28c7e9169cf430f66cda27e9e079b03d7a1433287"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3556,9 +3556,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "4.0.1"
+version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d19d6aba42a9eac6fc652577444d3f78de85787396a168d959128cda11bc8079"
+checksum = "2717bc64254270e0156b46cb1bfa5c8b0e7e39412a10c43dcb52d6db978bab09"
 dependencies = [
  "anyhow",
  "arboard",
