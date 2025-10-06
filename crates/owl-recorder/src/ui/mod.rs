@@ -61,7 +61,7 @@ pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
             };
 
             tray_icon::post_initialize(cc.egui_ctx.clone(), handle, visible.clone());
-            app_state.tx.clone().set_context(cc.egui_ctx.clone());
+            let _ = app_state.tx.ctx.set(cc.egui_ctx.clone());
 
             Ok(Box::new(MainApp::new(app_state, visible, rx)?))
         }),
