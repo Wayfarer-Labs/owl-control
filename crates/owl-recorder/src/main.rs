@@ -79,8 +79,8 @@ fn main() -> Result<()> {
 
     color_eyre::install()?;
 
-    let (tx, rx) = app_state::command_channel(16);
-    let app_state = Arc::new(app_state::AppState::new(tx));
+    let (ui_update_tx, ui_update_rx) = app_state::UiUpdateSender::build(16);
+    let app_state = Arc::new(app_state::AppState::new(ui_update_tx));
 
     // launch recorder on seperate thread so non-blocking
     std::thread::spawn({
@@ -90,5 +90,5 @@ fn main() -> Result<()> {
         }
     });
 
-    ui::start(app_state, rx)
+    ui::start(app_state, ui_update_rx)
 }

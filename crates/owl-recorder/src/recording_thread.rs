@@ -1,6 +1,6 @@
 use crate::{
     MAX_IDLE_DURATION, MAX_RECORDING_DURATION,
-    app_state::{AppState, Command, RecordingStatus},
+    app_state::{AppState, UiUpdate, RecordingStatus},
     auth_service::ApiClient,
     keycode::lookup_keycode,
     ui::tray_icon,
@@ -103,7 +103,10 @@ async fn main(
                     tracing::info!("API KEY VALIDATION RUN");
                     let response = api_client.validate_api_key(api_key).await;
                     tracing::info!("API KEY VALIDATION RESPONSE: {response:?}");
-                    app_state.tx.try_send(Command::UpdateUserId(response)).ok();
+                    app_state
+                        .ui_update_tx
+                        .try_send(UiUpdate::UpdateUserId(response))
+                        .ok();
 
                     break;
                 }

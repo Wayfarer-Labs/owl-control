@@ -25,35 +25,43 @@ pub struct AppState {
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
     pub upload_stats: RwLock<UploadStats>,
-    pub tx: CommandSender,
+    pub ui_update_tx: UiUpdateSender,
 }
 
 impl AppState {
-    pub fn new(tx: CommandSender) -> Self {
+    pub fn new(ui_update_tx: UiUpdateSender) -> Self {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
             upload_stats: RwLock::new(UploadStats::load().expect("failed to init upload stats")),
-            tx,
+            ui_update_tx,
         }
     }
 }
 
-/// implementation for app state mpsc, allowing other threads to use a cloned tx
-/// to send information back to the rx running on the main UI thread
-pub enum Command {
+/// A message sent to the UI thread, usually in response to some action taken in another thread
+pub enum UiUpdate {
     UpdateUserId(Result<String, String>),
     UpdateUploadProgress(Option<ProgressData>),
 }
-
 #[derive(Clone)]
-pub struct CommandSender {
-    tx: mpsc::Sender<Command>,
+pub struct UiUpdateSender {
+    tx: mpsc::Sender<UiUpdate>,
     pub ctx: OnceLock<egui::Context>,
 }
+impl UiUpdateSender {
+    pub fn build(buffer: usize) -> (Self, tokio::sync::mpsc::Receiver<UiUpdate>) {
+        let (tx, rx) = tokio::sync::mpsc::channel(buffer);
+        (
+            Self {
+                tx,
+                ctx: OnceLock::new(),
+            },
+            rx,
+        )
+    }
 
-impl CommandSender {
-    pub fn try_send(&self, cmd: Command) -> Result<(), mpsc::error::TrySendError<Command>> {
+    pub fn try_send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::TrySendError<UiUpdate>> {
         // if the UI is not focused the ctx never repaints so the message queue is never flushed. so if uploading
         // is occuring we have to force the app to repaint periodically, and pop messages from the message queue
         if let Some(ctx) = self.ctx.get() {
@@ -62,33 +70,11 @@ impl CommandSender {
         self.tx.try_send(cmd)
     }
 
-    pub fn blocking_send(&self, cmd: Command) -> Result<(), mpsc::error::SendError<Command>> {
+    pub fn blocking_send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::SendError<UiUpdate>> {
         let res = self.tx.blocking_send(cmd);
         if let Some(ctx) = self.ctx.get() {
             ctx.request_repaint_after(Duration::from_millis(10))
         }
         res
     }
-}
-
-pub struct CommandReceiver {
-    rx: mpsc::Receiver<Command>,
-}
-
-impl CommandReceiver {
-    pub fn try_recv(&mut self) -> Result<Command, tokio::sync::mpsc::error::TryRecvError> {
-        self.rx.try_recv()
-    }
-}
-
-// Factory function to create the shared channel
-pub fn command_channel(buffer: usize) -> (CommandSender, CommandReceiver) {
-    let (tx, rx) = mpsc::channel(buffer);
-    (
-        CommandSender {
-            tx,
-            ctx: OnceLock::new(),
-        },
-        CommandReceiver { rx },
-    )
 }

@@ -25,9 +25,9 @@ pub struct FinalStats {
 }
 
 pub fn start(app_state: Arc<AppState>, api_token: &str, unreliable_connection: bool) -> bool {
-    let tx = app_state.tx.clone();
+    let tx = app_state.ui_update_tx.clone();
     tracing::info!("Starting upload bridge module from vg_control package");
-    let _ = tx.try_send(app_state::Command::UpdateUploadProgress(Some(
+    let _ = tx.try_send(app_state::UiUpdate::UpdateUploadProgress(Some(
         ProgressData::default(),
     )));
 
@@ -88,7 +88,7 @@ pub fn start(app_state: Arc<AppState>, api_token: &str, unreliable_connection: b
                 }
             };
 
-            let _ = tx.try_send(app_state::Command::UpdateUploadProgress(Some(data)));
+            let _ = tx.try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)));
         } else if let Some(data) = line.strip_prefix("FINAL_STATS: ") {
             let data = match serde_json::from_str::<FinalStats>(data) {
                 Ok(data) => data,
@@ -108,7 +108,7 @@ pub fn start(app_state: Arc<AppState>, api_token: &str, unreliable_connection: b
         }
     }
     // force the thread to block until the update goes through, in case buffer is full
-    let _ = tx.blocking_send(app_state::Command::UpdateUploadProgress(None));
+    let _ = tx.blocking_send(app_state::UiUpdate::UpdateUploadProgress(None));
 
     true
 }

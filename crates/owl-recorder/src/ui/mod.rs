@@ -11,7 +11,7 @@ use egui_commonmark::{CommonMarkCache, commonmark_str};
 use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
-    app_state::{AppState, Command, CommandReceiver},
+    app_state::{AppState, UiUpdate},
     config::{Credentials, Preferences},
     upload,
 };
@@ -30,7 +30,10 @@ enum HotkeyState {
     ListenStop,
 }
 
-pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
+pub fn start(
+    app_state: Arc<AppState>,
+    ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([600.0, 650.0])
@@ -61,7 +64,7 @@ pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
             };
 
             tray_icon::post_initialize(cc.egui_ctx.clone(), handle, visible.clone());
-            let _ = app_state.tx.ctx.set(cc.egui_ctx.clone());
+            let _ = app_state.ui_update_tx.ctx.set(cc.egui_ctx.clone());
 
             catppuccin_egui::set_theme(&cc.egui_ctx, catppuccin_egui::MACCHIATO);
 
@@ -71,7 +74,7 @@ pub fn start(app_state: Arc<AppState>, rx: CommandReceiver) -> Result<()> {
                 style.visuals.panel_fill = bg_color;
             });
 
-            Ok(Box::new(MainApp::new(app_state, visible, rx)?))
+            Ok(Box::new(MainApp::new(app_state, visible, ui_update_rx)?))
         }),
     )
     .unwrap();
@@ -86,7 +89,7 @@ pub struct MainApp {
     app_state: Arc<AppState>,
     frame: u64,
     /// Receives commands from various tx in other threads to perform some UI update
-    rx: CommandReceiver,
+    ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
 
     login_api_key: String,
     authenticated_user_id: Option<Result<String, String>>,
@@ -110,7 +113,7 @@ impl MainApp {
     fn new(
         app_state: Arc<AppState>,
         visible: Arc<AtomicBool>,
-        rx: CommandReceiver,
+        ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
     ) -> Result<Self> {
         let (local_credentials, local_preferences) = {
             let configs = app_state.config.read().unwrap();
@@ -119,7 +122,7 @@ impl MainApp {
         Ok(Self {
             app_state,
             frame: 0,
-            rx,
+            ui_update_rx,
 
             login_api_key: local_credentials.api_key.clone(),
             authenticated_user_id: None,
@@ -659,12 +662,12 @@ impl eframe::App for MainApp {
             })
         }
 
-        match self.rx.try_recv() {
-            Ok(Command::UpdateUploadProgress(progress_data)) => {
+        match self.ui_update_rx.try_recv() {
+            Ok(UiUpdate::UpdateUploadProgress(progress_data)) => {
                 // handled in main_view directly from app_state
                 self.current_upload_progress = progress_data;
             }
-            Ok(Command::UpdateUserId(uid)) => {
+            Ok(UiUpdate::UpdateUserId(uid)) => {
                 self.authenticated_user_id = Some(uid);
             }
             Err(_) => {}
