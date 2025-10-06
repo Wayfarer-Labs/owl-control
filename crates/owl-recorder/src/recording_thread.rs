@@ -1,6 +1,6 @@
 use crate::{
     MAX_IDLE_DURATION, MAX_RECORDING_DURATION,
-    app_state::{AppState, RecordingStatus},
+    app_state::{AppState, Command, RecordingStatus},
     auth_service::ApiClient,
     keycode::lookup_keycode,
     ui::tray_icon,
@@ -70,9 +70,6 @@ async fn main(
     )
     .await?;
 
-    // give it a moment for the user to see that loading has actually completed
-    std::thread::sleep(Duration::from_millis(300));
-
     tracing::info!("recorder initialized");
     let (_input_capture, mut input_rx) = InputCapture::new()?;
 
@@ -87,27 +84,31 @@ async fn main(
 
     let mut debouncer = EventDebouncer::new();
 
-    let api_client = ApiClient::new(app_state.tx.clone());
+    let mut api_client = ApiClient::new();
 
     // user had previously consented, api key should be present and we can grab uid immediately
     // otherwise, we keep periodically checking for user having consented (and therefore inputted api key)
-    let mut api_client_clone = api_client.clone();
-    let app_state_clone = app_state.clone();
-    tokio::spawn(async move {
-        loop {
-            let api_key: String;
-            let has_consented: bool;
-            {
-                let cfg = app_state_clone.config.read().unwrap();
-                api_key = cfg.credentials.api_key.clone();
-                has_consented = cfg.credentials.has_consented;
+    tokio::spawn({
+        let app_state = app_state.clone();
+        async move {
+            loop {
+                let (api_key, has_consented) = {
+                    let cfg = app_state.config.read().unwrap();
+                    (
+                        cfg.credentials.api_key.clone(),
+                        cfg.credentials.has_consented,
+                    )
+                };
+                if has_consented {
+                    tracing::info!("API KEY VALIDATION RUN");
+                    let response = api_client.validate_api_key(api_key).await;
+                    tracing::info!("API KEY VALIDATION RESPONSE: {response:?}");
+                    app_state.tx.try_send(Command::UpdateUserId(response)).ok();
+
+                    break;
+                }
+                tokio::time::sleep(Duration::from_secs(1)).await;
             }
-            if has_consented {
-                tracing::info!("API KEY VALIDATION RUN");
-                let _ = api_client_clone.validate_api_key(api_key).await;
-                break;
-            }
-            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     });
 

@@ -89,7 +89,7 @@ pub struct MainApp {
     rx: CommandReceiver,
 
     login_api_key: String,
-    authenticated_user_id: Option<String>,
+    authenticated_user_id: Option<Result<String, String>>,
     has_scrolled_to_bottom_of_consent: bool,
 
     /// Local copy of credentials, used to track UI state before saving to config
@@ -373,7 +373,8 @@ impl MainApp {
                                     let mut user_id = self
                                         .authenticated_user_id
                                         .clone()
-                                        .unwrap_or_else(|| "Authenticating...".to_string());
+                                        .unwrap_or_else(|| Ok("Authenticating...".to_string()))
+                                        .unwrap_or_else(|e| format!("Error: {e}"));
                                     ui.add_sized(
                                         egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
                                         egui::TextEdit::singleline(&mut user_id),

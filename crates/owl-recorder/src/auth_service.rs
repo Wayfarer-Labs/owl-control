@@ -1,12 +1,9 @@
 #![allow(dead_code)]
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use crate::{
-    app_state::{Command, CommandSender},
-    config::{LastUploadDate, UploadStats},
-};
+use crate::config::{LastUploadDate, UploadStats};
 
 const API_BASE_URL: &str = "https://api.openworldlabs.ai";
 
@@ -61,149 +58,92 @@ struct Upload {
     verified: bool,
     video_duration_seconds: Option<u64>,
 }
-// Custom result types for better error handling
-#[derive(Debug, Serialize)]
-pub struct ValidationSuccess {
-    pub success: bool,
-    pub user_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ValidationError {
-    pub success: bool,
-    pub message: Option<String>,
-}
 
 #[derive(Clone)]
 pub struct ApiClient {
-    sender: CommandSender,
     client: reqwest::Client,
 }
 
 impl ApiClient {
-    pub fn new(sender: CommandSender) -> Self {
+    pub fn new() -> Self {
         Self {
-            sender,
             client: reqwest::Client::new(),
         }
     }
 
-    pub async fn validate_api_key(
-        &mut self,
-        api_key: String,
-    ) -> Result<ValidationSuccess, ValidationError> {
-        let sender = self.sender.clone();
+    /// Attempts to validate the API key. Returns an error if the API key is invalid or the server is unavailable.
+    /// Returns the user ID if the API key is valid.
+    pub async fn validate_api_key(&mut self, api_key: String) -> Result<String, String> {
         let client = self.client.clone();
 
         // Validate input
         if api_key.is_empty() || api_key.trim().is_empty() {
-            return Err(ValidationError {
-                success: false,
-                message: Some("API key cannot be empty".to_string()),
-            });
+            return Err("API key cannot be empty".to_string());
         }
 
         // Simple validation - check if it starts with 'sk_'
         if !api_key.starts_with("sk_") {
-            return Err(ValidationError {
-                success: false,
-                message: Some("Invalid API key format".to_string()),
-            });
+            return Err("Invalid API key format".to_string());
         }
 
         // Make the API request
         let url = format!("{}/api/v1/user/info", API_BASE_URL);
 
-        match client
+        let response = client
             .get(&url)
             .header("Content-Type", "application/json")
             .header("X-API-Key", api_key)
             .send()
             .await
-        {
-            Ok(response) => {
-                if !response.status().is_success() {
-                    let error_msg = format!(
-                        "Invalid API key, or server unavailable: {}",
-                        response.status()
-                    );
-                    return Err(ValidationError {
-                        success: false,
-                        message: Some(error_msg),
-                    });
-                }
+            .map_err(|e| format!("API key validation error: {e}"))?;
 
-                // Parse the JSON response
-                match response.json::<UserIdResponse>().await {
-                    Ok(user_info) => {
-                        tracing::info!(
-                            "validateApiKey: Successfully validated API key - user ID: {}",
-                            user_info.user_id
-                        );
-
-                        let _ = sender.try_send(Command::UpdateUserId(user_info.user_id.clone()));
-
-                        Ok(ValidationSuccess {
-                            success: true,
-                            user_id: user_info.user_id,
-                        })
-                    }
-                    Err(e) => {
-                        tracing::error!("validateApiKey: Failed to parse response: {}", e);
-                        Err(ValidationError {
-                            success: false,
-                            message: Some("API key validation failed".to_string()),
-                        })
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::error!("validateApiKey: API key validation error: {}", e);
-                Err(ValidationError {
-                    success: false,
-                    message: Some("API key validation failed".to_string()),
-                })
-            }
+        if !response.status().is_success() {
+            return Err(format!(
+                "Invalid API key, or server unavailable: {}",
+                response.status()
+            ));
         }
+
+        // Parse the JSON response
+        let user_info = response
+            .json::<UserIdResponse>()
+            .await
+            .map_err(|e| format!("API key validation error: {e}"))?;
+
+        Ok(user_info.user_id)
     }
 
     pub async fn get_user_upload_stats(
         &self,
         api_key: &str,
         user_id: &str,
-    ) -> Result<UploadStats, ValidationError> {
+    ) -> Result<UploadStats, String> {
         let url = format!("{}/tracker/uploads/user/{}", API_BASE_URL, user_id);
 
-        match self
+        let response = self
             .client
             .get(&url)
             .header("Content-Type", "application/json")
             .header("X-API-Key", api_key)
             .send()
             .await
-        {
-            Ok(response) => {
-                let server_stats = response.json::<UserStatsResponse>().await.unwrap();
-                Ok(UploadStats {
-                    total_duration_uploaded: server_stats
-                        .statistics
-                        .total_video_time
-                        .seconds
-                        .into(),
-                    total_files_uploaded: server_stats.statistics.total_uploads,
-                    total_volume_uploaded: server_stats.statistics.total_data.megabytes as u64,
-                    last_upload_date: match server_stats.uploads.first() {
-                        Some(upload) => {
-                            LastUploadDate::Date(upload.created_at.with_timezone(&chrono::Local))
-                        }
-                        None => LastUploadDate::Never,
-                    },
-                })
-            }
-            Err(err) => Err(ValidationError {
-                success: false,
-                message: Some(format!("Request failed: {err}")),
-            }),
-        }
+            .map_err(|e| format!("Get user upload stats failed: {e}"))?;
+
+        let server_stats = response
+            .json::<UserStatsResponse>()
+            .await
+            .map_err(|e| format!("Request failed: {e}"))?;
+
+        Ok(UploadStats {
+            total_duration_uploaded: server_stats.statistics.total_video_time.seconds.into(),
+            total_files_uploaded: server_stats.statistics.total_uploads,
+            total_volume_uploaded: server_stats.statistics.total_data.megabytes as u64,
+            last_upload_date: match server_stats.uploads.first() {
+                Some(upload) => {
+                    LastUploadDate::Date(upload.created_at.with_timezone(&chrono::Local))
+                }
+                None => LastUploadDate::Never,
+            },
+        })
     }
 }
