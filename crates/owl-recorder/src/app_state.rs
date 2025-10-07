@@ -1,5 +1,5 @@
 use std::{
-    sync::{OnceLock, RwLock},
+    sync::{OnceLock, RwLock, atomic::AtomicBool},
     time::{Duration, Instant},
 };
 
@@ -27,6 +27,7 @@ pub struct AppState {
     pub upload_stats: RwLock<UploadStats>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
+    pub is_currently_rebinding: AtomicBool,
 }
 
 impl AppState {
@@ -37,6 +38,7 @@ impl AppState {
             upload_stats: RwLock::new(UploadStats::load().expect("failed to init upload stats")),
             async_request_tx,
             ui_update_tx,
+            is_currently_rebinding: AtomicBool::new(false),
         }
     }
 }

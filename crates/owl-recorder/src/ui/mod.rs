@@ -23,11 +23,12 @@ mod overlay;
 pub mod tray_icon;
 mod util;
 
-#[derive(PartialEq)]
-enum HotkeyState {
-    Chilling,
-    ListenStart,
-    ListenStop,
+#[derive(PartialEq, Clone, Copy)]
+enum HotkeyRebindTarget {
+    /// Listening for start key
+    Start,
+    /// Listening for stop key
+    Stop,
 }
 
 pub fn start(
@@ -118,7 +119,7 @@ pub struct MainApp {
     /// Time since last requested config edit: we only attempt to save once enough time has passed
     config_last_edit: Option<Instant>,
     /// Is the UI currently listening for user to select a new hotkey for recording shortcut
-    hotkey_state: HotkeyState,
+    listening_for_hotkey_rebind: Option<HotkeyRebindTarget>,
     /// Current upload progress, updated from upload bridge via mpsc channel
     current_upload_progress: Option<upload::ProgressData>,
 
@@ -165,7 +166,7 @@ impl MainApp {
             local_credentials,
             local_preferences,
             config_last_edit: None,
-            hotkey_state: HotkeyState::Chilling,
+            listening_for_hotkey_rebind: None,
             current_upload_progress: None,
 
             md_cache: CommonMarkCache::default(),
@@ -465,27 +466,30 @@ impl MainApp {
 
                     ui.horizontal(|ui| {
                         add_settings_text(ui, egui::Label::new("Start Recording:"));
-                        let button_text = if self.hotkey_state == HotkeyState::ListenStart {
+                        let button_text = if self.listening_for_hotkey_rebind
+                            == Some(HotkeyRebindTarget::Start)
+                        {
                             "Press any key...".to_string()
                         } else {
                             self.local_preferences.start_recording_key.clone()
                         };
 
                         if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                            self.hotkey_state = HotkeyState::ListenStart;
+                            self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Start);
                         }
                     });
 
                     ui.horizontal(|ui| {
                         add_settings_text(ui, egui::Label::new("Stop Recording:"));
-                        let button_text = if self.hotkey_state == HotkeyState::ListenStop {
-                            "Press any key...".to_string()
-                        } else {
-                            self.local_preferences.stop_recording_key.clone()
-                        };
+                        let button_text =
+                            if self.listening_for_hotkey_rebind == Some(HotkeyRebindTarget::Stop) {
+                                "Press any key...".to_string()
+                            } else {
+                                self.local_preferences.stop_recording_key.clone()
+                            };
 
                         if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                            self.hotkey_state = HotkeyState::ListenStop;
+                            self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Stop);
                         }
                     });
                 });
@@ -730,28 +734,26 @@ impl eframe::App for MainApp {
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
         }
 
-        if self.hotkey_state != HotkeyState::Chilling {
+        // Handle hotkey rebinds
+        if let Some(target) = self.listening_for_hotkey_rebind {
             ctx.input(|i| {
-                if i.keys_down.len() == 1 {
-                    println!("{:?} {:?} {} ", i.keys_down, i.modifiers, i.keys_down.len());
-                    let key = i
-                        .keys_down
-                        .iter()
-                        .next()
-                        .expect("keycode expected")
-                        .name()
-                        .to_string();
-                    match self.hotkey_state {
-                        HotkeyState::ListenStart => {
-                            self.local_preferences.start_recording_key = key
-                        }
-                        HotkeyState::ListenStop => self.local_preferences.stop_recording_key = key,
-                        HotkeyState::Chilling => (), // will never hit this, just to make rust compiler happy
-                    }
-                    self.hotkey_state = HotkeyState::Chilling;
-                }
-            })
+                let Some(key) = i.keys_down.iter().next().map(|k| k.name().to_string()) else {
+                    return;
+                };
+
+                let rebind_target = match target {
+                    HotkeyRebindTarget::Start => &mut self.local_preferences.start_recording_key,
+                    HotkeyRebindTarget::Stop => &mut self.local_preferences.stop_recording_key,
+                };
+                *rebind_target = key;
+                self.listening_for_hotkey_rebind = None;
+            });
         }
+        // Very lazy solution (as opposed to tracking state changes), but should be sufficient
+        self.app_state.is_currently_rebinding.store(
+            self.listening_for_hotkey_rebind.is_some(),
+            Ordering::Relaxed,
+        );
 
         let (has_api_key, has_consented) = (
             !self.local_credentials.api_key.is_empty(),

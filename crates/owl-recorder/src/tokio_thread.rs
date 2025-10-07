@@ -8,7 +8,7 @@ use crate::{
 use std::{
     io::Cursor,
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, atomic::Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -130,7 +130,7 @@ async fn main(
                 }
 
                 recorder.seen_input(e).await?;
-                if let Some(key) = e.key_press_keycode() {
+                if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
                     if key == start_keycode {
                         tracing::info!("Start key pressed, starting recording");
                         recorder.start().await?;
@@ -142,6 +142,7 @@ async fn main(
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
                         rec_stop(&sink, honk);
+
                         actively_recording_window = None;
                         start_on_activity = false;
                     }
