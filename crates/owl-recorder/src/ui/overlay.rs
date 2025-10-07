@@ -1,5 +1,5 @@
 use std::{
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -26,10 +26,10 @@ pub struct OverlayApp {
     overlay_opacity: u8,         // local opacity tracker
     rec_status: RecordingStatus, // local rec status
     last_paint_time: Instant,
-    stopped: Arc<AtomicBool>,
+    stopped_rx: tokio::sync::broadcast::Receiver<()>,
 }
 impl OverlayApp {
-    pub fn new(app_state: Arc<AppState>, stopped: Arc<AtomicBool>) -> Self {
+    pub fn new(app_state: Arc<AppState>, stopped_rx: tokio::sync::broadcast::Receiver<()>) -> Self {
         let overlay_opacity = app_state.config.read().unwrap().preferences.overlay_opacity;
         let rec_status = app_state.state.read().unwrap().clone();
         Self {
@@ -38,7 +38,7 @@ impl OverlayApp {
             overlay_opacity,
             rec_status,
             last_paint_time: Instant::now(),
-            stopped,
+            stopped_rx,
         }
     }
 }
@@ -106,7 +106,8 @@ impl EguiOverlay for OverlayApp {
             egui_context.request_repaint();
         }
 
-        if self.stopped.load(std::sync::atomic::Ordering::Acquire) {
+        if self.stopped_rx.try_recv().is_ok() {
+            tracing::info!("Overlay received stop signal");
             glfw_backend.window.set_should_close(true);
             return;
         }

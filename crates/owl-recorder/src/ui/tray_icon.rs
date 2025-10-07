@@ -47,7 +47,7 @@ impl TrayIconState {
 
         Ok(TrayIconState {
             _icon: tray_icon,
-            quit_item_id: quit_item_id,
+            quit_item_id,
         })
     }
 
@@ -57,14 +57,14 @@ impl TrayIconState {
         context: egui::Context,
         window_handle: Win32WindowHandle,
         visible: Arc<AtomicBool>,
-        stopped: Arc<AtomicBool>,
+        stopped_tx: tokio::sync::broadcast::Sender<()>,
         ui_update_tx: UiUpdateSender,
     ) {
         let quit_item_id = self.quit_item_id.clone();
         MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id() {
             id if id == &quit_item_id => {
                 tracing::info!("Tray icon requested shutdown");
-                stopped.store(true, std::sync::atomic::Ordering::Release);
+                stopped_tx.send(()).unwrap();
                 ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
             }
             _ => {}

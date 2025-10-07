@@ -31,6 +31,7 @@ pub fn run(
     stop_key: String,
     recording_location: PathBuf,
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
+    stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
     tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
@@ -38,6 +39,7 @@ pub fn run(
         stop_key,
         recording_location,
         async_request_rx,
+        stopped_rx,
     ))
 }
 
@@ -47,6 +49,7 @@ async fn main(
     stop_key: String,
     recording_location: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
+    mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
     let mut start_key = start_key;
     let mut stop_key = stop_key;
@@ -76,7 +79,7 @@ async fn main(
     tracing::info!("recorder initialized");
     let (_input_capture, mut input_rx) = InputCapture::new()?;
 
-    let mut stop_rx = wait_for_ctrl_c();
+    let mut ctrlc_rx = wait_for_ctrl_c();
 
     let mut idleness_tracker = IdlenessTracker::new(MAX_IDLE_DURATION);
     let mut start_on_activity = false;
@@ -112,8 +115,12 @@ async fn main(
                 lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
         }
         tokio::select! {
-            r = &mut stop_rx => {
-                r.expect("signal handler was closed early");
+            r = &mut ctrlc_rx => {
+                r.expect("ctrl-c signal handler was closed early");
+                break;
+            },
+            r = stopped_rx.recv() => {
+                r.expect("stopped signal handler was closed early");
                 break;
             },
             e = input_rx.recv() => {

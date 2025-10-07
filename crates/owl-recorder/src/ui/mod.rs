@@ -33,7 +33,8 @@ enum HotkeyState {
 pub fn start(
     app_state: Arc<AppState>,
     ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
-    stopped: Arc<AtomicBool>,
+    stopped_tx: tokio::sync::broadcast::Sender<()>,
+    stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -51,9 +52,9 @@ pub fn start(
     // launch overlay on seperate thread so non-blocking
     std::thread::spawn({
         let app_state = app_state.clone();
-        let stopped = stopped.clone();
+        let stopped_rx = stopped_rx.resubscribe();
         move || {
-            egui_overlay::start(overlay::OverlayApp::new(app_state, stopped));
+            egui_overlay::start(overlay::OverlayApp::new(app_state, stopped_rx));
         }
     });
 
@@ -70,7 +71,7 @@ pub fn start(
                 cc.egui_ctx.clone(),
                 handle,
                 visible.clone(),
-                stopped.clone(),
+                stopped_tx.clone(),
                 app_state.ui_update_tx.clone(),
             );
 
@@ -85,7 +86,7 @@ pub fn start(
             Ok(Box::new(MainApp::new(
                 app_state,
                 visible,
-                stopped,
+                stopped_rx,
                 ui_update_rx,
                 tray_icon,
             )?))
@@ -123,7 +124,8 @@ pub struct MainApp {
 
     md_cache: CommonMarkCache,
     visible: Arc<AtomicBool>,
-    stopped: Arc<AtomicBool>,
+    stopped_rx: tokio::sync::broadcast::Receiver<()>,
+    has_stopped: bool,
 
     _tray_icon: tray_icon::TrayIconState,
 }
@@ -131,7 +133,7 @@ impl MainApp {
     fn new(
         app_state: Arc<AppState>,
         visible: Arc<AtomicBool>,
-        stopped: Arc<AtomicBool>,
+        stopped_rx: tokio::sync::broadcast::Receiver<()>,
         ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
         tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
@@ -168,7 +170,8 @@ impl MainApp {
 
             md_cache: CommonMarkCache::default(),
             visible,
-            stopped,
+            stopped_rx,
+            has_stopped: false,
 
             _tray_icon: tray_icon,
         })
@@ -713,14 +716,15 @@ impl eframe::App for MainApp {
             Err(_) => {}
         };
 
-        let stopped = self.stopped.load(std::sync::atomic::Ordering::Acquire);
-        if stopped {
+        if self.stopped_rx.try_recv().is_ok() {
+            tracing::info!("MainApp received stop signal");
             ctx.send_viewport_cmd(ViewportCommand::Close);
+            self.has_stopped = true;
             return;
         }
 
         // if user closes the app instead minimize to tray
-        if ctx.input(|i| i.viewport().close_requested()) && !stopped {
+        if ctx.input(|i| i.viewport().close_requested()) && !self.has_stopped {
             self.visible.store(false, Ordering::Relaxed);
             ctx.send_viewport_cmd(ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
