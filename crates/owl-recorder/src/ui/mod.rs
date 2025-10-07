@@ -33,6 +33,7 @@ enum HotkeyState {
 pub fn start(
     app_state: Arc<AppState>,
     ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+    stopped: Arc<AtomicBool>,
 ) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -43,15 +44,16 @@ pub fn start(
         ..Default::default()
     };
 
-    let _tray_icon = tray_icon::initialize()?;
+    let tray_icon = tray_icon::TrayIconState::new()?;
 
     let visible = Arc::new(AtomicBool::new(true));
 
     // launch overlay on seperate thread so non-blocking
     std::thread::spawn({
         let app_state = app_state.clone();
+        let stopped = stopped.clone();
         move || {
-            egui_overlay::start(overlay::OverlayApp::new(app_state));
+            egui_overlay::start(overlay::OverlayApp::new(app_state, stopped));
         }
     });
 
@@ -63,8 +65,14 @@ pub fn start(
                 panic!("Unsupported platform");
             };
 
-            tray_icon::post_initialize(cc.egui_ctx.clone(), handle, visible.clone());
             let _ = app_state.ui_update_tx.ctx.set(cc.egui_ctx.clone());
+            tray_icon.post_initialize(
+                cc.egui_ctx.clone(),
+                handle,
+                visible.clone(),
+                stopped.clone(),
+                app_state.ui_update_tx.clone(),
+            );
 
             catppuccin_egui::set_theme(&cc.egui_ctx, catppuccin_egui::MACCHIATO);
 
@@ -74,7 +82,13 @@ pub fn start(
                 style.visuals.panel_fill = bg_color;
             });
 
-            Ok(Box::new(MainApp::new(app_state, visible, ui_update_rx)?))
+            Ok(Box::new(MainApp::new(
+                app_state,
+                visible,
+                stopped,
+                ui_update_rx,
+                tray_icon,
+            )?))
         }),
     )
     .unwrap();
@@ -109,12 +123,17 @@ pub struct MainApp {
 
     md_cache: CommonMarkCache,
     visible: Arc<AtomicBool>,
+    stopped: Arc<AtomicBool>,
+
+    _tray_icon: tray_icon::TrayIconState,
 }
 impl MainApp {
     fn new(
         app_state: Arc<AppState>,
         visible: Arc<AtomicBool>,
+        stopped: Arc<AtomicBool>,
         ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+        tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
         let (local_credentials, local_preferences) = {
             let configs = app_state.config.read().unwrap();
@@ -149,6 +168,9 @@ impl MainApp {
 
             md_cache: CommonMarkCache::default(),
             visible,
+            stopped,
+
+            _tray_icon: tray_icon,
         })
     }
 }
@@ -672,8 +694,33 @@ impl MainApp {
 
 impl eframe::App for MainApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        match self.ui_update_rx.try_recv() {
+            Ok(UiUpdate::ForceUpdate) => {
+                ctx.request_repaint();
+            }
+            Ok(UiUpdate::UpdateUploadProgress(progress_data)) => {
+                // handled in main_view directly from app_state
+                self.current_upload_progress = progress_data;
+            }
+            Ok(UiUpdate::UpdateUserId(uid)) => {
+                let was_successful = uid.is_ok();
+                self.authenticated_user_id = Some(uid);
+                self.is_authenticating_login_api_key = false;
+                if was_successful && !self.local_credentials.has_consented {
+                    self.go_to_consent();
+                }
+            }
+            Err(_) => {}
+        };
+
+        let stopped = self.stopped.load(std::sync::atomic::Ordering::Acquire);
+        if stopped {
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+            return;
+        }
+
         // if user closes the app instead minimize to tray
-        if ctx.input(|i| i.viewport().close_requested()) {
+        if ctx.input(|i| i.viewport().close_requested()) && !stopped {
             self.visible.store(false, Ordering::Relaxed);
             ctx.send_viewport_cmd(ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
@@ -701,22 +748,6 @@ impl eframe::App for MainApp {
                 }
             })
         }
-
-        match self.ui_update_rx.try_recv() {
-            Ok(UiUpdate::UpdateUploadProgress(progress_data)) => {
-                // handled in main_view directly from app_state
-                self.current_upload_progress = progress_data;
-            }
-            Ok(UiUpdate::UpdateUserId(uid)) => {
-                let was_successful = uid.is_ok();
-                self.authenticated_user_id = Some(uid);
-                self.is_authenticating_login_api_key = false;
-                if was_successful && !self.local_credentials.has_consented {
-                    self.go_to_consent();
-                }
-            }
-            Err(_) => {}
-        };
 
         let (has_api_key, has_consented) = (
             !self.local_credentials.api_key.is_empty(),

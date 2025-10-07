@@ -48,6 +48,8 @@ pub enum AsyncRequest {
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
 pub enum UiUpdate {
+    /// Dummy update to force the UI to repaint
+    ForceUpdate,
     UpdateUserId(Result<String, String>),
     UpdateUploadProgress(Option<ProgressData>),
 }

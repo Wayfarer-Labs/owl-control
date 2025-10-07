@@ -16,7 +16,7 @@ mod tokio_thread;
 mod ui;
 mod upload;
 
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, sync::atomic::AtomicBool, time::Duration};
 
 use clap::Parser;
 use color_eyre::Result;
@@ -84,19 +84,30 @@ fn main() -> Result<()> {
     let app_state = Arc::new(app_state::AppState::new(async_request_tx, ui_update_tx));
 
     // launch tokio (which hosts the recorder) on seperate thread
+    let stopped = Arc::new(AtomicBool::new(false));
     std::thread::spawn({
         let app_state = app_state.clone();
+        let stopped = stopped.clone();
         move || {
             tokio_thread::run(
-                app_state,
+                app_state.clone(),
                 start_key,
                 stop_key,
                 recording_location,
                 async_request_rx,
             )
             .unwrap();
+
+            tracing::info!("Tokio thread shut down, propagating stop signal");
+            stopped.store(true, std::sync::atomic::Ordering::Release);
+            app_state
+                .ui_update_tx
+                .blocking_send(app_state::UiUpdate::ForceUpdate)
+                .ok();
         }
     });
 
-    ui::start(app_state, ui_update_rx)
+    ui::start(app_state, ui_update_rx, stopped)?;
+    tracing::info!("Shutting down...");
+    Ok(())
 }

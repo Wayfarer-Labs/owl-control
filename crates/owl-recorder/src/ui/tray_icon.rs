@@ -5,13 +5,15 @@ use std::sync::{
 
 use tray_icon::{
     MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
-    menu::{Menu, MenuEvent, MenuItem},
+    menu::{Menu, MenuEvent, MenuId, MenuItem},
 };
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow},
 };
 use winit::raw_window_handle::Win32WindowHandle;
+
+use crate::app_state::{UiUpdate, UiUpdateSender};
 
 const LOGO_DEFAULT_BYTES: &[u8] = include_bytes!("../../assets/owl-logo.png");
 const LOGO_RECORDING_BYTES: &[u8] = include_bytes!("../../assets/owl-logo-recording.png");
@@ -20,72 +22,80 @@ pub fn egui_icon() -> egui::IconData {
     load_egui_icon_from_bytes(LOGO_DEFAULT_BYTES)
 }
 
-/// Initial creation of tray icon
-pub fn initialize() -> tray_icon::Result<TrayIcon> {
-    // tray icon right click menu for quit option
-    let quit_item = MenuItem::new("Quit", true, None);
-    let quit_item_id = quit_item.id().clone();
-    let tray_menu = Menu::new();
-    let _ = tray_menu.append(&quit_item);
+pub struct TrayIconState {
+    _icon: TrayIcon,
+    quit_item_id: MenuId,
+}
+impl TrayIconState {
+    pub fn new() -> tray_icon::Result<Self> {
+        // tray icon right click menu for quit option
+        let quit_item = MenuItem::new("Quit", true, None);
+        let quit_item_id = quit_item.id().clone();
+        let tray_menu = Menu::new();
+        let _ = tray_menu.append(&quit_item);
 
-    // create tray icon
-    let (rgba, (width, height)) = load_icon_data_from_bytes(LOGO_DEFAULT_BYTES);
-    let tray_icon_data =
-        tray_icon::Icon::from_rgba(rgba, width, height).expect("Failed to create tray icon");
+        // create tray icon
+        let (rgba, (width, height)) = load_icon_data_from_bytes(LOGO_DEFAULT_BYTES);
+        let tray_icon_data =
+            tray_icon::Icon::from_rgba(rgba, width, height).expect("Failed to create tray icon");
 
-    let tray_icon = TrayIconBuilder::new()
-        .with_icon(tray_icon_data)
-        .with_tooltip("OWL Control")
-        .with_menu(Box::new(tray_menu))
-        .build()?;
+        let tray_icon = TrayIconBuilder::new()
+            .with_icon(tray_icon_data)
+            .with_tooltip("OWL Control")
+            .with_menu(Box::new(tray_menu))
+            .build()?;
 
-    MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
-        match event.id() {
+        Ok(TrayIconState {
+            _icon: tray_icon,
+            quit_item_id: quit_item_id,
+        })
+    }
+
+    /// Called once the egui context is available
+    pub fn post_initialize(
+        &self,
+        context: egui::Context,
+        window_handle: Win32WindowHandle,
+        visible: Arc<AtomicBool>,
+        stopped: Arc<AtomicBool>,
+        ui_update_tx: UiUpdateSender,
+    ) {
+        let quit_item_id = self.quit_item_id.clone();
+        MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id() {
             id if id == &quit_item_id => {
-                // Close the application
-                // TODO: probably should be a more graceful way to close the app?
-                // probably need a atomicbool with close flag so we can close via
-                // context_menu.send_viewport_cmd(egui::ViewportCommand::Close);
-                // and then also clean up any uploading video process in progress.
-                std::process::exit(0);
+                tracing::info!("Tray icon requested shutdown");
+                stopped.store(true, std::sync::atomic::Ordering::Release);
+                ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
             }
             _ => {}
-        }
-    }));
+        }));
 
-    Ok(tray_icon)
-}
+        TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+            let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
 
-pub fn post_initialize(
-    context: egui::Context,
-    window_handle: Win32WindowHandle,
-    visible: Arc<AtomicBool>,
-) {
-    TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-        let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
-
-        if let TrayIconEvent::Click {
-            button: tray_icon::MouseButton::Left,
-            button_state: MouseButtonState::Down,
-            ..
-        } = event
-        {
-            if visible.load(Ordering::Relaxed) {
-                unsafe {
-                    let _ = ShowWindow(hwnd, SW_HIDE);
+            if let TrayIconEvent::Click {
+                button: tray_icon::MouseButton::Left,
+                button_state: MouseButtonState::Down,
+                ..
+            } = event
+            {
+                if visible.load(Ordering::Relaxed) {
+                    unsafe {
+                        let _ = ShowWindow(hwnd, SW_HIDE);
+                    }
+                    visible.store(false, Ordering::Relaxed);
+                } else {
+                    // set viewport visible true in case it was minimised to tray via closing the app
+                    context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    unsafe {
+                        let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
+                    }
+                    visible.store(true, Ordering::Relaxed);
                 }
-                visible.store(false, Ordering::Relaxed);
-            } else {
-                // set viewport visible true in case it was minimised to tray via closing the app
-                context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                unsafe {
-                    let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
-                }
-                visible.store(true, Ordering::Relaxed);
+                context.request_repaint();
             }
-            context.request_repaint();
-        }
-    }));
+        }));
+    }
 }
 
 pub fn set_icon_recording(recording: bool) {

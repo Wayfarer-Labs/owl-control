@@ -1,5 +1,5 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
 
@@ -26,9 +26,10 @@ pub struct OverlayApp {
     overlay_opacity: u8,         // local opacity tracker
     rec_status: RecordingStatus, // local rec status
     last_paint_time: Instant,
+    stopped: Arc<AtomicBool>,
 }
 impl OverlayApp {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: Arc<AppState>, stopped: Arc<AtomicBool>) -> Self {
         let overlay_opacity = app_state.config.read().unwrap().preferences.overlay_opacity;
         let rec_status = app_state.state.read().unwrap().clone();
         Self {
@@ -37,6 +38,7 @@ impl OverlayApp {
             overlay_opacity,
             rec_status,
             last_paint_time: Instant::now(),
+            stopped,
         }
     }
 }
@@ -102,6 +104,11 @@ impl EguiOverlay for OverlayApp {
         if self.frame == 0 {
             self.first_frame_init(egui_context, glfw_backend);
             egui_context.request_repaint();
+        }
+
+        if self.stopped.load(std::sync::atomic::Ordering::Acquire) {
+            glfw_backend.window.set_should_close(true);
+            return;
         }
 
         let curr_opacity = self
