@@ -178,7 +178,7 @@ impl MainApp {
                 let available_height = ui.available_height();
                 ui.add_space((available_height - content_height) / 2.0);
 
-                ui.set_max_width(ui.available_width().min(400.0));
+                ui.set_max_width(ui.available_width() * 0.8);
                 ui.vertical_centered(|ui| {
                     // Logo/Icon area (placeholder for now)
                     ui.add_space(20.0);
@@ -207,11 +207,27 @@ impl MainApp {
                         // Styled text input
                         let text_edit = egui::TextEdit::singleline(&mut self.login_api_key)
                             .desired_width(ui.available_width())
-                            .desired_rows(1);
+                            .vertical_align(egui::Align::Center)
+                            .hint_text("sk_...");
 
                         ui.add_sized(egui::vec2(ui.available_width(), 40.0), text_edit);
 
-                        ui.add_space(20.0);
+                        ui.add_space(10.0);
+
+                        // Help text
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
+                            ui.label(
+                                egui::RichText::new("Don't have an API key? Please sign up at ")
+                                    .size(12.0)
+                                    .color(egui::Color32::from_rgb(140, 140, 140)),
+                            );
+                            ui.hyperlink_to(
+                                egui::RichText::new("our website.").size(12.0),
+                                "https://wayfarerlabs.ai/handler/sign-in",
+                            );
+                        });
+                        ui.add_space(10.0);
 
                         if let Some(Err(err)) = &self.authenticated_user_id {
                             ui.label(
@@ -219,7 +235,7 @@ impl MainApp {
                                     .size(12.0)
                                     .color(egui::Color32::from_rgb(255, 0, 0)),
                             );
-                            ui.add_space(20.0);
+                            ui.add_space(10.0);
                         }
 
                         // Submit button
@@ -247,21 +263,6 @@ impl MainApp {
                                     .ok();
                             }
                         });
-                    });
-                    ui.add_space(20.0);
-
-                    // Help text
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
-                        ui.label(
-                            egui::RichText::new("Don't have an API key? Please sign up at ")
-                                .size(12.0)
-                                .color(egui::Color32::from_rgb(140, 140, 140)),
-                        );
-                        ui.hyperlink_to(
-                            egui::RichText::new("our website.").size(12.0),
-                            "https://wayfarerlabs.ai/handler/sign-in",
-                        );
                     });
                 });
             });
@@ -412,14 +413,14 @@ impl MainApp {
                                         self.go_to_login();
                                     }
 
-                                    let mut user_id = self
+                                    let user_id = self
                                         .authenticated_user_id
                                         .clone()
                                         .unwrap_or_else(|| Ok("Authenticating...".to_string()))
                                         .unwrap_or_else(|e| format!("Error: {e}"));
                                     ui.add_sized(
                                         egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-                                        egui::TextEdit::singleline(&mut user_id),
+                                        egui::TextEdit::singleline(&mut user_id.as_str()),
                                     );
                                 },
                             );
