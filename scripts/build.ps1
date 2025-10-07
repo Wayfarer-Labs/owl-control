@@ -109,6 +109,13 @@ else {
 Write-Status "Building OBS plugin..."
 try {
     # cargo obs-build --out-dir target\x86_64-pc-windows-msvc\release\
+    cargo install cargo-obs-build
+    if ($LASTEXITCODE -eq 0) {
+        Write-Status "cargo-obs-build installed successfully"
+    }
+    else {
+        Write-Warning-Custom "cargo-obs-build installation failed, continuing..."
+    }
     cargo obs-build --out-dir dist\
     if ($LASTEXITCODE -eq 0) {
         Write-Status "OBS plugin built successfully"
@@ -118,7 +125,7 @@ try {
     }
 }
 catch {
-    Write-Warning-Custom "OBS plugin build command not found, continuing..."
+    Write-Warning-Custom "OBS plugin build command failed, continuing..."
 }
 
 # Copy OBS binaries if they exist
