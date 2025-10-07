@@ -29,6 +29,7 @@ Write-Status "Building version: $VERSION"
 Write-Status "Installing uv..."
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     irm https://astral.sh/uv/install.ps1 | iex
+    $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
     $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 }
 
@@ -58,14 +59,16 @@ Write-Status "Copying Rust binary..."
 $RUST_BINARY = "target\x86_64-pc-windows-msvc\release\owl-recorder.exe"
 if (Test-Path $RUST_BINARY) {
     Copy-Item -Path $RUST_BINARY -Destination "dist\OWL Control.exe"
-} else {
+}
+else {
     Write-Error-Custom "Rust binary not found at $RUST_BINARY"
     # Try to find any .exe in release directory
     $FOUND_BINARY = Get-ChildItem -Path "target\x86_64-pc-windows-msvc\release" -Filter "*.exe" -File | Select-Object -First 1
     if ($FOUND_BINARY) {
         Write-Warning-Custom "Using binary: $($FOUND_BINARY.FullName)"
         Copy-Item -Path $FOUND_BINARY.FullName -Destination "dist\OWL Control.exe"
-    } else {
+    }
+    else {
         Write-Error-Custom "No executable found in release directory"
         exit 1
     }
@@ -82,7 +85,8 @@ Write-Status "Copying uv executable..."
 $UV_PATH = (Get-Command uv -ErrorAction SilentlyContinue).Source
 if ($UV_PATH -and (Test-Path $UV_PATH)) {
     Copy-Item -Path $UV_PATH -Destination dist\resources\uv.exe
-} else {
+}
+else {
     # Try common locations
     $UV_LOCATIONS = @(
         "$env:USERPROFILE\.cargo\bin\uv.exe",
@@ -108,10 +112,12 @@ try {
     cargo obs-build --out-dir dist\
     if ($LASTEXITCODE -eq 0) {
         Write-Status "OBS plugin built successfully"
-    } else {
+    }
+    else {
         Write-Warning-Custom "OBS plugin build failed, continuing..."
     }
-} catch {
+}
+catch {
     Write-Warning-Custom "OBS plugin build command not found, continuing..."
 }
 
@@ -145,13 +151,16 @@ if (Get-Command makensis -ErrorAction SilentlyContinue) {
         makensis /DVERSION="$VERSION" installer.nsi
         if ($LASTEXITCODE -eq 0) {
             Write-Status "Installer created successfully"
-        } else {
+        }
+        else {
             Write-Warning-Custom "NSIS installer creation failed"
         }
-    } else {
+    }
+    else {
         Write-Warning-Custom "installer.nsi not found, skipping installer creation"
     }
-} else {
+}
+else {
     Write-Warning-Custom "NSIS not installed, skipping installer creation"
 }
 
