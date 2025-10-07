@@ -92,6 +92,7 @@ pub struct MainApp {
     ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
 
     login_api_key: String,
+    is_authenticating_login_api_key: bool,
     authenticated_user_id: Option<Result<String, String>>,
     has_scrolled_to_bottom_of_consent: bool,
 
@@ -136,6 +137,7 @@ impl MainApp {
             ui_update_rx,
 
             login_api_key: local_credentials.api_key.clone(),
+            is_authenticating_login_api_key: false,
             authenticated_user_id: None,
             has_scrolled_to_bottom_of_consent: false,
 
@@ -154,6 +156,7 @@ impl MainApp {
     fn go_to_login(&mut self) {
         self.local_credentials.logout();
         self.authenticated_user_id = None;
+        self.is_authenticating_login_api_key = false;
     }
 
     fn go_to_consent(&mut self) {
@@ -210,15 +213,40 @@ impl MainApp {
 
                         ui.add_space(20.0);
 
-                        // Submit button with better styling
-                        let submit_button = ui.add_sized(
-                            egui::vec2(120.0, 36.0),
-                            egui::Button::new(egui::RichText::new("Continue").size(16.0).strong()),
-                        );
-
-                        if submit_button.clicked() {
-                            self.go_to_consent();
+                        if let Some(Err(err)) = &self.authenticated_user_id {
+                            ui.label(
+                                egui::RichText::new(err)
+                                    .size(12.0)
+                                    .color(egui::Color32::from_rgb(255, 0, 0)),
+                            );
+                            ui.add_space(20.0);
                         }
+
+                        // Submit button
+                        ui.add_enabled_ui(!self.is_authenticating_login_api_key, |ui| {
+                            let submit_button = ui.add_sized(
+                                egui::vec2(120.0, 36.0),
+                                egui::Button::new(
+                                    egui::RichText::new(if self.is_authenticating_login_api_key {
+                                        "Validating..."
+                                    } else {
+                                        "Continue"
+                                    })
+                                    .size(16.0)
+                                    .strong(),
+                                ),
+                            );
+
+                            if submit_button.clicked() && !self.is_authenticating_login_api_key {
+                                self.is_authenticating_login_api_key = true;
+                                self.app_state
+                                    .async_request_tx
+                                    .blocking_send(AsyncRequest::ValidateApiKey {
+                                        api_key: self.login_api_key.clone(),
+                                    })
+                                    .ok();
+                            }
+                        });
                     });
                     ui.add_space(20.0);
 
@@ -679,7 +707,12 @@ impl eframe::App for MainApp {
                 self.current_upload_progress = progress_data;
             }
             Ok(UiUpdate::UpdateUserId(uid)) => {
+                let was_successful = uid.is_ok();
                 self.authenticated_user_id = Some(uid);
+                self.is_authenticating_login_api_key = false;
+                if was_successful && !self.local_credentials.has_consented {
+                    self.go_to_consent();
+                }
             }
             Err(_) => {}
         };
