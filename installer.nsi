@@ -35,7 +35,6 @@
 
 ; Finish page
 !define MUI_FINISHPAGE_RUN "$INSTDIR\OWL Control.exe"
-!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\resources\README.md"
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages

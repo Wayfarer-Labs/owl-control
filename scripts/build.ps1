@@ -51,7 +51,7 @@ if (Test-Path dist) {
     Remove-Item -Path dist -Recurse -Force
 }
 New-Item -ItemType Directory -Force -Path dist | Out-Null
-New-Item -ItemType Directory -Force -Path dist\resources\obs | Out-Null
+New-Item -ItemType Directory -Force -Path dist\resources\ | Out-Null
 
 # Copy Rust binary
 Write-Status "Copying Rust binary..."
