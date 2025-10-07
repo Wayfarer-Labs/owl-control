@@ -25,18 +25,6 @@ Write-Host "======================================" -ForegroundColor Cyan
 $VERSION = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "dev" }
 Write-Status "Building version: $VERSION"
 
-# Install uv if not already installed
-Write-Status "Installing uv..."
-if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-    irm https://astral.sh/uv/install.ps1 | iex
-    $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
-    $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
-}
-
-# Setup Python with uv
-Write-Status "Setting up Python environment..."
-uv python install 3.12
-uv sync
 
 # Build Rust application
 Write-Status "Building Rust application..."
@@ -82,27 +70,14 @@ Copy-Item -Path uv.lock -Destination dist\resources\uv.lock
 
 # Copy uv executable
 Write-Status "Copying uv executable..."
-$UV_PATH = (Get-Command uv -ErrorAction SilentlyContinue).Source
-if ($UV_PATH -and (Test-Path $UV_PATH)) {
+$UV_PATH = "build-resources\downloads\uv\uv.exe"
+if (Test-Path $UV_PATH) {
     Copy-Item -Path $UV_PATH -Destination dist\resources\uv.exe
+    Write-Status "uv executable copied from build-resources"
 }
 else {
-    # Try common locations
-    $UV_LOCATIONS = @(
-        "$env:USERPROFILE\.cargo\bin\uv.exe",
-        "$env:LOCALAPPDATA\Programs\uv\uv.exe"
-    )
-    $UV_FOUND = $false
-    foreach ($location in $UV_LOCATIONS) {
-        if (Test-Path $location) {
-            Copy-Item -Path $location -Destination dist\resources\uv.exe
-            $UV_FOUND = $true
-            break
-        }
-    }
-    if (-not $UV_FOUND) {
-        Write-Warning-Custom "uv executable not found"
-    }
+    Write-Error-Custom "uv executable not found at $UV_PATH"
+    exit 1
 }
 
 # Build OBS plugin
