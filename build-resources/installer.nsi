@@ -25,7 +25,7 @@
 
 ; License page
 !define MUI_LICENSEPAGE_CHECKBOX
-!insertmacro MUI_PAGE_LICENSE "LICENSE"
+!insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 
 ; Directory page
 !insertmacro MUI_PAGE_DIRECTORY
@@ -45,7 +45,7 @@
 
 ; Installer attributes
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "dist\OWL-Control-Setup-${PRODUCT_VERSION}.exe"
+OutFile "..\dist\OWL-Control-Setup-${PRODUCT_VERSION}.exe"
 InstallDir "$LOCALAPPDATA\OWL Control"
 InstallDirRegKey HKCU "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
@@ -70,8 +70,15 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
 
+  ; Install Visual C++ Redistributable if needed
+  ${ifNot} ${FileExists} "$SYSDIR\msvcp140.dll"
+    DetailPrint "Installing Visual C++ Redistributable..."
+    File /oname=$PLUGINSDIR\vc_redist.x64.exe "downloads\vc_redist.x64.exe"
+    ExecWait '"$PLUGINSDIR\vc_redist.x64.exe" /norestart'
+  ${endIf}
+
   ; Copy all files and folders from dist directory
-  File /r /x "OWL-Control-Setup-*.exe" "dist\*.*"
+  File /r /x "OWL-Control-Setup-*.exe" "..\dist\*.*"
 
   ; Create shortcuts
   CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
