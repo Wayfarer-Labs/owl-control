@@ -688,12 +688,22 @@ impl MainApp {
 
                 // Logo
                 ui.separator();
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(
-                        egui::RichText::new("Wayfarer Labs")
-                            .italics()
-                            .color(egui::Color32::GRAY),
-                    );
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        ui.hyperlink_to(
+                            egui::RichText::new("FAQ")
+                                .italics()
+                                .color(egui::Color32::LIGHT_YELLOW),
+                            "https://github.com/Wayfarer-Labs/owl-control/blob/main/GAMES.md",
+                        );
+                    });
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            egui::RichText::new("Wayfarer Labs")
+                                .italics()
+                                .color(egui::Color32::LIGHT_BLUE),
+                        );
+                    });
                 });
             });
         });
