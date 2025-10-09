@@ -40,6 +40,7 @@ pub fn start(
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([600.0, 650.0])
+            .with_min_inner_size([400.0, 450.0])
             .with_resizable(true)
             .with_title("OWL Control")
             .with_icon(tray_icon::egui_icon()),
