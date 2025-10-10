@@ -4,7 +4,7 @@ use crate::output_types::InputEventType;
 use constants::FPS;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MouseOutputStats {
     mouse_movement_std: f64,
     mouse_x_std: f64,

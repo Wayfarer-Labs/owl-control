@@ -10,7 +10,7 @@ pub mod keyboard;
 pub mod mouse;
 pub mod video;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct InputStats {
     #[serde(flatten)]
     pub keyboard_stats: keyboard::KeyboardOutputStats,

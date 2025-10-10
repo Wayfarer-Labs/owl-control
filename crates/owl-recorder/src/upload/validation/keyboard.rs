@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{keycode::lookup_keycode, output_types::InputEventType};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KeyboardOutputStats {
     wasd_apm: f64,
     unique_keys: u64,

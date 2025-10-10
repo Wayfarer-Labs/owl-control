@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::output_types::InputEventType;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GamepadOutputStats {
     gamepad_button_apm: f64,
     gamepad_unique_buttons: u64,

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{hardware_specs, upload::validation::InputStats};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Metadata {
     pub game_exe: String,
     pub session_id: String,
