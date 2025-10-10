@@ -175,19 +175,12 @@ async fn main(
                         tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
                     }
                     AsyncRequest::OpenDataDump => {
-                        // opens the data_dump folder in file explorer
-                        let exe_path = std::env::current_exe().unwrap_or_default();
-                        let exe_dir =
-                            exe_path.parent().unwrap_or(std::path::Path::new("."));
-                        let data_dump_path = exe_dir.join("data_dump");
                         // Create directory if it doesn't exist
-                        if !data_dump_path.exists() {
-                            let _ = std::fs::create_dir_all(&data_dump_path);
+                        if !recording_location.exists() {
+                            let _ = std::fs::create_dir_all(&recording_location);
                         }
-                        // Convert to absolute path
-                        let absolute_path = std::fs::canonicalize(&data_dump_path)
-                            .unwrap_or(data_dump_path.clone());
-
+                        let absolute_path = std::fs::canonicalize(&recording_location)
+                            .unwrap_or(recording_location.clone());
                         #[cfg(target_os = "windows")]
                         {
                             open::with(&absolute_path, "explorer").ok();

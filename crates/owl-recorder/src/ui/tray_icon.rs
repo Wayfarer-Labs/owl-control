@@ -60,11 +60,11 @@ impl TrayIconState {
         stopped_tx: tokio::sync::broadcast::Sender<()>,
         ui_update_tx: UiUpdateSender,
     ) {
-        {
+        MenuEvent::set_event_handler({
             let quit_item_id = self.quit_item_id.clone();
             let context = context.clone();
             let visible = visible.clone();
-            MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id() {
+            Some(move |event: MenuEvent| match event.id() {
                 id if id == &quit_item_id => {
                     tracing::info!("Tray icon requested shutdown");
                     stopped_tx.send(()).unwrap();
@@ -81,8 +81,8 @@ impl TrayIconState {
                     ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
                 }
                 _ => {}
-            }));
-        }
+            })
+        });
 
         TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
             let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
