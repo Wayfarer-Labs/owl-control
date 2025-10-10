@@ -100,6 +100,11 @@ fn main() -> Result<()> {
             )
             .unwrap();
 
+            // note: this is usually the ctrl+c shut down path, but its a known bug that if the app is minimized to tray,
+            // killing it via ctrl+c will not kill the app immediately, the MainApp will not receive the stop signal until
+            // you click on the tray icon to re-open it, triggering the main loop repaint to run. Killing it via tray icon quit
+            // works as we just force the app to reopen for a split second to trigger refresh, but no clean way to implement this
+            // from here, so we just have to live with it for now.
             tracing::info!("Tokio thread shut down, propagating stop signal");
             stopped_tx.send(()).unwrap();
             app_state

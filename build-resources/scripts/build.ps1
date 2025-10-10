@@ -25,6 +25,31 @@ Write-Host "======================================" -ForegroundColor Cyan
 $VERSION = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "dev" }
 Write-Status "Building version: $VERSION"
 
+# Download VC Redistributable
+Write-Status "Downloading Visual C++ Redistributable..."
+New-Item -ItemType Directory -Force -Path build-resources/downloads | Out-Null
+$vcRedistPath = "build-resources/downloads/vc_redist.x64.exe"
+if (-not (Test-Path $vcRedistPath)) {
+    $ProgressPreference = 'SilentlyContinue'
+    Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile $vcRedistPath
+    Write-Status "VC Redistributable downloaded"
+}
+else {
+    Write-Status "VC Redistributable already exists, skipping download"
+}
+
+# Install uv if not already installed
+Write-Status "Installing uv..."
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+    irm https://astral.sh/uv/install.ps1 | iex
+    $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
+    $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+}
+
+# Setup Python with uv
+Write-Status "Setting up Python environment..."
+uv python install 3.12
+uv sync
 
 # Build Rust application
 Write-Status "Building Rust application..."
@@ -129,8 +154,8 @@ Get-ChildItem -Path dist\resources\vg_control -Recurse -File -Filter "*.pyc" -Er
 # Create installer with NSIS if available
 if (Get-Command makensis -ErrorAction SilentlyContinue) {
     Write-Status "Creating NSIS installer..."
-    if (Test-Path "installer.nsi") {
-        makensis /DVERSION="$VERSION" installer.nsi
+    if (Test-Path "build-resources/installer.nsi") {
+        makensis /DVERSION="$VERSION" build-resources/installer.nsi
         if ($LASTEXITCODE -eq 0) {
             Write-Status "Installer created successfully"
         }
