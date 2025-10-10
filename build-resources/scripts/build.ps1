@@ -95,14 +95,27 @@ Copy-Item -Path uv.lock -Destination dist\resources\uv.lock
 
 # Copy uv executable
 Write-Status "Copying uv executable..."
-$UV_PATH = "build-resources\downloads\uv\uv.exe"
-if (Test-Path $UV_PATH) {
+$UV_PATH = (Get-Command uv -ErrorAction SilentlyContinue).Source
+if ($UV_PATH -and (Test-Path $UV_PATH)) {
     Copy-Item -Path $UV_PATH -Destination dist\resources\uv.exe
-    Write-Status "uv executable copied from build-resources"
 }
 else {
-    Write-Error-Custom "uv executable not found at $UV_PATH"
-    exit 1
+    # Try common locations
+    $UV_LOCATIONS = @(
+        "$env:USERPROFILE\.cargo\bin\uv.exe",
+        "$env:LOCALAPPDATA\Programs\uv\uv.exe"
+    )
+    $UV_FOUND = $false
+    foreach ($location in $UV_LOCATIONS) {
+        if (Test-Path $location) {
+            Copy-Item -Path $location -Destination dist\resources\uv.exe
+            $UV_FOUND = $true
+            break
+        }
+    }
+    if (-not $UV_FOUND) {
+        Write-Warning-Custom "uv executable not found"
+    }
 }
 
 # Build OBS plugin

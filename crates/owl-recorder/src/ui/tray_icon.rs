@@ -60,27 +60,29 @@ impl TrayIconState {
         stopped_tx: tokio::sync::broadcast::Sender<()>,
         ui_update_tx: UiUpdateSender,
     ) {
-        let quit_item_id = self.quit_item_id.clone();
-        let context_clone = context.clone();
-        let visible_clone = visible.clone();
-        MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id() {
-            id if id == &quit_item_id => {
-                tracing::info!("Tray icon requested shutdown");
-                stopped_tx.send(()).unwrap();
+        {
+            let quit_item_id = self.quit_item_id.clone();
+            let context = context.clone();
+            let visible = visible.clone();
+            MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id() {
+                id if id == &quit_item_id => {
+                    tracing::info!("Tray icon requested shutdown");
+                    stopped_tx.send(()).unwrap();
 
-                // a bit hacky, but we have to force the window to be visible again so that the MainApp can call main loop repaint,
-                // otherwise the app will remain active until the user clicks on tray icon to reopen it, and then it will kill itself
-                let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
-                context_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                unsafe {
-                    let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
+                    // a bit hacky, but we have to force the window to be visible again so that the MainApp can call main loop repaint,
+                    // otherwise the app will remain active until the user clicks on tray icon to reopen it, and then it will kill itself
+                    let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
+                    context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    unsafe {
+                        let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
+                    }
+                    visible.store(true, Ordering::Relaxed);
+
+                    ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
                 }
-                visible_clone.store(true, Ordering::Relaxed);
-
-                ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
-            }
-            _ => {}
-        }));
+                _ => {}
+            }));
+        }
 
         TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
             let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
