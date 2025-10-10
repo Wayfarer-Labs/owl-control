@@ -5,9 +5,11 @@ use std::{
 
 use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
-use serde::Serialize;
 
-use crate::{hardware_id, hardware_specs, input_recorder::InputRecorder, recorder::VideoRecorder};
+use crate::{
+    hardware_id, hardware_specs, input_recorder::InputRecorder, output_types::Metadata,
+    recorder::VideoRecorder,
+};
 
 pub(crate) struct Recording {
     input_recorder: InputRecorder,
@@ -161,17 +163,7 @@ impl Recording {
             start_timestamp,
             end_timestamp,
             duration,
+            input_stats: None,
         })
     }
-}
-
-#[derive(Serialize)]
-struct Metadata {
-    game_exe: String,
-    session_id: String,
-    hardware_id: String,
-    hardware_specs: Option<hardware_specs::HardwareSpecs>,
-    start_timestamp: u64,
-    end_timestamp: u64,
-    duration: f32,
 }

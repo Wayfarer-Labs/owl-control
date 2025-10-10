@@ -11,6 +11,7 @@ mod input_recorder;
 mod keycode;
 mod obs_embedded_recorder;
 mod obs_socket_recorder;
+mod output_types;
 mod raw_input_debouncer;
 mod recorder;
 mod recording;

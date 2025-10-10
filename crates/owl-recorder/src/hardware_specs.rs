@@ -1,8 +1,8 @@
 use color_eyre::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::System;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CpuSpecs {
     pub name: String,
     pub cores: usize,
@@ -11,13 +11,13 @@ pub struct CpuSpecs {
     pub brand: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GpuSpecs {
     pub name: String,
     pub vendor: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SystemSpecs {
     pub os_name: String,
     pub os_version: String,
@@ -26,7 +26,7 @@ pub struct SystemSpecs {
     pub total_memory_gb: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HardwareSpecs {
     pub cpu: CpuSpecs,
     pub gpus: Vec<GpuSpecs>,
