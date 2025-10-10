@@ -172,7 +172,7 @@ async fn main(
                             .ok();
                     }
                     AsyncRequest::UploadData => {
-                        tokio::spawn(upload::start(app_state.clone(), recording_location.clone()));
+                        tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
                     }
                 }
             },
