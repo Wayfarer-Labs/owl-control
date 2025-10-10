@@ -1,8 +1,8 @@
 use color_eyre::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::System;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CpuSpecs {
     pub name: String,
     pub cores: usize,
@@ -11,13 +11,13 @@ pub struct CpuSpecs {
     pub brand: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GpuSpecs {
     pub name: String,
     pub vendor: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SystemSpecs {
     pub os_name: String,
     pub os_version: String,
@@ -26,7 +26,7 @@ pub struct SystemSpecs {
     pub total_memory_gb: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HardwareSpecs {
     pub cpu: CpuSpecs,
     pub gpus: Vec<GpuSpecs>,
@@ -101,7 +101,7 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
 
     // Try to get GPU info using wmic
     let output = Command::new("wmic")
-        .args(&[
+        .args([
             "path",
             "win32_VideoController",
             "get",
@@ -145,7 +145,7 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
     if gpus.is_empty() {
         // Fallback: try a simpler wmic command
         let output = Command::new("wmic")
-            .args(&["path", "win32_VideoController", "get", "name"])
+            .args(["path", "win32_VideoController", "get", "name"])
             .output()?;
 
         let output_str = String::from_utf8_lossy(&output.stdout);

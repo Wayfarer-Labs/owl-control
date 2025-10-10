@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import List, Optional
 from datetime import datetime
 import requests
@@ -18,7 +19,6 @@ def upload_archive(
     archive_path: str,
     tags: Optional[List[str]] = None,
     base_url: str = API_BASE_URL,
-    progress_mode: bool = False,
     unreliable_connections: bool = False,
     video_filename: Optional[str] = None,
     control_filename: Optional[str] = None,
@@ -64,29 +64,6 @@ def upload_archive(
     upload_success = False
 
     try:
-        # Initialize progress tracking
-        if progress_mode:
-            progress_file = os.path.join(
-                tempfile.gettempdir(), "owl-control-upload-progress.json"
-            )
-            initial_progress = {
-                "phase": "upload",
-                "action": "start",
-                "bytes_uploaded": 0,
-                "total_bytes": file_size,
-                "percent": 0,
-                "speed_mbps": 0,
-                "eta_seconds": 0,
-                "timestamp": time.time(),
-                "current_chunk": 0,
-                "total_chunks": total_chunks,
-            }
-            try:
-                with open(progress_file, "w") as f:
-                    json.dump(initial_progress, f)
-            except Exception as e:
-                print(f"Warning: Could not initialize progress file: {e}")
-
         # Upload chunks
         chunk_etags = []
         bytes_uploaded = 0
@@ -110,7 +87,6 @@ def upload_archive(
                             upload_id=upload_id,
                             chunk_data=chunk_data,
                             chunk_number=chunk_num,
-                            progress_mode=progress_mode,
                             start_time=start_time,
                             total_bytes=file_size,
                             total_chunks=total_chunks,
@@ -130,14 +106,13 @@ def upload_archive(
                         pbar.update(len(chunk_data))
 
                         # Final progress update after chunk completion
-                        if progress_mode:
-                            emit_upload_progress(
-                                bytes_uploaded=bytes_uploaded,
-                                start_time=start_time,
-                                total_bytes=file_size,
-                                current_chunk=chunk_num,
-                                total_chunks=total_chunks,
-                            )
+                        emit_upload_progress(
+                            bytes_uploaded=bytes_uploaded,
+                            start_time=start_time,
+                            total_bytes=file_size,
+                            current_chunk=chunk_num,
+                            total_chunks=total_chunks,
+                        )
 
                         print(
                             f"Uploaded chunk {chunk_num}/{total_chunks} ({len(chunk_data)} bytes, ETag: {etag})"
@@ -164,37 +139,13 @@ def upload_archive(
             raise Exception(f"Upload failed after all attempts: {error_msg}")
 
         # Write final progress
-        if progress_mode:
-            progress_file = os.path.join(
-                tempfile.gettempdir(), "owl-control-upload-progress.json"
-            )
-            try:
-                final_progress = {
-                    "phase": "upload",
-                    "action": "complete",
-                    "bytes_uploaded": file_size,
-                    "total_bytes": file_size,
-                    "percent": 100,
-                    "speed_mbps": 0,
-                    "eta_seconds": 0,
-                    "timestamp": time.time(),
-                    "current_chunk": total_chunks,
-                    "total_chunks": total_chunks,
-                    "game_control_id": completion_result["game_control_id"],
-                    "verified": completion_result.get("verified", False),
-                }
-                with open(progress_file, "w") as f:
-                    json.dump(final_progress, f)
-            except Exception as e:
-                print(f"Warning: Could not write final progress: {e}")
+        print("Upload completed successfully!")
+        print(f"Game Control ID: {completion_result['game_control_id']}")
+        print(f"Object Key: {completion_result['object_key']}")
+        print(f"Verified: {completion_result.get('verified', False)}")
 
-            print("Upload completed successfully!")
-            print(f"Game Control ID: {completion_result['game_control_id']}")
-            print(f"Object Key: {completion_result['object_key']}")
-            print(f"Verified: {completion_result.get('verified', False)}")
-
-            # Mark upload as successful
-            upload_success = True
+        # Mark upload as successful
+        upload_success = True
 
     finally:
         # If upload failed for any reason, abort the multipart upload
@@ -216,7 +167,6 @@ def upload_single_chunk(
     chunk_data: bytes,
     chunk_number: int,
     max_retries: int = 5,
-    progress_mode: bool = False,
     start_time: float = 0,
     total_bytes: int = 0,
     total_chunks: int = 0,
@@ -230,8 +180,7 @@ def upload_single_chunk(
         chunk_data: The chunk data to upload
         chunk_number: The chunk number (for logging)
         max_retries: Maximum number of retry attempts
-        progress_mode: Whether to emit progress updates
-        start_time: Start time for speed calculations
+         start_time: Start time for speed calculations
         total_bytes: Total file size for progress calculations
         total_chunks: Total number of chunks
         bytes_uploaded_before_chunk: Bytes uploaded before this chunk
@@ -290,7 +239,7 @@ def upload_single_chunk(
                             if stderr_line:
                                 stderr_lines.append(stderr_line)
                                 # Parse progress from curl's -# output
-                                if progress_mode and "#" in stderr_line:
+                                if "#" in stderr_line:
                                     try:
                                         # Extract percentage from the number of # characters
                                         percent = min(
@@ -525,8 +474,6 @@ def emit_upload_progress(
     speed_bps = bytes_uploaded / elapsed_time if elapsed_time > 0 else 0
 
     progress_data = {
-        "phase": "upload",
-        "action": "progress",
         "bytes_uploaded": bytes_uploaded,
         "total_bytes": total_bytes,
         "percent": min((bytes_uploaded / total_bytes) * 100, 100)
@@ -536,21 +483,12 @@ def emit_upload_progress(
         "eta_seconds": ((total_bytes - bytes_uploaded) / speed_bps)
         if speed_bps > 0
         else 0,
-        "timestamp": time.time(),
         "current_chunk": current_chunk,
         "total_chunks": total_chunks,
     }
 
-    progress_file = os.path.join(
-        tempfile.gettempdir(), "owl-control-upload-progress.json"
-    )
-    try:
-        with open(progress_file, "w") as f:
-            json.dump(progress_data, f)
-    except Exception as e:
-        print(f"Warning: Could not write progress file: {e}")
-
-    print(f"PROGRESS: {json.dumps(progress_data)}")
+    print(f"PROGRESS: {json.dumps(progress_data)}", file=sys.stderr)
+    sys.stderr.flush()
 
 
 def get_hwid():
