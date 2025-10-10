@@ -207,6 +207,8 @@ async fn upload_folder(
     .await
     .context("error uploading tar file")?;
 
+    std::fs::write(path.join(".uploaded"), "").ok();
+
     Ok(RecordingStats {
         duration: validation.metadata.duration as f64,
         bytes: std::fs::metadata(&tar_path.0)
@@ -402,13 +404,20 @@ async fn upload_tar(
                 upload_session.upload_id
             );
 
-            let chunk_size = file
-                .read(&mut buffer[..])
-                .await
-                .context("failed to read chunk")?;
-            if chunk_size == 0 {
-                break;
+            let mut buffer_start = 0;
+            loop {
+                let chunk_size = file
+                    .read(&mut buffer[buffer_start..])
+                    .await
+                    .context("failed to read chunk")?;
+                if chunk_size == 0 {
+                    break;
+                }
+
+                buffer_start += chunk_size;
             }
+            // After the loop, buffer_start is the total number of bytes read
+            let chunk_size = buffer_start;
 
             let chunk_data = buffer[..chunk_size].to_vec();
             let chunk_hash = sha256::digest(&chunk_data);
@@ -426,18 +435,16 @@ async fn upload_tar(
             let progress_stream =
                 tokio_util::io::ReaderStream::new(std::io::Cursor::new(chunk_data)).inspect_ok({
                     let tx = tx.clone();
-                    let upload_progress_state = upload_progress_state.clone();
+                    let ups = upload_progress_state.clone();
                     move |bytes| {
-                        let bytes_uploaded = upload_progress_state.lock().unwrap().bytes_uploaded
-                            + bytes.len() as u64;
-                        upload_progress_state.lock().unwrap().bytes_uploaded = bytes_uploaded;
+                        let bytes_uploaded =
+                            ups.lock().unwrap().bytes_uploaded + bytes.len() as u64;
+                        ups.lock().unwrap().bytes_uploaded = bytes_uploaded;
 
-                        let last_update_time =
-                            upload_progress_state.lock().unwrap().last_update_time;
-                        if last_update_time.elapsed().as_millis() > 100 {
+                        let last_update_time = ups.lock().unwrap().last_update_time;
+                        if last_update_time.elapsed().as_millis() > 25 {
                             send_progress(tx.clone(), bytes_uploaded, file_size, start_time);
-                            upload_progress_state.lock().unwrap().last_update_time =
-                                std::time::Instant::now();
+                            ups.lock().unwrap().last_update_time = std::time::Instant::now();
                         }
                     }
                 });
@@ -445,6 +452,7 @@ async fn upload_tar(
             let res = client
                 .put(&multipart_chunk_response.upload_url)
                 .header("Content-Type", "application/octet-stream")
+                .header("Content-Length", chunk_size)
                 .body(reqwest::Body::wrap_stream(progress_stream))
                 .send()
                 .await
@@ -515,22 +523,21 @@ fn send_progress(
     start_time: std::time::Instant,
 ) {
     let bps = bytes_uploaded as f64 / start_time.elapsed().as_secs_f64();
-    tx.try_send(app_state::UiUpdate::UpdateUploadProgress(Some(
-        ProgressData {
-            bytes_uploaded,
-            total_bytes,
-            speed_mbps: bps / (1024.0 * 1024.0),
-            eta_seconds: if bps > 0.0 {
-                (total_bytes - bytes_uploaded) as f64 / bps
-            } else {
-                0.0
-            },
-            percent: if total_bytes > 0 {
-                ((bytes_uploaded as f64 / total_bytes as f64) * 100.0).min(100.0)
-            } else {
-                0.0
-            },
+    let data = ProgressData {
+        bytes_uploaded,
+        total_bytes,
+        speed_mbps: bps / (1024.0 * 1024.0),
+        eta_seconds: if bps > 0.0 {
+            (total_bytes - bytes_uploaded) as f64 / bps
+        } else {
+            0.0
         },
-    )))
-    .ok();
+        percent: if total_bytes > 0 {
+            ((bytes_uploaded as f64 / total_bytes as f64) * 100.0).min(100.0)
+        } else {
+            0.0
+        },
+    };
+    tx.try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))
+        .ok();
 }

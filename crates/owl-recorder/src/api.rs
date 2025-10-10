@@ -208,17 +208,26 @@ impl ApiClient {
             filename: &'a str,
             content_type: &'a str,
             total_size_bytes: u64,
+            #[serde(skip_serializing_if = "Option::is_none")]
             chunk_size_bytes: Option<u64>,
 
+            #[serde(skip_serializing_if = "Option::is_none")]
             tags: Option<&'a [String]>,
 
+            #[serde(skip_serializing_if = "Option::is_none")]
             video_filename: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             control_filename: Option<&'a str>,
 
+            #[serde(skip_serializing_if = "Option::is_none")]
             video_duration_seconds: Option<f32>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             video_width: Option<u32>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             video_height: Option<u32>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             video_codec: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             video_fps: Option<f32>,
 
             uploader_hwid: &'a str,
