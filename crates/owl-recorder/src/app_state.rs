@@ -46,6 +46,7 @@ impl AppState {
 /// A request for some async action to happen. Response will be delivered via [`UiUpdate`].
 pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
+    UploadData,
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
@@ -54,6 +55,7 @@ pub enum UiUpdate {
     ForceUpdate,
     UpdateUserId(Result<String, String>),
     UpdateUploadProgress(Option<ProgressData>),
+    UploadFailed(String),
 }
 
 /// A sender for [`UiUpdate`] messages. Will automatically repaint the UI after sending a message.
@@ -85,6 +87,14 @@ impl UiUpdateSender {
 
     pub fn blocking_send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::SendError<UiUpdate>> {
         let res = self.tx.blocking_send(cmd);
+        if let Some(ctx) = self.ctx.get() {
+            ctx.request_repaint_after(Duration::from_millis(10))
+        }
+        res
+    }
+
+    pub async fn send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::SendError<UiUpdate>> {
+        let res = self.tx.send(cmd).await;
         if let Some(ctx) = self.ctx.get() {
             ctx.request_repaint_after(Duration::from_millis(10))
         }

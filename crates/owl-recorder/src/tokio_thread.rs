@@ -4,6 +4,7 @@ use crate::{
     auth_service::ApiClient,
     keycode::lookup_keycode,
     ui::tray_icon,
+    upload,
 };
 use std::{
     io::Cursor,
@@ -64,14 +65,17 @@ async fn main(
     let sink = Sink::connect_new(stream_handle.mixer());
 
     let mut recorder = Recorder::new(
-        Box::new(move || {
-            recording_location.join(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-                    .to_string(),
-            )
+        Box::new({
+            let recording_location = recording_location.clone();
+            move || {
+                recording_location.join(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                        .to_string(),
+                )
+            }
         }),
         app_state.clone(),
     )
@@ -166,6 +170,9 @@ async fn main(
                             .ui_update_tx
                             .try_send(UiUpdate::UpdateUserId(response))
                             .ok();
+                    }
+                    AsyncRequest::UploadData => {
+                        tokio::spawn(upload::start(app_state.clone(), recording_location.clone()));
                     }
                 }
             },

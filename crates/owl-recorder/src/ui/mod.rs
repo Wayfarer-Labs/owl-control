@@ -121,8 +121,11 @@ pub struct MainApp {
     config_last_edit: Option<Instant>,
     /// Is the UI currently listening for user to select a new hotkey for recording shortcut
     listening_for_hotkey_rebind: Option<HotkeyRebindTarget>,
+
     /// Current upload progress, updated from upload bridge via mpsc channel
     current_upload_progress: Option<upload::ProgressData>,
+    /// Last upload error, updated from upload bridge via mpsc channel
+    last_upload_error: Option<String>,
 
     md_cache: CommonMarkCache,
     visible: Arc<AtomicBool>,
@@ -168,7 +171,9 @@ impl MainApp {
             local_preferences,
             config_last_edit: None,
             listening_for_hotkey_rebind: None,
+
             current_upload_progress: None,
+            last_upload_error: None,
 
             md_cache: CommonMarkCache::default(),
             visible,
@@ -674,14 +679,18 @@ impl MainApp {
                             )
                             .clicked()
                         {
-                            // Handle upload
-                            let app_state = self.app_state.clone();
-                            let api_key = self.local_credentials.api_key.clone();
-                            let unreliable_connection =
-                                self.local_preferences.unreliable_connection;
-                            std::thread::spawn(move || {
-                                upload::start(app_state, &api_key, unreliable_connection);
-                            });
+                            self.last_upload_error = None;
+                            self.app_state
+                                .async_request_tx
+                                .blocking_send(AsyncRequest::UploadData)
+                                .ok();
+                        }
+                        if let Some(error) = &self.last_upload_error {
+                            ui.label(
+                                egui::RichText::new(error)
+                                    .size(12.0)
+                                    .color(egui::Color32::from_rgb(255, 0, 0)),
+                            );
                         }
                     });
                 });
@@ -727,6 +736,9 @@ impl eframe::App for MainApp {
                 if was_successful && !self.local_credentials.has_consented {
                     self.go_to_consent();
                 }
+            }
+            Ok(UiUpdate::UploadFailed(error)) => {
+                self.last_upload_error = Some(error);
             }
             Err(_) => {}
         };
