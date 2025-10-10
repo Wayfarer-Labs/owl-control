@@ -15,11 +15,11 @@ pub struct InitMultipartUploadArgs<'a> {
     pub tags: Option<&'a [String]>,
     pub video_filename: Option<&'a str>,
     pub control_filename: Option<&'a str>,
-    pub video_duration_seconds: Option<u64>,
-    pub video_width: Option<u64>,
-    pub video_height: Option<u64>,
+    pub video_duration_seconds: Option<f32>,
+    pub video_width: Option<u32>,
+    pub video_height: Option<u32>,
     pub video_codec: Option<&'a str>,
-    pub video_fps: Option<u64>,
+    pub video_fps: Option<f32>,
     pub chunk_size_bytes: Option<u64>,
 }
 
@@ -41,6 +41,12 @@ pub struct UploadMultipartChunkResponse {
     pub expires_at: u64,
 }
 
+#[derive(Serialize, Debug)]
+pub struct CompleteMultipartUploadChunk {
+    pub chunk_number: u64,
+    pub etag: String,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct CompleteMultipartUploadResponse {
     pub success: bool,
@@ -49,6 +55,12 @@ pub struct CompleteMultipartUploadResponse {
     pub message: String,
     #[serde(default)]
     pub verified: Option<bool>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AbortMultipartUploadResponse {
+    pub success: bool,
+    pub message: String,
 }
 
 pub struct ApiClient {
@@ -90,20 +102,16 @@ impl ApiClient {
             .header("X-API-Key", api_key)
             .send()
             .await
-            .context("API key validation error")?;
+            .context("failed to validate API key")?;
 
-        if !response.status().is_success() {
-            eyre::bail!(
-                "Invalid API key, or server unavailable: {}",
-                response.status()
-            );
-        }
+        let response =
+            check_for_response_success(response, "Invalid API key, or server unavailable").await?;
 
         // Parse the JSON response
         let user_info = response
             .json::<UserIdResponse>()
             .await
-            .context("API key validation error")?;
+            .context("failed to validate API key")?;
 
         Ok(user_info.user_id)
     }
@@ -165,12 +173,15 @@ impl ApiClient {
             .header("X-API-Key", api_key)
             .send()
             .await
-            .context("Get user upload stats failed")?;
+            .context("failed to get user upload stats")?;
+
+        let response =
+            check_for_response_success(response, "User upload stats unavailable").await?;
 
         let server_stats = response
             .json::<UserStatsResponse>()
             .await
-            .context("Request failed")?;
+            .context("failed to parse user upload stats response")?;
 
         Ok(UploadStats {
             total_duration_uploaded: server_stats.statistics.total_video_time.seconds.into(),
@@ -204,17 +215,17 @@ impl ApiClient {
             video_filename: Option<&'a str>,
             control_filename: Option<&'a str>,
 
-            video_duration_seconds: Option<u64>,
-            video_width: Option<u64>,
-            video_height: Option<u64>,
+            video_duration_seconds: Option<f32>,
+            video_width: Option<u32>,
+            video_height: Option<u32>,
             video_codec: Option<&'a str>,
-            video_fps: Option<u64>,
+            video_fps: Option<f32>,
 
             uploader_hwid: &'a str,
             upload_timestamp: &'a str,
         }
 
-        Ok(self
+        let response = self
             .client
             .post(format!(
                 "{API_BASE_URL}/tracker/upload/game_control/multipart/init"
@@ -248,9 +259,14 @@ impl ApiClient {
             })
             .send()
             .await
-            .context("Init multipart upload failed")?
-            .json()
-            .await?)
+            .context("failed to send init multipart upload request")?;
+
+        Ok(
+            check_for_response_success(response, "Multipart upload initialization failed")
+                .await?
+                .json()
+                .await?,
+        )
     }
 
     pub async fn upload_multipart_chunk(
@@ -267,7 +283,7 @@ impl ApiClient {
             chunk_hash: &'a str,
         }
 
-        Ok(self
+        let response = self
             .client
             .post(format!(
                 "{API_BASE_URL}/tracker/upload/game_control/multipart/chunk"
@@ -281,24 +297,28 @@ impl ApiClient {
             })
             .send()
             .await
-            .context("Upload multipart chunk failed")?
-            .json()
-            .await?)
+            .context("failed to send upload multipart chunk request")?;
+        Ok(
+            check_for_response_success(response, "Upload multipart chunk request failed")
+                .await?
+                .json()
+                .await?,
+        )
     }
 
     pub async fn complete_multipart_upload(
         &self,
         api_key: &str,
         upload_id: &str,
-        chunk_etags: &[String],
+        chunk_etags: &[CompleteMultipartUploadChunk],
     ) -> eyre::Result<CompleteMultipartUploadResponse> {
         #[derive(Serialize, Debug)]
         struct CompleteMultipartUploadRequest<'a> {
             upload_id: &'a str,
-            chunk_etags: &'a [String],
+            chunk_etags: &'a [CompleteMultipartUploadChunk],
         }
 
-        Ok(self
+        let response = self
             .client
             .post(format!(
                 "{API_BASE_URL}/tracker/upload/game_control/multipart/complete"
@@ -311,8 +331,55 @@ impl ApiClient {
             })
             .send()
             .await
-            .context("Complete multipart upload failed")?
-            .json()
-            .await?)
+            .context("failed to send complete multipart upload request")?;
+
+        Ok(
+            check_for_response_success(response, "Complete multipart upload request failed")
+                .await?
+                .json()
+                .await?,
+        )
     }
+
+    pub async fn abort_multipart_upload(
+        &self,
+        api_key: &str,
+        upload_id: &str,
+    ) -> eyre::Result<AbortMultipartUploadResponse> {
+        let response = self
+            .client
+            .delete(format!(
+                "{API_BASE_URL}/tracker/upload/game_control/multipart/abort/{upload_id}"
+            ))
+            .header("X-API-Key", api_key)
+            .send()
+            .await
+            .context("failed to send abort multipart upload request")?;
+
+        Ok(
+            check_for_response_success(response, "Abort multipart upload request failed")
+                .await?
+                .json()
+                .await?,
+        )
+    }
+}
+
+async fn check_for_response_success(
+    response: reqwest::Response,
+    context: &str,
+) -> eyre::Result<reqwest::Response> {
+    let status = response.status();
+    if !status.is_success() {
+        let value = response
+            .json::<serde_json::Value>()
+            .await
+            .unwrap_or_default();
+        let detail = value
+            .get("detail")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown error");
+        eyre::bail!("{context} ({status}: {detail})");
+    }
+    Ok(response)
 }
