@@ -59,11 +59,9 @@ struct Upload {
     video_duration_seconds: Option<u64>,
 }
 
-#[derive(Clone)]
 pub struct ApiClient {
     client: reqwest::Client,
 }
-
 impl ApiClient {
     pub fn new() -> Self {
         Self {
@@ -73,7 +71,7 @@ impl ApiClient {
 
     /// Attempts to validate the API key. Returns an error if the API key is invalid or the server is unavailable.
     /// Returns the user ID if the API key is valid.
-    pub async fn validate_api_key(&mut self, api_key: String) -> Result<String, String> {
+    pub async fn validate_api_key(&self, api_key: String) -> Result<String, String> {
         let client = self.client.clone();
 
         // Validate input

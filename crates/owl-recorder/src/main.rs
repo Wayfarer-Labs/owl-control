@@ -3,8 +3,8 @@
     windows_subsystem = "windows"
 )]
 
+mod api;
 mod app_state;
-mod auth_service;
 mod config;
 mod find_game;
 mod hardware_id;

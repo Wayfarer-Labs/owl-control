@@ -1,7 +1,7 @@
 use crate::{
     MAX_IDLE_DURATION,
+    api::ApiClient,
     app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
-    auth_service::ApiClient,
     keycode::lookup_keycode,
     ui::tray_icon,
     upload,
@@ -95,7 +95,7 @@ async fn main(
 
     let mut debouncer = EventDebouncer::new();
 
-    let mut api_client = ApiClient::new();
+    let api_client = Arc::new(ApiClient::new());
 
     loop {
         let honk: bool;
