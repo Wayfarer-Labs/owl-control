@@ -554,7 +554,34 @@ impl MainApp {
 
                 // Upload Manager Section
                 ui.group(|ui| {
-                    ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui
+                                .button(egui::RichText::new("Open Recordings Folder").size(12.0))
+                                .clicked()
+                            {
+                                let exe_path = std::env::current_exe().unwrap_or_default();
+                                let exe_dir =
+                                    exe_path.parent().unwrap_or(std::path::Path::new("."));
+                                let data_dump_path = exe_dir.join("data_dump");
+                                // Create directory if it doesn't exist
+                                if !data_dump_path.exists() {
+                                    let _ = std::fs::create_dir_all(&data_dump_path);
+                                }
+                                // Convert to absolute path
+                                let absolute_path = std::fs::canonicalize(&data_dump_path)
+                                    .unwrap_or(data_dump_path.clone());
+
+                                #[cfg(target_os = "windows")]
+                                {
+                                    let _ = std::process::Command::new("explorer")
+                                        .arg(absolute_path)
+                                        .spawn();
+                                }
+                            }
+                        });
+                    });
                     ui.separator();
                     ui.add_space(10.0);
 
