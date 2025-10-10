@@ -178,8 +178,8 @@ impl InputEventType {
                 })
             }
             "SCROLL" => {
-                let args: i16 = parse_args_tuple(id, json_args)?;
-                Ok(InputEventType::Scroll { amount: args })
+                let args: (i16,) = parse_args_tuple(id, json_args)?;
+                Ok(InputEventType::Scroll { amount: args.0 })
             }
             "KEYBOARD" => {
                 let args: (u16, bool) = parse_args_tuple(id, json_args)?;
