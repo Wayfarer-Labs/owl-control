@@ -14,12 +14,10 @@ use windows::Win32::{
 use winit::raw_window_handle::Win32WindowHandle;
 
 use crate::app_state::{UiUpdate, UiUpdateSender};
-
-const LOGO_DEFAULT_BYTES: &[u8] = include_bytes!("../../assets/owl-logo.png");
-const LOGO_RECORDING_BYTES: &[u8] = include_bytes!("../../assets/owl-logo-recording.png");
+use crate::assets::{get_logo_default_bytes, get_logo_recording_bytes};
 
 pub fn egui_icon() -> egui::IconData {
-    load_egui_icon_from_bytes(LOGO_DEFAULT_BYTES)
+    load_egui_icon_from_bytes(get_logo_default_bytes())
 }
 
 pub struct TrayIconState {
@@ -35,7 +33,7 @@ impl TrayIconState {
         let _ = tray_menu.append(&quit_item);
 
         // create tray icon
-        let (rgba, (width, height)) = load_icon_data_from_bytes(LOGO_DEFAULT_BYTES);
+        let (rgba, (width, height)) = load_icon_data_from_bytes(get_logo_default_bytes());
         let tray_icon_data =
             tray_icon::Icon::from_rgba(rgba, width, height).expect("Failed to create tray icon");
 
@@ -71,12 +69,14 @@ impl TrayIconState {
 
                     // a bit hacky, but we have to force the window to be visible again so that the MainApp can call main loop repaint,
                     // otherwise the app will remain active until the user clicks on tray icon to reopen it, and then it will kill itself
-                    let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
-                    context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                    unsafe {
-                        let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
+                    if !visible.load(Ordering::Relaxed) {
+                        let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
+                        context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                        unsafe {
+                            let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
+                        }
+                        visible.store(true, Ordering::Relaxed);
                     }
-                    visible.store(true, Ordering::Relaxed);
 
                     ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
                 }
@@ -114,9 +114,9 @@ impl TrayIconState {
 
 pub fn set_icon_recording(recording: bool) {
     set_app_icon_windows(&load_egui_icon_from_bytes(if recording {
-        LOGO_RECORDING_BYTES
+        get_logo_recording_bytes()
     } else {
-        LOGO_DEFAULT_BYTES
+        get_logo_default_bytes()
     }));
 }
 

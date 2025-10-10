@@ -2,6 +2,7 @@ use crate::{
     MAX_IDLE_DURATION,
     api::ApiClient,
     app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
+    assets::{get_honk_0_bytes, get_honk_1_bytes},
     keycode::lookup_keycode,
     ui::tray_icon,
     upload,
@@ -23,9 +24,6 @@ use tokio::{sync::oneshot, time::MissedTickBehavior};
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::GetForegroundWindow};
 
 use crate::{idle::IdlenessTracker, raw_input_debouncer::EventDebouncer, recorder::Recorder};
-
-const HONK_0_BYTES: &[u8] = include_bytes!("../assets/goose_honk0.mp3");
-const HONK_1_BYTES: &[u8] = include_bytes!("../assets/goose_honk1.mp3");
 
 pub fn run(
     app_state: Arc<AppState>,
@@ -231,14 +229,18 @@ async fn main(
 fn rec_start(sink: &Sink, honk: bool) {
     tray_icon::set_icon_recording(true);
     if honk {
-        sink.append(Decoder::new_mp3(Cursor::new(HONK_0_BYTES)).expect("Cannot decode honk :("));
+        sink.append(
+            Decoder::new_mp3(Cursor::new(get_honk_0_bytes())).expect("Cannot decode honk :("),
+        );
     }
 }
 
 fn rec_stop(sink: &Sink, honk: bool) {
     tray_icon::set_icon_recording(false);
     if honk {
-        sink.append(Decoder::new_mp3(Cursor::new(HONK_1_BYTES)).expect("Cannot decode honk :("));
+        sink.append(
+            Decoder::new_mp3(Cursor::new(get_honk_1_bytes())).expect("Cannot decode honk :("),
+        );
     }
 }
 

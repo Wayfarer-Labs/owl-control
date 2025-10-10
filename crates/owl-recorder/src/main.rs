@@ -5,6 +5,7 @@
 
 mod api;
 mod app_state;
+mod assets;
 mod config;
 mod find_game;
 mod hardware_id;

@@ -17,6 +17,7 @@ use windows::Win32::{
 
 use crate::{
     app_state::{AppState, RecordingStatus},
+    assets::get_owl_bytes,
     ui::util,
 };
 
@@ -153,7 +154,7 @@ impl EguiOverlay for OverlayApp {
                 self.frame += 1;
                 ui.horizontal(|ui| {
                     ui.add(
-                        egui::Image::new(egui::include_image!("../../assets/owl.png"))
+                        egui::Image::from_bytes("bytes://", get_owl_bytes())
                             .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
                             .tint(Color32::from_white_alpha(self.overlay_opacity)),
                     );
