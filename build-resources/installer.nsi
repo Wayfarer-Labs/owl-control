@@ -126,11 +126,12 @@ Section "MainSection" SEC01
 
   ; Copy all files and folders from dist directory
   File /r /x "OWL-Control-Setup-*.exe" "..\dist\*.*"
+  File "owl-logo.ico"
 
   ; Create shortcuts
   CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
-  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\OWL Control.exe"
-  CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\OWL Control.exe"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\OWL Control.exe" "" "$INSTDIR\owl-logo.ico" 0
+  CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\OWL Control.exe" "" "$INSTDIR\owl-logo.ico" 0
   CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\uninst.exe"
 SectionEnd
 
@@ -179,6 +180,7 @@ Section Uninstall
 
   ; Remove all subdirectories except data_dump
   RMDir /r "$INSTDIR\resources"
+  RMDir /r "$INSTDIR\assets"
   RMDir /r "$INSTDIR\data"
   RMDir /r "$INSTDIR\iconengines"
   RMDir /r "$INSTDIR\obs-plugins"

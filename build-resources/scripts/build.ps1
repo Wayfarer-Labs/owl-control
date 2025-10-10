@@ -87,6 +87,10 @@ else {
     }
 }
 
+# Copy assets
+Write-Status "Copying assets..."
+Copy-Item -Path assets -Destination dist\assets -Recurse
+
 # Copy Python environment
 Write-Status "Copying Python environment..."
 Copy-Item -Path vg_control -Destination dist\resources\vg_control -Recurse
