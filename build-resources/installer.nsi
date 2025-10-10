@@ -4,7 +4,7 @@
 !define PRODUCT_NAME "OWL Control"
 !define PRODUCT_VERSION "${VERSION}"
 !define PRODUCT_PUBLISHER "Wayfarer Labs"
-!define PRODUCT_WEB_SITE "https://openworldlabs.com"
+!define PRODUCT_WEB_SITE "https://wayfarerlabs.ai/"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\OWL Control.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKCU"
