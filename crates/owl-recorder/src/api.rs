@@ -1,62 +1,54 @@
 #![allow(dead_code)]
 
+use std::path::Path;
+
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use color_eyre::eyre::{self, Context, ContextCompat};
+use serde::{Deserialize, Serialize};
 
 use crate::config::{LastUploadDate, UploadStats};
 
 const API_BASE_URL: &str = "https://api.openworldlabs.ai";
 
-// Response struct for the user info endpoint
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct UserIdResponse {
-    user_id: String,
-}
-
-// Response structs for the user info endpoint
-#[derive(Deserialize, Debug)]
-struct UserStatsResponse {
-    success: bool,
-    user_id: String,
-    statistics: Statistics,
-    uploads: Vec<Upload>, // idk format for this one
+#[derive(Default, Debug, Clone)]
+pub struct InitMultipartUploadArgs<'a> {
+    pub tags: Option<&'a [String]>,
+    pub video_filename: Option<&'a str>,
+    pub control_filename: Option<&'a str>,
+    pub video_duration_seconds: Option<u64>,
+    pub video_width: Option<u64>,
+    pub video_height: Option<u64>,
+    pub video_codec: Option<&'a str>,
+    pub video_fps: Option<u64>,
+    pub chunk_size_bytes: Option<u64>,
 }
 
 #[derive(Deserialize, Debug)]
-struct Statistics {
-    total_uploads: u64,
-    total_data: DataSize,
-    total_video_time: VideoTime,
-    verified_uploads: u32,
+pub struct InitMultipartUploadResponse {
+    pub upload_id: String,
+    pub game_control_id: String,
+    pub total_chunks: u64,
+    pub chunk_size_bytes: u64,
+    /// Unix timestamp
+    pub expires_at: u64,
 }
 
 #[derive(Deserialize, Debug)]
-struct DataSize {
-    bytes: u64,
-    megabytes: f64,
-    gigabytes: f64,
+pub struct UploadMultipartChunkResponse {
+    pub upload_url: String,
+    pub chunk_number: u64,
+    /// Unix timestamp
+    pub expires_at: u64,
 }
 
 #[derive(Deserialize, Debug)]
-struct VideoTime {
-    seconds: u32,
-    minutes: f64,
-    hours: f64,
-    formatted: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct Upload {
-    content_type: String,
-    created_at: DateTime<Utc>,
-    file_size_bytes: u64,
-    file_size_mb: f64,
-    filename: String,
-    id: String,
-    tags: Option<serde_json::Value>,
-    verified: bool,
-    video_duration_seconds: Option<u64>,
+pub struct CompleteMultipartUploadResponse {
+    pub success: bool,
+    pub game_control_id: String,
+    pub object_key: String,
+    pub message: String,
+    #[serde(default)]
+    pub verified: Option<bool>,
 }
 
 pub struct ApiClient {
@@ -71,42 +63,47 @@ impl ApiClient {
 
     /// Attempts to validate the API key. Returns an error if the API key is invalid or the server is unavailable.
     /// Returns the user ID if the API key is valid.
-    pub async fn validate_api_key(&self, api_key: String) -> Result<String, String> {
+    pub async fn validate_api_key(&self, api_key: String) -> eyre::Result<String> {
+        // Response struct for the user info endpoint
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct UserIdResponse {
+            user_id: String,
+        }
+
         let client = self.client.clone();
 
         // Validate input
         if api_key.is_empty() || api_key.trim().is_empty() {
-            return Err("API key cannot be empty".to_string());
+            eyre::bail!("API key cannot be empty");
         }
 
         // Simple validation - check if it starts with 'sk_'
         if !api_key.starts_with("sk_") {
-            return Err("Invalid API key format".to_string());
+            eyre::bail!("Invalid API key format");
         }
 
         // Make the API request
-        let url = format!("{}/api/v1/user/info", API_BASE_URL);
-
         let response = client
-            .get(&url)
+            .get(format!("{API_BASE_URL}/api/v1/user/info"))
             .header("Content-Type", "application/json")
             .header("X-API-Key", api_key)
             .send()
             .await
-            .map_err(|e| format!("API key validation error: {e}"))?;
+            .context("API key validation error")?;
 
         if !response.status().is_success() {
-            return Err(format!(
+            eyre::bail!(
                 "Invalid API key, or server unavailable: {}",
                 response.status()
-            ));
+            );
         }
 
         // Parse the JSON response
         let user_info = response
             .json::<UserIdResponse>()
             .await
-            .map_err(|e| format!("API key validation error: {e}"))?;
+            .context("API key validation error")?;
 
         Ok(user_info.user_id)
     }
@@ -115,22 +112,65 @@ impl ApiClient {
         &self,
         api_key: &str,
         user_id: &str,
-    ) -> Result<UploadStats, String> {
-        let url = format!("{}/tracker/uploads/user/{}", API_BASE_URL, user_id);
+    ) -> eyre::Result<UploadStats> {
+        // Response structs for the user info endpoint
+        #[derive(Deserialize, Debug)]
+        struct UserStatsResponse {
+            success: bool,
+            user_id: String,
+            statistics: Statistics,
+            uploads: Vec<Upload>, // idk format for this one
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct Statistics {
+            total_uploads: u64,
+            total_data: DataSize,
+            total_video_time: VideoTime,
+            verified_uploads: u32,
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct DataSize {
+            bytes: u64,
+            megabytes: f64,
+            gigabytes: f64,
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct VideoTime {
+            seconds: u32,
+            minutes: f64,
+            hours: f64,
+            formatted: String,
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct Upload {
+            content_type: String,
+            created_at: DateTime<Utc>,
+            file_size_bytes: u64,
+            file_size_mb: f64,
+            filename: String,
+            id: String,
+            tags: Option<serde_json::Value>,
+            verified: bool,
+            video_duration_seconds: Option<u64>,
+        }
 
         let response = self
             .client
-            .get(&url)
+            .get(format!("{API_BASE_URL}/tracker/uploads/user/{user_id}"))
             .header("Content-Type", "application/json")
             .header("X-API-Key", api_key)
             .send()
             .await
-            .map_err(|e| format!("Get user upload stats failed: {e}"))?;
+            .context("Get user upload stats failed")?;
 
         let server_stats = response
             .json::<UserStatsResponse>()
             .await
-            .map_err(|e| format!("Request failed: {e}"))?;
+            .context("Request failed")?;
 
         Ok(UploadStats {
             total_duration_uploaded: server_stats.statistics.total_video_time.seconds.into(),
@@ -143,5 +183,136 @@ impl ApiClient {
                 None => LastUploadDate::Never,
             },
         })
+    }
+
+    pub async fn init_multipart_upload<'a>(
+        &self,
+        api_key: &str,
+        archive_path: &Path,
+        total_size_bytes: u64,
+        args: InitMultipartUploadArgs<'a>,
+    ) -> eyre::Result<InitMultipartUploadResponse> {
+        #[derive(Serialize, Debug)]
+        struct InitMultipartUploadRequest<'a> {
+            filename: &'a str,
+            content_type: &'a str,
+            total_size_bytes: u64,
+            chunk_size_bytes: Option<u64>,
+
+            tags: Option<&'a [String]>,
+
+            video_filename: Option<&'a str>,
+            control_filename: Option<&'a str>,
+
+            video_duration_seconds: Option<u64>,
+            video_width: Option<u64>,
+            video_height: Option<u64>,
+            video_codec: Option<&'a str>,
+            video_fps: Option<u64>,
+
+            uploader_hwid: &'a str,
+            upload_timestamp: &'a str,
+        }
+
+        Ok(self
+            .client
+            .post(format!(
+                "{API_BASE_URL}/tracker/upload/game_control/multipart/init"
+            ))
+            .header("Content-Type", "application/json")
+            .header("X-API-Key", api_key)
+            .json(&InitMultipartUploadRequest {
+                filename: archive_path
+                    .file_name()
+                    .with_context(|| format!("Archive path {archive_path:?} has no filename"))?
+                    .to_string_lossy()
+                    .as_ref(),
+                content_type: "application/x-tar",
+                total_size_bytes,
+                chunk_size_bytes: args.chunk_size_bytes,
+
+                tags: args.tags,
+
+                video_filename: args.video_filename,
+                control_filename: args.control_filename,
+
+                video_duration_seconds: args.video_duration_seconds,
+                video_width: args.video_width,
+                video_height: args.video_height,
+                video_codec: args.video_codec,
+                video_fps: args.video_fps,
+
+                uploader_hwid: &crate::hardware_id::get()
+                    .with_context(|| "Failed to get hardware ID")?,
+                upload_timestamp: &chrono::Local::now().to_rfc3339(),
+            })
+            .send()
+            .await
+            .context("Init multipart upload failed")?
+            .json()
+            .await?)
+    }
+
+    pub async fn upload_multipart_chunk(
+        &self,
+        api_key: &str,
+        upload_id: &str,
+        chunk_number: u64,
+        chunk_hash: &str,
+    ) -> eyre::Result<UploadMultipartChunkResponse> {
+        #[derive(Serialize, Debug)]
+        struct UploadMultipartChunkRequest<'a> {
+            upload_id: &'a str,
+            chunk_number: u64,
+            chunk_hash: &'a str,
+        }
+
+        Ok(self
+            .client
+            .post(format!(
+                "{API_BASE_URL}/tracker/upload/game_control/multipart/chunk"
+            ))
+            .header("Content-Type", "application/json")
+            .header("X-API-Key", api_key)
+            .json(&UploadMultipartChunkRequest {
+                upload_id,
+                chunk_number,
+                chunk_hash,
+            })
+            .send()
+            .await
+            .context("Upload multipart chunk failed")?
+            .json()
+            .await?)
+    }
+
+    pub async fn complete_multipart_upload(
+        &self,
+        api_key: &str,
+        upload_id: &str,
+        chunk_etags: &[String],
+    ) -> eyre::Result<CompleteMultipartUploadResponse> {
+        #[derive(Serialize, Debug)]
+        struct CompleteMultipartUploadRequest<'a> {
+            upload_id: &'a str,
+            chunk_etags: &'a [String],
+        }
+
+        Ok(self
+            .client
+            .post(format!(
+                "{API_BASE_URL}/tracker/upload/game_control/multipart/complete"
+            ))
+            .header("Content-Type", "application/json")
+            .header("X-API-Key", api_key)
+            .json(&CompleteMultipartUploadRequest {
+                upload_id,
+                chunk_etags,
+            })
+            .send()
+            .await
+            .context("Complete multipart upload failed")?
+            .json()
+            .await?)
     }
 }

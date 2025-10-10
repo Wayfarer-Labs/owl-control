@@ -166,7 +166,7 @@ async fn main(
                         tracing::info!("API KEY VALIDATION RESPONSE: {response:?}");
                         app_state
                             .ui_update_tx
-                            .try_send(UiUpdate::UpdateUserId(response))
+                            .try_send(UiUpdate::UpdateUserId(response.map_err(|e| e.to_string())))
                             .ok();
                     }
                     AsyncRequest::UploadData => {
