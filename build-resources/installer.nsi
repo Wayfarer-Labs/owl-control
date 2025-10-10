@@ -66,6 +66,53 @@ VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey "FileDescription" "${PRODUCT_NAME} Installer"
 VIAddVersionKey "LegalCopyright" "Copyright © 2025 ${PRODUCT_PUBLISHER}"
 
+; Function to check if previous versions of owl-control exist, and run uninstaller that will maintain data_dump folder
+Function .onInit
+  ; Check if already installed
+  ReadRegStr $0 ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString"
+  StrCmp $0 "" done
+
+  ; Found existing installation
+  MessageBox MB_OKCANCEL|MB_ICONQUESTION \
+    "${PRODUCT_NAME} is already installed. $\n$\nClick 'OK' to remove the previous version and continue, or 'Cancel' to cancel this installation." \
+    IDOK uninst
+  Abort
+
+uninst:
+  ; Get the installation directory - try InstallLocation first
+  ReadRegStr $INSTDIR ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "InstallLocation"
+
+  ; If InstallLocation doesn't exist (older versions), try other methods
+  ${If} $INSTDIR == ""
+    ; Try getting from the App Paths registry
+    ReadRegStr $INSTDIR HKCU "${PRODUCT_DIR_REGKEY}" ""
+    ${If} $INSTDIR != ""
+      ; Extract directory from full path (removes the exe filename)
+      ${GetParent} $INSTDIR $INSTDIR
+    ${EndIf}
+  ${EndIf}
+
+  ; If still empty, extract from UninstallString
+  ${If} $INSTDIR == ""
+    ; UninstallString typically contains the full path to uninst.exe
+    ${GetParent} $0 $INSTDIR
+  ${EndIf}
+
+  ; Clear errors
+  ClearErrors
+
+  ; Run the uninstaller silently
+  ExecWait '$0 /S _?=$INSTDIR'
+
+  ; Delete the uninstaller after it finishes
+  Delete $0
+
+  ; Clean up registry
+  DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
+
+done:
+FunctionEnd
+
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
@@ -103,6 +150,7 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
+  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "InstallLocation" "$INSTDIR"
 
   ; Get installation size
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
@@ -113,7 +161,7 @@ SectionEnd
 ; Uninstaller
 Function un.onUninstSuccess
   HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
+  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer. data_dump folder was not removed and can be found in the installation directory if it still exists."
 FunctionEnd
 
 Function un.onInit
@@ -122,21 +170,29 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
-  ; Remove files and directories
-  Delete "$INSTDIR\${PRODUCT_NAME}.url"
-  Delete "$INSTDIR\uninst.exe"
-  Delete "$INSTDIR\OWL Control.exe"
-
-  ; Remove resources
-  RMDir /r "$INSTDIR\resources"
-
-  ; Remove shortcuts
+  ; Remove shortcuts first
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Website.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk"
   Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
-
   RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
+
+  ; Remove all subdirectories except data_dump
+  RMDir /r "$INSTDIR\resources"
+  RMDir /r "$INSTDIR\data"
+  RMDir /r "$INSTDIR\iconengines"
+  RMDir /r "$INSTDIR\obs-plugins"
+  RMDir /r "$INSTDIR\platforms"
+  RMDir /r "$INSTDIR\rtmp-services"
+  RMDir /r "$INSTDIR\styles"
+  RMDir /r "$INSTDIR\text-freetype2"
+  RMDir /r "$INSTDIR\win-capture"
+
+  ; Remove all other files in root directory
+  Delete "$INSTDIR\*.*"
+
+  ; Try to remove the installation directory
+  ; This will only succeed if empty or only contains data_dump
   RMDir "$INSTDIR"
 
   ; Remove registry keys
