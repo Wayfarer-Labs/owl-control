@@ -561,24 +561,10 @@ impl MainApp {
                                 .button(egui::RichText::new("Open Recordings Folder").size(12.0))
                                 .clicked()
                             {
-                                let exe_path = std::env::current_exe().unwrap_or_default();
-                                let exe_dir =
-                                    exe_path.parent().unwrap_or(std::path::Path::new("."));
-                                let data_dump_path = exe_dir.join("data_dump");
-                                // Create directory if it doesn't exist
-                                if !data_dump_path.exists() {
-                                    let _ = std::fs::create_dir_all(&data_dump_path);
-                                }
-                                // Convert to absolute path
-                                let absolute_path = std::fs::canonicalize(&data_dump_path)
-                                    .unwrap_or(data_dump_path.clone());
-
-                                #[cfg(target_os = "windows")]
-                                {
-                                    let _ = std::process::Command::new("explorer")
-                                        .arg(absolute_path)
-                                        .spawn();
-                                }
+                                self.app_state
+                                    .async_request_tx
+                                    .blocking_send(AsyncRequest::OpenDataDump)
+                                    .ok();
                             }
                         });
                     });
