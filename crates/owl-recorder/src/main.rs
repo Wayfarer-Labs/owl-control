@@ -28,7 +28,6 @@ use tracing_subscriber::{Layer, layer::SubscriberExt as _, util::SubscriberInitE
 use std::sync::Arc;
 
 const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
-const MAX_RECORDING_DURATION: Duration = Duration::from_secs(10 * 60);
 
 fn main() -> Result<()> {
     #[derive(Parser, Debug)]

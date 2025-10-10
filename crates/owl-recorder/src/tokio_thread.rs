@@ -1,5 +1,5 @@
 use crate::{
-    MAX_IDLE_DURATION, MAX_RECORDING_DURATION,
+    MAX_IDLE_DURATION,
     app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
     auth_service::ApiClient,
     keycode::lookup_keycode,
@@ -14,6 +14,7 @@ use std::{
 
 use color_eyre::{Result, eyre::eyre};
 
+use constants::MAX_FOOTAGE;
 use game_process::does_process_exist;
 use input_capture::InputCapture;
 use rodio::{Decoder, Sink};
@@ -180,8 +181,8 @@ async fn main(
                         rec_stop(&sink, honk);
                         *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
-                    } else if recording.elapsed() > MAX_RECORDING_DURATION {
-                        tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_RECORDING_DURATION.as_secs());
+                    } else if recording.elapsed() > MAX_FOOTAGE {
+                        tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_FOOTAGE.as_secs());
                         recorder.stop().await?;
                         recorder.start().await?;
                         idleness_tracker.update_activity();
