@@ -161,6 +161,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
         let mut output = self.obs_context.output(output_info).await?;
 
+        // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
         // Register the video encoder
         let mut video_settings = self.obs_context.data().await?;
         video_settings

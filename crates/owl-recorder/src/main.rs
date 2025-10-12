@@ -112,11 +112,15 @@ fn main() -> Result<()> {
             // works as we just force the app to reopen for a split second to trigger refresh, but no clean way to implement this
             // from here, so we just have to live with it for now.
             tracing::info!("Tokio thread shut down, propagating stop signal");
-            stopped_tx.send(()).unwrap();
+            match stopped_tx.send(()) {
+                Ok(_) => {}
+                Err(e) => tracing::error!("Failed to send stop signal: {}", e),
+            };
             app_state
                 .ui_update_tx
                 .blocking_send(app_state::UiUpdate::ForceUpdate)
                 .ok();
+            tracing::info!("Tokio thread shut down complete");
         }
     });
 

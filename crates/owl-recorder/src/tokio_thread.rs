@@ -33,14 +33,25 @@ pub fn run(
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
-    tokio::runtime::Runtime::new().unwrap().block_on(main(
+    let recorder = tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
         start_key,
         stop_key,
         recording_location,
         async_request_rx,
         stopped_rx,
-    ))
+    ))?;
+
+    // This is a very disgusting workaround but there doesn't seem to be any other solution.
+    // The ObsContext's Drop implementation deadlocks when called after a tokio
+    // runtime has been active on the thread. This is because _ObsRuntimeGuard::drop uses
+    // futures::executor::block_on which tries to lock a tokio::sync::Mutex, but tokio Mutex
+    // requires an active tokio runtime for .await to work. We can't exactly fix that since
+    // it's part of libobs.rs. Since we cannot safely drop the ObsContext, we intentionally leak it here.
+    tracing::warn!("Leaking recorder to avoid deadlock (resources will be cleaned up by OS at process exit)");
+    std::mem::forget(recorder);
+
+    Ok(())
 }
 
 async fn main(
@@ -50,7 +61,7 @@ async fn main(
     recording_location: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
-) -> Result<()> {
+) -> Result<Recorder> {
     let mut start_key = start_key;
     let mut stop_key = stop_key;
     let mut start_keycode =
@@ -220,8 +231,9 @@ async fn main(
     }
 
     recorder.stop().await?;
-
-    Ok(())
+    // Return the recorder to be "dropped" outside of the tokio runtime
+    // to avoid deadlock. See above for more details.
+    Ok(recorder)
 }
 
 // TOOD: find some way to change tray icon during runtime. rn tray icon can only run in main event loop,
