@@ -116,6 +116,15 @@ impl Credentials {
     }
 }
 
+/// The directory in which all persistent config data should be stored.
+pub fn get_persistent_dir() -> Result<PathBuf> {
+    let dir = dirs::data_dir()
+        .ok_or_else(|| eyre!("Could not find user data directory"))?
+        .join("OWL Control");
+    fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Config {
     #[serde(default)]
@@ -126,11 +135,20 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        let config_path = Self::get_path()?;
-        if !config_path.exists() {
-            // Config doesn't exist, use defaults
-            return Ok(Self::default());
-        }
+        let config_path = match (Self::get_path(), Self::get_legacy_path()) {
+            (Ok(path), _) if path.exists() => {
+                tracing::info!("Loading from standard config path");
+                path
+            }
+            (_, Ok(path)) if path.exists() => {
+                tracing::info!("Loading from legacy config path");
+                path
+            }
+            _ => {
+                tracing::warn!("No config file found, using defaults");
+                return Ok(Self::default());
+            }
+        };
 
         let contents = fs::read_to_string(&config_path).context("Failed to read config file")?;
         let mut config =
@@ -147,19 +165,17 @@ impl Config {
         Ok(config)
     }
 
-    fn get_path() -> Result<PathBuf> {
+    fn get_legacy_path() -> Result<PathBuf> {
         // Get user data directory (equivalent to app.getPath("userData"))
         let user_data_dir = dirs::data_dir()
             .ok_or_else(|| eyre!("Could not find user data directory"))?
             .join("vg-control");
-        tracing::info!(
-            "Config manager using data dir: {}",
-            user_data_dir.to_string_lossy()
-        );
-        // Create directory if it doesn't exist
-        fs::create_dir_all(&user_data_dir)?;
 
         Ok(user_data_dir.join("config.json"))
+    }
+
+    fn get_path() -> Result<PathBuf> {
+        Ok(get_persistent_dir()?.join("config.json"))
     }
 
     pub fn save(&self) -> Result<()> {
@@ -254,24 +270,35 @@ impl LastUploadDate {
 
 impl UploadStats {
     pub fn load() -> Result<Self> {
-        let path = Self::get_path();
-
-        // Check if file exists
-        if !path.exists() {
-            tracing::info!("Upload stats file doesn't exist, keeping current stats");
-            return Ok(Self::default());
-        }
+        let path = match (Self::get_path(), Self::get_legacy_path()) {
+            (Ok(path), _) if path.exists() => {
+                tracing::info!("Loading from standard upload stats path");
+                path
+            }
+            (_, path) if path.exists() => {
+                tracing::info!("Loading from legacy upload stats path");
+                path
+            }
+            _ => {
+                tracing::info!("Upload stats file doesn't exist, keeping current stats");
+                return Ok(Self::default());
+            }
+        };
 
         // Parse JSON
         serde_json::from_str(&fs::read_to_string(&path)?).context("Failed to parse upload stats")
     }
 
-    fn get_path() -> PathBuf {
+    fn get_path() -> Result<PathBuf> {
+        Ok(get_persistent_dir()?.join("upload-stats.json"))
+    }
+
+    fn get_legacy_path() -> PathBuf {
         env::temp_dir().join("owl-control-upload-stats.json")
     }
 
     pub fn save(&self) -> Result<()> {
-        fs::write(Self::get_path(), serde_json::to_string_pretty(self)?)?;
+        fs::write(Self::get_path()?, serde_json::to_string_pretty(self)?)?;
         Ok(())
     }
 

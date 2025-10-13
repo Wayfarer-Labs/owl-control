@@ -159,7 +159,7 @@ SectionEnd
 ; Uninstaller
 Function un.onUninstSuccess
   HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer. data_dump folder was not removed and can be found in the installation directory if it still exists."
+  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer. Your existing recordings were not removed and can be found in the installation directory."
 FunctionEnd
 
 Function un.onInit

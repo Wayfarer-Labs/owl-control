@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     }
 
     // Set up logging, including to file
-    let log_path = std::env::temp_dir().join("owl-control-debug.log");
+    let log_path = config::get_persistent_dir()?.join("owl-control-debug.log");
     let log_file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
