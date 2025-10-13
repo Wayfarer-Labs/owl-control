@@ -14,7 +14,7 @@ Note that not all games in the below list necessarily meet the above criteria, a
 
 Some games support both first- and third-person mode; where possible, please play games in first-person mode.
 
-Games marked as `(admin)` have been reported to require running OBS+OWL Control in administrator mode to record correctly. Please verify your recordings are not all-black when recording these games.
+Games marked as `(admin)` have been reported to require running OWL Control in administrator mode to record correctly. Please verify your recordings are not all-black when recording these games.
 
 **Replaying games is OK!** It's perfectly fine to replay games you've already played, but try to play a bit differently between playthroughs. This could mean different approaches, strategies, or playstyles. It's okay if you can't play _that_ differently - we're looking to cover as many of the ways you can play games as possible.
 

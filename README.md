@@ -18,7 +18,7 @@
 
 ## 🎮 What is OWL Control?
 
-OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from games, using OBS to do the recording work. This data can be uploaded to create a public dataset that researchers worldwide can use to train AI models.
+OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from games, using OBS behind the scenes to do the recording work. This data can be uploaded to create a public dataset that researchers worldwide can use to train AI models.
 
 **[The games list](./GAMES.md)** is a list of the games we're most actively seeking data for. Other first- and third-person games are acceptable, but check in with us if possible.
 
@@ -26,10 +26,11 @@ OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from 
 
 ## 🚀 Getting Started (User Installation)
 
-The below text is supplemental, please watch the video tutorial here:
-[link](https://www.loom.com/share/f18451c8196a47a9a2dd7418f785cd37)
-The video goes over common failure cases and shows some light debugging. OWL Control is currently in pre-release and there a lot of kinks to iron out. As such the video tutorial is extensive,
-and features some minor debugging. It should be watched in full before you use the software so you can both verify it is working and report correctly when it is not.
+~~The below text is supplemental, please watch the video tutorial here: [link](https://www.loom.com/share/f18451c8196a47a9a2dd7418f785cd37)~~
+
+~~The video goes over common failure cases and shows some light debugging. OWL Control is currently in pre-release and there a lot of kinks to iron out. As such the video tutorial is extensive, and features some minor debugging. It should be watched in full before you use the software so you can both verify it is working and report correctly when it is not.~~
+
+The video is currently being updated.
 
 <table>
 <tr>
@@ -49,37 +50,29 @@ and features some minor debugging. It should be watched in full before you use t
 <td><strong>Review and accept</strong> the data collection terms</td>
 </tr>
 <tr>
-<td align="center">5️⃣</td>
-<td><strong>Install and setup OBS Studio</strong> (<a href="https://obsproject.com/">download</a>) (if OBS asks for your preferences/settings/preset, just press "cancel" and ignore) and <a href="https://imgur.com/a/rN7C79y">enable websocket + disable authentication</a></td>
-</tr>
-<tr>
-<td align="center">6️⃣</td>
-<td><strong>Strongly Recommended:</strong> In OBS, go to File -> Settings -> Output -> Streaming and set encoder to NVENC with p7 (highest quality) preset</td>
-</tr>
-<tr>
 <td align="center">7️⃣</td>
-<td><strong>Once OWL Control is open, you should give it around ~5 minutes to ensure it has time to install all python packages. After that, you can start gaming!</strong> Recordings are currently manually initiated; when in any fullscreen game, hit F4 to start recording, and F5 to stop (by default). You can test it is running my pressing F4 outside of a game, which should give you a windows notification saying that OWL Control will not record with no foreground fullscreen application.</td>
+<td>Recordings are currently manually initiated; when in any game, hit F4 to start recording, and F5 to stop (by default).</td>
 </tr>
 </table>
 
 ## 🛡️ Risks And Additional Information
 
-- **Audio**: OWL control does not record microphone inputs. It records game audio only, not all system audio.
-- **Accidental Recording**: We have observed a bug where sometimes OWL control responds to F4 (the default record button, which can be accidentally activated if one alt-f4s a game to close it) right after you close a game. In cases where this happens, it can be a good idea to quickly double check OBS after you close a game. Black recordings that result from this will be filtered out of the uploaded dataset but might still upload.
-- **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. That being said, OWL Control specifically sets OBS to record full screen applications, so there is no risk of accidental desktop capture.
-- **Data Verification**: You can press "file -> show recordings" in OBS if you want to verify your data is recording properly before upload.
+- **Audio**: OWL Control does not record microphone inputs. It records game audio only, not all system audio.
+- **Accidental Recording**: We have observed a bug where sometimes OWL Control responds to F4 (the default record button, which can be accidentally activated if one alt-f4s a game to close it) right after you close a game. In cases where this happens, it can be a good idea to quickly check the overlay. Black recordings that result from this will be filtered out of the uploaded dataset but might still upload.
+- **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. We will never record your desktop.
+- **Data Verification**: You can use the "Open Recordings Folder" button to check your own recordings before upload.
 
 ## ⚠️ Potential Incompatibilities
 
 Some software and system configurations may interfere with OWL Control's recording functionality:
 
 - **RivaTuner Statistics Server**: Often installed with MSI Afterburner, this software can cause compatibility issues with recordings. If you experience recording problems, try disabling or uninstalling RivaTuner Statistics Server.
-- **OBS Administrator Mode**: Some games require OBS to be run in administrator mode for Game Capture to work properly. If you're having trouble recording certain games, try running OBS and OWL Control as an administrator.
-- **Antivirus Software**: Some antivirus programs may interfere with the recording process or block OWL Control's functionality. You may need to add OWL Control and OBS to your antivirus whitelist.
+- **Administrator Mode**: Some games require recorders to be run in administrator mode to be recorded properly. If you're having trouble recording certain games, try running OWL Control as an administrator.
+- **Antivirus Software**: Some antivirus programs may interfere with the recording process or block OWL Control's functionality. You may need to add OWL Control to your antivirus whitelist.
 
 ## 💻 System Requirements
 
-An NVIDIA GPU is recommended. You should set your preset in OBS to NVENC with P7 otherwise you may get lag. AMD GPUs should have an equivalent.
+An NVIDIA GPU is recommended, but not a requirement.
 Video upload can be bandwidth intensive, though we downsample videos to 360p and set an appropriate bitrate to lighten the load as much as possible.
 
 ## ⚠️ Restrictions
@@ -110,7 +103,7 @@ The recording must be at least 30 seconds long, and its file size should be reas
 
 ## ⚙️ Uploading
 
-Uploads are manual only. Data is stored locally and only uploaded when you manually press the upload button in settings. You can access upload options by opening the tray icon and selecting "Settings" -> "Upload". Note that you can always press "show recordings" in OBS to find all the files.
+Uploads are manual only. Data is stored locally and only uploaded when you manually press the Upload button in settings.
 
 ## ⌨️ Default Hotkeys
 
