@@ -50,7 +50,7 @@ catppuccin-egui = { version = "5.6.0", default-features = false, features = [
     "egui32",
 ] }
 tar = "0.4.44"
-open = "5.3.2"
+opener = { version = "0.8", features = ["reveal"] }
 sha256 = "1.6.0"
 
 [build-dependencies]

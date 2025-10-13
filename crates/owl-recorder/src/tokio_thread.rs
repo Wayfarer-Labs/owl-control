@@ -30,6 +30,7 @@ pub fn run(
     start_key: String,
     stop_key: String,
     recording_location: PathBuf,
+    log_path: PathBuf,
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
@@ -38,6 +39,7 @@ pub fn run(
         start_key,
         stop_key,
         recording_location,
+        log_path,
         async_request_rx,
         stopped_rx,
     ))?;
@@ -61,6 +63,7 @@ async fn main(
     start_key: String,
     stop_key: String,
     recording_location: PathBuf,
+    log_path: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<Recorder> {
@@ -195,10 +198,10 @@ async fn main(
                         }
                         let absolute_path = std::fs::canonicalize(&recording_location)
                             .unwrap_or(recording_location.clone());
-                        #[cfg(target_os = "windows")]
-                        {
-                            open::with(&absolute_path, "explorer").ok();
-                        }
+                        opener::open(&absolute_path).ok();
+                    }
+                    AsyncRequest::OpenLog => {
+                        opener::reveal(&log_path).ok();
                     }
                 }
             },

@@ -48,6 +48,7 @@ pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
     UploadData,
     OpenDataDump,
+    OpenLog,
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread

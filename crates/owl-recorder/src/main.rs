@@ -48,10 +48,11 @@ fn main() -> Result<()> {
     }
 
     // Set up logging, including to file
+    let log_path = std::env::temp_dir().join("owl-control-debug.log");
     let log_file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(std::env::temp_dir().join("owl-control-debug.log"))?;
+        .open(&log_path)?;
 
     let env_filter = tracing_subscriber::EnvFilter::from_default_env()
         .add_directive(tracing_subscriber::filter::LevelFilter::INFO.into());
@@ -101,6 +102,7 @@ fn main() -> Result<()> {
                 start_key,
                 stop_key,
                 recording_location,
+                log_path,
                 async_request_rx,
                 stopped_rx,
             )

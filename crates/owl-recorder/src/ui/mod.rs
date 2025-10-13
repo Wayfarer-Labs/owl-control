@@ -735,12 +735,18 @@ impl MainApp {
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        ui.hyperlink_to(
-                            egui::RichText::new("FAQ")
-                                .italics()
-                                .color(egui::Color32::LIGHT_YELLOW),
-                            "https://github.com/Wayfarer-Labs/owl-control/blob/main/GAMES.md",
-                        );
+                        if ui.button("FAQ").clicked() {
+                            opener::open_browser(
+                                "https://github.com/Wayfarer-Labs/owl-control/blob/main/GAMES.md",
+                            )
+                            .ok();
+                        }
+                        if ui.button("Logs").clicked() {
+                            self.app_state
+                                .async_request_tx
+                                .blocking_send(AsyncRequest::OpenLog)
+                                .ok();
+                        }
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
