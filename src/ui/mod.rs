@@ -1,13 +1,13 @@
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
 
 use color_eyre::Result;
-use egui_commonmark::{commonmark_str, CommonMarkCache};
+use egui_commonmark::{CommonMarkCache, commonmark_str};
 use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
@@ -22,6 +22,8 @@ use egui::ViewportCommand;
 mod overlay;
 pub mod tray_icon;
 mod util;
+
+pub mod notification;
 
 #[derive(PartialEq, Clone, Copy)]
 enum HotkeyRebindTarget {

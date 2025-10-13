@@ -77,7 +77,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         dummy_video_path: &Path,
         pid: u32,
         hwnd: HWND,
-        _game_exe: &str,
+        game_exe: &str,
     ) -> Result<()> {
         let recording_path: &str = dummy_video_path
             .to_str()
@@ -153,7 +153,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     let window = window
                         .iter()
                         .find(|w| w.0.pid == pid)
-                        .ok_or_else(|| eyre!("No window found with PID: {}", pid))?;
+                        .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
 
                     self.obs_context
                         .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
@@ -170,7 +170,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     let window = window
                         .iter()
                         .find(|w| w.pid == pid)
-                        .ok_or_else(|| eyre!("No window found with PID: {}", pid))?;
+                        .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
 
                     if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
                         bail!(

@@ -2,16 +2,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use color_eyre::eyre::OptionExt as _;
+use color_eyre::eyre::{OptionExt as _, bail};
 use color_eyre::{Result, eyre::Context as _};
-use tauri_winrt_notification::Toast;
 use windows::Win32::Foundation::HWND;
-use windows::{
-    Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MessageBoxW},
-    core::HSTRING,
-};
 
 use crate::hardware_specs::get_primary_monitor_resolution;
+use crate::ui::notification::{NotificationType, show_notification};
 use crate::{
     app_state::{AppState, RecordingStatus},
     config::RecordingBackend,
@@ -80,34 +76,23 @@ impl Recorder {
         let recording_location = (self.recording_dir)();
 
         std::fs::create_dir_all(&recording_location)
-            .wrap_err("Failed to create recording directory")?;
+            .wrap_err("Failed to create directory for recording. Did you install OWL Control to a location where your account is allowed to write files?")?;
 
         let free_space_mb = get_free_space_in_mb(&recording_location);
         if let Some(free_space_mb) = free_space_mb
             && free_space_mb < MIN_FREE_SPACE_MB
         {
-            show_notification(
-                "Not enough free space",
-                "There is not enough free space on the disk to record. Please free up some space.",
-                &format!(
-                    "Required: at least {MIN_FREE_SPACE_MB} MB, available: {free_space_mb} MB"
-                ),
-                NotificationType::Error,
+            bail!(
+                "There is not enough free space on the disk to record. Please free up some space. Required: at least {MIN_FREE_SPACE_MB} MB, available: {free_space_mb} MB"
             );
-            return Ok(());
         }
 
         let Some((game_exe, pid, hwnd)) =
             get_foregrounded_game().wrap_err("failed to get foregrounded game")?
         else {
-            tracing::warn!("No game window found");
-            show_notification(
-                "Invalid game",
-                "Not recording foreground window.",
-                "It's either not a supported game or not fullscreen.",
-                NotificationType::Error,
+            bail!(
+                "You do not have a game window in focus. Please focus on a game window and try again."
             );
-            return Ok(());
         };
 
         let game_exe_without_extension = game_exe
@@ -119,13 +104,12 @@ impl Recorder {
             .iter()
             .find(|ug| ug.binaries.contains(&game_exe_without_extension.as_str()))
         {
-            show_notification(
-                "Unsupported game",
-                &format!("{} ({}) is not supported!", unsupported_game.name, game_exe),
-                &format!("Reason: {}", unsupported_game.reason),
-                NotificationType::Error,
+            bail!(
+                "{} ({}) is not supported! Reason: {}",
+                unsupported_game.name,
+                game_exe,
+                unsupported_game.reason
             );
-            return Ok(());
         }
 
         tracing::info!(
@@ -157,13 +141,7 @@ impl Recorder {
             Ok(recording) => recording,
             Err(e) => {
                 tracing::error!(game_exe=?game_exe, e=?e, "Failed to start recording");
-                show_notification(
-                    &format!("Failed to start recording for `{game_exe}`"),
-                    &e.to_string(),
-                    "",
-                    NotificationType::Error,
-                );
-                return Ok(());
+                return Err(e);
             }
         };
 
@@ -218,40 +196,6 @@ fn get_free_space_in_mb(path: &std::path::Path) -> Option<u64> {
         .filter(|disk| path.starts_with(disk.mount_point()))
         .max_by_key(|disk| disk.mount_point().as_os_str().len())
         .map(|disk| disk.available_space() / 1024 / 1024)
-}
-
-pub enum NotificationType {
-    Info,
-    Error,
-}
-fn show_notification(title: &str, text1: &str, text2: &str, notification_type: NotificationType) {
-    match notification_type {
-        NotificationType::Info => {
-            let mut toast = Toast::new(Toast::POWERSHELL_APP_ID);
-            if !title.is_empty() {
-                toast = toast.title(title);
-            }
-            if !text1.is_empty() {
-                toast = toast.text1(text1);
-            }
-            if !text2.is_empty() {
-                toast = toast.text2(text2);
-            }
-            if let Err(e) = toast.sound(None).show() {
-                tracing::error!(
-                    "Failed to show notification (title: {title}, text1: {text1}, text2: {text2}): {e}"
-                );
-            }
-        }
-        NotificationType::Error => unsafe {
-            MessageBoxW(
-                None,
-                &HSTRING::from(format!("{text1}\n{text2}")),
-                &HSTRING::from(title),
-                MB_ICONERROR,
-            );
-        },
-    }
 }
 
 pub fn get_recording_base_resolution(hwnd: HWND) -> Result<(u32, u32)> {

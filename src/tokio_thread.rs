@@ -4,7 +4,10 @@ use crate::{
     app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
     assets::{get_honk_0_bytes, get_honk_1_bytes},
     keycode::lookup_keycode,
-    ui::tray_icon,
+    ui::{
+        notification::{NotificationType, show_notification},
+        tray_icon,
+    },
     upload,
 };
 use std::{
@@ -155,11 +158,12 @@ async fn main(
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
                     if key == start_keycode {
                         tracing::info!("Start key pressed, starting recording");
-                        recorder.start().await?;
-                        rec_start(&sink, honk);
+                        if start_recording_safely(&mut recorder).await {
+                            rec_start(&sink, honk);
 
-                        actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
-                        tracing::info!("Recording started with HWND {actively_recording_window:?}");
+                            actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
+                            tracing::info!("Recording started with HWND {actively_recording_window:?}");
+                        }
                     } else if key == stop_keycode {
                         tracing::info!("Stop key pressed, stopping recording");
                         recorder.stop().await?;
@@ -170,9 +174,10 @@ async fn main(
                     }
                 } else if start_on_activity && actively_recording_window.is_some_and(is_window_focused) {
                     tracing::info!("Input detected, restarting recording");
-                    recorder.start().await?;
-                    rec_start(&sink, honk);
-                    start_on_activity = false;
+                    if start_recording_safely(&mut recorder).await {
+                        rec_start(&sink, honk);
+                        start_on_activity = false;
+                    }
                 }
                 idleness_tracker.update_activity();
             },
@@ -220,7 +225,7 @@ async fn main(
                     } else if recording.elapsed() > MAX_FOOTAGE {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_FOOTAGE.as_secs());
                         recorder.stop().await?;
-                        recorder.start().await?;
+                        start_recording_safely(&mut recorder).await;
                         idleness_tracker.update_activity();
                     } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
                         tracing::info!("Window {window:?} lost focus, stopping recording");
@@ -231,8 +236,10 @@ async fn main(
                     // If we're not currently in a recording, but we were actively recording this window, and this window
                     // is now focused, and we're not waiting on input, let's restart the recording.
                     tracing::info!("Window {window:?} regained focus, restarting recording");
-                    recorder.start().await?;
-                    rec_start(&sink, honk);
+                    if start_recording_safely(&mut recorder).await {
+                        recorder.start().await?;
+                        rec_start(&sink, honk);
+                    }
                 }
             },
         }
@@ -242,6 +249,24 @@ async fn main(
     // Return the recorder to be "dropped" outside of the tokio runtime
     // to avoid deadlock. See above for more details.
     Ok(recorder)
+}
+
+/// Attempts to start the recording.
+/// If it fails, it will emit an error and stop the current recording, in whatever state it may be in.
+async fn start_recording_safely(recorder: &mut Recorder) -> bool {
+    if let Err(e) = recorder.start().await {
+        tracing::error!(e=?e, "Failed to start recording");
+        show_notification(
+            "OWL Control - Error",
+            &e.to_string(),
+            "",
+            NotificationType::Error,
+        );
+        recorder.stop().await.ok();
+        false
+    } else {
+        true
+    }
 }
 
 // TOOD: find some way to change tray icon during runtime. rn tray icon can only run in main event loop,
