@@ -56,7 +56,7 @@ New-Item -ItemType Directory -Force -Path dist\resources\ | Out-Null
 
 # Copy Rust binary
 Write-Status "Copying Rust binary..."
-$RUST_BINARY = "target\x86_64-pc-windows-msvc\release\owl-recorder.exe"
+$RUST_BINARY = "target\x86_64-pc-windows-msvc\release\owl-control.exe"
 if (Test-Path $RUST_BINARY) {
     Copy-Item -Path $RUST_BINARY -Destination "dist\OWL Control.exe"
 }

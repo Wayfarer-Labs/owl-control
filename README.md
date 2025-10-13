@@ -165,7 +165,7 @@ git clone https://github.com/Wayfarer-Labs/owl-control.git
 cd owl-control
 
 # Build the application to create the target directory
-cargo build --bin owl-recorder
+cargo build
 
 # Install `cargo-obs-build`, which is a helper for downloading the libobs dependencies in binary format
 cargo install cargo-obs-build

@@ -1,13 +1,13 @@
 use std::{
     sync::{
-        Arc,
         atomic::{AtomicBool, Ordering},
+        Arc,
     },
     time::{Duration, Instant},
 };
 
 use color_eyre::Result;
-use egui_commonmark::{CommonMarkCache, commonmark_str};
+use egui_commonmark::{commonmark_str, CommonMarkCache};
 use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
@@ -361,11 +361,7 @@ impl MainApp {
                 .inner_margin(egui::Margin::same(padding))
                 .show(ui, |ui| {
                     let output = egui::ScrollArea::vertical().show(ui, |ui| {
-                        commonmark_str!(
-                            ui,
-                            &mut self.md_cache,
-                            "./crates/owl-recorder/src/ui/consent.md"
-                        );
+                        commonmark_str!(ui, &mut self.md_cache, "./src/ui/consent.md");
                     });
 
                     self.has_scrolled_to_bottom_of_consent |= (output.state.offset.y

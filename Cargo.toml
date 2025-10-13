@@ -1,11 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
-default-members = ["crates/owl-recorder"]
+members = ["crates/*", "tools/*"]
+default-members = ["."]
 
 [workspace.dependencies]
 input-capture = { path = "crates/input-capture" }
 game-process = { path = "crates/game-process" }
+constants = { path = "crates/constants" }
 clap = { version = "4.5.39", features = ["derive"] }
 dunce = "1.0.5"
 tracing = "0.1.41"
@@ -40,3 +41,61 @@ libobs-window-helper = "0.1.5"
 [workspace.metadata]
 # The libobs version to use (can either be a specific version or "latest")
 libobs-version = "31.0.3"
+
+[package]
+name = "owl-control"
+version = "0.11.0"
+edition = "2024"
+
+[dependencies]
+constants.workspace = true
+input-capture.workspace = true
+git-version.workspace = true
+game-process.workspace = true
+clap.workspace = true
+dunce.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+color-eyre.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri-winrt-notification.workspace = true
+sysinfo.workspace = true
+libobs-wrapper.workspace = true
+libobs-sources.workspace = true
+libobs-window-helper.workspace = true
+async-trait.workspace = true
+obws.workspace = true
+windows.workspace = true
+futures.workspace = true
+
+tray-icon = "0.14.3"
+winit = "0.29.15"
+egui_overlay = { git = "https://github.com/voidxela/egui_overlay.git", rev = "d0f003d88ac39cd84ac96d19b7bbef016a92f22d", features = [
+    "egui_default",
+    "glfw_default",
+] }
+egui_window_glfw_passthrough = { git = "https://github.com/voidxela/egui_overlay.git", rev = "d0f003d88ac39cd84ac96d19b7bbef016a92f22d" }
+egui_render_three_d = { git = "https://github.com/voidxela/egui_overlay.git", rev = "d0f003d88ac39cd84ac96d19b7bbef016a92f22d" }
+egui = "0.32" # higher versions break egui_overlay
+egui_extras = { version = "0.32", features = ["all_loaders"] }
+image = { version = "0.25", features = ["jpeg", "png"] }
+eframe = "0.32"
+dirs = "6.0.0"
+
+rodio = "0.21.1"
+chrono = { version = "0.4.42", features = ["serde"] }
+reqwest = { version = "0.12.23", features = ["json", "stream"] }
+egui_commonmark = { version = "0.21.1", features = ["macros"] }
+catppuccin-egui = { version = "5.6.0", default-features = false, features = [
+    "egui32",
+] }
+tar = "0.4.44"
+opener = { version = "0.8", features = ["reveal"] }
+sha256 = "1.6.0"
+
+[build-dependencies]
+embed-manifest = "1.3.1"

@@ -48,13 +48,7 @@ switch (versionType) {
 }
 
 // Update Cargo.toml
-const cargoTomlPath = path.resolve(
-  __dirname,
-  "..",
-  "crates",
-  "owl-recorder",
-  "Cargo.toml"
-);
+const cargoTomlPath = path.resolve(__dirname, "..", "..", "Cargo.toml");
 updateTomlVersion(cargoTomlPath, newVersion);
 
 console.log(`Version bumped from ${currentVersion} to ${newVersion}`);
@@ -65,7 +59,7 @@ try {
   execSync("cargo check", { stdio: "inherit" });
 
   // Commit the version change
-  const filesToAdd = ["crates/owl-recorder/Cargo.toml", "Cargo.lock"];
+  const filesToAdd = ["Cargo.toml", "Cargo.lock"];
   execSync(`git add ${filesToAdd.join(" ")}`);
   execSync(`git commit -m "Bump version to ${newVersion}"`);
 
