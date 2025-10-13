@@ -64,14 +64,7 @@ jobs:
           name: owl-control-windows-x64
           path: |
             dist/OWL Control.exe
-            dist/resources/**/*
-
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
-        if: hashFiles('dist/*.exe') != ''
-        with:
-          name: owl-control-installer-windows
-          path: "dist/*.exe"
+            dist/OWL-Control-Setup-*.exe
 
   create-release:
     needs: build-windows
@@ -97,7 +90,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/**/OWL Control Setup*
+            artifacts/**/OWL-Control-Setup-*.exe
           draft: false
           prerelease: false
           generate_release_notes: true

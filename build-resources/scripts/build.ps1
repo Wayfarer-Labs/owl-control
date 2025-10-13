@@ -169,10 +169,11 @@ Get-ChildItem -Path dist\resources\vg_control -Recurse -Directory -Filter "__pyc
 Get-ChildItem -Path dist\resources\vg_control -Recurse -File -Filter "*.pyc" -ErrorAction SilentlyContinue | Remove-Item -Force
 
 # Create installer with NSIS if available
-if (Get-Command makensis -ErrorAction SilentlyContinue) {
+$NSIS_PATH = "C:\Program Files (x86)\NSIS\Bin\makensis.exe"
+if (Get-Command $NSIS_PATH -ErrorAction SilentlyContinue) {
     Write-Status "Creating NSIS installer..."
     if (Test-Path "build-resources/installer.nsi") {
-        makensis /DVERSION="$VERSION" build-resources/installer.nsi
+        & $NSIS_PATH /DVERSION="$VERSION" build-resources/installer.nsi
         if ($LASTEXITCODE -eq 0) {
             Write-Status "Installer created successfully"
         }
