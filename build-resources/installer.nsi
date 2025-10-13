@@ -3,6 +3,7 @@
 
 !define PRODUCT_NAME "OWL Control"
 !define PRODUCT_VERSION "${VERSION}"
+!define PRODUCT_VERSION_RAW "${VERSION_RAW}"
 !define PRODUCT_PUBLISHER "Wayfarer Labs"
 !define PRODUCT_WEB_SITE "https://wayfarerlabs.ai/"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\OWL Control.exe"
@@ -53,11 +54,7 @@ ShowUnInstDetails show
 RequestExecutionLevel user
 
 ; Version Information
-!if "${PRODUCT_VERSION}" == "dev"
-  !define VI_PRODUCT_VERSION "0.0.0.0"
-!else
-  !define VI_PRODUCT_VERSION "${PRODUCT_VERSION}.0.0"
-!endif
+!define VI_PRODUCT_VERSION "${PRODUCT_VERSION_RAW}.0"
 VIProductVersion "${VI_PRODUCT_VERSION}"
 VIAddVersionKey "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey "CompanyName" "${PRODUCT_PUBLISHER}"

@@ -73,7 +73,7 @@ fn main() -> Result<()> {
         .init();
 
     tracing::info!(
-        "OWL Recorder v{} ({})",
+        "OWL Control v{} ({})",
         env!("CARGO_PKG_VERSION"),
         git_version::git_version!()
     );

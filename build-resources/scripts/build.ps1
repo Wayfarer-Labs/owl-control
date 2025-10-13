@@ -21,9 +21,47 @@ Write-Host "======================================" -ForegroundColor Cyan
 Write-Host "Building OWL Control Application" -ForegroundColor Cyan
 Write-Host "======================================" -ForegroundColor Cyan
 
-# Get version from git tag or use default
-$VERSION = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "dev" }
+# Extract version from Cargo.toml
+Write-Status "Extracting version from Cargo.toml..."
+$CARGO_TOML_PATH = "Cargo.toml"
+if (-not (Test-Path $CARGO_TOML_PATH)) {
+    Write-Error-Custom "Cargo.toml not found"
+    exit 1
+}
+
+# Extract version from package.version field
+$CARGO_VERSION = Select-String -Path $CARGO_TOML_PATH -Pattern '^version\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches[0].Groups[1].Value }
+if (-not $CARGO_VERSION) {
+    Write-Error-Custom "Could not extract version from Cargo.toml"
+    exit 1
+}
+
+Write-Status "Found version in Cargo.toml: $CARGO_VERSION"
+
+# Check if git tag exists and matches current HEAD
+$TAG_NAME = "v$CARGO_VERSION"
+$CURRENT_COMMIT = git rev-parse HEAD
+$TAG_COMMIT = git rev-parse "refs/tags/$TAG_NAME" 2>$null
+
+if ($LASTEXITCODE -eq 0 -and $TAG_COMMIT -eq $CURRENT_COMMIT) {
+    # Tag exists and matches current commit
+    $VERSION = $TAG_NAME
+    Write-Status "Git tag $TAG_NAME exists and matches current commit"
+} else {
+    # Tag doesn't exist or doesn't match current commit
+    $VERSION = "$TAG_NAME-dev"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Status "Git tag $TAG_NAME does not exist"
+    } else {
+        Write-Status "Git tag $TAG_NAME exists but does not match current commit"
+    }
+}
+
 Write-Status "Building version: $VERSION"
+
+# Create VERSION_RAW by stripping v prefix and any - suffix from VERSION
+$VERSION_RAW = $VERSION -replace '^v', '' -replace '-.*$', ''
+Write-Status "Raw version (for NSIS): $VERSION_RAW"
 
 # Download VC Redistributable
 Write-Status "Downloading Visual C++ Redistributable..."
@@ -118,7 +156,7 @@ $NSIS_PATH = "C:\Program Files (x86)\NSIS\Bin\makensis.exe"
 if (Get-Command $NSIS_PATH -ErrorAction SilentlyContinue) {
     Write-Status "Creating NSIS installer..."
     if (Test-Path "build-resources/installer.nsi") {
-        & $NSIS_PATH /DVERSION="$VERSION" build-resources/installer.nsi
+        & $NSIS_PATH /DVERSION="$VERSION" /DVERSION_RAW="$VERSION_RAW" build-resources/installer.nsi
         if ($LASTEXITCODE -eq 0) {
             Write-Status "Installer created successfully"
         }

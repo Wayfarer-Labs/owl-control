@@ -35,3 +35,5 @@ target/
 rtmp-services
 obs-build/
 win-capture/
+
+build-resources/downloads
