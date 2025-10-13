@@ -29,7 +29,7 @@ Games marked as `(admin)` have been reported to require running OBS+OWL Control 
 - [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
 - [The Stanley Parable: Ultra Deluxe](https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/)
 - [Thief](https://store.steampowered.com/app/239160/Thief/)
-- [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/)
+- [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/) (admin)
 - [Gone Home](https://store.steampowered.com/app/232430/Gone_Home/)
 - [Dear Esther](https://store.steampowered.com/app/203810/Dear_Esther_Landmark_Edition/)
 - [Everyone's Gone to the Rapture](https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/)
