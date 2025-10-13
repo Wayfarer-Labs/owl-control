@@ -48,7 +48,9 @@ pub fn run(
     // futures::executor::block_on which tries to lock a tokio::sync::Mutex, but tokio Mutex
     // requires an active tokio runtime for .await to work. We can't exactly fix that since
     // it's part of libobs.rs. Since we cannot safely drop the ObsContext, we intentionally leak it here.
-    tracing::warn!("Leaking recorder to avoid deadlock (resources will be cleaned up by OS at process exit)");
+    tracing::warn!(
+        "Leaking recorder to avoid deadlock (resources will be cleaned up by OS at process exit)"
+    );
     std::mem::forget(recorder);
 
     Ok(())
@@ -135,6 +137,9 @@ async fn main(
             },
             r = stopped_rx.recv() => {
                 r.expect("stopped signal handler was closed early");
+                // might seem redundant but sometimes there's an unreproducible bug where if the MainApp isn't
+                // performing repaints it won't receive the shut down signal until user interacts with the window
+                app_state.ui_update_tx.try_send(UiUpdate::ForceUpdate).ok();
                 break;
             },
             e = input_rx.recv() => {
