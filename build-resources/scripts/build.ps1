@@ -92,6 +92,32 @@ if (Test-Path dist) {
 New-Item -ItemType Directory -Force -Path dist | Out-Null
 New-Item -ItemType Directory -Force -Path dist\resources\ | Out-Null
 
+# Copy assets
+Write-Status "Copying assets..."
+Copy-Item -Path assets -Destination dist\assets -Recurse
+
+# Install OBS dependency
+Write-Status "Installing OBS dependencies..."
+cargo install cargo-obs-build
+if ($LASTEXITCODE -eq 0) {
+    Write-Status "cargo-obs-build installed successfully"
+}
+else {
+    Write-Error-Custom "cargo-obs-build installation failed"
+    exit 1
+}
+
+cargo obs-build --out-dir dist\
+if ($LASTEXITCODE -eq 0) {
+    Write-Status "OBS dependencies installed successfully"
+}
+else {
+    Write-Error-Custom "OBS dependencies install failed"
+    exit 1
+}
+
+.\build-resources\scripts\clean_obs_build.ps1
+
 # Copy Rust binary
 Write-Status "Copying Rust binary..."
 $RUST_BINARY = "target\x86_64-pc-windows-msvc\release\owl-control.exe"
@@ -112,43 +138,14 @@ else {
     }
 }
 
-# Copy assets
-Write-Status "Copying assets..."
-Copy-Item -Path assets -Destination dist\assets -Recurse
-
-# Install OBS dependency
-Write-Status "Installing OBS dependencies..."
-try {
-    # cargo obs-build --out-dir target\x86_64-pc-windows-msvc\release\
-    cargo install cargo-obs-build
-    if ($LASTEXITCODE -eq 0) {
-        Write-Status "cargo-obs-build installed successfully"
-    }
-    else {
-        Write-Error-Custom "cargo-obs-build installation failed"
-        exit 1
-    }
-    cargo obs-build --out-dir dist\
-    if ($LASTEXITCODE -eq 0) {
-        Write-Status "OBS dependencies installed successfully"
-    }
-    else {
-        Write-Error-Custom "OBS dependencies install failed"
-        exit 1
-    }
-}
-catch {
-    Write-Warning-Custom "OBS dependencies install failed (outer)"
-    exit 1
-}
 
 # Copy additional resources
 Write-Status "Copying additional resources..."
 if (Test-Path README.md) {
-    Copy-Item -Path README.md -Destination dist\resources\README.md
+    Copy-Item -Path README.md -Destination dist\README.md
 }
 if (Test-Path LICENSE) {
-    Copy-Item -Path LICENSE -Destination dist\resources\LICENSE
+    Copy-Item -Path LICENSE -Destination dist\LICENSE
 }
 
 # Create installer with NSIS if available
