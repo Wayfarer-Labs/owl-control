@@ -10,7 +10,7 @@ function updateTomlVersion(filePath, newVersion) {
   // Only replace the first occurrence of version = "..." (the package version)
   const updatedContent = content.replace(
     /version\s*=\s*"[^"]+"/,
-    `version = "${newVersion}"`,
+    `version = "${newVersion}"`
   );
   fs.writeFileSync(filePath, updatedContent);
   console.log(`Updated version in ${path.basename(filePath)} to ${newVersion}`);
@@ -47,42 +47,25 @@ switch (versionType) {
     break;
 }
 
-// Update package.json
-packageJson.version = newVersion;
-fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + "\n");
-
 // Update Cargo.toml
 const cargoTomlPath = path.resolve(
   __dirname,
   "..",
   "crates",
   "owl-recorder",
-  "Cargo.toml",
+  "Cargo.toml"
 );
 updateTomlVersion(cargoTomlPath, newVersion);
-
-// Update pyproject.toml
-const pyprojectTomlPath = path.resolve(__dirname, "..", "pyproject.toml");
-updateTomlVersion(pyprojectTomlPath, newVersion);
 
 console.log(`Version bumped from ${currentVersion} to ${newVersion}`);
 
 try {
   // Update lock files
   console.log("Updating lock files...");
-  execSync("uv sync", { stdio: "inherit" });
-  execSync("npm install", { stdio: "inherit" });
   execSync("cargo check", { stdio: "inherit" });
 
   // Commit the version change
-  const filesToAdd = [
-    "package.json",
-    "crates/owl-recorder/Cargo.toml",
-    "pyproject.toml",
-    "Cargo.lock",
-    "package-lock.json",
-    "uv.lock",
-  ];
+  const filesToAdd = ["crates/owl-recorder/Cargo.toml", "Cargo.lock"];
   execSync(`git add ${filesToAdd.join(" ")}`);
   execSync(`git commit -m "Bump version to ${newVersion}"`);
 

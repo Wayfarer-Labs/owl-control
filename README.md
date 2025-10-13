@@ -161,33 +161,30 @@ Hotkeys for record/stop record can be changed in the applications settings.
 
 ### 🔨 Building from Source
 
-First make sure you've installed Node, UV, and Rust (Cargo). It is reccomended to use powershell, and windows developer tools for this.
+First make sure you've installed Rust (Cargo). It is recommended to use PowerShell for this.
 Winget can sometimes make a lot of this easier for you, but online installers should work. If you have any issues with setup, ask your local LLM!
 
-```bash
+The following steps only need to be done once:
+
+```powershell
 # Clone the repository
 git clone https://github.com/Wayfarer-Labs/owl-control.git
 cd owl-control
 
-# Install dependencies
-npm install
-uv sync
-.venv\Scripts\activate.ps1
+# Build the application to create the target directory
+cargo build --bin owl-recorder
 
-# Build the application
-cargo build --release --bin owl-recorder
-npm run build
+# Install `cargo-obs-build`, which is a helper for downloading the libobs dependencies in binary format
+cargo install cargo-obs-build
 
-# Run in development mode
-npm run dev
-
-# Package for distribution (includes Python bundling)
-npm run package:download-requirements # run this first
-npm run package        # All platforms
-npm run package:win    # Windows only
-npm run package:mac    # macOS only
-npm run package:linux  # Linux only
+# Install the dependencies into your target directory (you will have to do this again for a release build)
+cargo obs-build --out-dir target\x86_64-pc-windows-msvc\debug
 ```
+
+You can then run OWL Control with `cargo run`.
+
+To build a production-ready release with an installer, use `build-resources\scripts\build.ps1` in PowerShell.
+Note that this requires <https://sourceforge.net/projects/nsis/> to be installed in its default location.
 
 Currently only Windows is supported, although we'll be adding more platforms in the near future.
 
@@ -198,12 +195,6 @@ This project uses automated code formatting tools to maintain consistent code st
 ```bash
 # Format Rust code
 cargo fmt
-
-# Format JavaScript/TypeScript code
-npm run format
-
-# Format Python code
-uv run ruff format
 ```
 
 <div align="center">
