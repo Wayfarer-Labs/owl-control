@@ -39,7 +39,7 @@ pub fn start(
 ) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([600.0, 650.0])
+            .with_inner_size([600.0, 660.0])
             .with_min_inner_size([400.0, 450.0])
             .with_resizable(true)
             .with_title("OWL Control")
@@ -395,7 +395,10 @@ impl MainApp {
             .inner
         }
 
-        fn add_settings_widget(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+        fn add_settings_ui<R>(
+            ui: &mut egui::Ui,
+            add_contents: impl FnOnce(&mut egui::Ui) -> R,
+        ) -> egui::InnerResponse<R> {
             ui.allocate_ui_with_layout(
                 egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
                 egui::Layout {
@@ -406,9 +409,12 @@ impl MainApp {
                     cross_align: egui::Align::Center,
                     cross_justify: true,
                 },
-                |ui| ui.add(widget),
+                add_contents,
             )
-            .inner
+        }
+
+        fn add_settings_widget(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+            add_settings_ui(ui, |ui| ui.add(widget)).inner
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -509,6 +515,23 @@ impl MainApp {
                             .strong(),
                     );
                     ui.separator();
+
+                    ui.horizontal(|ui| {
+                        add_settings_text(ui, egui::Label::new("Overlay Location:"));
+                        add_settings_ui(ui, |ui| {
+                            egui::ComboBox::from_id_salt("overlay_location")
+                                .selected_text(self.local_preferences.overlay_location.to_string())
+                                .show_ui(ui, |ui| {
+                                    for location in crate::config::OverlayLocation::ALL {
+                                        ui.selectable_value(
+                                            &mut self.local_preferences.overlay_location,
+                                            location,
+                                            location.to_string(),
+                                        );
+                                    }
+                                });
+                        });
+                    });
 
                     ui.horizontal(|ui| {
                         add_settings_text(ui, egui::Label::new("Overlay Opacity:"));

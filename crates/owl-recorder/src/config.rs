@@ -12,6 +12,8 @@ pub struct Preferences {
     pub stop_recording_key: String,
     #[serde(default)]
     pub unreliable_connection: bool,
+    #[serde(default)]
+    pub overlay_location: OverlayLocation,
     #[serde(default = "default_opacity")]
     pub overlay_opacity: u8,
     #[serde(default)]
@@ -27,6 +29,7 @@ impl Default for Preferences {
             start_recording_key: default_start_key(),
             stop_recording_key: default_stop_key(),
             unreliable_connection: Default::default(),
+            overlay_location: Default::default(),
             overlay_opacity: default_opacity(),
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
@@ -40,6 +43,33 @@ pub enum RecordingBackend {
     #[default]
     Embedded,
     Socket,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub enum OverlayLocation {
+    #[default]
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+impl OverlayLocation {
+    pub const ALL: [OverlayLocation; 4] = [
+        OverlayLocation::TopLeft,
+        OverlayLocation::TopRight,
+        OverlayLocation::BottomLeft,
+        OverlayLocation::BottomRight,
+    ];
+}
+impl std::fmt::Display for OverlayLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OverlayLocation::TopLeft => write!(f, "Top Left"),
+            OverlayLocation::TopRight => write!(f, "Top Right"),
+            OverlayLocation::BottomLeft => write!(f, "Bottom Left"),
+            OverlayLocation::BottomRight => write!(f, "Bottom Right"),
+        }
+    }
 }
 
 fn default_start_key() -> String {

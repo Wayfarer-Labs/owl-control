@@ -175,3 +175,63 @@ fn get_windows_gpu_info() -> Result<Vec<GpuSpecs>> {
 
     Ok(gpus)
 }
+
+#[cfg(target_os = "windows")]
+/// Returns the resolution of the primary monitor
+pub fn get_primary_monitor_resolution() -> Option<(u32, u32)> {
+    use windows::{
+        Win32::{
+            Foundation::POINT,
+            Graphics::Gdi::{
+                DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW,
+                MONITORINFO, MONITORINFOEXW, MonitorFromPoint,
+            },
+        },
+        core::PCWSTR,
+    };
+
+    // Get the primary monitor handle
+    let primary_monitor = unsafe {
+        MonitorFromPoint(
+            POINT { x: 0, y: 0 },
+            windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTOPRIMARY,
+        )
+    };
+    if primary_monitor.is_invalid() {
+        return None;
+    }
+
+    // Get the monitor info
+    let mut monitor_info = MONITORINFOEXW {
+        monitorInfo: MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFOEXW>() as u32,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    unsafe {
+        GetMonitorInfoW(
+            primary_monitor,
+            &mut monitor_info as *mut _ as *mut MONITORINFO,
+        )
+    }
+    .ok()
+    .ok()?;
+
+    // Get the display mode
+    let mut devmode = DEVMODEW {
+        dmSize: std::mem::size_of::<DEVMODEW>() as u16,
+        ..Default::default()
+    };
+    unsafe {
+        EnumDisplaySettingsW(
+            PCWSTR(monitor_info.szDevice.as_ptr()),
+            ENUM_CURRENT_SETTINGS,
+            &mut devmode,
+        )
+    }
+    .ok()
+    .ok()?;
+
+    Some((devmode.dmPelsWidth, devmode.dmPelsHeight))
+}

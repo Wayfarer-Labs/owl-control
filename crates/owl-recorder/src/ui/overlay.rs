@@ -18,26 +18,43 @@ use windows::Win32::{
 use crate::{
     app_state::{AppState, RecordingStatus},
     assets::get_owl_bytes,
+    config::OverlayLocation,
+    hardware_specs::get_primary_monitor_resolution,
     ui::util,
 };
 
 pub struct OverlayApp {
-    frame: u64,
+    initialized: bool,
     app_state: Arc<AppState>,
-    overlay_opacity: u8,         // local opacity tracker
-    rec_status: RecordingStatus, // local rec status
+
+    /// local overlay location
+    overlay_location: OverlayLocation,
+    /// local opacity tracker
+    overlay_opacity: u8,
+    /// local recording status
+    rec_status: RecordingStatus,
+
     last_paint_time: Instant,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 }
 impl OverlayApp {
     pub fn new(app_state: Arc<AppState>, stopped_rx: tokio::sync::broadcast::Receiver<()>) -> Self {
-        let overlay_opacity = app_state.config.read().unwrap().preferences.overlay_opacity;
+        let (overlay_location, overlay_opacity) = {
+            let config = app_state.config.read().unwrap();
+            (
+                config.preferences.overlay_location,
+                config.preferences.overlay_opacity,
+            )
+        };
         let rec_status = app_state.state.read().unwrap().clone();
         Self {
-            frame: 0,
+            initialized: false,
             app_state,
+
+            overlay_location,
             overlay_opacity,
             rec_status,
+
             last_paint_time: Instant::now(),
             stopped_rx,
         }
@@ -48,6 +65,7 @@ impl OverlayApp {
         &mut self,
         egui_context: &egui::Context,
         glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
+        curr_location: OverlayLocation,
     ) {
         // install image loaders
         egui_extras::install_image_loaders(egui_context);
@@ -55,8 +73,7 @@ impl OverlayApp {
         // don't show transparent window outline
         glfw_backend.window.set_decorated(false);
         glfw_backend.set_window_size([600.0, 50.0]);
-        // anchor top left always
-        glfw_backend.window.set_pos(0, 0);
+        update_overlay_position_based_on_location(&mut glfw_backend.window, curr_location);
         // always allow input to passthrough
         glfw_backend.set_passthrough(true);
 
@@ -100,11 +117,20 @@ impl EguiOverlay for OverlayApp {
         _default_gfx_backend: &mut DefaultGfxBackend,
         glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
     ) {
+        let (curr_opacity, curr_location) = {
+            let config = self.app_state.config.read().unwrap();
+            (
+                config.preferences.overlay_opacity,
+                config.preferences.overlay_location,
+            )
+        };
+
         // kind of cringe that we are forced to check first frame setup logic like this, but egui_overlay doesn't expose
         // any setup/init interface
-        if self.frame == 0 {
-            self.first_frame_init(egui_context, glfw_backend);
+        if !self.initialized {
+            self.first_frame_init(egui_context, glfw_backend, curr_location);
             egui_context.request_repaint();
+            self.initialized = true;
         }
 
         if self.stopped_rx.try_recv().is_ok() {
@@ -113,16 +139,13 @@ impl EguiOverlay for OverlayApp {
             return;
         }
 
-        let curr_opacity = self
-            .app_state
-            .config
-            .read()
-            .unwrap()
-            .preferences
-            .overlay_opacity;
         if curr_opacity != self.overlay_opacity {
             self.overlay_opacity = curr_opacity;
             egui_context.request_repaint();
+        }
+        if curr_location != self.overlay_location {
+            self.overlay_location = curr_location;
+            update_overlay_position_based_on_location(&mut glfw_backend.window, curr_location);
         }
         let frame = egui::containers::Frame {
             fill: Color32::from_black_alpha(self.overlay_opacity), // Transparent background
@@ -142,16 +165,21 @@ impl EguiOverlay for OverlayApp {
             self.last_paint_time = Instant::now();
             egui_context.request_repaint();
         }
+        let (align, pos) = match self.overlay_location {
+            OverlayLocation::TopLeft => (Align2::LEFT_TOP, Vec2 { x: 10.0, y: 10.0 }),
+            OverlayLocation::TopRight => (Align2::RIGHT_TOP, Vec2 { x: -10.0, y: 10.0 }),
+            OverlayLocation::BottomLeft => (Align2::LEFT_BOTTOM, Vec2 { x: 10.0, y: -10.0 }),
+            OverlayLocation::BottomRight => (Align2::RIGHT_BOTTOM, Vec2 { x: -10.0, y: -10.0 }),
+        };
         egui::Window::new("recording overlay")
             .title_bar(false) // No title bar
             .resizable(false) // Non-resizable
             .scroll([false, false]) // Non-scrollable (both x and y)
             .collapsible(false) // Non-collapsible (removes collapse button)
-            .anchor(Align2::LEFT_TOP, Vec2 { x: 10.0, y: 10.0 }) // Anchored to top-right corner
+            .anchor(align, pos)
             .auto_sized()
             .frame(frame)
             .show(egui_context, |ui| {
-                self.frame += 1;
                 ui.horizontal(|ui| {
                     ui.add(
                         egui::Image::from_bytes("bytes://", get_owl_bytes())
@@ -212,5 +240,33 @@ impl EguiOverlay for OverlayApp {
                     ui.label(recording_text);
                 });
             });
+    }
+}
+
+fn update_overlay_position_based_on_location(
+    window: &mut egui_window_glfw_passthrough::glfw::PWindow,
+    location: OverlayLocation,
+) {
+    let (width, height) = window.get_size();
+    let (monitor_width, monitor_height) = match get_primary_monitor_resolution() {
+        Some((monitor_width, monitor_height)) => (monitor_width as i32, monitor_height as i32),
+        None => {
+            tracing::error!("Failed to get primary monitor resolution, using 800x600");
+            (800, 600)
+        }
+    };
+    match location {
+        OverlayLocation::TopLeft => {
+            window.set_pos(0, 0);
+        }
+        OverlayLocation::TopRight => {
+            window.set_pos(monitor_width - width, 0);
+        }
+        OverlayLocation::BottomLeft => {
+            window.set_pos(0, monitor_height - height);
+        }
+        OverlayLocation::BottomRight => {
+            window.set_pos(monitor_width - width, monitor_height - height);
+        }
     }
 }
