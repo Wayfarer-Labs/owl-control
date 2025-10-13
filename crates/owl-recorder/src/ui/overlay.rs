@@ -66,6 +66,7 @@ impl OverlayApp {
         egui_context: &egui::Context,
         glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
         curr_location: OverlayLocation,
+        curr_opacity: u8,
     ) {
         // install image loaders
         egui_extras::install_image_loaders(egui_context);
@@ -108,6 +109,28 @@ impl OverlayApp {
                 let _ = ShowWindow(hwnd, SW_SHOWDEFAULT); // show the window for the new style to come into effect
             }
         }
+
+        // Hide window if opacity is 0
+        if curr_opacity == 0 {
+            self.set_window_visible(glfw_backend, false);
+        }
+    }
+
+    fn set_window_visible(
+        &self,
+        glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
+        visible: bool,
+    ) {
+        let hwnd = glfw_backend.window.get_win32_window() as isize;
+        if hwnd != 0 {
+            tracing::info!("Setting overlay visible: {visible}");
+            unsafe {
+                let _ = ShowWindow(
+                    HWND(hwnd as *mut std::ffi::c_void),
+                    if visible { SW_SHOWDEFAULT } else { SW_HIDE },
+                );
+            }
+        }
     }
 }
 impl EguiOverlay for OverlayApp {
@@ -128,7 +151,7 @@ impl EguiOverlay for OverlayApp {
         // kind of cringe that we are forced to check first frame setup logic like this, but egui_overlay doesn't expose
         // any setup/init interface
         if !self.initialized {
-            self.first_frame_init(egui_context, glfw_backend, curr_location);
+            self.first_frame_init(egui_context, glfw_backend, curr_location, curr_opacity);
             egui_context.request_repaint();
             self.initialized = true;
         }
@@ -142,6 +165,8 @@ impl EguiOverlay for OverlayApp {
         if curr_opacity != self.overlay_opacity {
             self.overlay_opacity = curr_opacity;
             egui_context.request_repaint();
+
+            self.set_window_visible(glfw_backend, curr_opacity > 0);
         }
         if curr_location != self.overlay_location {
             self.overlay_location = curr_location;
