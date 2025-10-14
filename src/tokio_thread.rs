@@ -4,10 +4,7 @@ use crate::{
     app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
     assets::{get_honk_0_bytes, get_honk_1_bytes},
     keycode::lookup_keycode,
-    ui::{
-        notification::{NotificationType, show_notification},
-        tray_icon,
-    },
+    ui::notification::{NotificationType, show_notification},
     upload,
 };
 use std::{
@@ -158,24 +155,20 @@ async fn main(
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
                     if key == start_keycode {
                         tracing::info!("Start key pressed, starting recording");
-                        if start_recording_safely(&mut recorder).await {
-                            rec_start(&sink, honk);
-
+                        if start_recording_safely(&mut recorder, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
                     } else if key == stop_keycode {
                         tracing::info!("Stop key pressed, stopping recording");
-                        recorder.stop().await?;
-                        rec_stop(&sink, honk);
+                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
 
                         actively_recording_window = None;
                         start_on_activity = false;
                     }
                 } else if start_on_activity && actively_recording_window.is_some_and(is_window_focused) {
                     tracing::info!("Input detected, restarting recording");
-                    if start_recording_safely(&mut recorder).await {
-                        rec_start(&sink, honk);
+                    if start_recording_safely(&mut recorder, Some((&sink, honk, &app_state))).await {
                         start_on_activity = false;
                     }
                 }
@@ -214,32 +207,27 @@ async fn main(
                 if let Some(recording) = recorder.recording() {
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
-                        recorder.stop().await?;
-                        rec_stop(&sink, honk);
+                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
                     } else if idleness_tracker.is_idle() {
                         tracing::info!("No input detected for 5 seconds, stopping recording");
-                        recorder.stop().await?;
-                        rec_stop(&sink, honk);
+                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
                         *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_FOOTAGE {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_FOOTAGE.as_secs());
+                        // We intentionally do not notify of recording state change here because we're restarting the recording
                         recorder.stop().await?;
-                        start_recording_safely(&mut recorder).await;
+                        start_recording_safely(&mut recorder, None).await;
                         idleness_tracker.update_activity();
                     } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
                         tracing::info!("Window {window:?} lost focus, stopping recording");
-                        recorder.stop().await?;
-                        rec_stop(&sink, honk);
+                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
                     }
                 } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
                     // If we're not currently in a recording, but we were actively recording this window, and this window
                     // is now focused, and we're not waiting on input, let's restart the recording.
                     tracing::info!("Window {window:?} regained focus, restarting recording");
-                    if start_recording_safely(&mut recorder).await {
-                        recorder.start().await?;
-                        rec_start(&sink, honk);
-                    }
+                    start_recording_safely(&mut recorder, Some((&sink, honk, &app_state))).await;
                 }
             },
         }
@@ -253,7 +241,12 @@ async fn main(
 
 /// Attempts to start the recording.
 /// If it fails, it will emit an error and stop the current recording, in whatever state it may be in.
-async fn start_recording_safely(recorder: &mut Recorder) -> bool {
+///
+/// If `notification_state` is `Some`, it will be used to notify of the recording state change.
+async fn start_recording_safely(
+    recorder: &mut Recorder,
+    notification_state: Option<(&Sink, bool, &AppState)>,
+) -> bool {
     if let Err(e) = recorder.start().await {
         tracing::error!(e=?e, "Failed to start recording");
         show_notification(
@@ -265,27 +258,48 @@ async fn start_recording_safely(recorder: &mut Recorder) -> bool {
         recorder.stop().await.ok();
         false
     } else {
+        if let Some((sink, honk, app_state)) = notification_state {
+            notify_of_recording_state_change(sink, honk, app_state, true);
+        }
         true
     }
 }
 
-// TOOD: find some way to change tray icon during runtime. rn tray icon can only run in main event loop,
-// and can't be moved between threads, but it just also won't run at all when the app is minimized.
-fn rec_start(sink: &Sink, honk: bool) {
-    tray_icon::set_icon_recording(true);
-    if honk {
-        sink.append(
-            Decoder::new_mp3(Cursor::new(get_honk_0_bytes())).expect("Cannot decode honk :("),
-        );
-    }
+async fn stop_recording_with_notification(
+    recorder: &mut Recorder,
+    sink: &Sink,
+    honk: bool,
+    app_state: &AppState,
+) -> Result<()> {
+    recorder.stop().await?;
+    notify_of_recording_state_change(sink, honk, app_state, false);
+    Ok(())
 }
 
-fn rec_stop(sink: &Sink, honk: bool) {
-    tray_icon::set_icon_recording(false);
-    if honk {
-        sink.append(
-            Decoder::new_mp3(Cursor::new(get_honk_1_bytes())).expect("Cannot decode honk :("),
-        );
+fn notify_of_recording_state_change(
+    sink: &Sink,
+    should_play_sound: bool,
+    app_state: &AppState,
+    is_recording: bool,
+) {
+    app_state
+        .ui_update_tx
+        .try_send(UiUpdate::UpdateTrayIconRecording(is_recording))
+        .ok();
+    if should_play_sound {
+        let source = Decoder::new_mp3(Cursor::new(if is_recording {
+            get_honk_0_bytes()
+        } else {
+            get_honk_1_bytes()
+        }));
+        match source {
+            Ok(source) => {
+                sink.append(source);
+            }
+            Err(e) => {
+                tracing::error!(e=?e, "Failed to decode recording notification sound");
+            }
+        }
     }
 }
 

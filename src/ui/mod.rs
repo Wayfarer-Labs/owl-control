@@ -11,6 +11,7 @@ use egui_commonmark::{CommonMarkCache, commonmark_str};
 
 use crate::{
     app_state::{AppState, AsyncRequest, UiUpdate},
+    assets,
     config::{Credentials, Preferences},
     upload,
 };
@@ -298,20 +299,17 @@ impl ApplicationHandler for App {
         }
 
         // Load window icon for taskbar
-        let icon_data = tray_icon::egui_icon();
-        let window_icon = winit::window::Icon::from_rgba(
-            icon_data.rgba.clone(),
-            icon_data.width,
-            icon_data.height,
-        )
-        .ok();
+        let (icon_rgb, (icon_width, icon_height)) =
+            assets::load_icon_data_from_bytes(assets::get_logo_default_bytes());
+        let window_icon = winit::window::Icon::from_rgba(icon_rgb, icon_width, icon_height)
+            .expect("Failed to create window icon");
 
         let window_attributes = Window::default_attributes()
             .with_title("OWL Control")
             .with_inner_size(PhysicalSize::new(600, 660))
             .with_min_inner_size(PhysicalSize::new(400, 450))
             .with_resizable(true)
-            .with_window_icon(window_icon);
+            .with_window_icon(Some(window_icon));
 
         let window = event_loop.create_window(window_attributes).unwrap();
 
@@ -322,7 +320,7 @@ impl ApplicationHandler for App {
         let ctx = self.wgpu_state.as_ref().unwrap().egui_renderer.context();
         let _ = self.main_app.app_state.ui_update_tx.ctx.set(ctx.clone());
 
-        self.main_app._tray_icon.post_initialize(
+        self.main_app.tray_icon.post_initialize(
             ctx.clone(),
             self.window.clone().unwrap(),
             self.main_app.visible.clone(),
@@ -417,7 +415,7 @@ pub struct MainApp {
     stopped_tx: tokio::sync::broadcast::Sender<()>,
     has_stopped: bool,
 
-    _tray_icon: tray_icon::TrayIconState,
+    tray_icon: tray_icon::TrayIconState,
 }
 impl MainApp {
     fn new(
@@ -467,7 +465,7 @@ impl MainApp {
             stopped_tx,
             has_stopped: false,
 
-            _tray_icon: tray_icon,
+            tray_icon,
         })
     }
 
@@ -498,6 +496,9 @@ impl MainApp {
             }
             Ok(UiUpdate::UploadFailed(error)) => {
                 self.last_upload_error = Some(error);
+            }
+            Ok(UiUpdate::UpdateTrayIconRecording(recording)) => {
+                self.tray_icon.set_icon_recording(recording);
             }
             Err(_) => {}
         };

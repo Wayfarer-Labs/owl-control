@@ -58,6 +58,7 @@ pub enum UiUpdate {
     UpdateUserId(Result<String, String>),
     UpdateUploadProgress(Option<ProgressData>),
     UploadFailed(String),
+    UpdateTrayIconRecording(bool),
 }
 
 /// A sender for [`UiUpdate`] messages. Will automatically repaint the UI after sending a message.
