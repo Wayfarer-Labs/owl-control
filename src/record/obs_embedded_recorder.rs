@@ -134,8 +134,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
             if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
                 bail!(
-                    "The window ({}) you're trying to record is already being captured by another process. Do you have OBS or another instance of OWL Control open?",
-                    window.full_exe
+                    "The window you're trying to record ({game_exe}) is already being captured by another process. Do you have OBS or another instance of OWL Control open?\n\nNote that OBS is no longer required to use OWL Control - please close it if you have it running!",
                 );
             }
 
