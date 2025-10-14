@@ -194,12 +194,9 @@ impl App {
         })
     }
 
-    async fn set_window(&mut self, window: Window) {
+    async fn set_window(&mut self, window: Window, inner_size: PhysicalSize<u32>) {
         let window = Arc::new(window);
-        let initial_width = 800;
-        let initial_height = 1060;
-
-        let _ = window.request_inner_size(PhysicalSize::new(initial_width, initial_height));
+        let _ = window.request_inner_size(inner_size);
 
         let surface = self
             .instance
@@ -210,8 +207,8 @@ impl App {
             &self.instance,
             surface,
             &window,
-            initial_width,
-            initial_height,
+            inner_size.width,
+            inner_size.height,
         )
         .await;
 
@@ -304,9 +301,11 @@ impl ApplicationHandler for App {
         let window_icon = winit::window::Icon::from_rgba(icon_rgb, icon_width, icon_height)
             .expect("Failed to create window icon");
 
+        let inner_size = PhysicalSize::new(600, 660);
+
         let window_attributes = Window::default_attributes()
             .with_title("OWL Control")
-            .with_inner_size(PhysicalSize::new(600, 660))
+            .with_inner_size(inner_size)
             .with_min_inner_size(PhysicalSize::new(400, 450))
             .with_resizable(true)
             .with_window_icon(Some(window_icon));
@@ -314,7 +313,7 @@ impl ApplicationHandler for App {
         let window = event_loop.create_window(window_attributes).unwrap();
 
         // Block on async initialization
-        futures::executor::block_on(self.set_window(window));
+        futures::executor::block_on(self.set_window(window, inner_size));
 
         // Initialize tray icon and egui context after window is created
         let ctx = self.wgpu_state.as_ref().unwrap().egui_renderer.context();
