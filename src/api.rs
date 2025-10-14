@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, Context, ContextCompat};
 use serde::{Deserialize, Serialize};
 
-use crate::config::{LastUploadDate, UploadStats};
+use crate::config::UploadStats;
 
 const API_BASE_URL: &str = "https://api.openworldlabs.ai";
 
@@ -75,7 +75,7 @@ impl ApiClient {
 
     /// Attempts to validate the API key. Returns an error if the API key is invalid or the server is unavailable.
     /// Returns the user ID if the API key is valid.
-    pub async fn validate_api_key(&self, api_key: String) -> eyre::Result<String> {
+    pub async fn validate_api_key(&self, api_key: &str) -> eyre::Result<String> {
         // Response struct for the user info endpoint
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
@@ -147,7 +147,7 @@ impl ApiClient {
 
         #[derive(Deserialize, Debug)]
         struct VideoTime {
-            seconds: u32,
+            seconds: f64,
             minutes: f64,
             hours: f64,
             formatted: String,
@@ -163,7 +163,7 @@ impl ApiClient {
             id: String,
             tags: Option<serde_json::Value>,
             verified: bool,
-            video_duration_seconds: Option<u64>,
+            video_duration_seconds: Option<f64>,
         }
 
         let response = self
@@ -184,15 +184,13 @@ impl ApiClient {
             .context("failed to parse user upload stats response")?;
 
         Ok(UploadStats {
-            total_duration_uploaded: server_stats.statistics.total_video_time.seconds.into(),
+            total_duration_uploaded: server_stats.statistics.total_video_time.seconds,
             total_files_uploaded: server_stats.statistics.total_uploads,
-            total_volume_uploaded: server_stats.statistics.total_data.megabytes as u64,
-            last_upload_date: match server_stats.uploads.first() {
-                Some(upload) => {
-                    LastUploadDate::Date(upload.created_at.with_timezone(&chrono::Local))
-                }
-                None => LastUploadDate::Never,
-            },
+            total_volume_uploaded: server_stats.statistics.total_data.bytes,
+            last_upload_date: server_stats
+                .uploads
+                .first()
+                .map(|upload| upload.created_at.with_timezone(&chrono::Local)),
         })
     }
 

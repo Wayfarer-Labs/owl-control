@@ -10,7 +10,7 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
     api::{ApiClient, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
-    app_state::{self, AppState},
+    app_state::{self, AppState, AsyncRequest},
     output_types::Metadata,
 };
 
@@ -61,14 +61,13 @@ pub async fn start(
     )
     .await
     {
-        Ok(final_stats) => {
-            if let Err(e) = app_state.upload_stats.write().unwrap().update(
-                final_stats.total_duration_uploaded,
-                final_stats.total_files_uploaded,
-                final_stats.total_bytes_uploaded,
-            ) {
-                tracing::error!("Error updating upload stats: {e}");
-            }
+        Ok(_final_stats) => {
+            // Request a re-fetch of our upload stats
+            app_state
+                .async_request_tx
+                .send(AsyncRequest::LoadUploadStats)
+                .await
+                .ok();
         }
         Err(e) => {
             tx.send(app_state::UiUpdate::UploadFailed(e.to_string()))

@@ -25,7 +25,7 @@ pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
-    pub upload_stats: RwLock<UploadStats>,
+    pub upload_stats: RwLock<Option<UploadStats>>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
     pub is_currently_rebinding: AtomicBool,
@@ -36,7 +36,7 @@ impl AppState {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
-            upload_stats: RwLock::new(UploadStats::load().expect("failed to init upload stats")),
+            upload_stats: RwLock::new(None),
             async_request_tx,
             ui_update_tx,
             is_currently_rebinding: AtomicBool::new(false),
@@ -51,6 +51,7 @@ pub enum AsyncRequest {
     OpenDataDump,
     OpenLog,
     UpdateUnsupportedGames(UnsupportedGames),
+    LoadUploadStats,
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread

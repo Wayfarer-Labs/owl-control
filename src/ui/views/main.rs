@@ -1,5 +1,6 @@
 use crate::{
     app_state::AsyncRequest,
+    config::UploadStats,
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
@@ -224,72 +225,16 @@ impl MainApp {
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        let available_width = ui.available_width() - 40.0;
-                        let cell_width = available_width / 4.0;
-
-                        let upload_stats = self.app_state.upload_stats.read().unwrap().clone();
-
-                        // Cell 1: Total Uploaded
-                        ui.allocate_ui_with_layout(
-                            egui::vec2(cell_width, ui.available_height()),
-                            egui::Layout::top_down(egui::Align::Center),
-                            |ui| {
-                                create_upload_cell(
-                                    ui,
-                                    "📊", // Icon
-                                    "Total Uploaded",
-                                    &util::format_seconds(
-                                        upload_stats.total_duration_uploaded as u64,
-                                    ),
-                                );
-                            },
-                        );
-
-                        // Cell 2: Files Uploaded
-                        ui.allocate_ui_with_layout(
-                            egui::vec2(cell_width, ui.available_height()),
-                            egui::Layout::top_down(egui::Align::Center),
-                            |ui| {
-                                create_upload_cell(
-                                    ui,
-                                    "📁", // Icon
-                                    "Files Uploaded",
-                                    &upload_stats.total_files_uploaded.to_string(),
-                                );
-                            },
-                        );
-
-                        // Cell 3: Volume Uploaded
-                        ui.allocate_ui_with_layout(
-                            egui::vec2(cell_width, ui.available_height()),
-                            egui::Layout::top_down(egui::Align::Center),
-                            |ui| {
-                                create_upload_cell(
-                                    ui,
-                                    "💾", // Icon
-                                    "Volume Uploaded",
-                                    &util::format_bytes(upload_stats.total_volume_uploaded),
-                                );
-                            },
-                        );
-
-                        // Cell 4: Last Upload
-                        ui.allocate_ui_with_layout(
-                            egui::vec2(cell_width, ui.available_height()),
-                            egui::Layout::top_down(egui::Align::Center),
-                            |ui| {
-                                create_upload_cell(
-                                    ui,
-                                    "🕒", // Icon
-                                    "Last Upload",
-                                    &upload_stats
-                                        .last_upload_date
-                                        .as_date()
-                                        .map(util::format_datetime)
-                                        .unwrap_or_else(|| "Never".to_string()),
-                                );
-                            },
-                        );
+                        let stats = self.app_state.upload_stats.read().unwrap().clone();
+                        if let Some(stats) = stats {
+                            upload_stats(ui, &stats);
+                        } else {
+                            ui.label(
+                                egui::RichText::new("Loading upload stats...")
+                                    .size(12.0)
+                                    .color(egui::Color32::from_rgb(128, 128, 128)),
+                            );
+                        }
                     });
 
                     // Progress Bar
@@ -390,17 +335,81 @@ impl MainApp {
     }
 }
 
-fn create_upload_cell(ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
-    // Icon
-    ui.label(egui::RichText::new(icon).size(28.0));
-    ui.add_space(8.0);
-    // Title
-    ui.label(egui::RichText::new(title).size(12.0).strong());
-    ui.add_space(4.0);
-    // Value
-    ui.label(
-        egui::RichText::new(value)
-            .size(10.0)
-            .color(egui::Color32::from_rgb(128, 128, 128)),
+fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
+    let available_width = ui.available_width() - 40.0;
+    let cell_width = available_width / 4.0;
+
+    // Cell 1: Total Uploaded
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "📊", // Icon
+                "Total Uploaded",
+                &util::format_seconds(upload_stats.total_duration_uploaded as u64),
+            );
+        },
     );
+
+    // Cell 2: Files Uploaded
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "📁", // Icon
+                "Files Uploaded",
+                &upload_stats.total_files_uploaded.to_string(),
+            );
+        },
+    );
+
+    // Cell 3: Volume Uploaded
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "💾", // Icon
+                "Volume Uploaded",
+                &util::format_bytes(upload_stats.total_volume_uploaded),
+            );
+        },
+    );
+
+    // Cell 4: Last Upload
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "🕒", // Icon
+                "Last Upload",
+                &upload_stats
+                    .last_upload_date
+                    .map(util::format_datetime)
+                    .unwrap_or_else(|| "Never".to_string()),
+            );
+        },
+    );
+
+    fn create_upload_cell(ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
+        // Icon
+        ui.label(egui::RichText::new(icon).size(28.0));
+        ui.add_space(8.0);
+        // Title
+        ui.label(egui::RichText::new(title).size(12.0).strong());
+        ui.add_space(4.0);
+        // Value
+        ui.label(
+            egui::RichText::new(value)
+                .size(10.0)
+                .color(egui::Color32::from_rgb(128, 128, 128)),
+        );
+    }
 }

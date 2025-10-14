@@ -112,6 +112,7 @@ async fn main(
     let mut debouncer = EventDebouncer::new();
 
     let api_client = Arc::new(ApiClient::new());
+    let mut valid_api_key_and_user_id: Option<(String, String)> = None;
 
     let mut unsupported_games = UnsupportedGames::load_from_embedded();
 
@@ -186,12 +187,18 @@ async fn main(
                 match e {
                     AsyncRequest::ValidateApiKey { api_key } => {
                         tracing::info!("API KEY VALIDATION RUN");
-                        let response = api_client.validate_api_key(api_key).await;
+                        let response = api_client.validate_api_key(&api_key).await;
                         tracing::info!("API KEY VALIDATION RESPONSE: {response:?}");
+
+                        valid_api_key_and_user_id = response.as_ref().ok().map(|s| (api_key.clone(), s.clone()));
                         app_state
                             .ui_update_tx
                             .try_send(UiUpdate::UpdateUserId(response.map_err(|e| e.to_string())))
                             .ok();
+
+                        if valid_api_key_and_user_id.is_some() {
+                            app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                        }
                     }
                     AsyncRequest::UploadData => {
                         tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
@@ -215,6 +222,30 @@ async fn main(
                             "Updated unsupported games, old count: {old_game_count}, new count: {}",
                             unsupported_games.games.len()
                         );
+                    }
+                    AsyncRequest::LoadUploadStats => {
+                        match valid_api_key_and_user_id.clone() {
+                            Some((api_key, user_id)) => {
+                                tokio::spawn({
+                                    let app_state = app_state.clone();
+                                    let api_client = api_client.clone();
+                                    async move {
+                                        let stats = match api_client.get_user_upload_stats(&api_key, &user_id).await {
+                                            Ok(stats) => stats,
+                                            Err(e) => {
+                                                tracing::error!(e=?e, "Failed to get user upload stats");
+                                                return;
+                                            }
+                                        };
+                                        tracing::info!(stats=?stats, "Loaded upload stats");
+                                        *app_state.upload_stats.write().unwrap() = Some(stats);
+                                    }
+                                });
+                            }
+                            None => {
+                                tracing::error!("API key and user ID not found, skipping upload stats load");
+                            }
+                        }
                     }
                 }
             },

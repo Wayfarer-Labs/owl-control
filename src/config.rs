@@ -1,6 +1,6 @@
 use color_eyre::eyre::{Context, Result, eyre};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{env, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
@@ -186,132 +186,10 @@ impl Config {
     }
 }
 
-// Define the structure of your upload stats
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct UploadStats {
-    #[serde(rename = "totalDurationUploaded")]
     pub total_duration_uploaded: f64,
-    #[serde(rename = "totalFilesUploaded")]
     pub total_files_uploaded: u64,
-    #[serde(rename = "totalVolumeUploaded")]
     pub total_volume_uploaded: u64,
-    #[serde(rename = "lastUploadDate")]
-    pub last_upload_date: LastUploadDate,
-}
-
-impl Default for UploadStats {
-    fn default() -> Self {
-        Self {
-            total_duration_uploaded: 0.,
-            total_files_uploaded: 0,
-            total_volume_uploaded: 0,
-            last_upload_date: LastUploadDate::None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LastUploadDate {
-    None,
-    Never,
-    Date(chrono::DateTime<chrono::Local>),
-}
-impl serde::Serialize for LastUploadDate {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            LastUploadDate::None => serializer.serialize_str("None"),
-            LastUploadDate::Never => serializer.serialize_str("Never"),
-            LastUploadDate::Date(s) => serializer.serialize_str(&s.to_rfc3339()),
-        }
-    }
-}
-impl<'de> serde::Deserialize<'de> for LastUploadDate {
-    fn deserialize<D>(deserializer: D) -> Result<LastUploadDate, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct LastUploadDateVisitor;
-        impl<'de> serde::de::Visitor<'de> for LastUploadDateVisitor {
-            type Value = LastUploadDate;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a string representing last upload date")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<LastUploadDate, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    "None" => Ok(LastUploadDate::None),
-                    "Never" => Ok(LastUploadDate::Never),
-                    other => Ok(chrono::DateTime::parse_from_rfc3339(other)
-                        .map(|d| d.with_timezone(&chrono::Local))
-                        .map(LastUploadDate::Date)
-                        .unwrap_or(LastUploadDate::None)),
-                }
-            }
-        }
-
-        deserializer.deserialize_str(LastUploadDateVisitor)
-    }
-}
-impl LastUploadDate {
-    pub fn as_date(&self) -> Option<chrono::DateTime<chrono::Local>> {
-        match self {
-            LastUploadDate::Date(d) => Some(*d),
-            _ => None,
-        }
-    }
-}
-
-impl UploadStats {
-    pub fn load() -> Result<Self> {
-        let path = match (Self::get_path(), Self::get_legacy_path()) {
-            (Ok(path), _) if path.exists() => {
-                tracing::info!("Loading from standard upload stats path");
-                path
-            }
-            (_, path) if path.exists() => {
-                tracing::info!("Loading from legacy upload stats path");
-                path
-            }
-            _ => {
-                tracing::info!("Upload stats file doesn't exist, keeping current stats");
-                return Ok(Self::default());
-            }
-        };
-
-        // Parse JSON
-        serde_json::from_str(&fs::read_to_string(&path)?).context("Failed to parse upload stats")
-    }
-
-    fn get_path() -> Result<PathBuf> {
-        Ok(get_persistent_dir()?.join("upload-stats.json"))
-    }
-
-    fn get_legacy_path() -> PathBuf {
-        env::temp_dir().join("owl-control-upload-stats.json")
-    }
-
-    pub fn save(&self) -> Result<()> {
-        fs::write(Self::get_path()?, serde_json::to_string_pretty(self)?)?;
-        Ok(())
-    }
-
-    pub fn update(
-        &mut self,
-        additional_duration: f64,
-        additional_files: u64,
-        additional_volume: u64,
-    ) -> Result<()> {
-        self.total_duration_uploaded += additional_duration;
-        self.total_files_uploaded += additional_files;
-        self.total_volume_uploaded += additional_volume;
-        self.last_upload_date = LastUploadDate::Date(chrono::Local::now());
-        self.save()
-    }
+    pub last_upload_date: Option<chrono::DateTime<chrono::Local>>,
 }
