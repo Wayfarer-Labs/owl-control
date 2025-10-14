@@ -10,6 +10,7 @@ pub struct UnsupportedGame {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum UnsupportedGameReason {
     EnoughData,
+    NotAGame,
     Other(String),
     #[serde(untagged)]
     Unknown(String),
@@ -18,6 +19,7 @@ impl std::fmt::Display for UnsupportedGameReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UnsupportedGameReason::EnoughData => write!(f, "We have enough data for now."),
+            UnsupportedGameReason::NotAGame => write!(f, "This is not a game."),
             UnsupportedGameReason::Other(s) => write!(f, "{s}"),
             UnsupportedGameReason::Unknown(s) => write!(
                 f,

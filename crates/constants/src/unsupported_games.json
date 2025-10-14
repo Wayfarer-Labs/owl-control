@@ -129,5 +129,65 @@
     "reason": {
       "Other": "Split-screen games are unsupported."
     }
+  },
+  {
+    "name": "OBS Studio",
+    "binaries": ["obs", "obs64", "obs32"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Spotify",
+    "binaries": ["spotify"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Opera",
+    "binaries": ["opera"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Discord",
+    "binaries": ["discord", "discordptb"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "OWL Control",
+    "binaries": ["owl control"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Firefox",
+    "binaries": ["firefox"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Microsoft Edge",
+    "binaries": ["msedge"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Windows Search",
+    "binaries": ["searchapp"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Application Frame Host",
+    "binaries": ["applicationframehost"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Discovery",
+    "binaries": ["discovery"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Shell",
+    "binaries": ["sh"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Windows Terminal",
+    "binaries": ["wt", "windowsterminal"],
+    "reason": "NotAGame"
   }
 ]

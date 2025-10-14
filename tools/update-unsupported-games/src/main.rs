@@ -33,11 +33,13 @@ fn main() {
     output.push_str("\n");
 
     output.push_str("## Unsupported games\n\n");
-    for game in unsupported_games
-        .games
-        .iter()
-        .filter(|game| game.reason != UnsupportedGameReason::EnoughData)
-    {
+    for game in unsupported_games.games.iter().filter(|game| {
+        ![
+            UnsupportedGameReason::EnoughData,
+            UnsupportedGameReason::NotAGame,
+        ]
+        .contains(&game.reason)
+    }) {
         output.push_str(&format!("- {}: {}\n", game.name, game.reason));
     }
 
