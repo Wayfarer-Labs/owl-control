@@ -70,8 +70,9 @@ impl TrayIconState {
                         // window.focus_window();
                         visible.store(true, Ordering::Relaxed);
                     }
-                    // have to unminimize the window to ensure that redraw and subsequent recv() of stop is called in App
+                    // have to unminimize and focus the window to ensure that redraw and subsequent recv() of stop is called in App
                     window.set_minimized(false);
+                    window.focus_window();
 
                     ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
                 }
