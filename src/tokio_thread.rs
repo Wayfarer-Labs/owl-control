@@ -15,7 +15,7 @@ use std::{
 
 use color_eyre::{Result, eyre::eyre};
 
-use constants::{MAX_FOOTAGE, MAX_IDLE_DURATION};
+use constants::{MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames};
 use game_process::does_process_exist;
 use input_capture::InputCapture;
 use rodio::{Decoder, Sink};
@@ -109,6 +109,7 @@ async fn main(
     let mut debouncer = EventDebouncer::new();
 
     let api_client = Arc::new(ApiClient::new());
+    let unsupported_games = Arc::new(UnsupportedGames::load_from_embedded());
 
     loop {
         let honk: bool;
@@ -154,7 +155,7 @@ async fn main(
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
                     if key == start_keycode {
                         tracing::info!("Start key pressed, starting recording");
-                        if start_recording_safely(&mut recorder, Some((&sink, honk, &app_state))).await {
+                        if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
@@ -167,7 +168,7 @@ async fn main(
                     }
                 } else if start_on_activity && actively_recording_window.is_some_and(is_window_focused) {
                     tracing::info!("Input detected, restarting recording");
-                    if start_recording_safely(&mut recorder, Some((&sink, honk, &app_state))).await {
+                    if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                         start_on_activity = false;
                     }
                 }
@@ -216,7 +217,7 @@ async fn main(
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_FOOTAGE.as_secs());
                         // We intentionally do not notify of recording state change here because we're restarting the recording
                         recorder.stop().await?;
-                        start_recording_safely(&mut recorder, None).await;
+                        start_recording_safely(&mut recorder, &unsupported_games, None).await;
                         last_active = Instant::now();
                     } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
                         tracing::info!("Window {window:?} lost focus, stopping recording");
@@ -226,7 +227,7 @@ async fn main(
                     // If we're not currently in a recording, but we were actively recording this window, and this window
                     // is now focused, and we're not waiting on input, let's restart the recording.
                     tracing::info!("Window {window:?} regained focus, restarting recording");
-                    start_recording_safely(&mut recorder, Some((&sink, honk, &app_state))).await;
+                    start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await;
                 }
             },
         }
@@ -244,9 +245,10 @@ async fn main(
 /// If `notification_state` is `Some`, it will be used to notify of the recording state change.
 async fn start_recording_safely(
     recorder: &mut Recorder,
+    unsupported_games: &UnsupportedGames,
     notification_state: Option<(&Sink, bool, &AppState)>,
 ) -> bool {
-    if let Err(e) = recorder.start().await {
+    if let Err(e) = recorder.start(unsupported_games).await {
         tracing::error!(e=?e, "Failed to start recording");
         show_notification(
             "OWL Control - Error",

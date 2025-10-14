@@ -110,6 +110,8 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 # Unwanted games
 
+<!-- This list is sourced from `crates/constants/src/unsupported_games.json`. If you update that file, please run `cargo run -p update-unsupported-games` to update this list. -->
+
 We have already collected sufficient data for these games, or they are not supported by OWL Control.
 Any data submitted for these games will be rejected by our system.
 Please do not submit data for these games.

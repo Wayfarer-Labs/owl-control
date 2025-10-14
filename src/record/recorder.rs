@@ -21,7 +21,7 @@ use crate::{
     system::hardware_specs::get_primary_monitor_resolution,
     ui::notification::{NotificationType, show_notification},
 };
-use constants::{MIN_FREE_SPACE_MB, unsupported_games::UNSUPPORTED_GAMES};
+use constants::{MIN_FREE_SPACE_MB, unsupported_games::UnsupportedGames};
 
 #[async_trait::async_trait(?Send)]
 pub trait VideoRecorder {
@@ -73,7 +73,7 @@ impl Recorder {
         self.recording.as_ref()
     }
 
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self, unsupported_games: &UnsupportedGames) -> Result<()> {
         if self.recording.is_some() {
             return Ok(());
         }
@@ -105,10 +105,7 @@ impl Recorder {
             .next()
             .unwrap_or(&game_exe)
             .to_lowercase();
-        if let Some(unsupported_game) = UNSUPPORTED_GAMES
-            .iter()
-            .find(|ug| ug.binaries.contains(&game_exe_without_extension.as_str()))
-        {
+        if let Some(unsupported_game) = unsupported_games.get(game_exe_without_extension) {
             bail!(
                 "{} ({}) is not supported! Reason: {}",
                 unsupported_game.name,

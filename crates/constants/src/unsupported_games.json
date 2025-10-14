@@ -1,0 +1,133 @@
+[
+  {
+    "name": "Minecraft",
+    "binaries": ["minecraft"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Valorant",
+    "binaries": ["valorant-win64-shipping"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Counter-Strike: Source",
+    "binaries": ["cstrike"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Counter-Strike 2",
+    "binaries": ["cs2"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Overwatch 2",
+    "binaries": ["overwatch"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Team Fortress 2",
+    "binaries": ["tf", "tf_win64"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Apex Legends",
+    "binaries": ["r5apex"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Rainbow Six Siege",
+    "binaries": ["rainbowsix"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Squad",
+    "binaries": ["squad"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Hell Let Loose",
+    "binaries": ["hll-win64-shipping"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "GTA III",
+    "binaries": ["gta3"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "GTA: Vice City",
+    "binaries": ["gta-vc"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "GTA: San Andreas",
+    "binaries": ["gta_sa"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "GTA IV",
+    "binaries": ["gtaiv"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "GTA V",
+    "binaries": ["gta5"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Subnautica",
+    "binaries": ["subnautica"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Far Cry",
+    "binaries": ["farcry"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Far Cry 2",
+    "binaries": ["farcry2"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Far Cry 3",
+    "binaries": ["farcry3"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Far Cry 4",
+    "binaries": ["farcry4"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Far Cry 5",
+    "binaries": ["farcry5"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Far Cry 6",
+    "binaries": ["farcry6"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Roblox",
+    "binaries": ["robloxstudiobeta", "robloxplayerbeta"],
+    "reason": {
+      "Other": "Recorded footage is all-black."
+    }
+  },
+  {
+    "name": "Destiny 2",
+    "binaries": ["destiny2launcher", "destiny2"],
+    "reason": {
+      "Other": "Recorded footage is all-black."
+    }
+  },
+  {
+    "name": "Split Fiction",
+    "binaries": ["splitfiction"],
+    "reason": {
+      "Other": "Split-screen games are unsupported."
+    }
+  }
+]
