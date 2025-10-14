@@ -332,10 +332,11 @@ impl MainApp {
                         }
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
+                        ui.hyperlink_to(
                             egui::RichText::new("Wayfarer Labs")
                                 .italics()
                                 .color(egui::Color32::LIGHT_BLUE),
+                            "https://wayfarerlabs.ai/",
                         );
                     });
                 });
