@@ -302,6 +302,7 @@ impl ApplicationHandler for App {
         let window_icon = winit::window::Icon::from_rgba(icon_rgb, icon_width, icon_height)
             .expect("Failed to create window icon");
 
+        // The size here is optimised to show everything in the layout at 1x scaling.
         let inner_size = PhysicalSize::new(600, 660);
 
         let window_attributes = Window::default_attributes()
@@ -312,6 +313,14 @@ impl ApplicationHandler for App {
             .with_window_icon(Some(window_icon));
 
         let window = event_loop.create_window(window_attributes).unwrap();
+
+        // Now that we have the scale factor, we can multiply the inner size by it
+        // to ensure that the user will see the content at their DPI scaling.
+        let scale_factor = window.scale_factor();
+        let inner_size = PhysicalSize::new(
+            (inner_size.width as f64 * scale_factor) as u32,
+            (inner_size.height as f64 * scale_factor) as u32,
+        );
 
         // Block on async initialization
         futures::executor::block_on(self.set_window(window, inner_size));
