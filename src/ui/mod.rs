@@ -8,7 +8,6 @@ use std::{
 
 use color_eyre::Result;
 use egui_commonmark::{CommonMarkCache, commonmark_str};
-use winit::raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
 
 use crate::{
     app_state::{AppState, AsyncRequest, UiUpdate},
@@ -300,11 +299,21 @@ impl ApplicationHandler for App {
             return;
         }
 
+        // Load window icon for taskbar
+        let icon_data = tray_icon::egui_icon();
+        let window_icon = winit::window::Icon::from_rgba(
+            icon_data.rgba.clone(),
+            icon_data.width,
+            icon_data.height,
+        )
+        .ok();
+
         let window_attributes = Window::default_attributes()
             .with_title("OWL Control")
             .with_inner_size(PhysicalSize::new(600, 660))
             .with_min_inner_size(PhysicalSize::new(400, 450))
-            .with_resizable(true);
+            .with_resizable(true)
+            .with_window_icon(window_icon);
 
         let window = event_loop.create_window(window_attributes).unwrap();
 

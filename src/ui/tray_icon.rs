@@ -7,11 +7,7 @@ use tray_icon::{
     MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
     menu::{Menu, MenuEvent, MenuId, MenuItem},
 };
-use windows::Win32::{
-    Foundation::HWND,
-    UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow},
-};
-use winit::{raw_window_handle::Win32WindowHandle, window::Window};
+use winit::window::Window;
 
 use crate::app_state::{UiUpdate, UiUpdateSender};
 use crate::assets::{get_logo_default_bytes, get_logo_recording_bytes};
