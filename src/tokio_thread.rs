@@ -13,7 +13,10 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use color_eyre::{Result, eyre::eyre};
+use color_eyre::{
+    Result,
+    eyre::{Context, eyre},
+};
 
 use constants::{MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames};
 use game_process::does_process_exist;
@@ -109,7 +112,11 @@ async fn main(
     let mut debouncer = EventDebouncer::new();
 
     let api_client = Arc::new(ApiClient::new());
-    let unsupported_games = Arc::new(UnsupportedGames::load_from_embedded());
+
+    let mut unsupported_games = UnsupportedGames::load_from_embedded();
+
+    // Initial async requests to GitHub/server
+    tokio::spawn(startup_requests(app_state.async_request_tx.clone()));
 
     loop {
         let honk: bool;
@@ -200,6 +207,14 @@ async fn main(
                     }
                     AsyncRequest::OpenLog => {
                         opener::reveal(&log_path).ok();
+                    }
+                    AsyncRequest::UpdateUnsupportedGames(new_games) => {
+                        let old_game_count = unsupported_games.games.len();
+                        unsupported_games = new_games;
+                        tracing::info!(
+                            "Updated unsupported games, old count: {old_game_count}, new count: {}",
+                            unsupported_games.games.len()
+                        );
                     }
                 }
             },
@@ -318,4 +333,31 @@ fn wait_for_ctrl_c() -> oneshot::Receiver<()> {
 
 fn is_window_focused(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
+}
+
+async fn startup_requests(async_request_tx: tokio::sync::mpsc::Sender<AsyncRequest>) {
+    tokio::spawn(async move {
+        match get_unsupported_games().await {
+            Ok(games) => {
+                async_request_tx
+                    .send(AsyncRequest::UpdateUnsupportedGames(games))
+                    .await
+                    .ok();
+            }
+            Err(e) => {
+                tracing::error!(e=?e, "Failed to get unsupported games from GitHub");
+            }
+        }
+    });
+}
+
+async fn get_unsupported_games() -> Result<UnsupportedGames> {
+    const URL: &str = "https://raw.githubusercontent.com/Wayfarer-Labs/owl-control/refs/heads/main/crates/constants/src/unsupported_games.json";
+    let text = reqwest::get(URL)
+        .await
+        .context("Failed to request unsupported games from GitHub")?
+        .text()
+        .await
+        .context("Failed to get text of unsupported games from GitHub")?;
+    UnsupportedGames::load_from_str(&text).context("Failed to parse unsupported games from GitHub")
 }

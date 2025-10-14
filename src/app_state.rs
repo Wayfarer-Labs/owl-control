@@ -3,6 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use constants::unsupported_games::UnsupportedGames;
 use tokio::sync::mpsc;
 
 use crate::{
@@ -49,6 +50,7 @@ pub enum AsyncRequest {
     UploadData,
     OpenDataDump,
     OpenLog,
+    UpdateUnsupportedGames(UnsupportedGames),
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
