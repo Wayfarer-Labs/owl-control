@@ -11,7 +11,7 @@ use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWDEFAULT, ShowWindow},
 };
-use winit::raw_window_handle::Win32WindowHandle;
+use winit::{raw_window_handle::Win32WindowHandle, window::Window};
 
 use crate::app_state::{UiUpdate, UiUpdateSender};
 use crate::assets::{get_logo_default_bytes, get_logo_recording_bytes};
@@ -53,14 +53,14 @@ impl TrayIconState {
     pub fn post_initialize(
         &self,
         context: egui::Context,
-        window_handle: Win32WindowHandle,
+        window: Arc<Window>,
         visible: Arc<AtomicBool>,
         stopped_tx: tokio::sync::broadcast::Sender<()>,
         ui_update_tx: UiUpdateSender,
     ) {
         MenuEvent::set_event_handler({
             let quit_item_id = self.quit_item_id.clone();
-            let context = context.clone();
+            let window = window.clone();
             let visible = visible.clone();
             Some(move |event: MenuEvent| match event.id() {
                 id if id == &quit_item_id => {
@@ -70,13 +70,12 @@ impl TrayIconState {
                     // a bit hacky, but we have to force the window to be visible again so that the MainApp can call main loop repaint,
                     // otherwise the app will remain active until the user clicks on tray icon to reopen it, and then it will kill itself
                     if !visible.load(Ordering::Relaxed) {
-                        let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
-                        context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                        unsafe {
-                            let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
-                        }
+                        window.set_visible(true);
+                        // window.focus_window();
                         visible.store(true, Ordering::Relaxed);
                     }
+                    // have to unminimize the window to ensure that redraw and subsequent recv() of stop is called in App
+                    window.set_minimized(false);
 
                     ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
                 }
@@ -85,8 +84,6 @@ impl TrayIconState {
         });
 
         TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-            let hwnd = HWND(window_handle.hwnd.get() as *mut std::ffi::c_void);
-
             if let TrayIconEvent::Click {
                 button: tray_icon::MouseButton::Left,
                 button_state: MouseButtonState::Down,
@@ -94,16 +91,11 @@ impl TrayIconState {
             } = event
             {
                 if visible.load(Ordering::Relaxed) {
-                    unsafe {
-                        let _ = ShowWindow(hwnd, SW_HIDE);
-                    }
+                    window.set_visible(false);
                     visible.store(false, Ordering::Relaxed);
                 } else {
                     // set viewport visible true in case it was minimised to tray via closing the app
-                    context.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                    unsafe {
-                        let _ = ShowWindow(hwnd, SW_SHOWDEFAULT);
-                    }
+                    window.set_visible(true);
                     visible.store(true, Ordering::Relaxed);
                 }
                 context.request_repaint();
@@ -159,7 +151,11 @@ pub enum AppIconStatus {
 /// Set icon for Windows applications.
 #[cfg(target_os = "windows")]
 #[allow(unsafe_code)]
-fn set_app_icon_windows(icon_data: &egui::IconData) -> AppIconStatus {
+#[allow(dead_code)]
+fn set_app_icon_windows(_icon_data: &egui::IconData) -> AppIconStatus {
+    // TODO: Implement icon setting for winit-based windows
+    AppIconStatus::NotSetIgnored
+    /*
     use eframe::icon_data::IconDataExt;
     use windows::Win32::{
         Foundation::{LPARAM, WPARAM},
@@ -281,4 +277,5 @@ fn set_app_icon_windows(icon_data: &egui::IconData) -> AppIconStatus {
 
     // It _probably_ worked out.
     AppIconStatus::Set
+    */
 }
