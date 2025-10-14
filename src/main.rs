@@ -43,8 +43,18 @@ fn main() -> Result<()> {
         .append(true)
         .open(&log_path)?;
 
-    let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+    let mut env_filter = tracing_subscriber::EnvFilter::from_default_env()
         .add_directive(tracing_subscriber::filter::LevelFilter::INFO.into());
+    for crate_name in [
+        "wgpu_hal",
+        "symphonia_core",
+        "symphonia_bundle_mp3",
+        "egui_window_glfw_passthrough",
+        "egui_overlay",
+        "egui_render_glow",
+    ] {
+        env_filter = env_filter.add_directive(format!("{crate_name}=warn").parse().unwrap());
+    }
 
     tracing_subscriber::registry()
         .with(
