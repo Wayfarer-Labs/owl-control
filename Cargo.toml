@@ -88,7 +88,7 @@ egui_overlay = { git = "https://github.com/Wayfarer-Labs/egui_overlay.git", bran
 ] }
 egui_window_glfw_passthrough = { git = "https://github.com/Wayfarer-Labs/egui_overlay.git", branch = "master" }
 egui_render_three_d = { git = "https://github.com/Wayfarer-Labs/egui_overlay.git", branch = "master" }
-catppuccin-egui = { git = "https://github.com/Wayfarer-Labs/catppuccin-egui.git", branch = "main", default-features = false, features = [
+catppuccin-egui = { git = "https://github.com/Wayfarer-Labs/catppuccin-egui.git", branch = "disable-build-script", default-features = false, features = [
     "egui33",
 ] }
 

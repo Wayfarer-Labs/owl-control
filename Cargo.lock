@@ -684,7 +684,7 @@ dependencies = [
 [[package]]
 name = "catppuccin-egui"
 version = "5.6.0"
-source = "git+https://github.com/Wayfarer-Labs/catppuccin-egui.git?branch=main#43ea73982e2425161ad923864218a59034808ac9"
+source = "git+https://github.com/Wayfarer-Labs/catppuccin-egui.git?branch=disable-build-script#35115dd41a8deebf403bbdc8ee5b6f1d9e4a3a45"
 dependencies = [
  "egui",
 ]
