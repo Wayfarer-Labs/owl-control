@@ -6,8 +6,9 @@
 !define PRODUCT_VERSION_RAW "${VERSION_RAW}"
 !define PRODUCT_PUBLISHER "Wayfarer Labs"
 !define PRODUCT_WEB_SITE "https://wayfarerlabs.ai/"
+!define APP_UUID "b06681f2-a6d8-577c-9da7-83ab06026e9c" ; carried over from old installer
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\OWL Control.exe"
-!define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
+!define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_UUID}"
 !define PRODUCT_UNINST_ROOT_KEY "HKCU"
 
 ; MUI Settings
@@ -47,7 +48,7 @@
 ; Installer attributes
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 OutFile "..\dist\OWL-Control-Setup-${PRODUCT_VERSION}.exe"
-InstallDir "$LOCALAPPDATA\OWL Control"
+InstallDir "$LOCALAPPDATA\Programs\OWL Control"
 InstallDirRegKey HKCU "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
