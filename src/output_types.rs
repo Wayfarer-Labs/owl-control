@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{hardware_specs, upload::validation::InputStats};
+use crate::{system::hardware_specs, upload::validation::InputStats};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Metadata {

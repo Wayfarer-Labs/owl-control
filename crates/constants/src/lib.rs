@@ -14,3 +14,5 @@ pub const MIN_FREE_SPACE_MB: u64 = 512;
 pub const MIN_FOOTAGE: Duration = Duration::from_secs(30);
 /// Maximum footage length
 pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
+/// Maximum idle duration before stopping recording
+pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);

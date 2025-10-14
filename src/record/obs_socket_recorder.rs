@@ -17,7 +17,7 @@ use obws::{
 };
 use windows::Win32::Foundation::HWND;
 
-use crate::recorder::{VideoRecorder, get_recording_base_resolution};
+use crate::record::recorder::{VideoRecorder, get_recording_base_resolution};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";

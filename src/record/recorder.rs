@@ -1,25 +1,30 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Instant;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Instant,
+};
 
-use color_eyre::eyre::{OptionExt as _, bail};
-use color_eyre::{Result, eyre::Context as _};
+use color_eyre::{
+    Result,
+    eyre::{Context as _, OptionExt as _, bail},
+};
 use windows::Win32::Foundation::HWND;
 
-use crate::hardware_specs::get_primary_monitor_resolution;
-use crate::ui::notification::{NotificationType, show_notification};
 use crate::{
     app_state::{AppState, RecordingStatus},
     config::RecordingBackend,
-    find_game::get_foregrounded_game,
-    obs_embedded_recorder::ObsEmbeddedRecorder,
-    obs_socket_recorder::ObsSocketRecorder,
-    recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
+    record::{
+        obs_embedded_recorder::ObsEmbeddedRecorder,
+        obs_socket_recorder::ObsSocketRecorder,
+        recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
+    },
+    system::hardware_specs::get_primary_monitor_resolution,
+    ui::notification::{NotificationType, show_notification},
 };
 use constants::{MIN_FREE_SPACE_MB, unsupported_games::UNSUPPORTED_GAMES};
 
 #[async_trait::async_trait(?Send)]
-pub(crate) trait VideoRecorder {
+pub trait VideoRecorder {
     fn id(&self) -> &'static str;
 
     async fn start_recording(
@@ -31,7 +36,7 @@ pub(crate) trait VideoRecorder {
     ) -> Result<()>;
     async fn stop_recording(&mut self) -> Result<()>;
 }
-pub(crate) struct Recorder {
+pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
     recording: Option<Recording>,
     app_state: Arc<AppState>,
@@ -39,7 +44,7 @@ pub(crate) struct Recorder {
 }
 
 impl Recorder {
-    pub(crate) async fn new(
+    pub async fn new(
         recording_dir: Box<dyn FnMut() -> PathBuf>,
         app_state: Arc<AppState>,
     ) -> Result<Self> {
@@ -64,11 +69,11 @@ impl Recorder {
         })
     }
 
-    pub(crate) fn recording(&self) -> Option<&Recording> {
+    pub fn recording(&self) -> Option<&Recording> {
         self.recording.as_ref()
     }
 
-    pub(crate) async fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self) -> Result<()> {
         if self.recording.is_some() {
             return Ok(());
         }
@@ -160,7 +165,7 @@ impl Recorder {
         Ok(())
     }
 
-    pub(crate) async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
+    pub async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
         let Some(recording) = self.recording.as_mut() else {
             return Ok(());
         };
@@ -168,7 +173,7 @@ impl Recorder {
         Ok(())
     }
 
-    pub(crate) async fn stop(&mut self) -> Result<()> {
+    pub async fn stop(&mut self) -> Result<()> {
         let Some(recording) = self.recording.take() else {
             return Ok(());
         };
@@ -220,4 +225,18 @@ pub fn get_recording_base_resolution(hwnd: HWND) -> Result<(u32, u32)> {
             get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")
         }
     }
+}
+
+fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> {
+    let (hwnd, pid) = game_process::foreground_window()?;
+
+    let exe_path = game_process::exe_name_for_pid(pid)?;
+    let exe_name = exe_path
+        .file_name()
+        .ok_or_eyre("Failed to get file name from exe path")?
+        .to_str()
+        .ok_or_eyre("Failed to convert exe name to unicode string")?
+        .to_owned();
+
+    Ok(Some((exe_name, pid, hwnd)))
 }

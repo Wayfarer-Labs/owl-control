@@ -262,7 +262,7 @@ impl ApiClient {
                 video_codec: args.video_codec,
                 video_fps: args.video_fps,
 
-                uploader_hwid: &crate::hardware_id::get()
+                uploader_hwid: &crate::system::hardware_id::get()
                     .with_context(|| "Failed to get hardware ID")?,
                 upload_timestamp: &chrono::Local::now().to_rfc3339(),
             })

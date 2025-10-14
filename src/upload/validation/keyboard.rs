@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{keycode::lookup_keycode, output_types::InputEventType};
+use crate::{output_types::InputEventType, system::keycode::lookup_keycode};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

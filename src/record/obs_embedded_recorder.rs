@@ -20,7 +20,7 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::recorder::{VideoRecorder, get_recording_base_resolution};
+use crate::record::recorder::{VideoRecorder, get_recording_base_resolution};
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";

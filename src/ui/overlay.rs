@@ -19,7 +19,7 @@ use crate::{
     app_state::{AppState, RecordingStatus},
     assets::get_owl_bytes,
     config::OverlayLocation,
-    hardware_specs::get_primary_monitor_resolution,
+    system::hardware_specs::get_primary_monitor_resolution,
     ui::util,
 };
 

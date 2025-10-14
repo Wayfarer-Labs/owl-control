@@ -1,9 +1,8 @@
 use crate::{
-    MAX_IDLE_DURATION,
     api::ApiClient,
     app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
     assets::{get_honk_0_bytes, get_honk_1_bytes},
-    keycode::lookup_keycode,
+    system::keycode::lookup_keycode,
     ui::notification::{NotificationType, show_notification},
     upload,
 };
@@ -11,19 +10,19 @@ use std::{
     io::Cursor,
     path::PathBuf,
     sync::{Arc, atomic::Ordering},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use color_eyre::{Result, eyre::eyre};
 
-use constants::MAX_FOOTAGE;
+use constants::{MAX_FOOTAGE, MAX_IDLE_DURATION};
 use game_process::does_process_exist;
 use input_capture::InputCapture;
 use rodio::{Decoder, Sink};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::GetForegroundWindow};
 
-use crate::{idle::IdlenessTracker, raw_input_debouncer::EventDebouncer, recorder::Recorder};
+use crate::{record::Recorder, system::raw_input_debouncer::EventDebouncer};
 
 pub fn run(
     app_state: Arc<AppState>,
@@ -100,7 +99,7 @@ async fn main(
 
     let mut ctrlc_rx = wait_for_ctrl_c();
 
-    let mut idleness_tracker = IdlenessTracker::new(MAX_IDLE_DURATION);
+    let mut last_active = Instant::now();
     let mut start_on_activity = false;
     let mut actively_recording_window: Option<HWND> = None;
 
@@ -172,7 +171,7 @@ async fn main(
                         start_on_activity = false;
                     }
                 }
-                idleness_tracker.update_activity();
+                last_active = Instant::now();
             },
             e = async_request_rx.recv() => {
                 let e = e.expect("async request reader was closed early");
@@ -208,8 +207,8 @@ async fn main(
                     if !does_process_exist(recording.pid())? {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
                         stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
-                    } else if idleness_tracker.is_idle() {
-                        tracing::info!("No input detected for 5 seconds, stopping recording");
+                    } else if last_active.elapsed() > MAX_IDLE_DURATION {
+                        tracing::info!("No input detected for {} seconds, stopping recording", MAX_IDLE_DURATION.as_secs());
                         stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
                         *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
@@ -218,7 +217,7 @@ async fn main(
                         // We intentionally do not notify of recording state change here because we're restarting the recording
                         recorder.stop().await?;
                         start_recording_safely(&mut recorder, None).await;
-                        idleness_tracker.update_activity();
+                        last_active = Instant::now();
                     } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
                         tracing::info!("Window {window:?} lost focus, stopping recording");
                         stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;

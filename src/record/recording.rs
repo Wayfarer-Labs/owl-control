@@ -7,8 +7,9 @@ use color_eyre::Result;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 
 use crate::{
-    hardware_id, hardware_specs, input_recorder::InputRecorder, output_types::Metadata,
-    recorder::VideoRecorder,
+    output_types::Metadata,
+    record::{input_recorder::InputRecorder, recorder::VideoRecorder},
+    system::{hardware_id, hardware_specs},
 };
 
 pub(crate) struct Recording {

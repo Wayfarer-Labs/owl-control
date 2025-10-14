@@ -7,31 +7,20 @@ mod api;
 mod app_state;
 mod assets;
 mod config;
-mod find_game;
-mod hardware_id;
-mod hardware_specs;
-mod idle;
-mod input_recorder;
-mod keycode;
-mod obs_embedded_recorder;
-mod obs_socket_recorder;
 mod output_types;
-mod raw_input_debouncer;
-mod recorder;
-mod recording;
+mod record;
+mod system;
 mod tokio_thread;
 mod ui;
 mod upload;
 
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 use clap::Parser;
 use color_eyre::Result;
 use tracing_subscriber::{Layer, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 use std::sync::Arc;
-
-const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
 
 fn main() -> Result<()> {
     #[derive(Parser, Debug)]
