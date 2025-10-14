@@ -1,8 +1,10 @@
 use crate::{
-    app_state::AsyncRequest,
+    app_state::{AsyncRequest, GitHubRelease},
     config::UploadStats,
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
+
+use constants::{GH_ORG, GH_REPO};
 
 impl MainApp {
     pub fn main_view(&mut self, ctx: &egui::Context) {
@@ -58,6 +60,13 @@ impl MainApp {
                     .size(SUBHEADING_TEXT_SIZE),
             );
             ui.add_space(10.0);
+
+            // Show new release warning if available
+            if let Some(release) = &self.newer_release_available {
+                newer_release_available(ui, release);
+
+                ui.add_space(15.0);
+            }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 // Account Section
@@ -310,9 +319,9 @@ impl MainApp {
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                         if ui.button("FAQ").clicked() {
-                            opener::open_browser(
-                                "https://github.com/Wayfarer-Labs/owl-control/blob/main/GAMES.md",
-                            )
+                            opener::open_browser(format!(
+                                "https://github.com/{GH_ORG}/{GH_REPO}/blob/main/GAMES.md"
+                            ))
                             .ok();
                         }
                         if ui.button("Logs").clicked() {
@@ -333,6 +342,54 @@ impl MainApp {
             });
         });
     }
+}
+
+fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
+    egui::Frame::default()
+        .fill(egui::Color32::DARK_GREEN)
+        .inner_margin(egui::Margin::same(15))
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.label(
+                    egui::RichText::new("New Release Available!")
+                        .size(20.0)
+                        .strong(),
+                );
+
+                // Release name
+                ui.label(egui::RichText::new(&release.name).size(16.0).strong());
+
+                // Release date if available
+                if let Some(date) = &release.release_date {
+                    ui.label(
+                        egui::RichText::new(format!("Released: {}", date.format("%B %d, %Y")))
+                            .size(12.0),
+                    );
+                }
+
+                ui.add_space(8.0);
+
+                // Download button
+                if ui
+                    .add_sized(
+                        egui::vec2(200.0, 35.0),
+                        egui::Button::new(
+                            egui::RichText::new("Download Now")
+                                .size(14.0)
+                                .strong()
+                                .color(egui::Color32::WHITE),
+                        )
+                        .fill(egui::Color32::from_rgb(40, 167, 69)), // Green button
+                    )
+                    .clicked()
+                {
+                    #[allow(clippy::collapsible_if)]
+                    if let Err(e) = opener::open_browser(&release.url) {
+                        tracing::error!("Failed to open release URL: {}", e);
+                    }
+                }
+            });
+        });
 }
 
 fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {

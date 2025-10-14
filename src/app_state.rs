@@ -11,16 +11,6 @@ use crate::{
     upload::ProgressData,
 };
 
-#[derive(Clone, PartialEq)]
-pub enum RecordingStatus {
-    Stopped,
-    Recording {
-        start_time: Instant,
-        game_exe: String,
-    },
-    Paused,
-}
-
 pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
@@ -44,6 +34,22 @@ impl AppState {
     }
 }
 
+#[derive(Clone, PartialEq)]
+pub enum RecordingStatus {
+    Stopped,
+    Recording {
+        start_time: Instant,
+        game_exe: String,
+    },
+    Paused,
+}
+
+pub struct GitHubRelease {
+    pub name: String,
+    pub url: String,
+    pub release_date: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 /// A request for some async action to happen. Response will be delivered via [`UiUpdate`].
 pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
@@ -62,6 +68,7 @@ pub enum UiUpdate {
     UpdateUploadProgress(Option<ProgressData>),
     UploadFailed(String),
     UpdateTrayIconRecording(bool),
+    UpdateNewerReleaseAvailable(GitHubRelease),
 }
 
 /// A sender for [`UiUpdate`] messages. Will automatically repaint the UI after sending a message.

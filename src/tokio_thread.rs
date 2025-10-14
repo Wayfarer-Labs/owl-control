@@ -1,10 +1,11 @@
 use crate::{
     api::ApiClient,
-    app_state::{AppState, AsyncRequest, RecordingStatus, UiUpdate},
+    app_state::{AppState, AsyncRequest, GitHubRelease, RecordingStatus, UiUpdate},
     assets::{get_honk_0_bytes, get_honk_1_bytes},
     system::keycode::lookup_keycode,
     ui::notification::{NotificationType, show_notification},
     upload,
+    util::version::is_version_newer,
 };
 use std::{
     io::Cursor,
@@ -18,7 +19,9 @@ use color_eyre::{
     eyre::{Context, eyre},
 };
 
-use constants::{MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames};
+use constants::{
+    GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames,
+};
 use game_process::does_process_exist;
 use input_capture::InputCapture;
 use rodio::{Decoder, Sink};
@@ -117,7 +120,7 @@ async fn main(
     let mut unsupported_games = UnsupportedGames::load_from_embedded();
 
     // Initial async requests to GitHub/server
-    tokio::spawn(startup_requests(app_state.async_request_tx.clone()));
+    tokio::spawn(startup_requests(app_state.clone()));
 
     loop {
         let honk: bool;
@@ -186,9 +189,8 @@ async fn main(
                 let e = e.expect("async request reader was closed early");
                 match e {
                     AsyncRequest::ValidateApiKey { api_key } => {
-                        tracing::info!("API KEY VALIDATION RUN");
                         let response = api_client.validate_api_key(&api_key).await;
-                        tracing::info!("API KEY VALIDATION RESPONSE: {response:?}");
+                        tracing::info!("Received response from API key validation: {response:?}");
 
                         valid_api_key_and_user_id = response.as_ref().ok().map(|s| (api_key.clone(), s.clone()));
                         app_state
@@ -366,29 +368,84 @@ fn is_window_focused(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
 }
 
-async fn startup_requests(async_request_tx: tokio::sync::mpsc::Sender<AsyncRequest>) {
+async fn startup_requests(app_state: Arc<AppState>) {
+    tokio::spawn({
+        let async_request_tx = app_state.async_request_tx.clone();
+        async move {
+            match get_unsupported_games().await {
+                Ok(games) => {
+                    async_request_tx
+                        .send(AsyncRequest::UpdateUnsupportedGames(games))
+                        .await
+                        .ok();
+                }
+                Err(e) => {
+                    tracing::error!(e=?e, "Failed to get unsupported games from GitHub");
+                }
+            }
+        }
+    });
+
     tokio::spawn(async move {
-        match get_unsupported_games().await {
-            Ok(games) => {
-                async_request_tx
-                    .send(AsyncRequest::UpdateUnsupportedGames(games))
-                    .await
-                    .ok();
-            }
-            Err(e) => {
-                tracing::error!(e=?e, "Failed to get unsupported games from GitHub");
-            }
+        if let Err(e) = check_for_updates(app_state).await {
+            tracing::error!(e=?e, "Failed to check for updates");
         }
     });
 }
 
 async fn get_unsupported_games() -> Result<UnsupportedGames> {
-    const URL: &str = "https://raw.githubusercontent.com/Wayfarer-Labs/owl-control/refs/heads/main/crates/constants/src/unsupported_games.json";
-    let text = reqwest::get(URL)
+    let text = reqwest::get(format!("https://raw.githubusercontent.com/{GH_ORG}/{GH_REPO}/refs/heads/main/crates/constants/src/unsupported_games.json"))
         .await
         .context("Failed to request unsupported games from GitHub")?
         .text()
         .await
         .context("Failed to get text of unsupported games from GitHub")?;
     UnsupportedGames::load_from_str(&text).context("Failed to parse unsupported games from GitHub")
+}
+
+async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
+    #[derive(serde::Deserialize, Debug, Clone)]
+    struct Release {
+        html_url: String,
+        published_at: Option<chrono::DateTime<chrono::Utc>>,
+        tag_name: String,
+        name: String,
+        draft: bool,
+        prerelease: bool,
+    }
+
+    let current_version = env!("CARGO_PKG_VERSION");
+
+    let releases = reqwest::Client::builder()
+        .build()?
+        .get(format!(
+            "https://api.github.com/repos/{GH_ORG}/{GH_REPO}/releases"
+        ))
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .header("User-Agent", format!("OWL Control v{current_version}"))
+        .send()
+        .await
+        .context("Failed to get releases from GitHub")?
+        .json::<Vec<Release>>()
+        .await
+        .context("Failed to parse releases from GitHub")?;
+
+    let latest_valid_release = releases.iter().find(|r| !r.draft && !r.prerelease);
+    tracing::info!(latest_valid_release=?latest_valid_release, "Fetched latest valid release");
+
+    if let Some(latest_valid_release) = latest_valid_release.cloned()
+        && is_version_newer(current_version, &latest_valid_release.tag_name)
+    {
+        app_state
+            .ui_update_tx
+            .try_send(UiUpdate::UpdateNewerReleaseAvailable(GitHubRelease {
+                name: latest_valid_release.name,
+                url: latest_valid_release.html_url,
+                release_date: latest_valid_release.published_at,
+            }))
+            .ok();
+    }
+
+    Ok(())
 }

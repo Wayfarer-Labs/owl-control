@@ -13,6 +13,7 @@ mod system;
 mod tokio_thread;
 mod ui;
 mod upload;
+mod util;
 
 use std::path::PathBuf;
 

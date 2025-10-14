@@ -19,7 +19,7 @@ use winit::{
 };
 
 use crate::{
-    app_state::{AppState, AsyncRequest, UiUpdate},
+    app_state::{AppState, AsyncRequest, GitHubRelease, UiUpdate},
     assets,
     config::{Credentials, Preferences},
     upload,
@@ -409,6 +409,9 @@ pub struct MainApp {
     /// Last upload error, updated from upload bridge via mpsc channel
     last_upload_error: Option<String>,
 
+    /// A newer release is available, updated from tokio thread via mpsc channel
+    newer_release_available: Option<GitHubRelease>,
+
     md_cache: CommonMarkCache,
     visible: Arc<AtomicBool>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
@@ -459,6 +462,8 @@ impl MainApp {
             current_upload_progress: None,
             last_upload_error: None,
 
+            newer_release_available: None,
+
             md_cache: CommonMarkCache::default(),
             visible,
             stopped_rx,
@@ -499,6 +504,9 @@ impl MainApp {
             }
             Ok(UiUpdate::UpdateTrayIconRecording(recording)) => {
                 self.tray_icon.set_icon_recording(recording);
+            }
+            Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
+                self.newer_release_available = Some(release);
             }
             Err(_) => {}
         };

@@ -16,3 +16,8 @@ pub const MIN_FOOTAGE: Duration = Duration::from_secs(30);
 pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
+
+/// GitHub organization
+pub const GH_ORG: &str = "Wayfarer-Labs";
+/// GitHub repository
+pub const GH_REPO: &str = "owl-control";
