@@ -77,30 +77,11 @@ Function .onInit
   Abort
 
 uninst:
-  ; Get the installation directory - try InstallLocation first
-  ReadRegStr $INSTDIR ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "InstallLocation"
-
-  ; If InstallLocation doesn't exist (older versions), try other methods
-  ${If} $INSTDIR == ""
-    ; Try getting from the App Paths registry
-    ReadRegStr $INSTDIR HKCU "${PRODUCT_DIR_REGKEY}" ""
-    ${If} $INSTDIR != ""
-      ; Extract directory from full path (removes the exe filename)
-      ${GetParent} $INSTDIR $INSTDIR
-    ${EndIf}
-  ${EndIf}
-
-  ; If still empty, extract from UninstallString
-  ${If} $INSTDIR == ""
-    ; UninstallString typically contains the full path to uninst.exe
-    ${GetParent} $0 $INSTDIR
-  ${EndIf}
-
   ; Clear errors
   ClearErrors
 
-  ; Run the uninstaller silently
-  ExecWait '$0 /S _?=$INSTDIR'
+  ; Run the uninstaller silently using the UninstallString
+  ExecWait '$0 /S'
 
   ; Delete the uninstaller after it finishes
   Delete $0
@@ -160,12 +141,16 @@ SectionEnd
 ; Uninstaller
 Function un.onUninstSuccess
   HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer. Your existing recordings were not removed and can be found in the installation directory."
+  ${IfNot} ${Silent}
+    MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer. Your existing recordings were not removed and can be found in the installation directory."
+  ${EndIf}
 FunctionEnd
 
 Function un.onInit
-  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
-  Abort
+  ${IfNot} ${Silent}
+    MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
+    Abort
+  ${EndIf}
 FunctionEnd
 
 Section Uninstall
