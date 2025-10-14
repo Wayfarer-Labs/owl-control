@@ -22,6 +22,8 @@ use tracing_subscriber::{Layer, layer::SubscriberExt as _, util::SubscriberInitE
 
 use std::sync::Arc;
 
+use crate::system::ensure_single_instance::ensure_single_instance;
+
 fn main() -> Result<()> {
     #[derive(Parser, Debug)]
     #[command(version, about)]
@@ -84,6 +86,9 @@ fn main() -> Result<()> {
     } = Args::parse();
 
     color_eyre::install()?;
+
+    // Ensure only one instance is running
+    ensure_single_instance()?;
 
     let (async_request_tx, async_request_rx) = tokio::sync::mpsc::channel(16);
     let (ui_update_tx, ui_update_rx) = app_state::UiUpdateSender::build(16);
