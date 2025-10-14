@@ -45,7 +45,7 @@ libobs-version = "31.0.3"
 
 [package]
 name = "owl-control"
-version = "0.11.0"
+version = "1.0.0-rc1"
 edition = "2024"
 
 [dependencies]
