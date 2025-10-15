@@ -239,13 +239,9 @@ impl MainApp {
                             upload_stats(ui, &uploads.statistics, &uploads.uploads);
                         });
 
-                        ui.add_space(10.0);
-                        ui.heading("    Upload History");
-                        ui.add_space(5.0);
-                        ui.indent("upload_history_padding", |ui| {
-                            // scrollview for uploads
-                            uploads_view(ui, &uploads.uploads);
-                        });
+                        ui.add(egui::Label::new(egui::RichText::new("History").size(16.0)));
+                        ui.add_space(4.0);
+                        uploads_view(ui, &uploads.uploads);
                     } else {
                         ui.label(
                             egui::RichText::new("Loading upload stats...")
@@ -485,7 +481,7 @@ fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[User
 fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
     // Scrollable upload history section
     egui::ScrollArea::vertical()
-        .max_height(200.0)
+        .max_height(60.0)
         .auto_shrink([false, true])
         .show(ui, |ui| {
             if uploads.is_empty() {
@@ -496,23 +492,12 @@ fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
             for upload in uploads.iter() {
                 egui::Frame::new()
                     .fill(ui.visuals().faint_bg_color)
-                    .inner_margin(8.0)
+                    .inner_margin(4.0)
                     .corner_radius(4.0)
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            // Status icon
-                            let (icon, color) = if upload.verified {
-                                ("✅", egui::Color32::GREEN)
-                            } else {
-                                // i assume this .verified flag is for wayfarer staff to flag content as manually reviewed,
-                                // but as of now its not in use and all recordings are unflagged.
-                                // ("⏳", egui::Color32::YELLOW)
-                                ("✅", egui::Color32::GREEN)
-                            };
-                            ui.colored_label(color, icon);
-
                             // Filename
-                            ui.label(&upload.filename);
+                            ui.add(egui::TextEdit::singleline(&mut upload.id.as_str()));
 
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
