@@ -16,6 +16,10 @@ Some games support both first- and third-person mode; where possible, please pla
 
 Games marked as `(admin)` have been reported to require running OWL Control in administrator mode to record correctly. Please verify your recordings are not all-black when recording these games.
 
+# Usage Guidelines
+
+**Be careful with voice chat!** While OWL Control does not capture microphone input, it will capture other people's voice chat in games. We strongly encourage you to have voice chat turned off and/or to use external voice chat (like Discord) to avoid recording other players' conversations.
+
 **Replaying games is OK!** It's perfectly fine to replay games you've already played, but try to play a bit differently between playthroughs. This could mean different approaches, strategies, or playstyles. It's okay if you can't play _that_ differently - we're looking to cover as many of the ways you can play games as possible.
 
 ## Top-Priority Games
