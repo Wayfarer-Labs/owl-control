@@ -484,7 +484,7 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
 fn upload_view(ui: &mut egui::Ui, upload_stats: &UploadStats) {
     // Scrollable upload history section
     egui::ScrollArea::vertical()
-        .max_height(550.0)
+        .max_height(200.0)
         .auto_shrink([false, true])
         .show(ui, |ui| {
             // Get upload history from app state
