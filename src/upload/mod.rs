@@ -193,7 +193,7 @@ async fn upload_folder(
     }
     let tar_path = DeleteFileOnDrop(tar_path);
 
-    upload_tar(
+    let game_control_id = upload_tar(
         &tar_path.0,
         api_client,
         api_token,
@@ -216,7 +216,7 @@ async fn upload_folder(
     .await
     .context("error uploading tar file")?;
 
-    std::fs::write(path.join(".uploaded"), "").ok();
+    std::fs::write(path.join(".uploaded"), game_control_id).ok();
 
     Ok(RecordingStats {
         duration: validation.metadata.duration as f64,
@@ -306,7 +306,7 @@ async fn upload_tar(
     control_filename: &str,
     video_duration_seconds: f32,
     tx: app_state::UiUpdateSender,
-) -> eyre::Result<()> {
+) -> eyre::Result<String> {
     let file_size = std::fs::metadata(tar_path)
         .map(|m| m.len())
         .context("failed to get file size")?;
@@ -522,7 +522,7 @@ async fn upload_tar(
         completion_result.verified.unwrap_or_default()
     );
 
-    Ok(())
+    Ok(completion_result.game_control_id)
 }
 
 fn send_progress(
