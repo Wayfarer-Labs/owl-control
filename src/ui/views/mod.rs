@@ -1,3 +1,3 @@
-mod consent;
-mod login;
-mod main;
+pub mod consent;
+pub mod login;
+pub mod main;

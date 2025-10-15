@@ -1,10 +1,18 @@
+use std::time::{Duration, Instant};
+
 use crate::{
     api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
+    config::RecordingBackend,
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
 use constants::{GH_ORG, GH_REPO};
+
+#[derive(Default)]
+pub(crate) struct MainViewState {
+    last_obs_check: Option<(std::time::Instant, bool)>,
+}
 
 impl MainApp {
     pub fn main_view(&mut self, ctx: &egui::Context) {
@@ -49,6 +57,15 @@ impl MainApp {
             add_settings_ui(ui, |ui| ui.add(widget)).inner
         }
 
+        if self.main_view_state.last_obs_check.is_none()
+            || self
+                .main_view_state
+                .last_obs_check
+                .is_some_and(|(last, _)| last.elapsed() > Duration::from_secs(1))
+        {
+            self.main_view_state.last_obs_check = Some((Instant::now(), is_obs_running()));
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(
                 egui::RichText::new("Settings")
@@ -64,6 +81,18 @@ impl MainApp {
             // Show new release warning if available
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
+
+                ui.add_space(15.0);
+            }
+
+            // Show OBS warning if necessary
+            if self.local_preferences.recording_backend == RecordingBackend::Embedded
+                && self
+                    .main_view_state
+                    .last_obs_check
+                    .is_some_and(|(_, is_obs_running)| is_obs_running)
+            {
+                obs_running_warning(ui);
 
                 ui.add_space(15.0);
             }
@@ -394,6 +423,62 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
                         tracing::error!("Failed to open release URL: {}", e);
                     }
                 }
+            });
+        });
+}
+
+/// Check if any OBS Studio processes are currently running
+fn is_obs_running() -> bool {
+    let mut is_obs_running = false;
+
+    game_process::for_each_process(|process| {
+        let exe_name = unsafe { std::ffi::CStr::from_ptr(process.szExeFile.as_ptr()) };
+        let Some(file_name) = exe_name
+            .to_str()
+            .ok()
+            .map(std::path::Path::new)
+            .and_then(|p| p.file_name())
+            .and_then(|f| f.to_str())
+            .map(|f| f.to_ascii_lowercase())
+        else {
+            return true;
+        };
+
+        if ["obs.exe", "obs64.exe", "obs32.exe"].contains(&file_name.as_str()) {
+            is_obs_running = true;
+            return false;
+        }
+
+        true
+    })
+    .ok();
+
+    is_obs_running
+}
+
+fn obs_running_warning(ui: &mut egui::Ui) {
+    egui::Frame::default()
+        .fill(egui::Color32::from_rgb(220, 53, 69))
+        .inner_margin(egui::Margin::same(15))
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.label(
+                    egui::RichText::new("OBS Studio Detected!")
+                        .size(20.0)
+                        .strong()
+                        .color(egui::Color32::WHITE),
+                );
+
+                ui.add_space(8.0);
+
+                ui.label(
+                    egui::RichText::new(
+                        "OBS Studio is currently running and may conflict with OWL Control. \
+                         Please close OBS Studio before using OWL Control for the best experience.",
+                    )
+                    .size(14.0)
+                    .color(egui::Color32::WHITE),
+                );
             });
         });
 }

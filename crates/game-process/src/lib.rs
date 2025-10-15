@@ -90,7 +90,7 @@ impl Drop for CloseHandleOnDrop {
     }
 }
 
-pub fn iter_processes() -> Result<impl Iterator<Item = PROCESSENTRY32>, Error> {
+pub fn for_each_process(mut f: impl FnMut(PROCESSENTRY32) -> bool) -> Result<(), Error> {
     unsafe {
         let snapshot = CloseHandleOnDrop(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)?);
 
@@ -99,13 +99,20 @@ pub fn iter_processes() -> Result<impl Iterator<Item = PROCESSENTRY32>, Error> {
             ..Default::default()
         };
 
-        let mut result = Process32First(snapshot.0, &mut entry).ok().map(|()| entry);
+        if Process32First(snapshot.0, &mut entry).is_err() {
+            return Ok(());
+        }
 
-        Ok(std::iter::from_fn(move || {
-            let r = result?;
-            result = Process32Next(snapshot.0, &mut entry).ok().map(|()| entry);
-            Some(r)
-        }))
+        loop {
+            if !f(entry) {
+                break;
+            }
+            if Process32Next(snapshot.0, &mut entry).is_err() {
+                break;
+            }
+        }
+
+        Ok(())
     }
 }
 

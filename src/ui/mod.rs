@@ -427,6 +427,8 @@ pub struct MainApp {
     stopped_tx: tokio::sync::broadcast::Sender<()>,
     has_stopped: bool,
 
+    main_view_state: views::main::MainViewState,
+
     tray_icon: tray_icon::TrayIconState,
 }
 impl MainApp {
@@ -478,6 +480,8 @@ impl MainApp {
             stopped_rx,
             stopped_tx,
             has_stopped: false,
+
+            main_view_state: views::main::MainViewState::default(),
 
             tray_icon,
         })
