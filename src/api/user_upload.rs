@@ -3,12 +3,43 @@ use color_eyre::eyre::{self, Context as _};
 use serde::Deserialize;
 
 use crate::api::{API_BASE_URL, ApiClient, check_for_response_success};
-use crate::config::UploadStats;
+
+#[derive(Debug, Clone)]
+pub struct UserUploads {
+    pub statistics: UserUploadStatistics,
+    pub uploads: Vec<UserUpload>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[allow(unused)]
+pub struct UserUploadStatistics {
+    pub total_uploads: u64,
+    pub total_data: UserUploadDataSize,
+    pub total_video_time: UserUploadVideoTime,
+    pub verified_uploads: u32,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[allow(unused)]
+pub struct UserUploadDataSize {
+    pub bytes: u64,
+    pub megabytes: f64,
+    pub gigabytes: f64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[allow(unused)]
+pub struct UserUploadVideoTime {
+    pub seconds: f64,
+    pub minutes: f64,
+    pub hours: f64,
+    pub formatted: String,
+}
 
 /// this struct has to be public for config defining UploadStats to reference
 #[derive(Deserialize, Debug, Clone)]
 #[allow(unused)]
-pub struct Upload {
+pub struct UserUpload {
     pub content_type: String,
     pub created_at: DateTime<Utc>,
     pub file_size_bytes: u64,
@@ -25,41 +56,15 @@ impl ApiClient {
         &self,
         api_key: &str,
         user_id: &str,
-    ) -> eyre::Result<UploadStats> {
+    ) -> eyre::Result<UserUploads> {
         // Response structs for the user info endpoint
         #[derive(Deserialize, Debug)]
         #[allow(unused)]
         struct UserStatsResponse {
             success: bool,
             user_id: String,
-            statistics: Statistics,
-            uploads: Vec<Upload>, // idk format for this one
-        }
-
-        #[derive(Deserialize, Debug)]
-        #[allow(unused)]
-        struct Statistics {
-            total_uploads: u64,
-            total_data: DataSize,
-            total_video_time: VideoTime,
-            verified_uploads: u32,
-        }
-
-        #[derive(Deserialize, Debug)]
-        #[allow(unused)]
-        struct DataSize {
-            bytes: u64,
-            megabytes: f64,
-            gigabytes: f64,
-        }
-
-        #[derive(Deserialize, Debug)]
-        #[allow(unused)]
-        struct VideoTime {
-            seconds: f64,
-            minutes: f64,
-            hours: f64,
-            formatted: String,
+            statistics: UserUploadStatistics,
+            uploads: Vec<UserUpload>,
         }
 
         let response = self
@@ -79,14 +84,8 @@ impl ApiClient {
             .await
             .context("failed to parse user upload stats response")?;
 
-        Ok(UploadStats {
-            total_duration_uploaded: server_stats.statistics.total_video_time.seconds,
-            total_files_uploaded: server_stats.statistics.total_uploads,
-            total_volume_uploaded: server_stats.statistics.total_data.bytes,
-            last_upload_date: server_stats
-                .uploads
-                .first()
-                .map(|upload| upload.created_at.with_timezone(&chrono::Local)),
+        Ok(UserUploads {
+            statistics: server_stats.statistics,
             uploads: server_stats.uploads,
         })
     }

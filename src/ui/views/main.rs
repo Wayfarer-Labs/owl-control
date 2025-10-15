@@ -1,6 +1,6 @@
 use crate::{
+    api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
-    config::UploadStats,
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
@@ -233,10 +233,10 @@ impl MainApp {
                     ui.separator();
                     ui.add_space(10.0);
 
-                    let stats = self.app_state.upload_stats.read().unwrap().clone();
-                    if let Some(stats) = stats {
+                    let user_uploads = self.app_state.user_uploads.read().unwrap().clone();
+                    if let Some(uploads) = user_uploads {
                         ui.horizontal(|ui| {
-                            upload_stats(ui, &stats);
+                            upload_stats(ui, &uploads.statistics, &uploads.uploads);
                         });
 
                         ui.add_space(10.0);
@@ -244,7 +244,7 @@ impl MainApp {
                         ui.add_space(5.0);
                         ui.indent("upload_history_padding", |ui| {
                             // scrollview for uploads
-                            upload_view(ui, &stats);
+                            uploads_view(ui, &uploads.uploads);
                         });
                     } else {
                         ui.label(
@@ -401,7 +401,7 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
         });
 }
 
-fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
+fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[UserUpload]) {
     let available_width = ui.available_width() - 40.0;
     let cell_width = available_width / 4.0;
 
@@ -429,7 +429,7 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
                 ui,
                 "📊", // Icon
                 "Total Uploaded",
-                &util::format_seconds(upload_stats.total_duration_uploaded as u64),
+                &util::format_seconds(stats.total_video_time.seconds as u64),
             );
         },
     );
@@ -443,7 +443,7 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
                 ui,
                 "📁", // Icon
                 "Files Uploaded",
-                &upload_stats.total_files_uploaded.to_string(),
+                &stats.total_uploads.to_string(),
             );
         },
     );
@@ -457,7 +457,7 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
                 ui,
                 "💾", // Icon
                 "Volume Uploaded",
-                &util::format_bytes(upload_stats.total_volume_uploaded),
+                &util::format_bytes(stats.total_data.bytes),
             );
         },
     );
@@ -471,8 +471,9 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
                 ui,
                 "🕒", // Icon
                 "Last Upload",
-                &upload_stats
-                    .last_upload_date
+                &uploads
+                    .first()
+                    .map(|upload| upload.created_at.with_timezone(&chrono::Local))
                     .map(util::format_datetime)
                     .unwrap_or_else(|| "Never".to_string()),
             );
@@ -481,63 +482,59 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
     ui.add_space(10.0);
 }
 
-fn upload_view(ui: &mut egui::Ui, upload_stats: &UploadStats) {
+fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
     // Scrollable upload history section
     egui::ScrollArea::vertical()
         .max_height(200.0)
         .auto_shrink([false, true])
         .show(ui, |ui| {
-            // Get upload history from app state
-            let upload_history = &upload_stats.uploads; // You'll need to implement this
-
-            if upload_history.is_empty() {
+            if uploads.is_empty() {
                 ui.label("No uploads yet");
-            } else {
-                for upload in upload_history.iter() {
-                    egui::Frame::new()
-                        .fill(ui.visuals().faint_bg_color)
-                        .inner_margin(8.0)
-                        .corner_radius(4.0)
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                // Status icon
-                                let (icon, color) = if upload.verified {
-                                    ("✅", egui::Color32::GREEN)
-                                } else {
-                                    // i assume this .verified flag is for wayfarer staff to flag content as manually reviewed,
-                                    // but as of now its not in use and all recordings are unflagged.
-                                    // ("⏳", egui::Color32::YELLOW)
-                                    ("✅", egui::Color32::GREEN)
-                                };
-                                ui.colored_label(color, icon);
+                return;
+            }
 
-                                // Filename
-                                ui.label(&upload.filename);
+            for upload in uploads.iter() {
+                egui::Frame::new()
+                    .fill(ui.visuals().faint_bg_color)
+                    .inner_margin(8.0)
+                    .corner_radius(4.0)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            // Status icon
+                            let (icon, color) = if upload.verified {
+                                ("✅", egui::Color32::GREEN)
+                            } else {
+                                // i assume this .verified flag is for wayfarer staff to flag content as manually reviewed,
+                                // but as of now its not in use and all recordings are unflagged.
+                                // ("⏳", egui::Color32::YELLOW)
+                                ("✅", egui::Color32::GREEN)
+                            };
+                            ui.colored_label(color, icon);
 
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        // File size
-                                        ui.label(format!("{:.2} MB", upload.file_size_mb));
+                            // Filename
+                            ui.label(&upload.filename);
 
-                                        // Duration if available
-                                        if let Some(duration) = upload.video_duration_seconds {
-                                            ui.label(format!("{:.1}s", duration));
-                                        }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    // File size
+                                    ui.label(format!("{:.2} MB", upload.file_size_mb));
 
-                                        // Timestamp
-                                        let local_time =
-                                            upload.created_at.with_timezone(&chrono::Local);
-                                        ui.label(
-                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                        );
-                                    },
-                                );
-                            });
+                                    // Duration if available
+                                    if let Some(duration) = upload.video_duration_seconds {
+                                        ui.label(format!("{:.1}s", duration));
+                                    }
+
+                                    // Timestamp
+                                    let local_time =
+                                        upload.created_at.with_timezone(&chrono::Local);
+                                    ui.label(local_time.format("%Y-%m-%d %H:%M:%S").to_string());
+                                },
+                            );
                         });
+                    });
 
-                    ui.add_space(4.0);
-                }
+                ui.add_space(4.0);
             }
         });
 }

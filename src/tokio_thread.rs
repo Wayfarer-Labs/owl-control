@@ -239,8 +239,8 @@ async fn main(
                                                 return;
                                             }
                                         };
-                                        tracing::info!(stats=?stats, "Loaded upload stats");
-                                        *app_state.upload_stats.write().unwrap() = Some(stats);
+                                        tracing::info!(stats=?stats.statistics, "Loaded upload stats");
+                                        *app_state.user_uploads.write().unwrap() = Some(stats);
                                     }
                                 });
                             }
