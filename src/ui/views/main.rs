@@ -484,46 +484,55 @@ fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[User
 
 fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
     // Scrollable upload history section
-    egui::ScrollArea::vertical()
-        .max_height(60.0)
-        .auto_shrink([false, true])
+    egui::Frame::new()
+        .inner_margin(egui::Margin {
+            left: 4,
+            right: 12,
+            top: 4,
+            bottom: 4,
+        })
         .show(ui, |ui| {
-            if uploads.is_empty() {
-                ui.label("No uploads yet");
-                return;
-            }
+            egui::ScrollArea::vertical()
+                .max_height(60.0)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    if uploads.is_empty() {
+                        ui.label("No uploads yet");
+                        return;
+                    }
+                    for upload in uploads.iter() {
+                        egui::Frame::new()
+                            .fill(ui.visuals().faint_bg_color)
+                            .inner_margin(4.0)
+                            .corner_radius(4.0)
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    // Filename
+                                    ui.add(egui::TextEdit::singleline(&mut upload.id.as_str()));
 
-            for upload in uploads.iter() {
-                egui::Frame::new()
-                    .fill(ui.visuals().faint_bg_color)
-                    .inner_margin(4.0)
-                    .corner_radius(4.0)
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            // Filename
-                            ui.add(egui::TextEdit::singleline(&mut upload.id.as_str()));
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            // Timestamp
+                                            let local_time =
+                                                upload.created_at.with_timezone(&chrono::Local);
+                                            ui.label(
+                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                            );
 
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    // Timestamp
-                                    let local_time =
-                                        upload.created_at.with_timezone(&chrono::Local);
-                                    ui.label(local_time.format("%Y-%m-%d %H:%M:%S").to_string());
+                                            // File size
+                                            ui.label(format!("{:.2} MB", upload.file_size_mb));
 
-                                    // File size
-                                    ui.label(format!("{:.2} MB", upload.file_size_mb));
-
-                                    // Duration if available
-                                    if let Some(duration) = upload.video_duration_seconds {
-                                        ui.label(format!("{:.1}s", duration));
-                                    }
-                                },
-                            );
-                        });
-                    });
-
-                ui.add_space(4.0);
-            }
+                                            // Duration if available
+                                            if let Some(duration) = upload.video_duration_seconds {
+                                                ui.label(format!("{:.1}s", duration));
+                                            }
+                                        },
+                                    );
+                                });
+                            });
+                        ui.add_space(4.0);
+                    }
+                });
         });
 }
