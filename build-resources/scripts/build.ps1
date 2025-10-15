@@ -41,19 +41,25 @@ Write-Status "Found version in Cargo.toml: $CARGO_VERSION"
 # Check if git tag exists and matches current HEAD
 $TAG_NAME = "v$CARGO_VERSION"
 $CURRENT_COMMIT = git rev-parse HEAD
-$TAG_COMMIT = git rev-parse "refs/tags/$TAG_NAME" 2>$null
 
-if ($LASTEXITCODE -eq 0 -and $TAG_COMMIT -eq $CURRENT_COMMIT) {
+# Try to get the tag commit, gracefully handle if tag doesn't exist
+$TAG_COMMIT = git rev-parse "refs/tags/$TAG_NAME" 2>$null
+$TAG_COMMAND_SUCCESS = $LASTEXITCODE -eq 0
+$TAG_EXISTS = $TAG_COMMAND_SUCCESS -and $TAG_COMMIT
+
+if ($TAG_EXISTS -and ($TAG_COMMIT -eq $CURRENT_COMMIT)) {
     # Tag exists and matches current commit
     $VERSION = $TAG_NAME
     Write-Status "Git tag $TAG_NAME exists and matches current commit"
-} else {
-    # Tag doesn't exist or doesn't match current commit
+}
+else {
+    # Tag doesn't exist or doesn't match current commit - assume dev commit
     $VERSION = "$TAG_NAME-dev"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Status "Git tag $TAG_NAME does not exist"
-    } else {
-        Write-Status "Git tag $TAG_NAME exists but does not match current commit"
+    if (-not $TAG_EXISTS) {
+        Write-Status "Git tag $TAG_NAME does not exist, assuming dev commit"
+    }
+    else {
+        Write-Status "Git tag $TAG_NAME exists but does not match current commit, assuming dev commit"
     }
 }
 
