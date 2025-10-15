@@ -155,24 +155,35 @@ if (Test-Path LICENSE) {
 }
 
 # Create installer with NSIS if available
-$NSIS_PATH = "C:\Program Files (x86)\NSIS\Bin\makensis.exe"
-if (Get-Command $NSIS_PATH -ErrorAction SilentlyContinue) {
-    Write-Status "Creating NSIS installer..."
-    if (Test-Path "build-resources/installer.nsi") {
-        & $NSIS_PATH /DVERSION="$VERSION" /DVERSION_RAW="$VERSION_RAW" build-resources/installer.nsi
-        if ($LASTEXITCODE -eq 0) {
-            Write-Status "Installer created successfully"
-        }
-        else {
-            Write-Warning-Custom "NSIS installer creation failed"
-        }
+Write-Status "Looking for NSIS makensis..."
+
+# First, try to find makensis in PATH
+$NSIS_PATH = $null
+try {
+    $makensisInPath = Get-Command "makensis" -ErrorAction Stop
+    $NSIS_PATH = $makensisInPath.Source
+    Write-Status "Found makensis in PATH: $NSIS_PATH"
+}
+catch {
+    # If not found in PATH, try the default installation directory
+    $defaultNsisPath = "C:\Program Files (x86)\NSIS\Bin\makensis.exe"
+    if (Test-Path $defaultNsisPath) {
+        $NSIS_PATH = $defaultNsisPath
+        Write-Status "Found makensis in default directory: $NSIS_PATH"
     }
     else {
-        Write-Warning-Custom "installer.nsi not found, skipping installer creation"
+        Write-Warning-Custom "makensis not found in PATH or default directory ($defaultNsisPath)"
+        exit 1
     }
 }
+
+Write-Status "Creating NSIS installer using: $NSIS_PATH"
+& $NSIS_PATH /DVERSION="$VERSION" /DVERSION_RAW="$VERSION_RAW" build-resources/installer.nsi
+if ($LASTEXITCODE -eq 0) {
+    Write-Status "Installer created successfully"
+}
 else {
-    Write-Warning-Custom "NSIS not installed, skipping installer creation"
+    Write-Warning-Custom "NSIS installer creation failed"
 }
 
 Write-Status "Build completed successfully!"
