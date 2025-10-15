@@ -44,6 +44,7 @@ enum HotkeyRebindTarget {
 }
 
 pub fn start(
+    wgpu_instance: wgpu::Instance,
     app_state: Arc<AppState>,
     ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
     stopped_tx: tokio::sync::broadcast::Sender<()>,
@@ -67,6 +68,7 @@ pub fn start(
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
     let mut app = App::new(
+        wgpu_instance,
         app_state,
         visible,
         stopped_rx,
@@ -170,6 +172,7 @@ struct App {
 
 impl App {
     fn new(
+        wgpu_instance: wgpu::Instance,
         app_state: Arc<AppState>,
         visible: Arc<AtomicBool>,
         stopped_rx: tokio::sync::broadcast::Receiver<()>,
@@ -177,7 +180,6 @@ impl App {
         ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
         tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let main_app = MainApp::new(
             app_state,
             visible,
@@ -188,7 +190,7 @@ impl App {
         )?;
 
         Ok(Self {
-            instance,
+            instance: wgpu_instance,
             wgpu_state: None,
             window: None,
             main_app,

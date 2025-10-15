@@ -4,6 +4,7 @@ use std::{
 };
 
 use constants::unsupported_games::UnsupportedGames;
+use egui_wgpu::wgpu;
 use tokio::sync::mpsc;
 
 use crate::{api::UserUploads, config::Config, upload::ProgressData};
@@ -16,10 +17,15 @@ pub struct AppState {
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
     pub is_currently_rebinding: AtomicBool,
+    pub adapter_infos: Vec<wgpu::AdapterInfo>,
 }
 
 impl AppState {
-    pub fn new(async_request_tx: mpsc::Sender<AsyncRequest>, ui_update_tx: UiUpdateSender) -> Self {
+    pub fn new(
+        async_request_tx: mpsc::Sender<AsyncRequest>,
+        ui_update_tx: UiUpdateSender,
+        adapter_infos: Vec<wgpu::AdapterInfo>,
+    ) -> Self {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
@@ -27,6 +33,7 @@ impl AppState {
             async_request_tx,
             ui_update_tx,
             is_currently_rebinding: AtomicBool::new(false),
+            adapter_infos,
         }
     }
 }

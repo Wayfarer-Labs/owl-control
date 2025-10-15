@@ -182,7 +182,9 @@ impl Recorder {
             NotificationType::Info,
         );
 
-        recording.stop(self.video_recorder.as_mut()).await?;
+        recording
+            .stop(self.video_recorder.as_mut(), &self.app_state.adapter_infos)
+            .await?;
         *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
         Ok(())
     }

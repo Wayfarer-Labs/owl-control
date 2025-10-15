@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use color_eyre::Result;
+use egui_wgpu::wgpu;
 use tracing_subscriber::{Layer, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 use std::sync::Arc;
@@ -90,9 +91,21 @@ fn main() -> Result<()> {
     // Ensure only one instance is running
     ensure_single_instance()?;
 
+    let wgpu_instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+    let adapter_infos = wgpu_instance
+        .enumerate_adapters(wgpu::Backends::DX12)
+        .into_iter()
+        .map(|a| a.get_info())
+        .collect::<Vec<_>>();
+    tracing::info!("Available adapters: {adapter_infos:?}");
+
     let (async_request_tx, async_request_rx) = tokio::sync::mpsc::channel(16);
     let (ui_update_tx, ui_update_rx) = app_state::UiUpdateSender::build(16);
-    let app_state = Arc::new(app_state::AppState::new(async_request_tx, ui_update_tx));
+    let app_state = Arc::new(app_state::AppState::new(
+        async_request_tx,
+        ui_update_tx,
+        adapter_infos,
+    ));
 
     // launch tokio (which hosts the recorder) on seperate thread
     let (stopped_tx, stopped_rx) = tokio::sync::broadcast::channel(1);
@@ -130,7 +143,13 @@ fn main() -> Result<()> {
         }
     });
 
-    ui::start(app_state, ui_update_rx, stopped_tx, stopped_rx)?;
+    ui::start(
+        wgpu_instance,
+        app_state,
+        ui_update_rx,
+        stopped_tx,
+        stopped_rx,
+    )?;
     tracing::info!("UI thread shut down, joining tokio thread");
     tokio_thread.join().unwrap();
     tracing::info!("Tokio thread joined, shutting down");

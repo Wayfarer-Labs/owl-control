@@ -1,9 +1,10 @@
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
 use color_eyre::Result;
+use egui_wgpu::wgpu;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 
 use crate::{
@@ -107,29 +108,24 @@ impl Recording {
         self.input_recorder.seen_input(e).await
     }
 
-    pub(crate) async fn stop(self, recorder: &mut dyn VideoRecorder) -> Result<()> {
+    pub(crate) async fn stop(
+        self,
+        recorder: &mut dyn VideoRecorder,
+        adapter_infos: &[wgpu::AdapterInfo],
+    ) -> Result<()> {
         recorder.stop_recording().await?;
         self.input_recorder.stop().await?;
 
-        Self::write_metadata(
-            &self.metadata_path,
+        let metadata = Self::final_metadata(
             self.game_exe,
             self.start_instant,
             self.start_time,
+            adapter_infos,
         )
         .await?;
-        Ok(())
-    }
-
-    async fn write_metadata(
-        path: &Path,
-        game_exe: String,
-        start_instant: Instant,
-        start_time: SystemTime,
-    ) -> Result<()> {
-        let metadata = Self::final_metadata(game_exe, start_instant, start_time).await?;
         let metadata = serde_json::to_string_pretty(&metadata)?;
-        tokio::fs::write(path, &metadata).await?;
+        tokio::fs::write(&self.metadata_path, &metadata).await?;
+
         Ok(())
     }
 
@@ -137,6 +133,7 @@ impl Recording {
         game_exe: String,
         start_instant: Instant,
         start_time: SystemTime,
+        adapter_infos: &[wgpu::AdapterInfo],
     ) -> Result<Metadata> {
         let duration = start_instant.elapsed().as_secs_f32();
 
@@ -148,7 +145,12 @@ impl Recording {
 
         let hardware_id = hardware_id::get()?;
 
-        let hardware_specs = match hardware_specs::get_hardware_specs() {
+        let hardware_specs = match hardware_specs::get_hardware_specs(
+            adapter_infos
+                .iter()
+                .map(|a| hardware_specs::GpuSpecs::from_name(&a.name))
+                .collect(),
+        ) {
             Ok(specs) => Some(specs),
             Err(e) => {
                 tracing::warn!("Failed to get hardware specs: {}", e);
