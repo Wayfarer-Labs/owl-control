@@ -234,25 +234,22 @@ impl MainApp {
                     ui.add_space(10.0);
 
                     let user_uploads = self.app_state.user_uploads.read().unwrap().clone();
-                    if let Some(uploads) = user_uploads {
-                        ui.horizontal(|ui| {
-                            upload_stats(ui, &uploads.statistics, &uploads.uploads);
-                        });
-                        ui.add_space(8.0);
-
-                        egui::CollapsingHeader::new(egui::RichText::new("History").size(16.0))
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                ui.add_space(4.0);
-                                uploads_view(ui, &uploads.uploads);
-                            });
-                    } else {
-                        ui.label(
-                            egui::RichText::new("Loading upload stats...")
-                                .size(12.0)
-                                .color(egui::Color32::from_rgb(128, 128, 128)),
+                    ui.horizontal(|ui| {
+                        upload_stats(
+                            ui,
+                            user_uploads
+                                .as_ref()
+                                .map(|u| (&u.statistics, u.uploads.as_slice())),
                         );
-                    }
+                    });
+                    ui.add_space(8.0);
+
+                    egui::CollapsingHeader::new(egui::RichText::new("History").size(16.0))
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            ui.add_space(4.0);
+                            uploads_view(ui, user_uploads.as_ref().map(|u| u.uploads.as_slice()));
+                        });
 
                     // Progress Bar
                     let is_uploading = self.current_upload_progress.is_some();
@@ -401,7 +398,11 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
         });
 }
 
-fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[UserUpload]) {
+fn upload_stats(
+    ui: &mut egui::Ui,
+    stats_and_uploads: Option<(&UserUploadStatistics, &[UserUpload])>,
+) {
+    let (stats, uploads) = stats_and_uploads.unzip();
     let available_width = ui.available_width() - 40.0;
     let cell_width = available_width / 4.0;
 
@@ -429,7 +430,9 @@ fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[User
                 ui,
                 "📊", // Icon
                 "Total Uploaded",
-                &util::format_seconds(stats.total_video_time.seconds as u64),
+                &stats
+                    .map(|s| util::format_seconds(s.total_video_time.seconds as u64))
+                    .unwrap_or_else(|| "Loading...".to_string()),
             );
         },
     );
@@ -443,7 +446,9 @@ fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[User
                 ui,
                 "📁", // Icon
                 "Files Uploaded",
-                &stats.total_uploads.to_string(),
+                &stats
+                    .map(|s| s.total_uploads.to_string())
+                    .unwrap_or_else(|| "Loading...".to_string()),
             );
         },
     );
@@ -457,7 +462,7 @@ fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[User
                 ui,
                 "💾", // Icon
                 "Volume Uploaded",
-                &util::format_bytes(stats.total_data.bytes),
+                &util::format_bytes(stats.map(|s| s.total_data.bytes).unwrap_or_else(|| 0)),
             );
         },
     );
@@ -472,17 +477,20 @@ fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[User
                 "🕒", // Icon
                 "Last Upload",
                 &uploads
-                    .first()
-                    .map(|upload| upload.created_at.with_timezone(&chrono::Local))
-                    .map(util::format_datetime)
-                    .unwrap_or_else(|| "Never".to_string()),
+                    .map(|u| {
+                        u.first()
+                            .map(|upload| upload.created_at.with_timezone(&chrono::Local))
+                            .map(util::format_datetime)
+                            .unwrap_or_else(|| "Never".to_string())
+                    })
+                    .unwrap_or_else(|| "Loading...".to_string()),
             );
         },
     );
     ui.add_space(10.0);
 }
 
-fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
+fn uploads_view(ui: &mut egui::Ui, uploads: Option<&[UserUpload]>) {
     // Scrollable upload history section
     egui::Frame::new()
         .inner_margin(egui::Margin {
@@ -492,8 +500,16 @@ fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
             bottom: 4,
         })
         .show(ui, |ui| {
+            let height = 60.0;
+            let Some(uploads) = uploads else {
+                ui.vertical_centered(|ui| {
+                    ui.add(egui::widgets::Spinner::new().size(height));
+                });
+                return;
+            };
+
             egui::ScrollArea::vertical()
-                .max_height(60.0)
+                .max_height(height)
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
                     if uploads.is_empty() {
