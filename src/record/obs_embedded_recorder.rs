@@ -16,6 +16,7 @@ use libobs_wrapper::{
     context::ObsContext,
     data::{output::ObsOutputRef, video::ObsVideoInfoBuilder},
     encoders::ObsVideoEncoderType,
+    logger::ObsLogger,
     sources::ObsSourceRef,
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
@@ -43,16 +44,18 @@ impl ObsEmbeddedRecorder {
         Self: Sized,
     {
         let obs_context = ObsContext::new(
-            ObsContext::builder().set_video_info(
-                ObsVideoInfoBuilder::new()
-                    .fps_num(FPS)
-                    .fps_den(1)
-                    .base_width(RECORDING_WIDTH)
-                    .base_height(RECORDING_HEIGHT)
-                    .output_width(RECORDING_WIDTH)
-                    .output_height(RECORDING_HEIGHT)
-                    .build(),
-            ),
+            ObsContext::builder()
+                .set_logger(Box::new(TracingObsLogger))
+                .set_video_info(
+                    ObsVideoInfoBuilder::new()
+                        .fps_num(FPS)
+                        .fps_den(1)
+                        .base_width(RECORDING_WIDTH)
+                        .base_height(RECORDING_HEIGHT)
+                        .output_width(RECORDING_WIDTH)
+                        .output_height(RECORDING_HEIGHT)
+                        .build(),
+                ),
         )
         .await?;
 
@@ -225,5 +228,19 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct TracingObsLogger;
+impl ObsLogger for TracingObsLogger {
+    fn log(&mut self, level: libobs_wrapper::enums::ObsLogLevel, msg: String) {
+        use libobs_wrapper::enums::ObsLogLevel;
+        match level {
+            ObsLogLevel::Error => tracing::error!(target: "obs", "{msg}"),
+            ObsLogLevel::Warning => tracing::warn!(target: "obs", "{msg}"),
+            ObsLogLevel::Info => tracing::info!(target: "obs", "{msg}"),
+            ObsLogLevel::Debug => tracing::debug!(target: "obs", "{msg}"),
+        }
     }
 }

@@ -63,7 +63,6 @@ fn main() -> Result<()> {
         .with(
             tracing_subscriber::fmt::layer()
                 .with_writer(std::io::stdout)
-                .pretty()
                 .with_filter(env_filter.clone()),
         )
         .with(
