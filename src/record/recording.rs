@@ -158,6 +158,12 @@ impl Recording {
 
         Ok(Metadata {
             game_exe,
+            owl_control_version: env!("CARGO_PKG_VERSION").to_string(),
+            owl_control_commit: git_version::git_version!(
+                args = ["--abbrev=40", "--always", "--dirty=-modified"],
+                fallback = "unknown"
+            )
+            .to_string(),
             session_id: uuid::Uuid::new_v4().to_string(),
             hardware_id,
             hardware_specs,

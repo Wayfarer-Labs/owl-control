@@ -5,6 +5,8 @@ use crate::{system::hardware_specs, upload::validation::InputStats};
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Metadata {
     pub game_exe: String,
+    pub owl_control_version: String,
+    pub owl_control_commit: String,
     pub session_id: String,
     pub hardware_id: String,
     pub hardware_specs: Option<hardware_specs::HardwareSpecs>,
