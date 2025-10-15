@@ -183,7 +183,8 @@ if ($LASTEXITCODE -eq 0) {
     Write-Status "Installer created successfully"
 }
 else {
-    Write-Warning-Custom "NSIS installer creation failed"
+    Write-Error-Custom "NSIS installer creation failed"
+    exit 1
 }
 
 Write-Status "Build completed successfully!"

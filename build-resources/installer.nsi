@@ -14,6 +14,7 @@
 ; MUI Settings
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!include "WinMessages.nsh"
 
 !define MUI_ABORTWARNING
 !define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
@@ -81,13 +82,16 @@ uninst:
   ClearErrors
 
   ; Run the uninstaller silently using the UninstallString
-  ExecWait '$0 /S'
+  ExecWait '$0 /S _?=$INSTDIR' $1
 
+  ; Check if uninstaller was successful (exit code 0)
+  IntCmp $1 0 success
+    ; Uninstaller failed
+    Abort
+
+success:
   ; Delete the uninstaller after it finishes
   Delete $0
-
-  ; Clean up registry
-  DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
 
 done:
 FunctionEnd
@@ -146,11 +150,35 @@ Function un.onUninstSuccess
   ${EndIf}
 FunctionEnd
 
+; Function to check if OWL Control is running by checking for the mutex
+Function un.CheckIfOWLControlRunning
+  ; Try to open the mutex that OWL Control creates
+  System::Call 'kernel32::OpenMutexW(i 0x100000, i 0, w "OWL-Control-SingleInstance") i .R0'
+  IntCmp $R0 0 not_running
+    ; Mutex exists, application is running
+    StrCpy $0 1
+    Goto done
+  not_running:
+    ; Mutex doesn't exist, application is not running
+    StrCpy $0 0
+  done:
+FunctionEnd
+
 Function un.onInit
-  ${IfNot} ${Silent}
-    MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
+  ; Check if OWL Control is running
+  Call un.CheckIfOWLControlRunning
+  IntCmp $0 1 running
+  Goto not_running
+
+  running:
+    MessageBox MB_ICONSTOP|MB_OK "OWL Control is currently running. Please close the application before uninstalling." IDOK
     Abort
-  ${EndIf}
+
+  not_running:
+    ${IfNot} ${Silent}
+      MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
+      Abort
+    ${EndIf}
 FunctionEnd
 
 Section Uninstall
