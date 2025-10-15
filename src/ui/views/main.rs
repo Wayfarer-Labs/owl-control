@@ -238,10 +238,14 @@ impl MainApp {
                         ui.horizontal(|ui| {
                             upload_stats(ui, &uploads.statistics, &uploads.uploads);
                         });
+                        ui.add_space(8.0);
 
-                        ui.add(egui::Label::new(egui::RichText::new("History").size(16.0)));
-                        ui.add_space(4.0);
-                        uploads_view(ui, &uploads.uploads);
+                        egui::CollapsingHeader::new(egui::RichText::new("History").size(16.0))
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ui.add_space(4.0);
+                                uploads_view(ui, &uploads.uploads);
+                            });
                     } else {
                         ui.label(
                             egui::RichText::new("Loading upload stats...")
@@ -502,6 +506,11 @@ fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
+                                    // Timestamp
+                                    let local_time =
+                                        upload.created_at.with_timezone(&chrono::Local);
+                                    ui.label(local_time.format("%Y-%m-%d %H:%M:%S").to_string());
+
                                     // File size
                                     ui.label(format!("{:.2} MB", upload.file_size_mb));
 
@@ -509,11 +518,6 @@ fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
                                     if let Some(duration) = upload.video_duration_seconds {
                                         ui.label(format!("{:.1}s", duration));
                                     }
-
-                                    // Timestamp
-                                    let local_time =
-                                        upload.created_at.with_timezone(&chrono::Local);
-                                    ui.label(local_time.format("%Y-%m-%d %H:%M:%S").to_string());
                                 },
                             );
                         });
