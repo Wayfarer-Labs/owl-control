@@ -185,11 +185,3 @@ impl Config {
         Ok(())
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct UploadStats {
-    pub total_duration_uploaded: f64,
-    pub total_files_uploaded: u64,
-    pub total_volume_uploaded: u64,
-    pub last_upload_date: Option<chrono::DateTime<chrono::Local>>,
-}

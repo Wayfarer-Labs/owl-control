@@ -6,16 +6,13 @@ use std::{
 use constants::unsupported_games::UnsupportedGames;
 use tokio::sync::mpsc;
 
-use crate::{
-    config::{Config, UploadStats},
-    upload::ProgressData,
-};
+use crate::{api::UserUploads, config::Config, upload::ProgressData};
 
 pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
-    pub upload_stats: RwLock<Option<UploadStats>>,
+    pub user_uploads: RwLock<Option<UserUploads>>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
     pub is_currently_rebinding: AtomicBool,
@@ -26,7 +23,7 @@ impl AppState {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
-            upload_stats: RwLock::new(None),
+            user_uploads: RwLock::new(None),
             async_request_tx,
             ui_update_tx,
             is_currently_rebinding: AtomicBool::new(false),

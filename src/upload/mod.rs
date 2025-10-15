@@ -6,7 +6,7 @@ use std::{
 use color_eyre::eyre::{self, Context as _, ContextCompat};
 use futures::TryStreamExt as _;
 use serde::Deserialize;
-use tokio::io::AsyncReadExt;
+use tokio::{io::AsyncReadExt, sync::mpsc};
 
 use crate::{
     api::{ApiClient, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
@@ -58,6 +58,7 @@ pub async fn start(
         api_token,
         unreliable_connection,
         tx.clone(),
+        app_state.async_request_tx.clone(),
     )
     .await
     {
@@ -88,6 +89,7 @@ async fn run(
     api_token: String,
     unreliable_connection: bool,
     tx: app_state::UiUpdateSender,
+    async_req_tx: mpsc::Sender<AsyncRequest>,
 ) -> eyre::Result<FinalStats> {
     let mut stats = FinalStats::default();
 
@@ -121,6 +123,14 @@ async fn run(
         stats.total_duration_uploaded += recording_stats.duration;
         stats.total_files_uploaded += 1;
         stats.total_bytes_uploaded += recording_stats.bytes;
+
+        // every 5 files uploaded we check with server to update list of successfully uploaded files
+        if stats.total_files_uploaded % 5 == 0 {
+            let async_req_tx = async_req_tx.clone();
+            tokio::spawn(async move {
+                async_req_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+            });
+        }
     }
 
     Ok(stats)

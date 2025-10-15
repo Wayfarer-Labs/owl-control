@@ -1,16 +1,12 @@
-#![allow(dead_code)]
-
 use std::path::Path;
 
-use chrono::{DateTime, Utc};
-use color_eyre::eyre::{self, Context, ContextCompat};
+use color_eyre::eyre::{self, Context as _, ContextCompat as _};
 use serde::{Deserialize, Serialize};
 
-use crate::config::UploadStats;
-
-const API_BASE_URL: &str = "https://api.openworldlabs.ai";
+use crate::api::{API_BASE_URL, ApiClient, check_for_response_success};
 
 #[derive(Default, Debug, Clone)]
+#[allow(unused)]
 pub struct InitMultipartUploadArgs<'a> {
     pub tags: Option<&'a [String]>,
     pub video_filename: Option<&'a str>,
@@ -24,6 +20,7 @@ pub struct InitMultipartUploadArgs<'a> {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 pub struct InitMultipartUploadResponse {
     pub upload_id: String,
     pub game_control_id: String,
@@ -34,6 +31,7 @@ pub struct InitMultipartUploadResponse {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 pub struct UploadMultipartChunkResponse {
     pub upload_url: String,
     pub chunk_number: u64,
@@ -48,6 +46,7 @@ pub struct CompleteMultipartUploadChunk {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 pub struct CompleteMultipartUploadResponse {
     pub success: bool,
     pub game_control_id: String,
@@ -58,142 +57,13 @@ pub struct CompleteMultipartUploadResponse {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(unused)]
 pub struct AbortMultipartUploadResponse {
     pub success: bool,
     pub message: String,
 }
 
-pub struct ApiClient {
-    client: reqwest::Client,
-}
 impl ApiClient {
-    pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
-    }
-
-    /// Attempts to validate the API key. Returns an error if the API key is invalid or the server is unavailable.
-    /// Returns the user ID if the API key is valid.
-    pub async fn validate_api_key(&self, api_key: &str) -> eyre::Result<String> {
-        // Response struct for the user info endpoint
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct UserIdResponse {
-            user_id: String,
-        }
-
-        let client = self.client.clone();
-
-        // Validate input
-        if api_key.is_empty() || api_key.trim().is_empty() {
-            eyre::bail!("API key cannot be empty");
-        }
-
-        // Simple validation - check if it starts with 'sk_'
-        if !api_key.starts_with("sk_") {
-            eyre::bail!("Invalid API key format");
-        }
-
-        // Make the API request
-        let response = client
-            .get(format!("{API_BASE_URL}/api/v1/user/info"))
-            .header("Content-Type", "application/json")
-            .header("X-API-Key", api_key)
-            .send()
-            .await
-            .context("failed to validate API key")?;
-
-        let response =
-            check_for_response_success(response, "Invalid API key, or server unavailable").await?;
-
-        // Parse the JSON response
-        let user_info = response
-            .json::<UserIdResponse>()
-            .await
-            .context("failed to validate API key")?;
-
-        Ok(user_info.user_id)
-    }
-
-    pub async fn get_user_upload_stats(
-        &self,
-        api_key: &str,
-        user_id: &str,
-    ) -> eyre::Result<UploadStats> {
-        // Response structs for the user info endpoint
-        #[derive(Deserialize, Debug)]
-        struct UserStatsResponse {
-            success: bool,
-            user_id: String,
-            statistics: Statistics,
-            uploads: Vec<Upload>, // idk format for this one
-        }
-
-        #[derive(Deserialize, Debug)]
-        struct Statistics {
-            total_uploads: u64,
-            total_data: DataSize,
-            total_video_time: VideoTime,
-            verified_uploads: u32,
-        }
-
-        #[derive(Deserialize, Debug)]
-        struct DataSize {
-            bytes: u64,
-            megabytes: f64,
-            gigabytes: f64,
-        }
-
-        #[derive(Deserialize, Debug)]
-        struct VideoTime {
-            seconds: f64,
-            minutes: f64,
-            hours: f64,
-            formatted: String,
-        }
-
-        #[derive(Deserialize, Debug)]
-        struct Upload {
-            content_type: String,
-            created_at: DateTime<Utc>,
-            file_size_bytes: u64,
-            file_size_mb: f64,
-            filename: String,
-            id: String,
-            tags: Option<serde_json::Value>,
-            verified: bool,
-            video_duration_seconds: Option<f64>,
-        }
-
-        let response = self
-            .client
-            .get(format!("{API_BASE_URL}/tracker/uploads/user/{user_id}"))
-            .header("Content-Type", "application/json")
-            .header("X-API-Key", api_key)
-            .send()
-            .await
-            .context("failed to get user upload stats")?;
-
-        let response =
-            check_for_response_success(response, "User upload stats unavailable").await?;
-
-        let server_stats = response
-            .json::<UserStatsResponse>()
-            .await
-            .context("failed to parse user upload stats response")?;
-
-        Ok(UploadStats {
-            total_duration_uploaded: server_stats.statistics.total_video_time.seconds,
-            total_files_uploaded: server_stats.statistics.total_uploads,
-            total_volume_uploaded: server_stats.statistics.total_data.bytes,
-            last_upload_date: server_stats
-                .uploads
-                .first()
-                .map(|upload| upload.created_at.with_timezone(&chrono::Local)),
-        })
-    }
-
     pub async fn init_multipart_upload<'a>(
         &self,
         api_key: &str,
@@ -370,23 +240,4 @@ impl ApiClient {
                 .await?,
         )
     }
-}
-
-async fn check_for_response_success(
-    response: reqwest::Response,
-    context: &str,
-) -> eyre::Result<reqwest::Response> {
-    let status = response.status();
-    if !status.is_success() {
-        let value = response
-            .json::<serde_json::Value>()
-            .await
-            .unwrap_or_default();
-        let detail = value
-            .get("detail")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown error");
-        eyre::bail!("{context} ({status}: {detail})");
-    }
-    Ok(response)
 }

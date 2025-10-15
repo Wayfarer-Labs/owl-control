@@ -1,6 +1,6 @@
 use crate::{
+    api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
-    config::UploadStats,
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
@@ -233,18 +233,26 @@ impl MainApp {
                     ui.separator();
                     ui.add_space(10.0);
 
-                    ui.horizontal(|ui| {
-                        let stats = self.app_state.upload_stats.read().unwrap().clone();
-                        if let Some(stats) = stats {
-                            upload_stats(ui, &stats);
-                        } else {
-                            ui.label(
-                                egui::RichText::new("Loading upload stats...")
-                                    .size(12.0)
-                                    .color(egui::Color32::from_rgb(128, 128, 128)),
-                            );
-                        }
-                    });
+                    let user_uploads = self.app_state.user_uploads.read().unwrap().clone();
+                    if let Some(uploads) = user_uploads {
+                        ui.horizontal(|ui| {
+                            upload_stats(ui, &uploads.statistics, &uploads.uploads);
+                        });
+                        ui.add_space(8.0);
+
+                        egui::CollapsingHeader::new(egui::RichText::new("History").size(16.0))
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ui.add_space(4.0);
+                                uploads_view(ui, &uploads.uploads);
+                            });
+                    } else {
+                        ui.label(
+                            egui::RichText::new("Loading upload stats...")
+                                .size(12.0)
+                                .color(egui::Color32::from_rgb(128, 128, 128)),
+                        );
+                    }
 
                     // Progress Bar
                     let is_uploading = self.current_upload_progress.is_some();
@@ -393,68 +401,9 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
         });
 }
 
-fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
+fn upload_stats(ui: &mut egui::Ui, stats: &UserUploadStatistics, uploads: &[UserUpload]) {
     let available_width = ui.available_width() - 40.0;
     let cell_width = available_width / 4.0;
-
-    // Cell 1: Total Uploaded
-    ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
-        |ui| {
-            create_upload_cell(
-                ui,
-                "📊", // Icon
-                "Total Uploaded",
-                &util::format_seconds(upload_stats.total_duration_uploaded as u64),
-            );
-        },
-    );
-
-    // Cell 2: Files Uploaded
-    ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
-        |ui| {
-            create_upload_cell(
-                ui,
-                "📁", // Icon
-                "Files Uploaded",
-                &upload_stats.total_files_uploaded.to_string(),
-            );
-        },
-    );
-
-    // Cell 3: Volume Uploaded
-    ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
-        |ui| {
-            create_upload_cell(
-                ui,
-                "💾", // Icon
-                "Volume Uploaded",
-                &util::format_bytes(upload_stats.total_volume_uploaded),
-            );
-        },
-    );
-
-    // Cell 4: Last Upload
-    ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
-        |ui| {
-            create_upload_cell(
-                ui,
-                "🕒", // Icon
-                "Last Upload",
-                &upload_stats
-                    .last_upload_date
-                    .map(util::format_datetime)
-                    .unwrap_or_else(|| "Never".to_string()),
-            );
-        },
-    );
 
     fn create_upload_cell(ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
         // Icon
@@ -470,4 +419,120 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
                 .color(egui::Color32::from_rgb(128, 128, 128)),
         );
     }
+
+    // Cell 1: Total Uploaded
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "📊", // Icon
+                "Total Uploaded",
+                &util::format_seconds(stats.total_video_time.seconds as u64),
+            );
+        },
+    );
+
+    // Cell 2: Files Uploaded
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "📁", // Icon
+                "Files Uploaded",
+                &stats.total_uploads.to_string(),
+            );
+        },
+    );
+
+    // Cell 3: Volume Uploaded
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "💾", // Icon
+                "Volume Uploaded",
+                &util::format_bytes(stats.total_data.bytes),
+            );
+        },
+    );
+
+    // Cell 4: Last Upload
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            create_upload_cell(
+                ui,
+                "🕒", // Icon
+                "Last Upload",
+                &uploads
+                    .first()
+                    .map(|upload| upload.created_at.with_timezone(&chrono::Local))
+                    .map(util::format_datetime)
+                    .unwrap_or_else(|| "Never".to_string()),
+            );
+        },
+    );
+    ui.add_space(10.0);
+}
+
+fn uploads_view(ui: &mut egui::Ui, uploads: &[UserUpload]) {
+    // Scrollable upload history section
+    egui::Frame::new()
+        .inner_margin(egui::Margin {
+            left: 4,
+            right: 12,
+            top: 4,
+            bottom: 4,
+        })
+        .show(ui, |ui| {
+            egui::ScrollArea::vertical()
+                .max_height(60.0)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    if uploads.is_empty() {
+                        ui.label("No uploads yet");
+                        return;
+                    }
+                    for upload in uploads.iter() {
+                        egui::Frame::new()
+                            .fill(ui.visuals().faint_bg_color)
+                            .inner_margin(4.0)
+                            .corner_radius(4.0)
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    // Filename
+                                    ui.add(egui::TextEdit::singleline(&mut upload.id.as_str()));
+
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            // Timestamp
+                                            let local_time =
+                                                upload.created_at.with_timezone(&chrono::Local);
+                                            ui.label(
+                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                            );
+
+                                            // File size
+                                            ui.label(format!("{:.2} MB", upload.file_size_mb));
+
+                                            // Duration if available
+                                            if let Some(duration) = upload.video_duration_seconds {
+                                                ui.label(format!("{:.1}s", duration));
+                                            }
+                                        },
+                                    );
+                                });
+                            });
+                        ui.add_space(4.0);
+                    }
+                });
+        });
 }
