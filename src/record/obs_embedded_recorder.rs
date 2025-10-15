@@ -35,11 +35,12 @@ const USE_WINDOW_CAPTURE: bool = false;
 
 pub struct ObsEmbeddedRecorder {
     obs_context: ObsContext,
+    adapter_index: usize,
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
 }
 impl ObsEmbeddedRecorder {
-    pub async fn new() -> Result<Self>
+    pub async fn new(adapter_index: usize) -> Result<Self>
     where
         Self: Sized,
     {
@@ -48,6 +49,7 @@ impl ObsEmbeddedRecorder {
                 .set_logger(Box::new(TracingObsLogger))
                 .set_video_info(
                     ObsVideoInfoBuilder::new()
+                        .adapter(adapter_index as u32)
                         .fps_num(FPS)
                         .fps_den(1)
                         .base_width(RECORDING_WIDTH)
@@ -62,6 +64,7 @@ impl ObsEmbeddedRecorder {
         tracing::debug!("OBS context initialized successfully");
         Ok(Self {
             obs_context,
+            adapter_index,
             current_output: None,
             source: None,
         })
@@ -100,6 +103,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         self.obs_context
             .reset_video(
                 ObsVideoInfoBuilder::new()
+                    .adapter(self.adapter_index as u32)
                     .fps_num(FPS)
                     .fps_den(1)
                     .base_width(base_width)

@@ -8,6 +8,7 @@ use color_eyre::{
     Result,
     eyre::{Context as _, OptionExt as _, bail},
 };
+use egui_wgpu::wgpu::DeviceType;
 use windows::Win32::Foundation::HWND;
 
 use crate::{
@@ -55,8 +56,28 @@ impl Recorder {
             .preferences
             .recording_backend;
 
+        // Incredibly ugly hack: assume that the first dGPU is the one we want,
+        // and that this list agrees with OBS's. There's no real guarantee that
+        // this is the case, and that the target game is even running on the dGPU,
+        // but it's a first-pass solution for now.
+        //
+        // TODO: Investigate what OBS actually does here. I spent over an hour
+        // pouring through the OBS source code and couldn't find anything of
+        // note with regards to how it chooses the adapter; I might have to
+        // reach out to an OBS developer if this becomes an issue again.
+        let adapter_index = app_state
+            .adapter_infos
+            .iter()
+            .position(|a| a.device_type == DeviceType::DiscreteGpu)
+            .unwrap_or_default();
+
+        tracing::info!(
+            "Initializing recorder with adapter index {adapter_index} ({:?})",
+            app_state.adapter_infos[adapter_index]
+        );
+
         let video_recorder: Box<dyn VideoRecorder> = match backend {
-            RecordingBackend::Embedded => Box::new(ObsEmbeddedRecorder::new().await?),
+            RecordingBackend::Embedded => Box::new(ObsEmbeddedRecorder::new(adapter_index).await?),
             RecordingBackend::Socket => Box::new(ObsSocketRecorder::new().await?),
         };
 
