@@ -63,6 +63,20 @@ pub struct AbortMultipartUploadResponse {
     pub message: String,
 }
 
+/// this struct has to be public for config defining UploadStats to reference
+#[derive(Deserialize, Debug, Clone)]
+pub struct Upload {
+    pub content_type: String,
+    pub created_at: DateTime<Utc>,
+    pub file_size_bytes: u64,
+    pub file_size_mb: f64,
+    pub filename: String,
+    pub id: String,
+    pub tags: Option<serde_json::Value>,
+    pub verified: bool,
+    pub video_duration_seconds: Option<f64>,
+}
+
 pub struct ApiClient {
     client: reqwest::Client,
 }
@@ -153,19 +167,6 @@ impl ApiClient {
             formatted: String,
         }
 
-        #[derive(Deserialize, Debug)]
-        struct Upload {
-            content_type: String,
-            created_at: DateTime<Utc>,
-            file_size_bytes: u64,
-            file_size_mb: f64,
-            filename: String,
-            id: String,
-            tags: Option<serde_json::Value>,
-            verified: bool,
-            video_duration_seconds: Option<f64>,
-        }
-
         let response = self
             .client
             .get(format!("{API_BASE_URL}/tracker/uploads/user/{user_id}"))
@@ -191,6 +192,7 @@ impl ApiClient {
                 .uploads
                 .first()
                 .map(|upload| upload.created_at.with_timezone(&chrono::Local)),
+            uploads: server_stats.uploads,
         })
     }
 

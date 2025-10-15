@@ -233,18 +233,26 @@ impl MainApp {
                     ui.separator();
                     ui.add_space(10.0);
 
-                    ui.horizontal(|ui| {
-                        let stats = self.app_state.upload_stats.read().unwrap().clone();
-                        if let Some(stats) = stats {
+                    let stats = self.app_state.upload_stats.read().unwrap().clone();
+                    if let Some(stats) = stats {
+                        ui.horizontal(|ui| {
                             upload_stats(ui, &stats);
-                        } else {
-                            ui.label(
-                                egui::RichText::new("Loading upload stats...")
-                                    .size(12.0)
-                                    .color(egui::Color32::from_rgb(128, 128, 128)),
-                            );
-                        }
-                    });
+                        });
+
+                        ui.add_space(10.0);
+                        ui.heading("    Upload History");
+                        ui.add_space(5.0);
+                        ui.indent("upload_history_padding", |ui| {
+                            // scrollview for uploads
+                            upload_view(ui, &stats);
+                        });
+                    } else {
+                        ui.label(
+                            egui::RichText::new("Loading upload stats...")
+                                .size(12.0)
+                                .color(egui::Color32::from_rgb(128, 128, 128)),
+                        );
+                    }
 
                     // Progress Bar
                     let is_uploading = self.current_upload_progress.is_some();
@@ -397,6 +405,21 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
     let available_width = ui.available_width() - 40.0;
     let cell_width = available_width / 4.0;
 
+    fn create_upload_cell(ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
+        // Icon
+        ui.label(egui::RichText::new(icon).size(28.0));
+        ui.add_space(8.0);
+        // Title
+        ui.label(egui::RichText::new(title).size(12.0).strong());
+        ui.add_space(4.0);
+        // Value
+        ui.label(
+            egui::RichText::new(value)
+                .size(10.0)
+                .color(egui::Color32::from_rgb(128, 128, 128)),
+        );
+    }
+
     // Cell 1: Total Uploaded
     ui.allocate_ui_with_layout(
         egui::vec2(cell_width, ui.available_height()),
@@ -455,19 +478,66 @@ fn upload_stats(ui: &mut egui::Ui, upload_stats: &UploadStats) {
             );
         },
     );
+    ui.add_space(10.0);
+}
 
-    fn create_upload_cell(ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
-        // Icon
-        ui.label(egui::RichText::new(icon).size(28.0));
-        ui.add_space(8.0);
-        // Title
-        ui.label(egui::RichText::new(title).size(12.0).strong());
-        ui.add_space(4.0);
-        // Value
-        ui.label(
-            egui::RichText::new(value)
-                .size(10.0)
-                .color(egui::Color32::from_rgb(128, 128, 128)),
-        );
-    }
+fn upload_view(ui: &mut egui::Ui, upload_stats: &UploadStats) {
+    // Scrollable upload history section
+    egui::ScrollArea::vertical()
+        .max_height(550.0)
+        .auto_shrink([false, true])
+        .show(ui, |ui| {
+            // Get upload history from app state
+            let upload_history = &upload_stats.uploads; // You'll need to implement this
+
+            if upload_history.is_empty() {
+                ui.label("No uploads yet");
+            } else {
+                for upload in upload_history.iter() {
+                    egui::Frame::new()
+                        .fill(ui.visuals().faint_bg_color)
+                        .inner_margin(8.0)
+                        .corner_radius(4.0)
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                // Status icon
+                                let (icon, color) = if upload.verified {
+                                    ("✅", egui::Color32::GREEN)
+                                } else {
+                                    // i assume this .verified flag is for wayfarer staff to flag content as manually reviewed,
+                                    // but as of now its not in use and all recordings are unflagged.
+                                    // ("⏳", egui::Color32::YELLOW)
+                                    ("✅", egui::Color32::GREEN)
+                                };
+                                ui.colored_label(color, icon);
+
+                                // Filename
+                                ui.label(&upload.filename);
+
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        // File size
+                                        ui.label(format!("{:.2} MB", upload.file_size_mb));
+
+                                        // Duration if available
+                                        if let Some(duration) = upload.video_duration_seconds {
+                                            ui.label(format!("{:.1}s", duration));
+                                        }
+
+                                        // Timestamp
+                                        let local_time =
+                                            upload.created_at.with_timezone(&chrono::Local);
+                                        ui.label(
+                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                        );
+                                    },
+                                );
+                            });
+                        });
+
+                    ui.add_space(4.0);
+                }
+            }
+        });
 }

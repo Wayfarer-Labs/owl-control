@@ -2,6 +2,8 @@ use color_eyre::eyre::{Context, Result, eyre};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{fs, path::PathBuf};
 
+use crate::api::Upload;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
 #[serde(rename_all = "camelCase")]
@@ -192,4 +194,5 @@ pub struct UploadStats {
     pub total_files_uploaded: u64,
     pub total_volume_uploaded: u64,
     pub last_upload_date: Option<chrono::DateTime<chrono::Local>>,
+    pub uploads: Vec<Upload>,
 }
