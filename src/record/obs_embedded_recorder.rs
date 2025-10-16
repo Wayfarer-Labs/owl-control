@@ -145,6 +145,12 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 );
             }
 
+            if !window.is_game {
+                bail!(
+                    "The window you're trying to record ({game_exe}) cannot be captured. Please ensure you are capturing a game."
+                );
+            }
+
             self.obs_context
                 .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
                 .await?

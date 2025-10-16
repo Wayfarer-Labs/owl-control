@@ -135,6 +135,12 @@ impl Recorder {
             );
         }
 
+        if let Err(error) = is_process_game_shaped(pid) {
+            bail!(
+                "This application ({game_exe}) doesn't look like a game. Please contact us if you think this is a mistake. Error: {error}"
+            );
+        }
+
         tracing::info!(
             game_exe,
             ?pid,
@@ -259,4 +265,44 @@ fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> 
         .to_owned();
 
     Ok(Some((exe_name, pid, hwnd)))
+}
+
+fn is_process_game_shaped(pid: game_process::Pid) -> Result<()> {
+    let modules = game_process::get_modules(pid)
+        .context("we could not identify the application's modules")?;
+
+    let mut has_graphics_api = false;
+    for module in modules {
+        let module = module.to_lowercase();
+
+        // Check for Direct3D DLLs
+        if module.contains("d3d")
+            || module.contains("dxgi")
+            || module.contains("d3d11")
+            || module.contains("d3d12")
+            || module.contains("d3d9")
+        {
+            has_graphics_api = true;
+        }
+
+        // Check for OpenGL DLLs
+        if module.contains("opengl32")
+            || module.contains("gdi32")
+            || module.contains("glu32")
+            || module.contains("opengl")
+        {
+            has_graphics_api = true;
+        }
+
+        // Check for Vulkan DLLs
+        if module.contains("vulkan") || module.contains("vulkan-1") || module.contains("vulkan32") {
+            has_graphics_api = true;
+        }
+    }
+
+    if !has_graphics_api {
+        bail!("this application doesn't use any graphics APIs (DirectX, OpenGL, or Vulkan)");
+    }
+
+    Ok(())
 }
