@@ -164,13 +164,13 @@ async fn main(
 
                 recorder.seen_input(e).await?;
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
-                    if key == start_keycode {
+                    if key == start_keycode && recorder.recording().is_none() {
                         tracing::info!("Start key pressed, starting recording");
                         if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
-                    } else if key == stop_keycode {
+                    } else if key == stop_keycode && recorder.recording().is_some() {
                         tracing::info!("Stop key pressed, stopping recording");
                         stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
 
