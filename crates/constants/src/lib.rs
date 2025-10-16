@@ -16,6 +16,8 @@ pub const MIN_FOOTAGE: Duration = Duration::from_secs(30);
 pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(90);
+/// Maximum duration the user can be alt tabbed out of the game before stopping recording
+pub const ALT_TAB_GRACE_PERIOD: Duration = Duration::from_secs(20);
 
 /// GitHub organization
 pub const GH_ORG: &str = "Wayfarer-Labs";

@@ -108,6 +108,8 @@ async fn main(
     let mut last_active = Instant::now();
     let mut start_on_activity = false;
     let mut actively_recording_window: Option<HWND> = None;
+    let mut window_unfocused_at: Option<Instant> = None;
+    const ALT_TAB_GRACE_PERIOD: std::time::Duration = constants::ALT_TAB_GRACE_PERIOD;
 
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -162,12 +164,16 @@ async fn main(
                     continue;
                 }
 
-                recorder.seen_input(e).await?;
+                if window_unfocused_at.is_none(){
+                    // we don't want to be logging any inputs if the user is alt tabbed out or unfocused the game window
+                    recorder.seen_input(e).await?;
+                }
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
                     if key == start_keycode && recorder.recording().is_none() {
                         tracing::info!("Start key pressed, starting recording");
                         if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
+                            window_unfocused_at = None;
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
                     } else if key == stop_keycode && recorder.recording().is_some() {
@@ -175,12 +181,14 @@ async fn main(
                         stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
 
                         actively_recording_window = None;
+                        window_unfocused_at = None;
                         start_on_activity = false;
                     }
                 } else if start_on_activity && actively_recording_window.is_some_and(is_window_focused) {
                     tracing::info!("Input detected, restarting recording");
                     if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                         start_on_activity = false;
+                        window_unfocused_at = None;
                     }
                 }
                 last_active = Instant::now();
@@ -267,15 +275,34 @@ async fn main(
                         recorder.stop().await?;
                         start_recording_safely(&mut recorder, &unsupported_games, None).await;
                         last_active = Instant::now();
+                        window_unfocused_at = None;
                     } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
-                        tracing::info!("Window {window:?} lost focus, stopping recording");
-                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                        // Window lost focus - start grace period if not already started
+                        if window_unfocused_at.is_none() {
+                            window_unfocused_at = Some(Instant::now());
+                            tracing::info!("Window {window:?} lost focus, starting {ALT_TAB_GRACE_PERIOD:?} grace period");
+                            // Insert flag into logs
+                            recorder.write_focus(false).await?;
+                        } else if let Some(unfocused_at) = window_unfocused_at {
+                            // Check if grace period has elapsed
+                            if unfocused_at.elapsed() > ALT_TAB_GRACE_PERIOD {
+                                tracing::info!("Window {window:?} lost focus for more than {ALT_TAB_GRACE_PERIOD:?}, stopping recording");
+                                stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                                window_unfocused_at = None;
+                            }
+                        }
+                    } else if let Some(window) = actively_recording_window && is_window_focused(window) && window_unfocused_at.is_some() {
+                        // Window regained focus within grace period
+                        tracing::info!("Window {window:?} regained focus within grace period, continuing recording");
+                        recorder.write_focus(true).await?;
+                        window_unfocused_at = None;
                     }
                 } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
                     // If we're not currently in a recording, but we were actively recording this window, and this window
                     // is now focused, and we're not waiting on input, let's restart the recording.
                     tracing::info!("Window {window:?} regained focus, restarting recording");
                     start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await;
+                    window_unfocused_at = None;
                 }
             },
         }

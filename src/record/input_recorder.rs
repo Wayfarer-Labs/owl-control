@@ -37,6 +37,18 @@ impl InputRecorder {
             .await
     }
 
+    pub(crate) async fn write_unfocus(&mut self) -> Result<()> {
+        // alt tabbed out
+        self.write_entry(InputEvent::new_at_now(InputEventType::UNFOCUS))
+            .await
+    }
+
+    pub(crate) async fn write_refocus(&mut self) -> Result<()> {
+        // alt tabbed in
+        self.write_entry(InputEvent::new_at_now(InputEventType::REFOCUS))
+            .await
+    }
+
     async fn write_header(&mut self) -> Result<()> {
         const HEADER: &str = "timestamp,event_type,event_args\n";
         self.file.write_all(HEADER.as_bytes()).await?;
