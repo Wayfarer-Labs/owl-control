@@ -34,6 +34,7 @@ pub trait VideoRecorder {
         game_exe: &str,
         game_resolution: (u32, u32),
     ) -> Result<()>;
+    /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<()>;
 }
 pub struct Recorder {

@@ -108,7 +108,7 @@ impl Recording {
         recorder: &mut dyn VideoRecorder,
         adapter_infos: &[wgpu::AdapterInfo],
     ) -> Result<()> {
-        recorder.stop_recording().await?;
+        let result = recorder.stop_recording().await;
         self.input_recorder.stop().await?;
 
         let metadata = Self::final_metadata(
@@ -121,6 +121,16 @@ impl Recording {
         .await?;
         let metadata = serde_json::to_string_pretty(&metadata)?;
         tokio::fs::write(&self.metadata_path, &metadata).await?;
+
+        if let Err(e) = result {
+            tracing::error!("Error while stopping recording, invalidating recording: {e}");
+            tokio::fs::write(
+                self.recording_location
+                    .join(constants::filename::recording::INVALID),
+                e.to_string(),
+            )
+            .await?;
+        }
 
         Ok(())
     }
