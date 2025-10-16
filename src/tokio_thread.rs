@@ -33,8 +33,6 @@ use crate::{record::Recorder, system::raw_input_debouncer::EventDebouncer};
 
 pub fn run(
     app_state: Arc<AppState>,
-    start_key: String,
-    stop_key: String,
     recording_location: PathBuf,
     log_path: PathBuf,
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
@@ -42,8 +40,6 @@ pub fn run(
 ) -> Result<()> {
     let recorder = tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
-        start_key,
-        stop_key,
         recording_location,
         log_path,
         async_request_rx,
@@ -66,18 +62,11 @@ pub fn run(
 
 async fn main(
     app_state: Arc<AppState>,
-    start_key: String,
-    stop_key: String,
     recording_location: PathBuf,
     log_path: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<Recorder> {
-    let mut start_keycode =
-        lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-    let mut stop_keycode =
-        lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
-
     let stream_handle =
         rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
     let sink = Sink::connect_new(stream_handle.mixer());
@@ -131,9 +120,9 @@ async fn main(
                 cfg.preferences.stop_recording_key().to_string(),
             )
         };
-        start_keycode =
+        let start_key =
             lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-        stop_keycode =
+        let stop_key =
             lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
         tokio::select! {
             r = &mut ctrlc_rx => {
@@ -158,14 +147,14 @@ async fn main(
                     recorder.seen_input(e).await?;
                 }
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
-                    if key == start_keycode && recorder.recording().is_none() {
+                    if key == start_key && recorder.recording().is_none() {
                         tracing::info!("Start key pressed, starting recording");
                         if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
                             window_unfocused_at = None;
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
-                    } else if key == stop_keycode && recorder.recording().is_some() {
+                    } else if key == stop_key && recorder.recording().is_some() {
                         tracing::info!("Stop key pressed, stopping recording");
                         stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
 

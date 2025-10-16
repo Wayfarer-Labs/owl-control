@@ -32,12 +32,6 @@ fn main() -> Result<()> {
     struct Args {
         #[arg(long, default_value = "./data_dump/games")]
         recording_location: PathBuf,
-
-        #[arg(long, default_value = "F4")]
-        start_key: String,
-
-        #[arg(long, default_value = "F5")]
-        stop_key: String,
     }
 
     // Set up logging, including to file
@@ -80,11 +74,7 @@ fn main() -> Result<()> {
         git_version::git_version!()
     );
 
-    let Args {
-        recording_location,
-        start_key,
-        stop_key,
-    } = Args::parse();
+    let Args { recording_location } = Args::parse();
 
     color_eyre::install()?;
 
@@ -116,8 +106,6 @@ fn main() -> Result<()> {
         move || {
             tokio_thread::run(
                 app_state.clone(),
-                start_key,
-                stop_key,
                 recording_location,
                 log_path,
                 async_request_rx,
