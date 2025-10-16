@@ -315,6 +315,23 @@ impl MainApp {
                         .color(egui::Color32::from_rgb(128, 128, 128)),
                     );
 
+                    // Delete Uploaded Recordings Setting
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.add(egui::Checkbox::new(
+                            &mut self.local_preferences.delete_uploaded_files,
+                            "Delete recordings after successful upload",
+                        ));
+                    });
+                    ui.label(
+                        egui::RichText::new(concat!(
+                            "Automatically delete local recordings after they have been successfully uploaded. ",
+                            "Invalid uploads will not be deleted.",
+                        ))
+                        .size(10.0)
+                        .color(egui::Color32::from_rgb(128, 128, 128)),
+                    );
+
                     // Upload Button
                     ui.add_space(10.0);
                     ui.add_enabled_ui(!is_uploading, |ui| {
