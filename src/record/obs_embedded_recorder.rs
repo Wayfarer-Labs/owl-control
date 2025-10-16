@@ -1,4 +1,10 @@
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use color_eyre::{
     Result,
@@ -38,6 +44,7 @@ pub struct ObsEmbeddedRecorder {
     adapter_index: usize,
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
+    hook_successful: Arc<AtomicBool>,
 }
 impl ObsEmbeddedRecorder {
     pub async fn new(adapter_index: usize) -> Result<Self>
@@ -67,6 +74,7 @@ impl ObsEmbeddedRecorder {
             adapter_index,
             current_output: None,
             source: None,
+            hook_successful: Arc::new(AtomicBool::new(false)),
         })
     }
 }
@@ -159,6 +167,26 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 .await?
         };
 
+        // Register a signal to detect when the source is hooked,
+        // so we can invalidate non-hooked recordings
+        self.hook_successful.store(false, Ordering::SeqCst);
+        tokio::spawn({
+            let mut on_hooked = source
+                .signal_manager()
+                .on_hooked()
+                .await
+                .context("failed to register on_hooked signal")?;
+            let hook_successful = self.hook_successful.clone();
+            async move {
+                if on_hooked.recv().await.is_ok() {
+                    tracing::info!(
+                        "Game capture source was able to successfully hook the game, recording will be valid"
+                    );
+                    hook_successful.store(true, Ordering::SeqCst);
+                }
+            }
+        });
+
         // Register the source
         scene.set_to_channel(0).await?;
 
@@ -233,6 +261,10 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             tracing::debug!("OBS recording stopped");
         } else {
             tracing::warn!("No active recording to stop");
+        }
+
+        if !self.hook_successful.load(Ordering::SeqCst) {
+            bail!("Application was never hooked, recording will be blank");
         }
 
         Ok(())
