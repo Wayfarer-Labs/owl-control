@@ -19,7 +19,6 @@ use crate::{
         obs_socket_recorder::ObsSocketRecorder,
         recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
     },
-    system::hardware_specs::get_primary_monitor_resolution,
     ui::notification::{NotificationType, show_notification},
 };
 use constants::{MIN_FREE_SPACE_MB, unsupported_games::UnsupportedGames};
@@ -34,6 +33,7 @@ pub trait VideoRecorder {
         pid: u32,
         hwnd: HWND,
         game_exe: &str,
+        game_resolution: (u32, u32),
     ) -> Result<()>;
     async fn stop_recording(&mut self) -> Result<()>;
 }
@@ -236,30 +236,6 @@ fn get_free_space_in_mb(path: &std::path::Path) -> Option<u64> {
         .filter(|disk| path.starts_with(disk.mount_point()))
         .max_by_key(|disk| disk.mount_point().as_os_str().len())
         .map(|disk| disk.available_space() / 1024 / 1024)
-}
-
-pub fn get_recording_base_resolution(hwnd: HWND) -> Result<(u32, u32)> {
-    use windows::Win32::{Foundation::RECT, UI::WindowsAndMessaging::GetClientRect};
-
-    /// Returns the size (width, height) of the inner area of a window given its HWND.
-    /// Returns None if the window does not exist or the call fails.
-    fn get_window_inner_size(hwnd: HWND) -> Option<(u32, u32)> {
-        unsafe {
-            let mut rect = RECT::default();
-            GetClientRect(hwnd, &mut rect).ok()?;
-            let width = rect.right - rect.left;
-            let height = rect.bottom - rect.top;
-            Some((width as u32, height as u32))
-        }
-    }
-
-    match get_window_inner_size(hwnd) {
-        Some(size) => Ok(size),
-        None => {
-            tracing::info!("Failed to get window inner size, using primary monitor resolution");
-            get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")
-        }
-    }
 }
 
 fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> {

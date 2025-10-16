@@ -21,7 +21,7 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::record::recorder::{VideoRecorder, get_recording_base_resolution};
+use crate::record::recorder::VideoRecorder;
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
@@ -80,8 +80,9 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         &mut self,
         dummy_video_path: &Path,
         pid: u32,
-        hwnd: HWND,
+        _hwnd: HWND,
         game_exe: &str,
+        (base_width, base_height): (u32, u32),
     ) -> Result<()> {
         let recording_path: &str = dummy_video_path
             .to_str()
@@ -96,9 +97,6 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
         // Set up scene and window capture based on input pid
         let mut scene = self.obs_context.scene(OWL_SCENE_NAME).await?;
-
-        let (base_width, base_height) = get_recording_base_resolution(hwnd)?;
-        tracing::info!("Base recording resolution: {base_width}x{base_height}");
 
         self.obs_context
             .reset_video(

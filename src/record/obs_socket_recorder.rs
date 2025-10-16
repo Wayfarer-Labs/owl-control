@@ -17,7 +17,7 @@ use obws::{
 };
 use windows::Win32::Foundation::HWND;
 
-use crate::record::recorder::{VideoRecorder, get_recording_base_resolution};
+use crate::record::recorder::VideoRecorder;
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -50,6 +50,7 @@ impl VideoRecorder for ObsSocketRecorder {
         _pid: u32,
         hwnd: HWND,
         game_exe: &str,
+        (base_width, base_height): (u32, u32),
     ) -> Result<()> {
         // Connect to OBS
         let client = Client::connect("localhost", 4455, None::<&str>)
@@ -190,19 +191,13 @@ impl VideoRecorder for ObsSocketRecorder {
             .wrap_err("Failed to get FilePath")?;
         tracing::info!("OBS confirmed recording path: {:?}", current_path.value);
 
-        // Monitor/resolution info
-        let resolution = get_recording_base_resolution(hwnd)?;
-
-        // Log resolution for debugging
-        tracing::info!("Base recording resolution: {resolution:?}");
-
         // Set video settings
         config
             .set_video_settings(SetVideoSettings {
                 fps_numerator: Some(FPS),
                 fps_denominator: Some(1),
-                base_width: Some(resolution.0 as u32),
-                base_height: Some(resolution.1 as u32),
+                base_width: Some(base_width),
+                base_height: Some(base_height),
                 output_width: Some(RECORDING_WIDTH),
                 output_height: Some(RECORDING_HEIGHT),
             })
