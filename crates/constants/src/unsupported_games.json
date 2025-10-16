@@ -166,6 +166,11 @@
     "reason": "NotAGame"
   },
   {
+    "name": "Google Chrome",
+    "binaries": ["chrome"],
+    "reason": "NotAGame"
+  },
+  {
     "name": "Windows Search",
     "binaries": ["searchapp"],
     "reason": "NotAGame"
@@ -188,6 +193,11 @@
   {
     "name": "Windows Terminal",
     "binaries": ["wt", "windowsterminal"],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Steam",
+    "binaries": ["steam", "steamwebhelper"],
     "reason": "NotAGame"
   }
 ]

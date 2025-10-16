@@ -96,7 +96,6 @@ if (Test-Path dist) {
     Remove-Item -Path dist -Recurse -Force
 }
 New-Item -ItemType Directory -Force -Path dist | Out-Null
-New-Item -ItemType Directory -Force -Path dist\resources\ | Out-Null
 
 # Copy assets
 Write-Status "Copying assets..."
