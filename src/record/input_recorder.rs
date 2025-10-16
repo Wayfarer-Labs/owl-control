@@ -39,13 +39,13 @@ impl InputRecorder {
 
     pub(crate) async fn write_unfocus(&mut self) -> Result<()> {
         // alt tabbed out
-        self.write_entry(InputEvent::new_at_now(InputEventType::UNFOCUS))
+        self.write_entry(InputEvent::new_at_now(InputEventType::Unfocus))
             .await
     }
 
     pub(crate) async fn write_refocus(&mut self) -> Result<()> {
         // alt tabbed in
-        self.write_entry(InputEvent::new_at_now(InputEventType::REFOCUS))
+        self.write_entry(InputEvent::new_at_now(InputEventType::Refocus))
             .await
     }
 

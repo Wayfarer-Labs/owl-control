@@ -73,9 +73,9 @@ pub enum InputEventType {
     /// End
     End,
     /// User alt tabbed out and window is unfocused
-    UNFOCUS,
+    Unfocus,
     /// User alt tabbed back in and window is focused
-    REFOCUS,
+    Refocus,
     /// MOUSE_MOVE: [dx : int, dy : int]
     MouseMove { dx: i32, dy: i32 },
     /// MOUSE_BUTTON: [button_idx : int, key_down : bool]
@@ -96,8 +96,8 @@ impl InputEventType {
         match self {
             InputEventType::Start => "START",
             InputEventType::End => "END",
-            InputEventType::UNFOCUS => "UNFOCUS",
-            InputEventType::REFOCUS => "REFOCUS",
+            InputEventType::Unfocus => "UNFOCUS",
+            InputEventType::Refocus => "REFOCUS",
             InputEventType::MouseMove { .. } => "MOUSE_MOVE",
             InputEventType::MouseButton { .. } => "MOUSE_BUTTON",
             InputEventType::Scroll { .. } => "SCROLL",
@@ -113,8 +113,8 @@ impl InputEventType {
         match self {
             InputEventType::Start => json!([]),
             InputEventType::End => json!([]),
-            InputEventType::UNFOCUS => json!([]),
-            InputEventType::REFOCUS => json!([]),
+            InputEventType::Unfocus => json!([]),
+            InputEventType::Refocus => json!([]),
             InputEventType::MouseMove { dx, dy } => json!([dx, dy]),
             InputEventType::MouseButton { button, pressed } => json!([button, pressed]),
             InputEventType::Scroll { amount } => json!([amount]),
@@ -173,8 +173,8 @@ impl InputEventType {
         match id {
             "START" => Ok(InputEventType::Start),
             "END" => Ok(InputEventType::End),
-            "UNFOCUS" => Ok(InputEventType::UNFOCUS),
-            "REFOCUS" => Ok(InputEventType::REFOCUS),
+            "UNFOCUS" => Ok(InputEventType::Unfocus),
+            "REFOCUS" => Ok(InputEventType::Refocus),
             "MOUSE_MOVE" => {
                 let args: (i32, i32) = parse_args_tuple(id, json_args)?;
                 Ok(InputEventType::MouseMove {
