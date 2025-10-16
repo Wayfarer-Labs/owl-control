@@ -3,6 +3,9 @@ resolver = "3"
 members = ["crates/*", "tools/*"]
 default-members = ["."]
 
+[workspace.package]
+version = "1.0.0-rc2"
+
 [workspace.dependencies]
 input-capture = { path = "crates/input-capture" }
 game-process = { path = "crates/game-process" }
@@ -45,7 +48,7 @@ libobs-version = "31.0.3"
 
 [package]
 name = "owl-control"
-version = "1.0.0-rc1"
+version.workspace = true
 edition = "2024"
 
 [dependencies]
