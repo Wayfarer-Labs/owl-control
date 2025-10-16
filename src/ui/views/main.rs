@@ -137,15 +137,28 @@ impl MainApp {
 
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
-                    ui.label(
-                        egui::RichText::new("Keyboard Shortcuts")
-                            .size(18.0)
-                            .strong(),
-                    );
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            egui::RichText::new("Keyboard Shortcuts")
+                                .size(18.0)
+                                .strong(),
+                        );
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add(
+                                egui::Label::new(egui::RichText::new("ℹ").size(16.0).color(egui::Color32::from_rgb(128, 128, 128)))
+                            )
+                            .on_hover_cursor(egui::CursorIcon::Help)
+                            .on_hover_text("Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.");
+                        });
+                    });
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Start Recording:"));
+                        add_settings_text(ui, egui::Label::new(if self.local_preferences.stop_hotkey_enabled {
+                            "Start Recording:"
+                        } else {
+                            "Toggle Recording:"
+                        }));
                         let button_text = if self.listening_for_hotkey_rebind
                             == Some(HotkeyRebindTarget::Start)
                         {
@@ -159,18 +172,35 @@ impl MainApp {
                         }
                     });
 
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Stop Recording:"));
-                        let button_text =
-                            if self.listening_for_hotkey_rebind == Some(HotkeyRebindTarget::Stop) {
-                                "Press any key...".to_string()
-                            } else {
-                                self.local_preferences.stop_recording_key.clone()
-                            };
+                    let stop_hotkey_enabled = self.local_preferences.stop_hotkey_enabled;
+                    if stop_hotkey_enabled {
+                        ui.horizontal(|ui| {
+                            add_settings_text(ui, egui::Label::new("Stop Recording:"));
+                            let button_text =
+                                if self.listening_for_hotkey_rebind == Some(HotkeyRebindTarget::Stop) {
+                                    "Press any key...".to_string()
+                                } else {
+                                    self.local_preferences.stop_recording_key.clone()
+                                };
 
-                        if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                            self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Stop);
-                        }
+                            if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
+                                self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Stop);
+                            }
+                        });
+                    }
+
+                    ui.horizontal(|ui| {
+                        add_settings_text(ui, egui::Label::new("Stop Hotkey:"));
+                        add_settings_widget(
+                            ui,
+                            egui::Checkbox::new(
+                                &mut self.local_preferences.stop_hotkey_enabled,
+                                match stop_hotkey_enabled {
+                                    true => "Enabled",
+                                    false => "Disabled",
+                                },
+                            ),
+                        );
                     });
                 });
                 ui.add_space(10.0);
@@ -299,24 +329,40 @@ impl MainApp {
                     }
 
                     // Unreliable Connection Setting
-                    ui.add_space(10.0);
+                    ui.add_space(5.0);
                     ui.horizontal(|ui| {
                         ui.add(egui::Checkbox::new(
                             &mut self.local_preferences.unreliable_connection,
                             "Optimize for unreliable connections",
                         ));
-                    });
-                    ui.label(
-                        egui::RichText::new(concat!(
+                        ui.add(
+                            egui::Label::new(egui::RichText::new("ℹ").size(14.0).color(egui::Color32::from_rgb(128, 128, 128)))
+                        )
+                        .on_hover_cursor(egui::CursorIcon::Help)
+                        .on_hover_text(concat!(
                             "Enable this if you have a slow or unstable internet connection. ",
                             "This will use smaller file chunks to improve upload success rates."
-                        ))
-                        .size(10.0)
-                        .color(egui::Color32::from_rgb(128, 128, 128)),
-                    );
+                        ));
+                    });
+
+                    // Delete Uploaded Recordings Setting
+                    ui.horizontal(|ui| {
+                        ui.add(egui::Checkbox::new(
+                            &mut self.local_preferences.delete_uploaded_files,
+                            "Delete recordings after successful upload",
+                        ));
+                        ui.add(
+                            egui::Label::new(egui::RichText::new("ℹ").size(14.0).color(egui::Color32::from_rgb(128, 128, 128)))
+                        )
+                        .on_hover_cursor(egui::CursorIcon::Help)
+                        .on_hover_text(concat!(
+                            "Automatically delete local recordings after they have been successfully uploaded. ",
+                            "Invalid uploads, as well as existing uploads, will not be deleted."
+                        ));
+                    });
 
                     // Upload Button
-                    ui.add_space(10.0);
+                    ui.add_space(5.0);
                     ui.add_enabled_ui(!is_uploading, |ui| {
                         if ui
                             .add_sized(

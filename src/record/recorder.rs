@@ -197,6 +197,15 @@ impl Recorder {
         Ok(())
     }
 
+    pub async fn write_focus(&mut self, focused: bool) -> Result<()> {
+        // write alt tab focus of window status to input recorder
+        let Some(recording) = self.recording.as_mut() else {
+            return Ok(());
+        };
+        recording.write_focus(focused).await?;
+        Ok(())
+    }
+
     pub async fn stop(&mut self) -> Result<()> {
         let Some(recording) = self.recording.take() else {
             return Ok(());

@@ -38,11 +38,12 @@ pub async fn start(
     recording_location: PathBuf,
 ) {
     let tx = app_state.ui_update_tx.clone();
-    let (api_token, unreliable_connection) = {
+    let (api_token, unreliable_connection, delete_uploaded) = {
         let config = app_state.config.read().unwrap();
         (
             config.credentials.api_key.clone(),
             config.preferences.unreliable_connection,
+            config.preferences.delete_uploaded_files,
         )
     };
 
@@ -57,6 +58,7 @@ pub async fn start(
         api_client,
         api_token,
         unreliable_connection,
+        delete_uploaded,
         tx.clone(),
         app_state.async_request_tx.clone(),
     )
@@ -88,6 +90,7 @@ async fn run(
     api_client: Arc<ApiClient>,
     api_token: String,
     unreliable_connection: bool,
+    delete_uploaded: bool,
     tx: app_state::UiUpdateSender,
     async_req_tx: mpsc::Sender<AsyncRequest>,
 ) -> eyre::Result<FinalStats> {
@@ -123,6 +126,19 @@ async fn run(
         stats.total_duration_uploaded += recording_stats.duration;
         stats.total_files_uploaded += 1;
         stats.total_bytes_uploaded += recording_stats.bytes;
+
+        // delete the uploaded recording directory if the preference is enabled
+        if delete_uploaded {
+            if let Err(e) = std::fs::remove_dir_all(&path) {
+                tracing::error!(
+                    "Failed to delete uploaded directory {}: {:?}",
+                    path.display(),
+                    e
+                );
+            } else {
+                tracing::info!("Deleted uploaded directory: {}", path.display());
+            }
+        }
 
         // every 5 files uploaded we check with server to update list of successfully uploaded files
         if stats.total_files_uploaded % 5 == 0 {

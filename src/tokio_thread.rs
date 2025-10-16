@@ -20,7 +20,8 @@ use color_eyre::{
 };
 
 use constants::{
-    GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames,
+    ALT_TAB_GRACE_PERIOD, GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION,
+    unsupported_games::UnsupportedGames,
 };
 use game_process::does_process_exist;
 use input_capture::InputCapture;
@@ -32,8 +33,6 @@ use crate::{record::Recorder, system::raw_input_debouncer::EventDebouncer};
 
 pub fn run(
     app_state: Arc<AppState>,
-    start_key: String,
-    stop_key: String,
     recording_location: PathBuf,
     log_path: PathBuf,
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
@@ -41,8 +40,6 @@ pub fn run(
 ) -> Result<()> {
     let recorder = tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
-        start_key,
-        stop_key,
         recording_location,
         log_path,
         async_request_rx,
@@ -65,20 +62,11 @@ pub fn run(
 
 async fn main(
     app_state: Arc<AppState>,
-    start_key: String,
-    stop_key: String,
     recording_location: PathBuf,
     log_path: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<Recorder> {
-    let mut start_key = start_key;
-    let mut stop_key = stop_key;
-    let mut start_keycode =
-        lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-    let mut stop_keycode =
-        lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
-
     let stream_handle =
         rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
     let sink = Sink::connect_new(stream_handle.mixer());
@@ -108,6 +96,7 @@ async fn main(
     let mut last_active = Instant::now();
     let mut start_on_activity = false;
     let mut actively_recording_window: Option<HWND> = None;
+    let mut window_unfocused_at: Option<Instant> = None;
 
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -123,27 +112,18 @@ async fn main(
     tokio::spawn(startup_requests(app_state.clone()));
 
     loop {
-        let honk: bool;
-        let start_key_cfg: String;
-        let stop_key_cfg: String;
-        {
+        let (honk, start_key, stop_key) = {
             let cfg = app_state.config.read().unwrap();
-            honk = cfg.preferences.honk;
-            start_key_cfg = cfg.preferences.start_recording_key.clone();
-            stop_key_cfg = cfg.preferences.stop_recording_key.clone();
-        }
-        // instead of performing lookup_keycode every iteration, we check if it's changed from original
-        // and only then do we do the lookup
-        if start_key_cfg != start_key {
-            start_key = start_key_cfg;
-            start_keycode = lookup_keycode(&start_key)
-                .ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-        }
-        if stop_key_cfg != stop_key {
-            stop_key = stop_key_cfg;
-            stop_keycode =
-                lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
-        }
+            (
+                cfg.preferences.honk,
+                cfg.preferences.start_recording_key().to_string(),
+                cfg.preferences.stop_recording_key().to_string(),
+            )
+        };
+        let start_key =
+            lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
+        let stop_key =
+            lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
         tokio::select! {
             r = &mut ctrlc_rx => {
                 r.expect("ctrl-c signal handler was closed early");
@@ -162,25 +142,31 @@ async fn main(
                     continue;
                 }
 
-                recorder.seen_input(e).await?;
+                if window_unfocused_at.is_none(){
+                    // we don't want to be logging any inputs if the user is alt tabbed out or unfocused the game window
+                    recorder.seen_input(e).await?;
+                }
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
-                    if key == start_keycode {
+                    if key == start_key && recorder.recording().is_none() {
                         tracing::info!("Start key pressed, starting recording");
                         if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
+                            window_unfocused_at = None;
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
-                    } else if key == stop_keycode {
+                    } else if key == stop_key && recorder.recording().is_some() {
                         tracing::info!("Stop key pressed, stopping recording");
                         stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
 
                         actively_recording_window = None;
+                        window_unfocused_at = None;
                         start_on_activity = false;
                     }
                 } else if start_on_activity && actively_recording_window.is_some_and(is_window_focused) {
                     tracing::info!("Input detected, restarting recording");
                     if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                         start_on_activity = false;
+                        window_unfocused_at = None;
                     }
                 }
                 last_active = Instant::now();
@@ -267,15 +253,34 @@ async fn main(
                         recorder.stop().await?;
                         start_recording_safely(&mut recorder, &unsupported_games, None).await;
                         last_active = Instant::now();
+                        window_unfocused_at = None;
                     } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
-                        tracing::info!("Window {window:?} lost focus, stopping recording");
-                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                        // Window lost focus - start grace period if not already started
+                        if window_unfocused_at.is_none() {
+                            window_unfocused_at = Some(Instant::now());
+                            tracing::info!("Window {window:?} lost focus, starting {ALT_TAB_GRACE_PERIOD:?} grace period");
+                            // Insert flag into logs
+                            recorder.write_focus(false).await?;
+                        } else if let Some(unfocused_at) = window_unfocused_at {
+                            // Check if grace period has elapsed
+                            if unfocused_at.elapsed() > ALT_TAB_GRACE_PERIOD {
+                                tracing::info!("Window {window:?} lost focus for more than {ALT_TAB_GRACE_PERIOD:?}, stopping recording");
+                                stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                                window_unfocused_at = None;
+                            }
+                        }
+                    } else if let Some(window) = actively_recording_window && is_window_focused(window) && window_unfocused_at.is_some() {
+                        // Window regained focus within grace period
+                        tracing::info!("Window {window:?} regained focus within grace period, continuing recording");
+                        recorder.write_focus(true).await?;
+                        window_unfocused_at = None;
                     }
                 } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
                     // If we're not currently in a recording, but we were actively recording this window, and this window
                     // is now focused, and we're not waiting on input, let's restart the recording.
                     tracing::info!("Window {window:?} regained focus, restarting recording");
                     start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await;
+                    window_unfocused_at = None;
                 }
             },
         }
