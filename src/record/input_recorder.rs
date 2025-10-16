@@ -37,16 +37,18 @@ impl InputRecorder {
             .await
     }
 
-    pub(crate) async fn write_unfocus(&mut self) -> Result<()> {
-        // alt tabbed out
-        self.write_entry(InputEvent::new_at_now(InputEventType::Unfocus))
-            .await
-    }
-
-    pub(crate) async fn write_refocus(&mut self) -> Result<()> {
-        // alt tabbed in
-        self.write_entry(InputEvent::new_at_now(InputEventType::Refocus))
-            .await
+    pub(crate) async fn write_focus(&mut self, focused: bool) -> Result<()> {
+        // write alt tab status to the input tracker
+        match focused {
+            true => {
+                self.write_entry(InputEvent::new_at_now(InputEventType::Refocus))
+                    .await
+            }
+            false => {
+                self.write_entry(InputEvent::new_at_now(InputEventType::Unfocus))
+                    .await
+            }
+        }
     }
 
     async fn write_header(&mut self) -> Result<()> {

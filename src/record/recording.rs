@@ -110,10 +110,7 @@ impl Recording {
 
     pub(crate) async fn write_focus(&mut self, focused: bool) -> Result<()> {
         // write alt tab status to the input tracker
-        match focused {
-            true => self.input_recorder.write_refocus().await,
-            false => self.input_recorder.write_unfocus().await,
-        }
+        self.input_recorder.write_focus(focused).await
     }
 
     pub(crate) async fn stop(
