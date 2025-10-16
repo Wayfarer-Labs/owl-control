@@ -39,16 +39,11 @@ impl InputRecorder {
 
     pub(crate) async fn write_focus(&mut self, focused: bool) -> Result<()> {
         // write alt tab status to the input tracker
-        match focused {
-            true => {
-                self.write_entry(InputEvent::new_at_now(InputEventType::Refocus))
-                    .await
-            }
-            false => {
-                self.write_entry(InputEvent::new_at_now(InputEventType::Unfocus))
-                    .await
-            }
-        }
+        self.write_entry(InputEvent::new_at_now(match focused {
+            true => InputEventType::Refocus,
+            false => InputEventType::Unfocus,
+        }))
+        .await
     }
 
     async fn write_header(&mut self) -> Result<()> {
