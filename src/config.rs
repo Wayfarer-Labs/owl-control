@@ -72,8 +72,10 @@ impl std::fmt::Display for OverlayLocation {
     }
 }
 
+// by default now start and stop recording are mapped to same key
+// f5 instead of f4 so users can alt+f4 properly.
 fn default_start_key() -> String {
-    "F4".to_string()
+    "F5".to_string()
 }
 fn default_stop_key() -> String {
     "F5".to_string()

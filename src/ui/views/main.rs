@@ -137,11 +137,20 @@ impl MainApp {
 
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
-                    ui.label(
-                        egui::RichText::new("Keyboard Shortcuts")
-                            .size(18.0)
-                            .strong(),
-                    );
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            egui::RichText::new("Keyboard Shortcuts")
+                                .size(18.0)
+                                .strong(),
+                        );
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add(
+                                egui::Label::new(egui::RichText::new("ℹ").size(16.0).color(egui::Color32::from_rgb(128, 128, 128)))
+                            )
+                            .on_hover_cursor(egui::CursorIcon::Help)
+                            .on_hover_text("Tip: Start and Stop can be set to the same key for toggle behavior");
+                        });
+                    });
                     ui.separator();
 
                     ui.horizontal(|ui| {
@@ -305,15 +314,15 @@ impl MainApp {
                             &mut self.local_preferences.unreliable_connection,
                             "Optimize for unreliable connections",
                         ));
-                    });
-                    ui.label(
-                        egui::RichText::new(concat!(
+                        ui.add(
+                            egui::Label::new(egui::RichText::new("ℹ").size(14.0).color(egui::Color32::from_rgb(128, 128, 128)))
+                        )
+                        .on_hover_cursor(egui::CursorIcon::Help)
+                        .on_hover_text(concat!(
                             "Enable this if you have a slow or unstable internet connection. ",
                             "This will use smaller file chunks to improve upload success rates."
-                        ))
-                        .size(10.0)
-                        .color(egui::Color32::from_rgb(128, 128, 128)),
-                    );
+                        ));
+                    });
 
                     // Delete Uploaded Recordings Setting
                     ui.add_space(10.0);
@@ -322,15 +331,15 @@ impl MainApp {
                             &mut self.local_preferences.delete_uploaded_files,
                             "Delete recordings after successful upload",
                         ));
-                    });
-                    ui.label(
-                        egui::RichText::new(concat!(
+                        ui.add(
+                            egui::Label::new(egui::RichText::new("ℹ").size(14.0).color(egui::Color32::from_rgb(128, 128, 128)))
+                        )
+                        .on_hover_cursor(egui::CursorIcon::Help)
+                        .on_hover_text(concat!(
                             "Automatically delete local recordings after they have been successfully uploaded. ",
-                            "Invalid uploads will not be deleted.",
-                        ))
-                        .size(10.0)
-                        .color(egui::Color32::from_rgb(128, 128, 128)),
-                    );
+                            "Invalid uploads will not be deleted."
+                        ));
+                    });
 
                     // Upload Button
                     ui.add_space(10.0);
