@@ -20,7 +20,8 @@ use color_eyre::{
 };
 
 use constants::{
-    GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames,
+    ALT_TAB_GRACE_PERIOD, GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION,
+    unsupported_games::UnsupportedGames,
 };
 use game_process::does_process_exist;
 use input_capture::InputCapture;
@@ -109,7 +110,6 @@ async fn main(
     let mut start_on_activity = false;
     let mut actively_recording_window: Option<HWND> = None;
     let mut window_unfocused_at: Option<Instant> = None;
-    const ALT_TAB_GRACE_PERIOD: std::time::Duration = constants::ALT_TAB_GRACE_PERIOD;
 
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
