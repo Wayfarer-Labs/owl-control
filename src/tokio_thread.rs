@@ -369,22 +369,26 @@ fn is_window_focused(hwnd: HWND) -> bool {
 }
 
 async fn startup_requests(app_state: Arc<AppState>) {
-    tokio::spawn({
-        let async_request_tx = app_state.async_request_tx.clone();
-        async move {
-            match get_unsupported_games().await {
-                Ok(games) => {
-                    async_request_tx
-                        .send(AsyncRequest::UpdateUnsupportedGames(games))
-                        .await
-                        .ok();
-                }
-                Err(e) => {
-                    tracing::error!(e=?e, "Failed to get unsupported games from GitHub");
+    if cfg!(debug_assertions) {
+        tracing::info!("Skipping fetch of unsupported games in dev/debug build");
+    } else {
+        tokio::spawn({
+            let async_request_tx = app_state.async_request_tx.clone();
+            async move {
+                match get_unsupported_games().await {
+                    Ok(games) => {
+                        async_request_tx
+                            .send(AsyncRequest::UpdateUnsupportedGames(games))
+                            .await
+                            .ok();
+                    }
+                    Err(e) => {
+                        tracing::error!(e=?e, "Failed to get unsupported games from GitHub");
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     tokio::spawn(async move {
         if let Err(e) = check_for_updates(app_state).await {
