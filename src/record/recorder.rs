@@ -15,9 +15,8 @@ use crate::{
     app_state::{AppState, RecordingStatus},
     config::RecordingBackend,
     record::{
-        obs_embedded_recorder::ObsEmbeddedRecorder,
-        obs_socket_recorder::ObsSocketRecorder,
-        recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
+        obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
+        recording::Recording,
     },
     ui::notification::{NotificationType, show_notification},
 };
@@ -151,18 +150,10 @@ impl Recorder {
 
         let recording = Recording::start(
             self.video_recorder.as_mut(),
-            MetadataParameters {
-                path: recording_location.join("metadata.json"),
-                game_exe: game_exe.clone(),
-            },
-            WindowParameters {
-                path: recording_location.join("recording.mp4"),
-                pid,
-                hwnd,
-            },
-            InputParameters {
-                path: recording_location.join("inputs.csv"),
-            },
+            recording_location.clone(),
+            game_exe.clone(),
+            pid,
+            hwnd,
         )
         .await;
 

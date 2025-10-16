@@ -16,6 +16,7 @@ use crate::{
 pub(crate) struct Recording {
     input_recorder: InputRecorder,
 
+    recording_location: PathBuf,
     metadata_path: PathBuf,
     game_exe: String,
     game_resolution: (u32, u32),
@@ -26,40 +27,23 @@ pub(crate) struct Recording {
     hwnd: HWND,
 }
 
-pub(crate) struct MetadataParameters {
-    pub(crate) path: PathBuf,
-    pub(crate) game_exe: String,
-}
-
-pub(crate) struct WindowParameters {
-    pub(crate) path: PathBuf,
-    pub(crate) pid: Pid,
-    pub(crate) hwnd: HWND,
-}
-
-pub(crate) struct InputParameters {
-    pub(crate) path: PathBuf,
-}
-
 impl Recording {
     pub(crate) async fn start(
         video_recorder: &mut dyn VideoRecorder,
-        MetadataParameters {
-            path: metadata_path,
-            game_exe,
-        }: MetadataParameters,
-        WindowParameters {
-            path: video_path,
-            pid,
-            hwnd,
-        }: WindowParameters,
-        InputParameters { path: csv_path }: InputParameters,
+        recording_location: PathBuf,
+        game_exe: String,
+        pid: Pid,
+        hwnd: HWND,
     ) -> Result<Self> {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
 
         let game_resolution = get_recording_base_resolution(hwnd)?;
         tracing::info!("Game resolution: {game_resolution:?}");
+
+        let metadata_path = recording_location.join(constants::filename::recording::METADATA);
+        let video_path = recording_location.join(constants::filename::recording::VIDEO);
+        let csv_path = recording_location.join(constants::filename::recording::INPUTS);
 
         video_recorder
             .start_recording(&video_path, pid.0, hwnd, &game_exe, game_resolution)
@@ -68,6 +52,7 @@ impl Recording {
 
         Ok(Self {
             input_recorder,
+            recording_location,
             metadata_path,
             game_exe,
             game_resolution,

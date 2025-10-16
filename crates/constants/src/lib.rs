@@ -23,3 +23,23 @@ pub const ALT_TAB_GRACE_PERIOD: Duration = Duration::from_secs(20);
 pub const GH_ORG: &str = "Wayfarer-Labs";
 /// GitHub repository
 pub const GH_REPO: &str = "owl-control";
+
+pub mod filename {
+    pub mod recording {
+        /// Reasons that a recording is invalid
+        pub const INVALID: &str = ".invalid";
+        /// Indicates the file was uploaded; contains information about the upload
+        pub const UPLOADED: &str = ".uploaded";
+        /// The video recording file
+        pub const VIDEO: &str = "recording.mp4";
+        /// The input recording file
+        pub const INPUTS: &str = "inputs.csv";
+        /// The metadata file
+        pub const METADATA: &str = "metadata.json";
+    }
+
+    pub mod persistent {
+        /// The config file, stored in persistent data directory
+        pub const CONFIG: &str = "config.json";
+    }
+}
