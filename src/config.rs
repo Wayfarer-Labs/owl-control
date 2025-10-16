@@ -11,6 +11,8 @@ pub struct Preferences {
     #[serde(default = "default_stop_key")]
     pub stop_recording_key: String,
     #[serde(default)]
+    pub stop_hotkey_enabled: bool,
+    #[serde(default)]
     pub unreliable_connection: bool,
     #[serde(default)]
     pub overlay_location: OverlayLocation,
@@ -28,12 +30,25 @@ impl Default for Preferences {
         Self {
             start_recording_key: default_start_key(),
             stop_recording_key: default_stop_key(),
+            stop_hotkey_enabled: Default::default(),
             unreliable_connection: Default::default(),
             overlay_location: Default::default(),
             overlay_opacity: default_opacity(),
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
             recording_backend: Default::default(),
+        }
+    }
+}
+impl Preferences {
+    pub fn start_recording_key(&self) -> &str {
+        &self.start_recording_key
+    }
+    pub fn stop_recording_key(&self) -> &str {
+        if self.stop_hotkey_enabled {
+            &self.stop_recording_key
+        } else {
+            &self.start_recording_key
         }
     }
 }

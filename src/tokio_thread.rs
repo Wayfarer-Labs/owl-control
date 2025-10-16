@@ -73,8 +73,6 @@ async fn main(
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<Recorder> {
-    let mut start_key = start_key;
-    let mut stop_key = stop_key;
     let mut start_keycode =
         lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
     let mut stop_keycode =
@@ -125,27 +123,18 @@ async fn main(
     tokio::spawn(startup_requests(app_state.clone()));
 
     loop {
-        let honk: bool;
-        let start_key_cfg: String;
-        let stop_key_cfg: String;
-        {
+        let (honk, start_key, stop_key) = {
             let cfg = app_state.config.read().unwrap();
-            honk = cfg.preferences.honk;
-            start_key_cfg = cfg.preferences.start_recording_key.clone();
-            stop_key_cfg = cfg.preferences.stop_recording_key.clone();
-        }
-        // instead of performing lookup_keycode every iteration, we check if it's changed from original
-        // and only then do we do the lookup
-        if start_key_cfg != start_key {
-            start_key = start_key_cfg;
-            start_keycode = lookup_keycode(&start_key)
-                .ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-        }
-        if stop_key_cfg != stop_key {
-            stop_key = stop_key_cfg;
-            stop_keycode =
-                lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
-        }
+            (
+                cfg.preferences.honk,
+                cfg.preferences.start_recording_key().to_string(),
+                cfg.preferences.stop_recording_key().to_string(),
+            )
+        };
+        start_keycode =
+            lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
+        stop_keycode =
+            lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
         tokio::select! {
             r = &mut ctrlc_rx => {
                 r.expect("ctrl-c signal handler was closed early");

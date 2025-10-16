@@ -148,7 +148,7 @@ impl MainApp {
                                 egui::Label::new(egui::RichText::new("ℹ").size(16.0).color(egui::Color32::from_rgb(128, 128, 128)))
                             )
                             .on_hover_cursor(egui::CursorIcon::Help)
-                            .on_hover_text("Tip: Start and Stop can be set to the same key for toggle behavior");
+                            .on_hover_text("Tip: You can set separate hotkeys for starting and stopping recording.");
                         });
                     });
                     ui.separator();
@@ -168,18 +168,35 @@ impl MainApp {
                         }
                     });
 
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Stop Recording:"));
-                        let button_text =
-                            if self.listening_for_hotkey_rebind == Some(HotkeyRebindTarget::Stop) {
-                                "Press any key...".to_string()
-                            } else {
-                                self.local_preferences.stop_recording_key.clone()
-                            };
+                    let stop_hotkey_enabled = self.local_preferences.stop_hotkey_enabled;
+                    if stop_hotkey_enabled {
+                        ui.horizontal(|ui| {
+                            add_settings_text(ui, egui::Label::new("Stop Recording:"));
+                            let button_text =
+                                if self.listening_for_hotkey_rebind == Some(HotkeyRebindTarget::Stop) {
+                                    "Press any key...".to_string()
+                                } else {
+                                    self.local_preferences.stop_recording_key.clone()
+                                };
 
-                        if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                            self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Stop);
-                        }
+                            if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
+                                self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Stop);
+                            }
+                        });
+                    }
+
+                    ui.horizontal(|ui| {
+                        add_settings_text(ui, egui::Label::new("Stop Hotkey:"));
+                        add_settings_widget(
+                            ui,
+                            egui::Checkbox::new(
+                                &mut self.local_preferences.stop_hotkey_enabled,
+                                match stop_hotkey_enabled {
+                                    true => "Enabled",
+                                    false => "Disabled",
+                                },
+                            ),
+                        );
                     });
                 });
                 ui.add_space(10.0);
