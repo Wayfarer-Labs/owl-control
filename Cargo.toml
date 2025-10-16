@@ -35,9 +35,9 @@ gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "fix-28" }
-libobs-sources = { git = "https://github.com/joshprk/libobs-rs.git", branch = "fix-28" }
-libobs-window-helper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "fix-28" }
+libobs-wrapper = "4.0.6"
+libobs-sources = "2.0.12"
+libobs-window-helper = "0.1.5"
 
 [workspace.metadata]
 # The libobs version to use (can either be a specific version or "latest")
