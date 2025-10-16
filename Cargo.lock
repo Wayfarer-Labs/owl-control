@@ -470,7 +470,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -3038,15 +3038,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3223,9 +3214,9 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "libobs"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35f0298d5573c136cb3382057e3e55b6029f7cf403d236bce525ff9f325afd19"
+checksum = "86780a34d4ac916110fd08553aa64755c2c53a633cbcfc48b5696eedf394b869"
 dependencies = [
  "bindgen",
 ]
@@ -3244,9 +3235,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-sources"
-version = "2.0.9"
+version = "2.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "347db1ee417434daf4fcb2c28c7e9169cf430f66cda27e9e079b03d7a1433287"
+checksum = "bc91ee2f6c8ac86437dd1253bc15046b2065f169f68566b110d92409c0b1a198"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3273,9 +3264,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "4.0.3"
+version = "4.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2717bc64254270e0156b46cb1bfa5c8b0e7e39412a10c43dcb52d6db978bab09"
+checksum = "078af5c920e97ee035fd45ae13857b76b702c4117630ffb3b06d37c3acc8c871"
 dependencies = [
  "anyhow",
  "arboard",
@@ -4860,7 +4851,7 @@ dependencies = [
  "built",
  "cfg-if 1.0.3",
  "interpolate_name",
- "itertools 0.12.1",
+ "itertools",
  "libc",
  "libfuzzer-sys",
  "log",

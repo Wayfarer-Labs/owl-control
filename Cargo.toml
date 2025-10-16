@@ -38,8 +38,8 @@ gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = "4.0.3"
-libobs-sources = "2.0.9"
+libobs-wrapper = "4.0.6"
+libobs-sources = "2.0.12"
 libobs-window-helper = "0.1.5"
 
 [workspace.metadata]
