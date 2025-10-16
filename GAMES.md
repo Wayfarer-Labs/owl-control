@@ -18,7 +18,11 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 # Usage Guidelines
 
-**Be careful with voice chat!** While OWL Control does not capture microphone input, it will capture other people's voice chat in games. We strongly encourage you to have voice chat turned off and/or to use external voice chat (like Discord) to avoid recording other players' conversations.
+**Be careful with voice chat!** While OWL Control does not capture microphone input, it will capture other people's voice chat in games. Here's what to watch out for:
+
+- **Your own voice (✅):** Never recorded (microphone is not captured).
+- **NPC voices (✅):** Fine to record - we want to hear what they're saying.
+- **Other players in voice chat (❌):** Please avoid recording this. The model might learn their voices and it's a privacy risk. Instead, use Discord or another external voice chat solution so their conversations won't be recorded.
 
 **Replaying games is OK!** It's perfectly fine to replay games you've already played, but try to play a bit differently between playthroughs. This could mean different approaches, strategies, or playstyles. It's okay if you can't play _that_ differently - we're looking to cover as many of the ways you can play games as possible.
 
