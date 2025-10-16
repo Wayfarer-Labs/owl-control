@@ -43,9 +43,18 @@ $TAG_NAME = "v$CARGO_VERSION"
 $CURRENT_COMMIT = git rev-parse HEAD
 
 # Try to get the tag commit, gracefully handle if tag doesn't exist
-$TAG_COMMIT = git rev-parse "refs/tags/$TAG_NAME" 2>$null
-$TAG_COMMAND_SUCCESS = $LASTEXITCODE -eq 0
-$TAG_EXISTS = $TAG_COMMAND_SUCCESS -and $TAG_COMMIT
+$TAG_COMMIT = $null
+$TAG_EXISTS = $false
+try {
+    $TAG_COMMIT = git rev-parse "refs/tags/$TAG_NAME" 2>$null
+    if ($LASTEXITCODE -eq 0 -and $TAG_COMMIT) {
+        $TAG_EXISTS = $true
+    }
+}
+catch {
+    # Tag doesn't exist, which is fine
+    $TAG_EXISTS = $false
+}
 
 if ($TAG_EXISTS -and ($TAG_COMMIT -eq $CURRENT_COMMIT)) {
     # Tag exists and matches current commit
