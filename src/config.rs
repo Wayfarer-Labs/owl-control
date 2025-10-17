@@ -1,6 +1,123 @@
 use color_eyre::eyre::{Context, Result, eyre};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, str::FromStr};
+
+use libobs_wrapper::encoders::ObsVideoEncoderType;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoSettings {
+    #[serde(
+        serialize_with = "serialize_encoder_type",
+        deserialize_with = "deserialize_encoder_type"
+    )]
+    pub encoder_type: ObsVideoEncoderType,
+    pub bitrate: u32,
+    pub preset: String,
+    pub tune: String,
+    pub profile: String,
+    pub rate_control: String,
+    pub bf: i64,
+    pub psycho_aq: bool,
+    pub lookahead: bool,
+}
+
+impl Default for VideoSettings {
+    fn default() -> Self {
+        Self {
+            encoder_type: ObsVideoEncoderType::OBS_X264,
+            bitrate: 2500,
+            preset: "p5".to_string(),
+            tune: "hq".to_string(),
+            profile: "high".to_string(),
+            rate_control: "cbr".to_string(),
+            bf: 2,
+            psycho_aq: true,
+            lookahead: true,
+        }
+    }
+}
+
+impl VideoSettings {
+    /// Apply video encoder settings to ObsData based on encoder type.
+    /// Sets common settings first, then applies encoder-specific settings.
+    /// Because for some fuckshit reason obs-ffmpeg-nvenc uses "preset2" instead of just "preset"
+    /// https://github.com/obsproject/obs-studio/blob/0b1229632063a13dfd26cf1cd9dd43431d8c68f6/plugins/obs-ffmpeg/obs-ffmpeg-nvenc.c#L417
+    /// I suspect that in the future if we want to support more encoders they will have their own
+    /// custom settings strings, so I made it extensible for encoder-specific settings that have different names
+    /// you can just add onto the match arm.
+    pub async fn apply_encoder_settings(
+        &self,
+        mut data: libobs_wrapper::data::ObsData,
+    ) -> color_eyre::Result<libobs_wrapper::data::ObsData> {
+        use libobs_wrapper::encoders::ObsVideoEncoderType;
+
+        // Apply common settings shared by all encoders
+        data.bulk_update()
+            .set_int("bitrate", self.bitrate.into())
+            .set_string("rate_control", self.rate_control.as_str())
+            .set_string("profile", self.profile.as_str())
+            .set_int("bf", self.bf)
+            .set_bool("psycho_aq", self.psycho_aq)
+            .set_bool("lookahead", self.lookahead)
+            .update()
+            .await?;
+
+        // Apply encoder-specific settings
+        match &self.encoder_type {
+            ObsVideoEncoderType::OBS_X264 => {
+                data.bulk_update()
+                    .set_string("preset", self.preset.as_str())
+                    .update()
+                    .await?;
+            }
+            ObsVideoEncoderType::FFMPEG_NVENC => {
+                data.bulk_update()
+                    .set_string("preset2", self.preset.as_str())
+                    .update()
+                    .await?;
+            }
+            ObsVideoEncoderType::OBS_QSV11
+            | ObsVideoEncoderType::OBS_QSV11_AV1
+            | ObsVideoEncoderType::JIM_AV1_NVENC
+            | ObsVideoEncoderType::H265_TEXTURE_AMF
+            | ObsVideoEncoderType::FFMPEG_HEVC_NVENC
+            | ObsVideoEncoderType::H264_TEXTURE_AMF
+            | ObsVideoEncoderType::AV1_TEXTURE_AMF
+            | ObsVideoEncoderType::Other(_) => {
+                // For other encoders, apply all available settings
+                // They will be ignored by the encoder if not applicable
+                data.bulk_update()
+                    .set_string("preset", self.preset.as_str())
+                    .update()
+                    .await?;
+            }
+        }
+
+        Ok(data)
+    }
+}
+
+fn serialize_encoder_type<S>(
+    encoder_type: &ObsVideoEncoderType,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use libobs_wrapper::utils::ObsString;
+    let obs_string: ObsString = encoder_type.clone().into();
+    serializer.serialize_str(&obs_string.to_string())
+}
+
+// very convenient that libobs provides inbuilt from_str conversion for ObsVideoEncoderType that we can use for serialization
+fn deserialize_encoder_type<'de, D>(deserializer: D) -> Result<ObsVideoEncoderType, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(ObsVideoEncoderType::from_str(&s).unwrap())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
@@ -24,6 +141,8 @@ pub struct Preferences {
     pub honk: bool,
     #[serde(default)]
     pub recording_backend: RecordingBackend,
+    #[serde(default)]
+    pub video_settings: VideoSettings,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -37,6 +156,7 @@ impl Default for Preferences {
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
             recording_backend: Default::default(),
+            video_settings: Default::default(),
         }
     }
 }

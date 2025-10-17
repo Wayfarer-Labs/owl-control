@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+libobs-wrapper.workspace = true

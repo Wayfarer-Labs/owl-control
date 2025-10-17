@@ -8,6 +8,7 @@ use egui_wgpu::wgpu;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 
 use crate::{
+    config::VideoSettings,
     output_types::Metadata,
     record::{input_recorder::InputRecorder, recorder::VideoRecorder},
     system::{hardware_id, hardware_specs},
@@ -53,12 +54,13 @@ impl Recording {
             hwnd,
         }: WindowParameters,
         InputParameters { path: csv_path }: InputParameters,
+        video_settings: VideoSettings,
     ) -> Result<Self> {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
 
         video_recorder
-            .start_recording(&video_path, pid.0, hwnd, &game_exe)
+            .start_recording(&video_path, pid.0, hwnd, &game_exe, video_settings)
             .await?;
         let input_recorder = InputRecorder::start(&csv_path).await?;
 

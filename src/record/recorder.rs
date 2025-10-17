@@ -13,7 +13,7 @@ use windows::Win32::Foundation::HWND;
 
 use crate::{
     app_state::{AppState, RecordingStatus},
-    config::RecordingBackend,
+    config::{RecordingBackend, VideoSettings},
     record::{
         obs_embedded_recorder::ObsEmbeddedRecorder,
         obs_socket_recorder::ObsSocketRecorder,
@@ -34,6 +34,7 @@ pub trait VideoRecorder {
         pid: u32,
         hwnd: HWND,
         game_exe: &str,
+        video_settings: VideoSettings,
     ) -> Result<()>;
     async fn stop_recording(&mut self) -> Result<()>;
 }
@@ -149,6 +150,15 @@ impl Recorder {
             "Starting recording"
         );
 
+        let video_settings = self
+            .app_state
+            .config
+            .read()
+            .unwrap()
+            .preferences
+            .video_settings
+            .clone();
+
         let recording = Recording::start(
             self.video_recorder.as_mut(),
             MetadataParameters {
@@ -163,6 +173,7 @@ impl Recorder {
             InputParameters {
                 path: recording_location.join("inputs.csv"),
             },
+            video_settings,
         )
         .await;
 

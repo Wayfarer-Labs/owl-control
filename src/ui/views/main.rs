@@ -7,7 +7,9 @@ use crate::{
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
+use constants::obs::{SUPPORTED_VIDEO_ENCODERS, VIDEO_PRESETS, VIDEO_PROFILES};
 use constants::{GH_ORG, GH_REPO};
+use libobs_wrapper::encoders::ObsVideoEncoderType;
 
 #[derive(Default)]
 pub(crate) struct MainViewState {
@@ -268,7 +270,29 @@ impl MainApp {
                                 },
                             ),
                         );
-                    })
+                    });
+
+                    ui.horizontal(|ui| {
+                        add_settings_text(ui, egui::Label::new("Video Encoder:"));
+                        add_settings_ui(ui, |ui| {
+                            let encoder_name = encoder_type_display_name(&self.local_preferences.video_settings.encoder_type);
+                            egui::ComboBox::from_id_salt("video_encoder")
+                                .selected_text(encoder_name)
+                                .show_ui(ui, |ui| {
+                                    for encoder in SUPPORTED_VIDEO_ENCODERS {
+                                        ui.selectable_value(
+                                            &mut self.local_preferences.video_settings.encoder_type,
+                                            encoder.clone(),
+                                            encoder_type_display_name(&encoder),
+                                        );
+                                    }
+                                });
+
+                            if ui.button("⚙ Settings").clicked() {
+                                self.encoder_settings_window_open = true;
+                            }
+                        });
+                    });
                 });
 
                 ui.add_space(10.0);
@@ -422,6 +446,15 @@ impl MainApp {
                 });
             });
         });
+
+        // Encoder Settings Window
+        egui::Window::new("Video Encoder Settings")
+            .open(&mut self.encoder_settings_window_open)
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                encoder_settings_window(ui, &mut self.local_preferences.video_settings);
+            });
     }
 }
 
@@ -682,4 +715,109 @@ fn uploads_view(ui: &mut egui::Ui, uploads: Option<&[UserUpload]>) {
                     }
                 });
         });
+}
+
+fn encoder_type_display_name(encoder_type: &ObsVideoEncoderType) -> &'static str {
+    match encoder_type {
+        ObsVideoEncoderType::OBS_X264 => "x264 (CPU)",
+        ObsVideoEncoderType::FFMPEG_NVENC => "NVIDIA NVENC (GPU)",
+        ObsVideoEncoderType::OBS_QSV11 => "Intel QSV H.264",
+        ObsVideoEncoderType::OBS_QSV11_AV1 => "Intel QSV AV1",
+        ObsVideoEncoderType::JIM_AV1_NVENC => "NVIDIA AV1",
+        ObsVideoEncoderType::H265_TEXTURE_AMF => "AMD H.265",
+        ObsVideoEncoderType::FFMPEG_HEVC_NVENC => "NVIDIA HEVC",
+        ObsVideoEncoderType::H264_TEXTURE_AMF => "AMD H.264",
+        ObsVideoEncoderType::AV1_TEXTURE_AMF => "AMD AV1",
+        _ => "HONK",
+    }
+}
+
+fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config::VideoSettings) {
+    use egui::RichText;
+
+    ui.heading("Encoder Settings");
+    ui.add_space(10.0);
+
+    ui.label(
+        RichText::new(format!(
+            "Current Encoder: {}",
+            encoder_type_display_name(&video_settings.encoder_type)
+        ))
+        .strong(),
+    );
+    ui.add_space(10.0);
+
+    ui.separator();
+    ui.add_space(5.0);
+
+    // Common settings for all encoders
+    ui.label(RichText::new("Common Settings").size(14.0).strong());
+    ui.add_space(5.0);
+
+    ui.horizontal(|ui| {
+        ui.label("Bitrate (kbps):");
+        ui.add(egui::Slider::new(&mut video_settings.bitrate, 500..=10000).suffix(" kbps"));
+    });
+
+    ui.horizontal(|ui| {
+        ui.label("Rate Control:");
+        egui::ComboBox::from_id_salt("rate_control")
+            .selected_text(&video_settings.rate_control)
+            .show_ui(ui, |ui| {
+                ui.selectable_value(
+                    &mut video_settings.rate_control,
+                    "cbr".to_string(),
+                    "CBR (Constant Bitrate)",
+                );
+                ui.selectable_value(
+                    &mut video_settings.rate_control,
+                    "vbr".to_string(),
+                    "VBR (Variable Bitrate)",
+                );
+                ui.selectable_value(
+                    &mut video_settings.rate_control,
+                    "cqp".to_string(),
+                    "CQP (Constant QP)",
+                );
+            });
+    });
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(5.0);
+
+    ui.horizontal(|ui| {
+        ui.label("Preset:");
+        egui::ComboBox::from_id_salt("enc_preset")
+            .selected_text(&video_settings.preset)
+            .show_ui(ui, |ui| {
+                for preset in VIDEO_PRESETS {
+                    ui.selectable_value(&mut video_settings.preset, preset.to_string(), preset);
+                }
+            });
+    });
+
+    ui.horizontal(|ui| {
+        ui.label("Profile:");
+        egui::ComboBox::from_id_salt("enc_profile")
+            .selected_text(&video_settings.profile)
+            .show_ui(ui, |ui| {
+                for profile in VIDEO_PROFILES {
+                    ui.selectable_value(&mut video_settings.profile, profile.to_string(), profile);
+                }
+            });
+    });
+
+    ui.horizontal(|ui| {
+        ui.label("B-Frames:");
+        ui.add(egui::Slider::new(&mut video_settings.bf, 0..=4));
+    });
+
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut video_settings.psycho_aq, "Psycho Visual AQ");
+    });
+
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut video_settings.lookahead, "Lookahead");
+    });
 }

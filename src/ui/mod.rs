@@ -432,6 +432,9 @@ pub struct MainApp {
     main_view_state: views::main::MainViewState,
 
     tray_icon: tray_icon::TrayIconState,
+
+    /// Whether the encoder settings window is open
+    encoder_settings_window_open: bool,
 }
 impl MainApp {
     fn new(
@@ -486,6 +489,8 @@ impl MainApp {
             main_view_state: views::main::MainViewState::default(),
 
             tray_icon,
+
+            encoder_settings_window_open: false,
         })
     }
 

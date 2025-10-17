@@ -17,13 +17,15 @@ use obws::{
 };
 use windows::Win32::Foundation::HWND;
 
-use crate::record::recorder::{VideoRecorder, get_recording_base_resolution};
+use crate::{
+    config::VideoSettings,
+    record::recorder::{VideoRecorder, get_recording_base_resolution},
+};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 
-const VIDEO_BITRATE: u32 = 2500;
 const SET_ENCODER: bool = false;
 
 pub struct ObsSocketRecorder {
@@ -50,6 +52,7 @@ impl VideoRecorder for ObsSocketRecorder {
         _pid: u32,
         hwnd: HWND,
         game_exe: &str,
+        video_settings: VideoSettings,
     ) -> Result<()> {
         // Connect to OBS
         let client = Client::connect("localhost", 4455, None::<&str>)
@@ -148,7 +151,11 @@ impl VideoRecorder for ObsSocketRecorder {
 
         for (category, name, value) in [
             ("SimpleOutput", "RecQuality", "Stream"),
-            ("SimpleOutput", "VBitrate", &VIDEO_BITRATE.to_string()),
+            (
+                "SimpleOutput",
+                "VBitrate",
+                &video_settings.bitrate.to_string(),
+            ),
             ("Output", "Mode", "Simple"),
             ("SimpleOutput", "RecFormat2", "mp4"),
         ] {
