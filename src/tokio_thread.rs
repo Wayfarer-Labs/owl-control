@@ -38,26 +38,13 @@ pub fn run(
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
-    let recorder = tokio::runtime::Runtime::new().unwrap().block_on(main(
+    Ok(tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
         recording_location,
         log_path,
         async_request_rx,
         stopped_rx,
-    ))?;
-
-    // This is a very disgusting workaround but there doesn't seem to be any other solution.
-    // The ObsContext's Drop implementation deadlocks when called after a tokio
-    // runtime has been active on the thread. This is because _ObsRuntimeGuard::drop uses
-    // futures::executor::block_on which tries to lock a tokio::sync::Mutex, but tokio Mutex
-    // requires an active tokio runtime for .await to work. We can't exactly fix that since
-    // it's part of libobs.rs. Since we cannot safely drop the ObsContext, we intentionally leak it here.
-    tracing::warn!(
-        "Leaking recorder to avoid deadlock (resources will be cleaned up by OS at process exit)"
-    );
-    std::mem::forget(recorder);
-
-    Ok(())
+    ))?)
 }
 
 async fn main(
@@ -66,7 +53,7 @@ async fn main(
     log_path: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
-) -> Result<Recorder> {
+) -> Result<()> {
     let stream_handle =
         rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
     let sink = Sink::connect_new(stream_handle.mixer());
@@ -287,9 +274,7 @@ async fn main(
     }
 
     recorder.stop().await?;
-    // Return the recorder to be "dropped" outside of the tokio runtime
-    // to avoid deadlock. See above for more details.
-    Ok(recorder)
+    Ok(())
 }
 
 /// Attempts to start the recording.
