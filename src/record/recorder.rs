@@ -13,7 +13,7 @@ use windows::Win32::Foundation::HWND;
 
 use crate::{
     app_state::{AppState, RecordingStatus},
-    config::{RecordingBackend, VideoSettings},
+    config::{EncoderSettings, RecordingBackend},
     record::{
         obs_embedded_recorder::ObsEmbeddedRecorder,
         obs_socket_recorder::ObsSocketRecorder,
@@ -34,7 +34,7 @@ pub trait VideoRecorder {
         pid: u32,
         hwnd: HWND,
         game_exe: &str,
-        video_settings: VideoSettings,
+        video_settings: EncoderSettings,
     ) -> Result<()>;
     async fn stop_recording(&mut self) -> Result<()>;
 }

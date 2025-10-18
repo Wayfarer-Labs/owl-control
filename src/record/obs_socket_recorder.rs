@@ -18,7 +18,7 @@ use obws::{
 use windows::Win32::Foundation::HWND;
 
 use crate::{
-    config::VideoSettings,
+    config::EncoderSettings,
     record::recorder::{VideoRecorder, get_recording_base_resolution},
 };
 
@@ -52,7 +52,7 @@ impl VideoRecorder for ObsSocketRecorder {
         _pid: u32,
         hwnd: HWND,
         game_exe: &str,
-        video_settings: VideoSettings,
+        video_settings: EncoderSettings,
     ) -> Result<()> {
         // Connect to OBS
         let client = Client::connect("localhost", 4455, None::<&str>)

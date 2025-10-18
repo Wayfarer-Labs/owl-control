@@ -21,7 +21,7 @@ use libobs_wrapper::{
 };
 
 use crate::{
-    config::VideoSettings,
+    config::EncoderSettings,
     record::recorder::{VideoRecorder, get_recording_base_resolution},
 };
 
@@ -82,7 +82,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         pid: u32,
         hwnd: HWND,
         game_exe: &str,
-        video_settings: VideoSettings,
+        video_settings: EncoderSettings,
     ) -> Result<()> {
         let recording_path: &str = dummy_video_path
             .to_str()
@@ -186,7 +186,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         output
             .video_encoder(
                 VideoEncoderInfo::new(
-                    video_settings.enc_type(),
+                    video_settings.encoder.clone(),
                     "video_encoder",
                     Some(video_encoder_settings),
                     None,

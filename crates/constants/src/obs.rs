@@ -2,10 +2,10 @@ use libobs_wrapper::encoders::ObsVideoEncoderType;
 
 /// Video encoder constants
 /// List of supported video encoders that will be displayed for user to select
-// pub const SUPPORTED_VIDEO_ENCODERS: [ObsVideoEncoderType; 2] = [
-//     ObsVideoEncoderType::OBS_X264,
-//     ObsVideoEncoderType::FFMPEG_NVENC,
-// ];
+pub const SUPPORTED_VIDEO_ENCODERS: [ObsVideoEncoderType; 2] = [
+    ObsVideoEncoderType::OBS_X264,
+    ObsVideoEncoderType::FFMPEG_NVENC,
+];
 
 /// Preset options for different encoder types
 /// https://github.com/obsproject/obs-studio/blob/5ec3af3f6d6465122dc2b0abff9661cbe64b406b/plugins/obs-x264/obs-x264.c
