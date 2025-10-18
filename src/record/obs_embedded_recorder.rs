@@ -186,7 +186,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         output
             .video_encoder(
                 VideoEncoderInfo::new(
-                    video_settings.encoder_type.clone(),
+                    video_settings.enc_type(),
                     "video_encoder",
                     Some(video_encoder_settings),
                     None,

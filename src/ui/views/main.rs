@@ -3,11 +3,11 @@ use std::time::{Duration, Instant};
 use crate::{
     api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
-    config::RecordingBackend,
+    config::{EncoderSpecific, RecordingBackend},
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
-use constants::obs::{SUPPORTED_VIDEO_ENCODERS, VIDEO_PRESETS, VIDEO_PROFILES};
+use constants::obs::VIDEO_PROFILES;
 use constants::{GH_ORG, GH_REPO};
 use libobs_wrapper::encoders::ObsVideoEncoderType;
 
@@ -20,6 +20,17 @@ impl MainApp {
     pub fn main_view(&mut self, ctx: &egui::Context) {
         const SETTINGS_TEXT_WIDTH: f32 = 150.0;
         const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
+        // placeholder defaults for now
+        let SUPPORTED_VIDEO_ENCODERS: [EncoderSpecific; 2] = [
+            EncoderSpecific::OBS_X264 {
+                preset: "faster".to_string(),
+                tune: "".to_string(),
+            },
+            EncoderSpecific::FFMPEG_NVENC {
+                preset2: "p5".to_string(),
+                tune: "hq".to_string(),
+            },
+        ];
 
         fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
             ui.allocate_ui_with_layout(
@@ -275,14 +286,16 @@ impl MainApp {
                     ui.horizontal(|ui| {
                         add_settings_text(ui, egui::Label::new("Video Encoder:"));
                         add_settings_ui(ui, |ui| {
-                            let encoder_name = encoder_type_display_name(&self.local_preferences.video_settings.encoder_type);
+                            let encoder_name = encoder_type_display_name(&self.local_preferences.video_settings.enc_specific);
+                            // TODO: now we need the selectable value selected value to point to like, a oncelock unique instance per possible encoder
+                            // then this might be able to save encoder specific settings across changes.
                             egui::ComboBox::from_id_salt("video_encoder")
                                 .selected_text(encoder_name)
                                 .show_ui(ui, |ui| {
                                     for encoder in SUPPORTED_VIDEO_ENCODERS {
                                         ui.selectable_value(
-                                            &mut self.local_preferences.video_settings.encoder_type,
-                                            encoder.clone(),
+                                            &mut self.local_preferences.video_settings.enc_specific,
+                                            EncoderSpecific::default(),
                                             encoder_type_display_name(&encoder),
                                         );
                                     }
@@ -717,17 +730,17 @@ fn uploads_view(ui: &mut egui::Ui, uploads: Option<&[UserUpload]>) {
         });
 }
 
-fn encoder_type_display_name(encoder_type: &ObsVideoEncoderType) -> &'static str {
+fn encoder_type_display_name(encoder_type: &EncoderSpecific) -> &'static str {
     match encoder_type {
-        ObsVideoEncoderType::OBS_X264 => "x264 (CPU)",
-        ObsVideoEncoderType::FFMPEG_NVENC => "NVIDIA NVENC (GPU)",
-        ObsVideoEncoderType::OBS_QSV11 => "Intel QSV H.264",
-        ObsVideoEncoderType::OBS_QSV11_AV1 => "Intel QSV AV1",
-        ObsVideoEncoderType::JIM_AV1_NVENC => "NVIDIA AV1",
-        ObsVideoEncoderType::H265_TEXTURE_AMF => "AMD H.265",
-        ObsVideoEncoderType::FFMPEG_HEVC_NVENC => "NVIDIA HEVC",
-        ObsVideoEncoderType::H264_TEXTURE_AMF => "AMD H.264",
-        ObsVideoEncoderType::AV1_TEXTURE_AMF => "AMD AV1",
+        EncoderSpecific::OBS_X264 { .. } => "OBS x264 (CPU)",
+        EncoderSpecific::FFMPEG_NVENC { .. } => "NVIDIA NVENC (GPU)",
+        EncoderSpecific::OBS_QSV11 { .. } => "Intel QSV H.264",
+        EncoderSpecific::OBS_QSV11_AV1 { .. } => "Intel QSV AV1",
+        EncoderSpecific::JIM_AV1_NVENC { .. } => "NVIDIA AV1",
+        EncoderSpecific::H265_TEXTURE_AMF { .. } => "AMD H.265",
+        EncoderSpecific::FFMPEG_HEVC_NVENC { .. } => "NVIDIA HEVC",
+        EncoderSpecific::H264_TEXTURE_AMF { .. } => "AMD H.264",
+        EncoderSpecific::AV1_TEXTURE_AMF { .. } => "AMD AV1",
         _ => "HONK",
     }
 }
@@ -741,17 +754,13 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
     ui.label(
         RichText::new(format!(
             "Current Encoder: {}",
-            encoder_type_display_name(&video_settings.encoder_type)
+            encoder_type_display_name(&video_settings.enc_specific)
         ))
         .strong(),
     );
+
     ui.add_space(10.0);
-
     ui.separator();
-    ui.add_space(5.0);
-
-    // Common settings for all encoders
-    ui.label(RichText::new("Common Settings").size(14.0).strong());
     ui.add_space(5.0);
 
     ui.horizontal(|ui| {
@@ -759,6 +768,7 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
         ui.add(egui::Slider::new(&mut video_settings.bitrate, 500..=10000).suffix(" kbps"));
     });
 
+    ui.add_space(5.0);
     ui.horizontal(|ui| {
         ui.label("Rate Control:");
         egui::ComboBox::from_id_salt("rate_control")
@@ -782,21 +792,7 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
             });
     });
 
-    ui.add_space(10.0);
-    ui.separator();
     ui.add_space(5.0);
-
-    ui.horizontal(|ui| {
-        ui.label("Preset:");
-        egui::ComboBox::from_id_salt("enc_preset")
-            .selected_text(&video_settings.preset)
-            .show_ui(ui, |ui| {
-                for preset in VIDEO_PRESETS {
-                    ui.selectable_value(&mut video_settings.preset, preset.to_string(), preset);
-                }
-            });
-    });
-
     ui.horizontal(|ui| {
         ui.label("Profile:");
         egui::ComboBox::from_id_salt("enc_profile")
@@ -808,16 +804,39 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
             });
     });
 
+    ui.add_space(5.0);
     ui.horizontal(|ui| {
         ui.label("B-Frames:");
         ui.add(egui::Slider::new(&mut video_settings.bf, 0..=4));
     });
 
+    ui.add_space(5.0);
     ui.horizontal(|ui| {
         ui.checkbox(&mut video_settings.psycho_aq, "Psycho Visual AQ");
     });
 
+    ui.add_space(5.0);
     ui.horizontal(|ui| {
         ui.checkbox(&mut video_settings.lookahead, "Lookahead");
     });
+
+    // Get unique per encoder fields for this encoder variant
+    let supported_fields = video_settings.get_encoder_field_options();
+    for (field, values) in supported_fields {
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            ui.label(format!("{}:", field));
+            if let Some(field_ref) = video_settings.enc_specific.get_field_mut(&field) {
+                egui::ComboBox::from_id_salt(format!("enc_{}", field))
+                    .selected_text(field_ref.as_str())
+                    .show_ui(ui, |ui| {
+                        for val in values {
+                            ui.selectable_value(field_ref, val.to_string(), val);
+                        }
+                    });
+            }
+        });
+    }
+
+    ui.add_space(10.0);
 }
