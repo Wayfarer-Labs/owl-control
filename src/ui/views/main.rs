@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use crate::{
     api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
-    config::{EncoderSettings, RecordingBackend, encoder_type_display_name},
+    config::{RecordingBackend, encoder_type_display_name},
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
@@ -275,10 +275,9 @@ impl MainApp {
                         add_settings_text(ui, egui::Label::new("Video Encoder:"));
                         add_settings_ui(ui, |ui| {
                             let encoder_name = self.local_preferences.video_settings.display_name();
-                            // TODO: now we need the selectable value selected value to point to like, a oncelock unique instance per possible encoder
-                            // then this might be able to save encoder specific settings across changes.
                             egui::ComboBox::from_id_salt("video_encoder")
                                 .selected_text(encoder_name)
+                                .width(150.0)
                                 .show_ui(ui, |ui| {
                                     for encoder in SUPPORTED_VIDEO_ENCODERS {
                                         ui.selectable_value(

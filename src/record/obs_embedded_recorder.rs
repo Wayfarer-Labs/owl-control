@@ -180,6 +180,10 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         let video_encoder_settings = video_settings
             .apply_encoder_settings(video_encoder_data)
             .await?;
+        tracing::info!(
+            "Recording starting with video settings: {:#?}",
+            video_settings
+        );
 
         // Get video handler and attach encoder to output
         let video_handler = self.obs_context.get_video_ptr().await?;
