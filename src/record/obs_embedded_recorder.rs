@@ -23,6 +23,7 @@ use libobs_wrapper::{
     data::{output::ObsOutputRef, video::ObsVideoInfoBuilder},
     encoders::ObsVideoEncoderType,
     logger::ObsLogger,
+    scenes::ObsSceneRef,
     sources::ObsSourceRef,
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
@@ -149,52 +150,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     .build(),
             )?;
 
-            let source = if USE_WINDOW_CAPTURE {
-                let window =
-                    WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
-                        .map_err(|e| eyre!(e))?;
-                let window = window
-                    .iter()
-                    .find(|w| w.0.pid == pid)
-                    .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
-
-                obs_context
-                    .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
-                    ?
-                    .set_window(window)
-                    .set_capture_audio(true)
-                    .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
-                    .add_to_scene(&mut scene)
-                    ?
-            } else {
-                let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
-                    .map_err(|e| eyre!(e))?;
-                let window = window
-                    .iter()
-                    .find(|w| w.pid == pid)
-                    .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
-
-                if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
-                    bail!(
-                        "The window you're trying to record ({game_exe}) is already being captured by another process. Do you have OBS or another instance of OWL Control open?\n\nNote that OBS is no longer required to use OWL Control - please close it if you have it running!",
-                    );
-                }
-
-                if !window.is_game {
-                    bail!(
-                        "The window you're trying to record ({game_exe}) cannot be captured. Please ensure you are capturing a game."
-                    );
-                }
-
-                obs_context
-                    .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
-                    ?
-                    .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
-                    .set_window(window)
-                    .set_capture_audio(true)
-                    .add_to_scene(&mut scene)
-                    ?
-            };
+            let source = build_source(&mut obs_context, pid, &game_exe, &mut scene)?;
 
             // Register a signal to detect when the source is hooked,
             // so we can invalidate non-hooked recordings
@@ -263,7 +219,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
             output.start()?;
 
-            Ok((output, source))
+            eyre::Ok((output, source))
         })
         .await??;
 
@@ -308,6 +264,57 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
         Ok(())
     }
+}
+
+fn build_source(
+    obs_context: &mut ObsContext,
+    pid: u32,
+    game_exe: &str,
+    scene: &mut ObsSceneRef,
+) -> Result<ObsSourceRef> {
+    let result = if USE_WINDOW_CAPTURE {
+        let window = WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
+            .map_err(|e| eyre!(e))?;
+        let window = window
+            .iter()
+            .find(|w| w.0.pid == pid)
+            .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
+
+        obs_context
+            .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)?
+            .set_window(window)
+            .set_capture_audio(true)
+            .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
+            .add_to_scene(scene)
+    } else {
+        let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
+            .map_err(|e| eyre!(e))?;
+        let window = window
+            .iter()
+            .find(|w| w.pid == pid)
+            .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
+
+        if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
+            bail!(
+                "The window you're trying to record ({game_exe}) is already being captured by another process. Do you have OBS or another instance of OWL Control open?\n\nNote that OBS is no longer required to use OWL Control - please close it if you have it running!",
+            );
+        }
+
+        if !window.is_game {
+            bail!(
+                "The window you're trying to record ({game_exe}) cannot be captured. Please ensure you are capturing a game."
+            );
+        }
+
+        obs_context
+            .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)?
+            .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
+            .set_window(window)
+            .set_capture_audio(true)
+            .add_to_scene(scene)
+    };
+
+    Ok(result?)
 }
 
 #[derive(Debug)]
