@@ -8,7 +8,7 @@ use std::{
 
 use color_eyre::{
     Result,
-    eyre::{Context, OptionExt as _, bail, eyre},
+    eyre::{self, Context, OptionExt as _, bail, eyre},
 };
 use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
 use windows::Win32::Foundation::HWND;
@@ -40,40 +40,60 @@ const VIDEO_BITRATE: u32 = 2500;
 const USE_WINDOW_CAPTURE: bool = false;
 
 pub struct ObsEmbeddedRecorder {
-    obs_context: ObsContext,
     adapter_index: usize,
+    hook_successful: Arc<AtomicBool>,
+    obs_data: Option<ObsData>,
+}
+impl Drop for ObsEmbeddedRecorder {
+    fn drop(&mut self) {
+        if let Some(obs_data) = self.obs_data.take() {
+            // Move the ObsData into a blocking context,
+            // and let it detach, so that it can drop in its own time
+            tokio::task::spawn_blocking(move || {
+                std::mem::drop(obs_data);
+            });
+        }
+    }
+}
+// Separate struct that can be dropped in a Tokio-blocking context
+// as to avoid blocking a Tokio thread on drop
+struct ObsData {
+    obs_context: ObsContext,
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
-    hook_successful: Arc<AtomicBool>,
 }
 impl ObsEmbeddedRecorder {
     pub async fn new(adapter_index: usize) -> Result<Self>
     where
         Self: Sized,
     {
-        let obs_context = ObsContext::new(
-            ObsContext::builder()
-                .set_logger(Box::new(TracingObsLogger))
-                .set_video_info(
-                    ObsVideoInfoBuilder::new()
-                        .adapter(adapter_index as u32)
-                        .fps_num(FPS)
-                        .fps_den(1)
-                        .base_width(RECORDING_WIDTH)
-                        .base_height(RECORDING_HEIGHT)
-                        .output_width(RECORDING_WIDTH)
-                        .output_height(RECORDING_HEIGHT)
-                        .build(),
-                ),
-        )
-        .await?;
+        let obs_context = tokio::task::spawn_blocking(move || {
+            ObsContext::new(
+                ObsContext::builder()
+                    .set_logger(Box::new(TracingObsLogger))
+                    .set_video_info(
+                        ObsVideoInfoBuilder::new()
+                            .adapter(adapter_index as u32)
+                            .fps_num(FPS)
+                            .fps_den(1)
+                            .base_width(RECORDING_WIDTH)
+                            .base_height(RECORDING_HEIGHT)
+                            .output_width(RECORDING_WIDTH)
+                            .output_height(RECORDING_HEIGHT)
+                            .build(),
+                    ),
+            )
+        })
+        .await??;
 
         tracing::debug!("OBS context initialized successfully");
         Ok(Self {
-            obs_context,
             adapter_index,
-            current_output: None,
-            source: None,
+            obs_data: Some(ObsData {
+                obs_context,
+                current_output: None,
+                source: None,
+            }),
             hook_successful: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -92,24 +112,34 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         game_exe: &str,
         (base_width, base_height): (u32, u32),
     ) -> Result<()> {
-        let recording_path: &str = dummy_video_path
+        let recording_path = dummy_video_path
             .to_str()
-            .ok_or_eyre("Recording path must be valid UTF-8")?;
+            .ok_or_eyre("Recording path must be valid UTF-8")?
+            .to_string();
 
         tracing::debug!("Starting recording with path: {}", recording_path);
 
+        let Some(obs_data) = &mut self.obs_data else {
+            bail!("No OBS data to start recording");
+        };
+
         // Check if already recording
-        if self.current_output.is_some() {
+        if obs_data.current_output.is_some() {
             bail!("Recording is already in progress");
         }
 
-        // Set up scene and window capture based on input pid
-        let mut scene = self.obs_context.scene(OWL_SCENE_NAME).await?;
+        let mut obs_context = obs_data.obs_context.clone();
+        let hook_successful = self.hook_successful.clone();
+        let adapter_index = self.adapter_index;
+        let game_exe = game_exe.to_string();
 
-        self.obs_context
-            .reset_video(
+        let (output, source) = tokio::task::spawn_blocking(move || {
+            // Set up scene and window capture based on input pid
+            let mut scene = obs_context.scene(OWL_SCENE_NAME)?;
+
+            obs_context.reset_video(
                 ObsVideoInfoBuilder::new()
-                    .adapter(self.adapter_index as u32)
+                    .adapter(adapter_index as u32)
                     .fps_num(FPS)
                     .fps_den(1)
                     .base_width(base_width)
@@ -117,107 +147,101 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     .output_width(RECORDING_WIDTH)
                     .output_height(RECORDING_HEIGHT)
                     .build(),
-            )
-            .await?;
+            )?;
 
-        let source = if USE_WINDOW_CAPTURE {
-            let window =
-                WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
+            let source = if USE_WINDOW_CAPTURE {
+                let window =
+                    WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
+                        .map_err(|e| eyre!(e))?;
+                let window = window
+                    .iter()
+                    .find(|w| w.0.pid == pid)
+                    .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
+
+                obs_context
+                    .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
+                    ?
+                    .set_window(window)
+                    .set_capture_audio(true)
+                    .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
+                    .add_to_scene(&mut scene)
+                    ?
+            } else {
+                let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
                     .map_err(|e| eyre!(e))?;
-            let window = window
-                .iter()
-                .find(|w| w.0.pid == pid)
-                .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
+                let window = window
+                    .iter()
+                    .find(|w| w.pid == pid)
+                    .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
 
-            self.obs_context
-                .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
-                .await?
-                .set_window(window)
-                .set_capture_audio(true)
-                .set_client_area(false) // capture full screen. if this is set to true there's black borders around the window capture.
-                .add_to_scene(&mut scene)
-                .await?
-        } else {
-            let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
-                .map_err(|e| eyre!(e))?;
-            let window = window
-                .iter()
-                .find(|w| w.pid == pid)
-                .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
-
-            if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
-                bail!(
-                    "The window you're trying to record ({game_exe}) is already being captured by another process. Do you have OBS or another instance of OWL Control open?\n\nNote that OBS is no longer required to use OWL Control - please close it if you have it running!",
-                );
-            }
-
-            if !window.is_game {
-                bail!(
-                    "The window you're trying to record ({game_exe}) cannot be captured. Please ensure you are capturing a game."
-                );
-            }
-
-            self.obs_context
-                .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
-                .await?
-                .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
-                .set_window(window)
-                .set_capture_audio(true)
-                .add_to_scene(&mut scene)
-                .await?
-        };
-
-        // Register a signal to detect when the source is hooked,
-        // so we can invalidate non-hooked recordings
-        self.hook_successful.store(false, Ordering::SeqCst);
-        tokio::spawn({
-            let mut on_hooked = source
-                .signal_manager()
-                .on_hooked()
-                .await
-                .context("failed to register on_hooked signal")?;
-            let hook_successful = self.hook_successful.clone();
-            async move {
-                if on_hooked.recv().await.is_ok() {
-                    tracing::info!(
-                        "Game capture source was able to successfully hook the game, recording will be valid"
+                if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
+                    bail!(
+                        "The window you're trying to record ({game_exe}) is already being captured by another process. Do you have OBS or another instance of OWL Control open?\n\nNote that OBS is no longer required to use OWL Control - please close it if you have it running!",
                     );
-                    hook_successful.store(true, Ordering::SeqCst);
                 }
-            }
-        });
 
-        // Register the source
-        scene.set_to_channel(0).await?;
+                if !window.is_game {
+                    bail!(
+                        "The window you're trying to record ({game_exe}) cannot be captured. Please ensure you are capturing a game."
+                    );
+                }
 
-        // Set up output
-        let mut output_settings = self.obs_context.data().await?;
-        output_settings
-            .set_string("path", ObsPath::new(recording_path).build())
-            .await?;
+                obs_context
+                    .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)
+                    ?
+                    .set_capture_mode(ObsGameCaptureMode::CaptureSpecificWindow)
+                    .set_window(window)
+                    .set_capture_audio(true)
+                    .add_to_scene(&mut scene)
+                    ?
+            };
 
-        let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
-        let mut output = self.obs_context.output(output_info).await?;
+            // Register a signal to detect when the source is hooked,
+            // so we can invalidate non-hooked recordings
+            hook_successful.store(false, Ordering::SeqCst);
+            tokio::spawn({
+                let mut on_hooked = source
+                    .signal_manager()
+                    .on_hooked()
+                    .context("failed to register on_hooked signal")?;
+                async move {
+                    if on_hooked.recv().await.is_ok() {
+                        tracing::info!(
+                            "Game capture source was able to successfully hook the game, recording will be valid"
+                        );
+                        hook_successful.store(true, Ordering::SeqCst);
+                    }
+                }
+            });
 
-        // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
-        // Register the video encoder
-        let mut video_settings = self.obs_context.data().await?;
-        video_settings
-            .bulk_update()
-            .set_int("bf", 2)
-            .set_bool("psycho_aq", true)
-            .set_bool("lookahead", true)
-            .set_string("profile", "high")
-            .set_string("preset", "hq")
-            .set_string("rate_control", "cbr")
-            .set_int("bitrate", VIDEO_BITRATE.into())
-            .update()
-            .await?;
+            // Register the source
+            scene.set_to_channel(0)?;
 
-        // Get video handler and attach encoder to output
-        let video_handler = self.obs_context.get_video_ptr().await?;
-        output
-            .video_encoder(
+            // Set up output
+            let mut output_settings = obs_context.data()?;
+            output_settings.set_string("path", ObsPath::new(&recording_path).build())?;
+
+            let output_info =
+                OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
+            let mut output = obs_context.output(output_info)?;
+
+            // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
+            // Register the video encoder
+            let mut video_settings = obs_context.data()?;
+            video_settings
+                .bulk_update()
+                .set_int("bf", 2)
+                .set_bool("psycho_aq", true)
+                .set_bool("lookahead", true)
+                .set_string("profile", "high")
+                .set_string("preset", "hq")
+                .set_string("rate_control", "cbr")
+                .set_int("bitrate", VIDEO_BITRATE.into())
+                .update()?;
+
+            // Get video handler and attach encoder to output
+            let video_handler = obs_context.get_video_ptr()?;
+            output.video_encoder(
                 VideoEncoderInfo::new(
                     ObsVideoEncoderType::OBS_X264,
                     "video_encoder",
@@ -225,39 +249,54 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     None,
                 ),
                 video_handler,
-            )
-            .await?;
+            )?;
 
-        // Register the audio encoder
-        let mut audio_settings = self.obs_context.data().await?;
-        audio_settings.set_int("bitrate", 160).await?;
+            // Register the audio encoder
+            let mut audio_settings = obs_context.data()?;
+            audio_settings.set_int("bitrate", 160)?;
 
-        let audio_info =
-            AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
+            let audio_info =
+                AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
 
-        let audio_handler = self.obs_context.get_audio_ptr().await?;
-        output.audio_encoder(audio_info, 0, audio_handler).await?;
+            let audio_handler = obs_context.get_audio_ptr()?;
+            output.audio_encoder(audio_info, 0, audio_handler)?;
 
-        output.start().await?;
+            output.start()?;
+
+            Ok((output, source))
+        })
+        .await??;
 
         // Store the output and recording path
-        self.current_output = Some(output);
+        obs_data.current_output = Some(output);
 
         tracing::debug!("OBS recording started successfully");
-        self.source = Some(source);
+        obs_data.source = Some(source);
+
         Ok(())
     }
 
     async fn stop_recording(&mut self) -> Result<()> {
         tracing::debug!("Stopping OBS recording...");
 
-        if let Some(mut output) = self.current_output.take() {
-            output.stop().await.wrap_err("Failed to stop OBS output")?;
-            if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME).await
-                && let Some(source) = self.source.take()
-            {
-                scene.remove_source(&source).await?;
-            }
+        let Some(obs_data) = &mut self.obs_data else {
+            bail!("No OBS data to stop recording");
+        };
+
+        if let Some(mut output) = obs_data.current_output.take() {
+            let mut context = obs_data.obs_context.clone();
+            let source = obs_data.source.take();
+            tokio::task::spawn_blocking(move || {
+                output.stop().wrap_err("Failed to stop OBS output")?;
+                if let Some(mut scene) = context.get_scene(OWL_SCENE_NAME)
+                    && let Some(source) = source
+                {
+                    scene.remove_source(&source)?;
+                }
+
+                eyre::Ok(())
+            })
+            .await??;
             tracing::debug!("OBS recording stopped");
         } else {
             tracing::warn!("No active recording to stop");

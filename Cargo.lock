@@ -3250,6 +3250,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "paste",
+ "remove-async-await",
 ]
 
 [[package]]
@@ -3285,7 +3286,9 @@ dependencies = [
  "num-derive",
  "num-traits",
  "oneshot",
+ "parking_lot",
  "paste",
+ "remove-async-await",
  "tokio",
  "vsprintf",
  "windows 0.62.0",
@@ -5009,6 +5012,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caf4aa5b0f434c91fe5c7f1ecb6a5ece2130b02ad2a590589dda5146df959001"
 
 [[package]]
+name = "remove-async-await"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a0993102a683d0fb29c6053ad44d7ed7555f69b2fa5fe0fa3bba959a9aa4cd1"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "renderdoc-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5812,6 +5825,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
 dependencies = [
  "proc-macro2",
+ "quote",
  "unicode-ident",
 ]
 

@@ -38,13 +38,13 @@ pub fn run(
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
-    Ok(tokio::runtime::Runtime::new().unwrap().block_on(main(
+    tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
         recording_location,
         log_path,
         async_request_rx,
         stopped_rx,
-    ))?)
+    ))
 }
 
 async fn main(
