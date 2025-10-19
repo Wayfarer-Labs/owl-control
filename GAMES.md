@@ -28,13 +28,13 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ## Top-Priority Games
 
-- [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials?snr=1_25_4__318)
-- [Nucleares](https://store.steampowered.com/app/1428420/Nucleares?snr=1_25_4__318)
-- [The Vanishing of Ethan Carter](https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter?snr=1_25_4__318)
+- [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
+- [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
+- [The Vanishing of Ethan Carter](https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter)
 - [Jazzpunk](https://store.steampowered.com/app/250260/Jazzpunk_Directors_Cut)
 - [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
 - [Tacoma](https://store.steampowered.com/app/343860/Tacoma/)
-- [Layers of Fear 2](https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019?snr=1_25_4__318)
+- [Layers of Fear 2](https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019)
 - [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
 - [The Witness](https://store.steampowered.com/app/210970/The_Witness/)
 - [What Remains of Edith Finch](https://store.steampowered.com/app/501300/What_Remains_of_Edith_Finch/)
@@ -58,8 +58,8 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Movement / Parkour (continuous control, momentum, traversal)
 
-- [Ghostrunner 2](https://store.steampowered.com/app/2144740/Ghostrunner_2?snr=1_25_4__318)
-- [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT?snr=1_25_4__318)
+- [Ghostrunner 2](https://store.steampowered.com/app/2144740/Ghostrunner_2)
+- [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT)
 - [Mirror's Edge](https://store.steampowered.com/app/17410/Mirrors_Edge/)
 - [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
 - [Titanfall 2](https://store.steampowered.com/app/1237970/Titanfall_2/)
@@ -69,9 +69,9 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
-- [Pacific Drive](https://store.steampowered.com/app/1458140/Pacific_Drive?snr=1_25_4__318)
-- [Internet_Cafe_Simulator_2025](https://store.steampowered.com/app/3326290/Internet_Cafe_Simulator_2025?snr=1_25_4__318)
-- [Microsoft Flight Simulator 2024](https://store.steampowered.com/app/2537590/Microsoft_Flight_Simulator_2024?snr=1_25_4__318)
+- [Pacific Drive](https://store.steampowered.com/app/1458140/Pacific_Drive)
+- [Internet_Cafe_Simulator_2025](https://store.steampowered.com/app/3326290/Internet_Cafe_Simulator_2025)
+- [Microsoft Flight Simulator 2024](https://store.steampowered.com/app/2537590/Microsoft_Flight_Simulator_2024)
 - [BeamNG.drive](https://store.steampowered.com/app/284160/BeamNGdrive)
 - [Liftoff_FPV_Drone_Racing](https://store.steampowered.com/app/410340/Liftoff_FPV_Drone_Racing)
 - [The Planet Crafter](https://store.steampowered.com/app/1284190/The_Planet_Crafter)
@@ -109,9 +109,9 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
-- [High on Life](https://store.steampowered.com/app/1583230/High_On_Life?snr=1_25_4__318)
-- [Rust](https://store.steampowered.com/app/252490/Rust?snr=1_25_4__318)
-- [Borderlands 4](https://store.steampowered.com/app/1285190/Borderlands_4?snr=1_25_4__318)
+- [High on Life](https://store.steampowered.com/app/1583230/High_On_Life)
+- [Rust](https://store.steampowered.com/app/252490/Rust)
+- [Borderlands 4](https://store.steampowered.com/app/1285190/Borderlands_4)
 - [Crysis](https://store.steampowered.com/app/17300/Crysis/)
 - [Crysis 2](https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/)
 - [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/) (admin)
@@ -123,11 +123,11 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
 
-- [R.E.P.O](https://store.steampowered.com/app/3241660/REPO?snr=1_25_4__318)
-- [Pacify](https://store.steampowered.com/app/967050/Pacify?snr=1_25_4__318)
-- [Cry of Fear (free)](https://store.steampowered.com/app/223710/Cry_of_Fear?snr=1_25_4__318)
+- [R.E.P.O](https://store.steampowered.com/app/3241660/REPO)
+- [Pacify](https://store.steampowered.com/app/967050/Pacify)
+- [Cry of Fear (free)](https://store.steampowered.com/app/223710/Cry_of_Fear)
 - [Lethal Company](https://store.steampowered.com/app/1966720/Lethal_Company)
-- [Left 4 Dead 2](https://store.steampowered.com/app/550/Left_4_Dead_2?snr=1_25_4__318)
+- [Left 4 Dead 2](https://store.steampowered.com/app/550/Left_4_Dead_2)
 - [Alien: Isolation](https://store.steampowered.com/app/214490/Alien_Isolation/)
 - [Outlast](https://store.steampowered.com/app/238320/Outlast/)
 - [Amnesia: The Dark Descent](https://store.steampowered.com/app/57300/Amnesia_The_Dark_Descent/)
@@ -138,7 +138,7 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 ### Campaign Shooters / Combined Arms (vehicles, squad AI, large arenas)
 
 - [Gunfire Reborn](https://store.steampowered.com/app/1217060/Gunfire_Reborn)
-- [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition?snr=1_25_4__318)
+- [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo 2 Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo 3 (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
