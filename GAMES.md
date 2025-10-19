@@ -33,6 +33,7 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 - [The Vanishing of Ethan Carter](https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter?snr=1_25_4__318)
 - [Jazzpunk](https://store.steampowered.com/app/250260/Jazzpunk_Directors_Cut)
 - [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
+- [Tacoma](https://store.steampowered.com/app/343860/Tacoma/)
 - [Layers of Fear 2](https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019?snr=1_25_4__318)
 - [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
 - [The Witness](https://store.steampowered.com/app/210970/The_Witness/)
