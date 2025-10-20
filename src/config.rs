@@ -262,7 +262,7 @@ pub struct ObsX264Settings {
 impl Default for ObsX264Settings {
     fn default() -> Self {
         Self {
-            preset: "veryfast".to_string(),
+            preset: constants::encoding::X264_PRESETS[0].to_string(),
             tune: String::new(),
         }
     }
@@ -288,8 +288,8 @@ pub struct FfmpegNvencSettings {
 impl Default for FfmpegNvencSettings {
     fn default() -> Self {
         Self {
-            preset2: "p5".to_string(),
-            tune: "hq".to_string(),
+            preset2: constants::encoding::NVENC_PRESETS[0].to_string(),
+            tune: constants::encoding::NVENC_TUNE_OPTIONS[0].to_string(),
         }
     }
 }

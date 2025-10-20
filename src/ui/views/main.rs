@@ -282,7 +282,7 @@ impl MainApp {
                                     for encoder in SUPPORTED_VIDEO_ENCODERS {
                                         ui.selectable_value(
                                             &mut self.local_preferences.encoder.encoder,
-                                            encoder,
+                                            *encoder,
                                             encoder.to_string(),
                                         );
                                     }
@@ -1059,7 +1059,7 @@ fn encoder_settings_x264(ui: &mut egui::Ui, x264_settings: &mut ObsX264Settings)
     dropdown_list(
         ui,
         "Preset:",
-        &constants::encoding::X264_PRESETS,
+        constants::encoding::X264_PRESETS,
         &mut x264_settings.preset,
     );
 }
@@ -1068,7 +1068,7 @@ fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSet
     dropdown_list(
         ui,
         "Preset:",
-        &constants::encoding::NVENC_PRESETS,
+        constants::encoding::NVENC_PRESETS,
         &mut nvenc_settings.preset2,
     );
 
@@ -1076,7 +1076,7 @@ fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSet
     dropdown_list(
         ui,
         "Tune:",
-        &constants::encoding::NVENC_TUNE_OPTIONS,
+        constants::encoding::NVENC_TUNE_OPTIONS,
         &mut nvenc_settings.tune,
     );
 }
