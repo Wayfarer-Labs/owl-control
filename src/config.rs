@@ -228,7 +228,7 @@ impl Default for EncoderSettings {
 }
 impl EncoderSettings {
     /// Apply encoder settings to ObsData
-    pub async fn apply_to_obs_data(
+    pub fn apply_to_obs_data(
         &self,
         mut data: libobs_wrapper::data::ObsData,
     ) -> color_eyre::Result<libobs_wrapper::data::ObsData> {
@@ -246,7 +246,7 @@ impl EncoderSettings {
             VideoEncoderType::X264 => self.x264.apply_to_data_updater(updater),
             VideoEncoderType::NvEnc => self.nvenc.apply_to_data_updater(updater),
         };
-        updater.update().await?;
+        updater.update()?;
 
         Ok(data)
     }
