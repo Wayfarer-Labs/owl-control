@@ -220,10 +220,6 @@ pub struct EncoderSettings {
 
     /// Shared encoder settings
     pub profile: String,
-    pub rate_control: String,
-    pub bf: i64,
-    pub psycho_aq: bool,
-    pub lookahead: bool,
 }
 impl Default for EncoderSettings {
     fn default() -> Self {
@@ -232,10 +228,6 @@ impl Default for EncoderSettings {
             x264: Default::default(),
             nvenc: Default::default(),
             profile: encoding::VIDEO_PROFILES[0].to_string(),
-            rate_control: "cbr".to_string(),
-            bf: 2,
-            psycho_aq: true,
-            lookahead: true,
         }
     }
 }
@@ -249,7 +241,7 @@ fn to_hashmap<T: Serialize>(settings: &T) -> HashMap<String, Value> {
 }
 impl EncoderSettings {
     /// Apply encoder settings to ObsData
-    pub async fn apply_encoder_settings(
+    pub async fn apply_to_obs_data(
         &self,
         mut data: libobs_wrapper::data::ObsData,
     ) -> color_eyre::Result<libobs_wrapper::data::ObsData> {
@@ -257,11 +249,11 @@ impl EncoderSettings {
         let mut updater = data.bulk_update();
         updater = updater
             .set_int("bitrate", constants::encoding::BITRATE)
-            .set_string("rate_control", self.rate_control.as_str())
+            .set_string("rate_control", constants::encoding::RATE_CONTROL)
             .set_string("profile", self.profile.as_str())
-            .set_int("bf", self.bf)
-            .set_bool("psycho_aq", self.psycho_aq)
-            .set_bool("lookahead", self.lookahead);
+            .set_int("bf", constants::encoding::B_FRAMES)
+            .set_bool("psycho_aq", constants::encoding::PSYCHO_AQ)
+            .set_bool("lookahead", constants::encoding::LOOKAHEAD);
 
         let encoder_settings = match self.encoder {
             VideoEncoderType::X264 => to_hashmap(&self.x264),

@@ -1059,30 +1059,6 @@ fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSett
 
     ui.add_space(5.0);
     ui.horizontal(|ui| {
-        ui.label("Rate Control:");
-        egui::ComboBox::from_id_salt("rate_control")
-            .selected_text(&encoder_settings.rate_control)
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut encoder_settings.rate_control,
-                    "cbr".to_string(),
-                    "CBR (Constant Bitrate)",
-                );
-                ui.selectable_value(
-                    &mut encoder_settings.rate_control,
-                    "vbr".to_string(),
-                    "VBR (Variable Bitrate)",
-                );
-                ui.selectable_value(
-                    &mut encoder_settings.rate_control,
-                    "cqp".to_string(),
-                    "CQP (Constant QP)",
-                );
-            });
-    });
-
-    ui.add_space(5.0);
-    ui.horizontal(|ui| {
         ui.label("Profile:");
         egui::ComboBox::from_id_salt("enc_profile")
             .selected_text(&encoder_settings.profile)
@@ -1095,22 +1071,6 @@ fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSett
                     );
                 }
             });
-    });
-
-    ui.add_space(5.0);
-    ui.horizontal(|ui| {
-        ui.label("B-Frames:");
-        ui.add(egui::Slider::new(&mut encoder_settings.bf, 0..=4));
-    });
-
-    ui.add_space(5.0);
-    ui.horizontal(|ui| {
-        ui.checkbox(&mut encoder_settings.psycho_aq, "Psycho Visual AQ");
-    });
-
-    ui.add_space(5.0);
-    ui.horizontal(|ui| {
-        ui.checkbox(&mut encoder_settings.lookahead, "Lookahead");
     });
 
     // Get unique per encoder fields for this encoder variant

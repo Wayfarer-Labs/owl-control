@@ -201,9 +201,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
         // Register the video encoder with encoder-specific settings
         let video_encoder_data = self.obs_context.data().await?;
-        let video_encoder_settings = video_settings
-            .apply_encoder_settings(video_encoder_data)
-            .await?;
+        let video_encoder_settings = video_settings.apply_to_obs_data(video_encoder_data).await?;
         tracing::info!(
             "Recording starting with video settings: {:#?}",
             video_settings

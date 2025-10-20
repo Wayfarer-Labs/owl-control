@@ -57,3 +57,15 @@ pub const VIDEO_PROFILES: [&str; 1] = ["high"];
 
 /// Bitrate (kbps)
 pub const BITRATE: i64 = 2500;
+
+/// Rate control
+pub const RATE_CONTROL: &str = "cbr";
+
+/// B-frames
+pub const B_FRAMES: i64 = 2;
+
+/// Psycho AQ
+pub const PSYCHO_AQ: bool = true;
+
+/// Lookahead
+pub const LOOKAHEAD: bool = true;
