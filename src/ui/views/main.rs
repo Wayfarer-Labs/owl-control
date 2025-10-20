@@ -145,11 +145,7 @@ impl MainApp {
                                 .strong(),
                         );
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.add(
-                                egui::Label::new(egui::RichText::new("ℹ").size(16.0).color(egui::Color32::from_rgb(128, 128, 128)))
-                            )
-                            .on_hover_cursor(egui::CursorIcon::Help)
-                            .on_hover_text("Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.");
+                            tooltip(ui, "Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.", None);
                         });
                     });
                     ui.separator();
@@ -378,14 +374,10 @@ impl MainApp {
                             &mut self.local_preferences.unreliable_connection,
                             "Optimize for unreliable connections",
                         ));
-                        ui.add(
-                            egui::Label::new(egui::RichText::new("ℹ").size(14.0).color(egui::Color32::from_rgb(128, 128, 128)))
-                        )
-                        .on_hover_cursor(egui::CursorIcon::Help)
-                        .on_hover_text(concat!(
+                        tooltip(ui, concat!(
                             "Enable this if you have a slow or unstable internet connection. ",
                             "This will use smaller file chunks to improve upload success rates."
-                        ));
+                        ), None);
                     });
 
                     // Delete Uploaded Recordings Setting
@@ -394,14 +386,10 @@ impl MainApp {
                             &mut self.local_preferences.delete_uploaded_files,
                             "Delete recordings after successful upload",
                         ));
-                        ui.add(
-                            egui::Label::new(egui::RichText::new("ℹ").size(14.0).color(egui::Color32::from_rgb(128, 128, 128)))
-                        )
-                        .on_hover_cursor(egui::CursorIcon::Help)
-                        .on_hover_text(concat!(
+                        tooltip(ui, concat!(
                             "Automatically delete local recordings after they have been successfully uploaded. ",
                             "Invalid uploads, as well as existing uploads, will not be deleted."
-                        ));
+                        ), None);
                     });
 
                     // Upload Button
@@ -851,25 +839,10 @@ fn unified_recordings_view(
                                                     }
 
                                                     // Info icon with error tooltip
-                                                    ui.add(
-                                                        egui::Label::new(
-                                                            egui::RichText::new("ℹ")
-                                                                .size(FONTSIZE)
-                                                                .color(egui::Color32::from_rgb(255, 150, 150))
-                                                        )
-                                                    )
-                                                    .on_hover_cursor(egui::CursorIcon::Help)
-                                                    .on_hover_text({
-                                                        let mut tooltip_text = String::from("Validation errors:\n");
-                                                        for (i, reason) in error_reasons.iter().enumerate() {
-                                                            if i > 0 {
-                                                                tooltip_text.push('\n');
-                                                            }
-                                                            tooltip_text.push_str("• ");
-                                                            tooltip_text.push_str(reason);
-                                                        }
-                                                        tooltip_text
-                                                    });
+                                                    tooltip(ui,
+                                                        &std::iter::once("Validation errors:".to_string()).chain(error_reasons.iter().map(|reason| format!("• {reason}"))).collect::<Vec<_>>().join("\n"),
+                                                        Some(egui::Color32::from_rgb(255, 150, 150))
+                                                    );
 
                                                     ui.with_layout(
                                                         egui::Layout::right_to_left(egui::Align::Center),
@@ -1055,12 +1028,17 @@ fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSett
     }
 }
 
+const PRESET_TOOLTIP: &str = "Please keep this as high as possible for best quality; only reduce it if you're experiencing performance issues.";
+
 fn encoder_settings_x264(ui: &mut egui::Ui, x264_settings: &mut ObsX264Settings) {
     dropdown_list(
         ui,
         "Preset:",
         constants::encoding::X264_PRESETS,
         &mut x264_settings.preset,
+        |ui| {
+            tooltip(ui, PRESET_TOOLTIP, None);
+        },
     );
 }
 
@@ -1070,6 +1048,9 @@ fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSet
         "Preset:",
         constants::encoding::NVENC_PRESETS,
         &mut nvenc_settings.preset2,
+        |ui| {
+            tooltip(ui, PRESET_TOOLTIP, None);
+        },
     );
 
     ui.add_space(5.0);
@@ -1078,7 +1059,16 @@ fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSet
         "Tune:",
         constants::encoding::NVENC_TUNE_OPTIONS,
         &mut nvenc_settings.tune,
+        |_| {},
     );
+}
+
+fn tooltip(ui: &mut egui::Ui, text: &str, error_override: Option<egui::Color32>) {
+    ui.add(egui::Label::new(egui::RichText::new("ℹ").color(
+        error_override.unwrap_or(egui::Color32::from_rgb(128, 128, 128)),
+    )))
+    .on_hover_cursor(egui::CursorIcon::Help)
+    .on_hover_text(text);
 }
 
 fn dropdown_list(
@@ -1086,6 +1076,7 @@ fn dropdown_list(
     label: &str,
     options: &[&str],
     selected: &mut String,
+    add_content: impl FnOnce(&mut egui::Ui),
 ) -> egui::Response {
     ui.horizontal(|ui| {
         ui.label(label);
@@ -1096,6 +1087,7 @@ fn dropdown_list(
                     ui.selectable_value(selected, option.to_string(), *option);
                 }
             });
+        add_content(ui);
     })
     .response
 }
