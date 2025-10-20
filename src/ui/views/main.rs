@@ -5,6 +5,7 @@ use crate::{
     app_state::{AsyncRequest, GitHubRelease},
     config::{EncoderSettings, FfmpegNvencSettings, ObsX264Settings, RecordingBackend},
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
+    upload::LocalRecording,
 };
 
 use constants::encoding::{SUPPORTED_VIDEO_ENCODERS, VideoEncoderType};
@@ -325,12 +326,12 @@ impl MainApp {
 
                     // Unified Recordings Section
                     let local_recordings = self.app_state.local_recordings.read().unwrap();
-                    let failed_count = local_recordings.iter()
+                    let invalid_count = local_recordings.iter()
                         .filter(|r| matches!(r, crate::upload::LocalRecording::Invalid { .. }))
                         .count();
                     egui::CollapsingHeader::new(
-                        if failed_count > 0 {
-                            egui::RichText::new(format!("Upload Tracker ({} failed)", failed_count))
+                        if invalid_count > 0 {
+                            egui::RichText::new(format!("Upload Tracker ({invalid_count} invalid)"))
                                 .size(16.0)
                         } else {
                             egui::RichText::new("Upload Tracker").size(16.0)
@@ -340,7 +341,7 @@ impl MainApp {
                     .show(ui, |ui| {
                         ui.add_space(4.0);
 
-                        // Unified view with both successful and failed recordings
+                        // Unified view with both successful and invalid recordings
                         unified_recordings_view(
                             ui,
                             user_uploads.as_ref().map(|u| u.uploads.as_slice()),
@@ -666,7 +667,7 @@ fn upload_stats(
 
 enum RecordingEntry<'a> {
     Successful(&'a UserUpload),
-    Local(&'a crate::upload::LocalRecording),
+    Local(&'a LocalRecording),
 }
 
 impl<'a> RecordingEntry<'a> {
@@ -684,7 +685,7 @@ impl<'a> RecordingEntry<'a> {
 fn unified_recordings_view(
     ui: &mut egui::Ui,
     uploads: Option<&[UserUpload]>,
-    local_recordings: &[crate::upload::LocalRecording],
+    local_recordings: &[LocalRecording],
     app_state: &crate::app_state::AppState,
 ) {
     const FONTSIZE: f32 = 13.0;
@@ -706,16 +707,16 @@ fn unified_recordings_view(
                 return;
             }
 
-            // Delete All Failed button (only show if there are failed recordings)
-            let failed_count = local_recordings.iter()
+            // Delete All Invalid button (only show if there are invalid recordings)
+            let invalid_count = local_recordings.iter()
                 .filter(|r| matches!(r, crate::upload::LocalRecording::Invalid { .. }))
                 .count();
-            if failed_count > 0 {
+            if invalid_count > 0 {
                 if ui
                     .add_sized(
                         egui::vec2(ui.available_width(), 28.0),
                         egui::Button::new(
-                            egui::RichText::new("Delete Failed Recordings")
+                            egui::RichText::new("Delete Invalid Recordings")
                                 .size(FONTSIZE)
                                 .color(egui::Color32::WHITE),
                         )
@@ -800,8 +801,8 @@ fn unified_recordings_view(
                             }
                             RecordingEntry::Local(recording) => {
                                 match recording {
-                                    crate::upload::LocalRecording::Invalid { folder_name, folder_path, error_reasons, timestamp } => {
-                                        // Failed upload entry
+                                    LocalRecording::Invalid { folder_name, folder_path, error_reasons, timestamp } => {
+                                        // Invalid upload entry
                                         egui::Frame::new()
                                             .fill(egui::Color32::from_rgb(80, 40, 40))
                                             .inner_margin(4.0)
@@ -905,10 +906,10 @@ fn unified_recordings_view(
                                                 });
                                             });
                                     }
-                                    crate::upload::LocalRecording::Unuploaded { folder_name, folder_path, timestamp } => {
+                                    LocalRecording::Unuploaded { folder_name, folder_path, timestamp } => {
                                         // Unuploaded entry
                                         egui::Frame::new()
-                                            .fill(egui::Color32::from_rgb(60, 60, 80))
+                                            .fill(egui::Color32::from_rgb(90, 80, 40))
                                             .inner_margin(4.0)
                                             .corner_radius(4.0)
                                             .show(ui, |ui| {
@@ -917,7 +918,7 @@ fn unified_recordings_view(
                                                     ui.label(
                                                         egui::RichText::new("⏳")
                                                             .size(FONTSIZE)
-                                                            .color(egui::Color32::from_rgb(200, 200, 255)),
+                                                            .color(egui::Color32::from_rgb(255, 255, 100)),
                                                     );
 
                                                     // Folder name (clickable to open folder)
@@ -925,7 +926,7 @@ fn unified_recordings_view(
                                                         egui::Label::new(
                                                             egui::RichText::new(folder_name)
                                                                 .size(FONTSIZE)
-                                                                .color(egui::Color32::from_rgb(200, 200, 255))
+                                                                .color(egui::Color32::from_rgb(255, 255, 150))
                                                                 .underline()
                                                         )
                                                         .sense(egui::Sense::click())
@@ -947,7 +948,7 @@ fn unified_recordings_view(
                                                     ui.label(
                                                         egui::RichText::new("(pending upload)")
                                                             .size(FONTSIZE - 1.0)
-                                                            .color(egui::Color32::from_rgb(150, 150, 200))
+                                                            .color(egui::Color32::from_rgb(200, 180, 100))
                                                             .italics()
                                                     );
 
@@ -982,7 +983,7 @@ fn unified_recordings_view(
                                                                             .size(FONTSIZE)
                                                                             .color(egui::Color32::WHITE),
                                                                     )
-                                                                    .fill(egui::Color32::from_rgb(100, 100, 120)),
+                                                                    .fill(egui::Color32::from_rgb(180, 60, 60)),
                                                                 )
                                                                 .clicked()
                                                             {
