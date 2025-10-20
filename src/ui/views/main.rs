@@ -3,11 +3,11 @@ use std::time::{Duration, Instant};
 use crate::{
     api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
-    config::{EncoderSettings, RecordingBackend},
+    config::{EncoderSettings, FfmpegNvencSettings, ObsX264Settings, RecordingBackend},
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
-use constants::encoding::{SUPPORTED_VIDEO_ENCODERS, VIDEO_PROFILES};
+use constants::encoding::{SUPPORTED_VIDEO_ENCODERS, VideoEncoderType};
 use constants::{GH_ORG, GH_REPO};
 
 #[derive(Default)]
@@ -1058,38 +1058,63 @@ fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSett
     ui.add_space(5.0);
 
     ui.add_space(5.0);
-    ui.horizontal(|ui| {
-        ui.label("Profile:");
-        egui::ComboBox::from_id_salt("enc_profile")
-            .selected_text(&encoder_settings.profile)
-            .show_ui(ui, |ui| {
-                for profile in VIDEO_PROFILES {
-                    ui.selectable_value(
-                        &mut encoder_settings.profile,
-                        profile.to_string(),
-                        profile,
-                    );
-                }
-            });
-    });
+    dropdown_list(
+        ui,
+        "Profile:",
+        &constants::encoding::VIDEO_PROFILES,
+        &mut encoder_settings.profile,
+    );
 
-    // Get unique per encoder fields for this encoder variant
-    let supported_fields = encoder_settings.get_encoder_field_options();
-    for (field, values) in supported_fields {
-        ui.add_space(5.0);
-        ui.horizontal(|ui| {
-            ui.label(format!("{}:", field));
-            if let Some(field_ref) = encoder_settings.get_field_mut(&field) {
-                egui::ComboBox::from_id_salt(format!("enc_{}", field))
-                    .selected_text(field_ref.as_str())
-                    .show_ui(ui, |ui| {
-                        for val in values {
-                            ui.selectable_value(field_ref, val.to_string(), val);
-                        }
-                    });
-            }
-        });
+    ui.add_space(5.0);
+    match encoder_settings.encoder {
+        VideoEncoderType::X264 => encoder_settings_x264(ui, &mut encoder_settings.x264),
+        VideoEncoderType::NvEnc => encoder_settings_nvenc(ui, &mut encoder_settings.nvenc),
     }
 
     ui.add_space(10.0);
+}
+
+fn encoder_settings_x264(ui: &mut egui::Ui, x264_settings: &mut ObsX264Settings) {
+    dropdown_list(
+        ui,
+        "Preset:",
+        &constants::encoding::X264_PRESETS,
+        &mut x264_settings.preset,
+    );
+}
+
+fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSettings) {
+    dropdown_list(
+        ui,
+        "Preset:",
+        &constants::encoding::NVENC_PRESETS,
+        &mut nvenc_settings.preset2,
+    );
+
+    ui.add_space(5.0);
+    dropdown_list(
+        ui,
+        "Tune:",
+        &constants::encoding::NVENC_TUNE_OPTIONS,
+        &mut nvenc_settings.tune,
+    );
+}
+
+fn dropdown_list(
+    ui: &mut egui::Ui,
+    label: &str,
+    options: &[&str],
+    selected: &mut String,
+) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        egui::ComboBox::from_id_salt(label)
+            .selected_text(selected.as_str())
+            .show_ui(ui, |ui| {
+                for option in options {
+                    ui.selectable_value(selected, option.to_string(), *option);
+                }
+            });
+    })
+    .response
 }

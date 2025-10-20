@@ -231,14 +231,6 @@ impl Default for EncoderSettings {
         }
     }
 }
-/// convert encoder specific settings (which impl serde Serialize) to HashMap
-fn to_hashmap<T: Serialize>(settings: &T) -> HashMap<String, Value> {
-    let json = serde_json::to_value(settings).unwrap();
-    match json {
-        Value::Object(map) => map.into_iter().collect(),
-        _ => HashMap::new(),
-    }
-}
 impl EncoderSettings {
     /// Apply encoder settings to ObsData
     pub async fn apply_to_obs_data(
@@ -255,76 +247,19 @@ impl EncoderSettings {
             .set_bool("psycho_aq", constants::encoding::PSYCHO_AQ)
             .set_bool("lookahead", constants::encoding::LOOKAHEAD);
 
-        let encoder_settings = match self.encoder {
-            VideoEncoderType::X264 => to_hashmap(&self.x264),
-            VideoEncoderType::NvEnc => to_hashmap(&self.nvenc),
+        updater = match self.encoder {
+            VideoEncoderType::X264 => self.x264.apply_to_data_updater(updater),
+            VideoEncoderType::NvEnc => self.nvenc.apply_to_data_updater(updater),
         };
-        // Apply encoder-specific settings
-        for (field_name, value) in encoder_settings {
-            updater = updater.set_string(field_name, value.as_str().unwrap_or(""));
-        }
         updater.update().await?;
 
         Ok(data)
-    }
-
-    /// Generate an ordered list of encoder-specific field options for a given encoder type
-    /// Returns a Vec of tuples where the first element is the field name (e.g., "preset", "tune")
-    /// and the second is a Vec of possible options.
-    /// This is used in the UI main.rs to allow user to select from dropdown box possible settings of the encoder
-    /// I would have hoped to utilise .to_hashmap() to simplify this, but it's inevitable that *some* sort of
-    /// mapping from ObsVideoEncoderType to the const array of possible values is done somewhere, so its done here.
-    pub fn get_encoder_field_options(&self) -> Vec<(String, Vec<String>)> {
-        match self.encoder {
-            VideoEncoderType::X264 => {
-                vec![(
-                    "preset".to_string(),
-                    encoding::X264_PRESETS
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect(),
-                )]
-                // I don't think users *should* have access to x264 tune options
-                // it should stay as the default "" none.
-            }
-            VideoEncoderType::NvEnc => {
-                vec![
-                    (
-                        "preset2".to_string(),
-                        encoding::NVENC_PRESETS
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect(),
-                    ),
-                    (
-                        "tune".to_string(),
-                        encoding::NVENC_TUNE_OPTIONS
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect(),
-                    ),
-                ]
-            }
-        }
-    }
-
-    /// Get a mutable reference to a specific field by name
-    /// No way around it, egui needs to get a mutable reference to the actual enum value
-    /// in order to update it based on user input.
-    pub fn get_field_mut(&mut self, field: &str) -> Option<&mut String> {
-        match (&self.encoder, field) {
-            (VideoEncoderType::X264, "preset") => Some(&mut self.x264.preset),
-            (VideoEncoderType::X264, "tune") => Some(&mut self.x264.tune),
-            (VideoEncoderType::NvEnc, "preset2") => Some(&mut self.nvenc.preset2),
-            (VideoEncoderType::NvEnc, "tune") => Some(&mut self.nvenc.tune),
-            _ => None,
-        }
     }
 }
 
 /// OBS x264 (CPU) encoder specific settings
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct ObsX264Settings {
     pub preset: String,
     pub tune: String,
@@ -335,6 +270,16 @@ impl Default for ObsX264Settings {
             preset: "veryfast".to_string(),
             tune: String::new(),
         }
+    }
+}
+impl ObsX264Settings {
+    fn apply_to_data_updater(
+        &self,
+        updater: libobs_wrapper::data::ObsDataUpdater,
+    ) -> libobs_wrapper::data::ObsDataUpdater {
+        updater
+            .set_string("preset", self.preset.as_str())
+            .set_string("tune", self.tune.as_str())
     }
 }
 
@@ -351,5 +296,15 @@ impl Default for FfmpegNvencSettings {
             preset2: "p5".to_string(),
             tune: "hq".to_string(),
         }
+    }
+}
+impl FfmpegNvencSettings {
+    fn apply_to_data_updater(
+        &self,
+        updater: libobs_wrapper::data::ObsDataUpdater,
+    ) -> libobs_wrapper::data::ObsDataUpdater {
+        updater
+            .set_string("preset2", self.preset2.as_str())
+            .set_string("tune", self.tune.as_str())
     }
 }
