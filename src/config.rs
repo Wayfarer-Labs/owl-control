@@ -233,7 +233,6 @@ pub struct EncoderSettings {
     pub nvenc: FfmpegNvencSettings,
 
     /// Shared encoder settings
-    pub bitrate: u32,
     pub profile: String,
     pub rate_control: String,
     pub bf: i64,
@@ -246,7 +245,6 @@ impl Default for EncoderSettings {
             encoder: ObsVideoEncoderType::OBS_X264,
             x264: Default::default(),
             nvenc: Default::default(),
-            bitrate: 2500,
             profile: "high".to_string(),
             rate_control: "cbr".to_string(),
             bf: 2,
@@ -272,7 +270,7 @@ impl EncoderSettings {
         // Apply common settings shared by all encoders
         let mut updater = data.bulk_update();
         updater = updater
-            .set_int("bitrate", self.bitrate.into())
+            .set_int("bitrate", constants::obs::BITRATE)
             .set_string("rate_control", self.rate_control.as_str())
             .set_string("profile", self.profile.as_str())
             .set_int("bf", self.bf)

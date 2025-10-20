@@ -1063,11 +1063,6 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
     ui.separator();
     ui.add_space(5.0);
 
-    ui.horizontal(|ui| {
-        ui.label("Bitrate (kbps):");
-        ui.add(egui::Slider::new(&mut video_settings.bitrate, 500..=10000).suffix(" kbps"));
-    });
-
     ui.add_space(5.0);
     ui.horizontal(|ui| {
         ui.label("Rate Control:");

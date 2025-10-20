@@ -49,7 +49,7 @@ impl VideoRecorder for ObsSocketRecorder {
         _pid: u32,
         hwnd: HWND,
         game_exe: &str,
-        video_settings: EncoderSettings,
+        _video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
     ) -> Result<()> {
         // Connect to OBS
@@ -152,7 +152,7 @@ impl VideoRecorder for ObsSocketRecorder {
             (
                 "SimpleOutput",
                 "VBitrate",
-                &video_settings.bitrate.to_string(),
+                &constants::obs::BITRATE.to_string(),
             ),
             ("Output", "Mode", "Simple"),
             ("SimpleOutput", "RecFormat2", "mp4"),
