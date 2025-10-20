@@ -3,6 +3,9 @@ resolver = "3"
 members = ["crates/*", "tools/*"]
 default-members = ["."]
 
+[workspace.package]
+version = "1.0.0-rc2"
+
 [workspace.dependencies]
 input-capture = { path = "crates/input-capture" }
 game-process = { path = "crates/game-process" }
@@ -35,17 +38,13 @@ gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = "4.0.3"
-libobs-sources = "2.0.9"
+libobs-wrapper = "4.0.6"
+libobs-sources = "2.0.12"
 libobs-window-helper = "0.1.5"
-
-[workspace.metadata]
-# The libobs version to use (can either be a specific version or "latest")
-libobs-version = "31.0.3"
 
 [package]
 name = "owl-control"
-version = "1.0.0-rc1"
+version.workspace = true
 edition = "2024"
 
 [dependencies]

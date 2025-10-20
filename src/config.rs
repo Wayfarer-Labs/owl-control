@@ -198,7 +198,7 @@ impl Config {
     }
 
     fn get_path() -> Result<PathBuf> {
-        Ok(get_persistent_dir()?.join("config.json"))
+        Ok(get_persistent_dir()?.join(constants::filename::persistent::CONFIG))
     }
 
     pub fn save(&self) -> Result<()> {

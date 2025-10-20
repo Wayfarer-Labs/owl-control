@@ -5,8 +5,14 @@ use crate::{system::hardware_specs, upload::validation::InputStats};
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Metadata {
     pub game_exe: String,
-    pub owl_control_version: String,
-    pub owl_control_commit: String,
+    // Whenever adding new fields to this, ensure you use an `Option` to ensure
+    // that the uploader will not fail to upload older recordings.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub game_resolution: Option<(u32, u32)>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub owl_control_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub owl_control_commit: Option<String>,
     pub session_id: String,
     pub hardware_id: String,
     pub hardware_specs: Option<hardware_specs::HardwareSpecs>,

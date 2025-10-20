@@ -149,7 +149,11 @@ async fn run(
             continue;
         }
 
-        if path.join(".invalid").is_file() || path.join(".uploaded").is_file() {
+        if path.join(constants::filename::recording::INVALID).is_file()
+            || path
+                .join(constants::filename::recording::UPLOADED)
+                .is_file()
+        {
             continue;
         }
 
@@ -218,7 +222,11 @@ async fn upload_folder(
     let validation = match validate_folder(path) {
         Ok(validation_paths) => validation_paths,
         Err(e) => {
-            std::fs::write(path.join(".invalid"), e.join("\n")).ok();
+            std::fs::write(
+                path.join(constants::filename::recording::INVALID),
+                e.join("\n"),
+            )
+            .ok();
             eyre::bail!("Validation failures: {}", e.join("\n"));
         }
     };
@@ -282,7 +290,11 @@ async fn upload_folder(
     .await
     .context("error uploading tar file")?;
 
-    std::fs::write(path.join(".uploaded"), game_control_id).ok();
+    std::fs::write(
+        path.join(constants::filename::recording::UPLOADED),
+        game_control_id,
+    )
+    .ok();
 
     Ok(RecordingStats {
         duration: validation.metadata.duration as f64,
@@ -304,6 +316,8 @@ struct ValidationResult {
     metadata: Metadata,
 }
 fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
+    // This is not guaranteed to be constants::recording::VIDEO_FILENAME if the WebSocket recorder
+    // is being used, which is why we search for it
     let Some(mp4_path) = path
         .read_dir()
         .map_err(|e| vec![e.to_string()])?
@@ -313,7 +327,7 @@ fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
     else {
         return Err(vec![format!("No MP4 file found in {}", path.display())]);
     };
-    let csv_path = path.join("inputs.csv");
+    let csv_path = path.join(constants::filename::recording::INPUTS);
     if !csv_path.is_file() {
         return Err(vec![format!(
             "No CSV file found in {} (expected {})",
@@ -321,7 +335,7 @@ fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
             csv_path.display()
         )]);
     }
-    let meta_path = path.join("metadata.json");
+    let meta_path = path.join(constants::filename::recording::METADATA);
     if !meta_path.is_file() {
         return Err(vec![format!(
             "No metadata file found in {} (expected {})",

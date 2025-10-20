@@ -1,4 +1,10 @@
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use color_eyre::{
     Result,
@@ -20,10 +26,7 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::{
-    config::EncoderSettings,
-    record::recorder::{VideoRecorder, get_recording_base_resolution},
-};
+use crate::{config::EncoderSettings, record::recorder::VideoRecorder};
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
@@ -38,6 +41,7 @@ pub struct ObsEmbeddedRecorder {
     adapter_index: usize,
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
+    hook_successful: Arc<AtomicBool>,
 }
 impl ObsEmbeddedRecorder {
     pub async fn new(adapter_index: usize) -> Result<Self>
@@ -67,6 +71,7 @@ impl ObsEmbeddedRecorder {
             adapter_index,
             current_output: None,
             source: None,
+            hook_successful: Arc::new(AtomicBool::new(false)),
         })
     }
 }
@@ -80,9 +85,10 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         &mut self,
         dummy_video_path: &Path,
         pid: u32,
-        hwnd: HWND,
+        _hwnd: HWND,
         game_exe: &str,
         video_settings: EncoderSettings,
+        (base_width, base_height): (u32, u32),
     ) -> Result<()> {
         let recording_path: &str = dummy_video_path
             .to_str()
@@ -97,9 +103,6 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
         // Set up scene and window capture based on input pid
         let mut scene = self.obs_context.scene(OWL_SCENE_NAME).await?;
-
-        let (base_width, base_height) = get_recording_base_resolution(hwnd)?;
-        tracing::info!("Base recording resolution: {base_width}x{base_height}");
 
         self.obs_context
             .reset_video(
@@ -161,6 +164,26 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 .add_to_scene(&mut scene)
                 .await?
         };
+
+        // Register a signal to detect when the source is hooked,
+        // so we can invalidate non-hooked recordings
+        self.hook_successful.store(false, Ordering::SeqCst);
+        tokio::spawn({
+            let mut on_hooked = source
+                .signal_manager()
+                .on_hooked()
+                .await
+                .context("failed to register on_hooked signal")?;
+            let hook_successful = self.hook_successful.clone();
+            async move {
+                if on_hooked.recv().await.is_ok() {
+                    tracing::info!(
+                        "Game capture source was able to successfully hook the game, recording will be valid"
+                    );
+                    hook_successful.store(true, Ordering::SeqCst);
+                }
+            }
+        });
 
         // Register the source
         scene.set_to_channel(0).await?;
@@ -232,6 +255,10 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             tracing::debug!("OBS recording stopped");
         } else {
             tracing::warn!("No active recording to stop");
+        }
+
+        if !self.hook_successful.load(Ordering::SeqCst) {
+            bail!("Application was never hooked, recording will be blank");
         }
 
         Ok(())

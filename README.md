@@ -51,14 +51,13 @@ The video is currently being updated.
 </tr>
 <tr>
 <td align="center">7️⃣</td>
-<td>Recordings are currently manually initiated; when in any game, hit F4 to start recording, and F5 to stop (by default).</td>
+<td>Recordings are currently manually initiated; when in any game, hit F5 to toggle recording on/off (by default). You can customize this hotkey and enable a separate stop hotkey in the application settings.</td>
 </tr>
 </table>
 
 ## 🛡️ Risks And Additional Information
 
 - **Audio**: OWL Control does not record microphone inputs. It records game audio only, not all system audio.
-- **Accidental Recording**: We have observed a bug where sometimes OWL Control responds to F4 (the default record button, which can be accidentally activated if one alt-f4s a game to close it) right after you close a game. In cases where this happens, it can be a good idea to quickly check the overlay. Black recordings that result from this will be filtered out of the uploaded dataset but might still upload.
 - **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. We will never record your desktop.
 - **Data Verification**: You can use the "Open Recordings Folder" button to check your own recordings before upload.
 
@@ -111,11 +110,10 @@ Uploads are manual only. Data is stored locally and only uploaded when you manua
 
 |      Key/Action      | Function                        |
 | :------------------: | :------------------------------ |
-|        **F4**        | 🟢 Start recording manually     |
-|        **F5**        | 🔴 Stop recording               |
+|        **F5**        | 🔄 Toggle recording on/off      |
 | **System Tray Icon** | ⚙️ Access settings and controls |
 
-Hotkeys for record/stop record can be changed in the applications settings.
+**Note**: The recording toggle hotkey can be customized in the application settings. You can also enable a separate stop hotkey if desired.
 
 </div>
 

@@ -15,11 +15,9 @@ use crate::{
     app_state::{AppState, RecordingStatus},
     config::{EncoderSettings, RecordingBackend},
     record::{
-        obs_embedded_recorder::ObsEmbeddedRecorder,
-        obs_socket_recorder::ObsSocketRecorder,
-        recording::{InputParameters, MetadataParameters, Recording, WindowParameters},
+        obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
+        recording::Recording,
     },
-    system::hardware_specs::get_primary_monitor_resolution,
     ui::notification::{NotificationType, show_notification},
 };
 use constants::{MIN_FREE_SPACE_MB, unsupported_games::UnsupportedGames};
@@ -35,7 +33,9 @@ pub trait VideoRecorder {
         hwnd: HWND,
         game_exe: &str,
         video_settings: EncoderSettings,
+        game_resolution: (u32, u32),
     ) -> Result<()>;
+    /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<()>;
 }
 pub struct Recorder {
@@ -161,18 +161,10 @@ impl Recorder {
 
         let recording = Recording::start(
             self.video_recorder.as_mut(),
-            MetadataParameters {
-                path: recording_location.join("metadata.json"),
-                game_exe: game_exe.clone(),
-            },
-            WindowParameters {
-                path: recording_location.join("recording.mp4"),
-                pid,
-                hwnd,
-            },
-            InputParameters {
-                path: recording_location.join("inputs.csv"),
-            },
+            recording_location.clone(),
+            game_exe.clone(),
+            pid,
+            hwnd,
             video_settings,
         )
         .await;
@@ -249,30 +241,6 @@ fn get_free_space_in_mb(path: &std::path::Path) -> Option<u64> {
         .map(|disk| disk.available_space() / 1024 / 1024)
 }
 
-pub fn get_recording_base_resolution(hwnd: HWND) -> Result<(u32, u32)> {
-    use windows::Win32::{Foundation::RECT, UI::WindowsAndMessaging::GetClientRect};
-
-    /// Returns the size (width, height) of the inner area of a window given its HWND.
-    /// Returns None if the window does not exist or the call fails.
-    fn get_window_inner_size(hwnd: HWND) -> Option<(u32, u32)> {
-        unsafe {
-            let mut rect = RECT::default();
-            GetClientRect(hwnd, &mut rect).ok()?;
-            let width = rect.right - rect.left;
-            let height = rect.bottom - rect.top;
-            Some((width as u32, height as u32))
-        }
-    }
-
-    match get_window_inner_size(hwnd) {
-        Some(size) => Ok(size),
-        None => {
-            tracing::info!("Failed to get window inner size, using primary monitor resolution");
-            get_primary_monitor_resolution().ok_or_eyre("Failed to get primary monitor resolution")
-        }
-    }
-}
-
 fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> {
     let (hwnd, pid) = game_process::foreground_window()?;
 
@@ -288,40 +256,54 @@ fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> 
 }
 
 fn is_process_game_shaped(pid: game_process::Pid) -> Result<()> {
-    let modules = game_process::get_modules(pid)
-        .context("we could not identify the application's modules")?;
+    // We've seen reports of this failing with certain games (e.g. League of Legends),
+    // so this "fails safe" for now. It's possible that we don't actually want to
+    // capture any games that this would be tripped up by, but it's hard to say that
+    // without more evidence. I would assume the primary factor involved here is
+    // the presence of an anticheat or an antitamper that obscures the retrieval of modules.
+    match game_process::get_modules(pid) {
+        Ok(modules) => {
+            let mut has_graphics_api = false;
+            for module in modules {
+                let module = module.to_lowercase();
 
-    let mut has_graphics_api = false;
-    for module in modules {
-        let module = module.to_lowercase();
+                // Check for Direct3D DLLs
+                if module.contains("d3d")
+                    || module.contains("dxgi")
+                    || module.contains("d3d11")
+                    || module.contains("d3d12")
+                    || module.contains("d3d9")
+                {
+                    has_graphics_api = true;
+                }
 
-        // Check for Direct3D DLLs
-        if module.contains("d3d")
-            || module.contains("dxgi")
-            || module.contains("d3d11")
-            || module.contains("d3d12")
-            || module.contains("d3d9")
-        {
-            has_graphics_api = true;
+                // Check for OpenGL DLLs
+                if module.contains("opengl32")
+                    || module.contains("gdi32")
+                    || module.contains("glu32")
+                    || module.contains("opengl")
+                {
+                    has_graphics_api = true;
+                }
+
+                // Check for Vulkan DLLs
+                if module.contains("vulkan")
+                    || module.contains("vulkan-1")
+                    || module.contains("vulkan32")
+                {
+                    has_graphics_api = true;
+                }
+            }
+
+            if !has_graphics_api {
+                bail!(
+                    "this application doesn't use any graphics APIs (DirectX, OpenGL, or Vulkan)"
+                );
+            }
         }
-
-        // Check for OpenGL DLLs
-        if module.contains("opengl32")
-            || module.contains("gdi32")
-            || module.contains("glu32")
-            || module.contains("opengl")
-        {
-            has_graphics_api = true;
+        Err(e) => {
+            tracing::warn!(?e, pid=?pid, "Failed to get modules for process");
         }
-
-        // Check for Vulkan DLLs
-        if module.contains("vulkan") || module.contains("vulkan-1") || module.contains("vulkan32") {
-            has_graphics_api = true;
-        }
-    }
-
-    if !has_graphics_api {
-        bail!("this application doesn't use any graphics APIs (DirectX, OpenGL, or Vulkan)");
     }
 
     Ok(())
