@@ -7,14 +7,14 @@ use constants::unsupported_games::UnsupportedGames;
 use egui_wgpu::wgpu;
 use tokio::sync::mpsc;
 
-use crate::{api::UserUploads, config::Config, upload::{InvalidRecording, ProgressData}};
+use crate::{api::UserUploads, config::Config, upload::{LocalRecording, ProgressData}};
 
 pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
     pub user_uploads: RwLock<Option<UserUploads>>,
-    pub invalid_recordings: RwLock<Vec<InvalidRecording>>,
+    pub local_recordings: RwLock<Vec<LocalRecording>>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
     pub is_currently_rebinding: AtomicBool,
@@ -31,7 +31,7 @@ impl AppState {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
             user_uploads: RwLock::new(None),
-            invalid_recordings: RwLock::new(Vec::new()),
+            local_recordings: RwLock::new(Vec::new()),
             async_request_tx,
             ui_update_tx,
             is_currently_rebinding: AtomicBool::new(false),
@@ -64,7 +64,7 @@ pub enum AsyncRequest {
     OpenLog,
     UpdateUnsupportedGames(UnsupportedGames),
     LoadUploadStats,
-    LoadInvalidRecordings,
+    LoadLocalRecordings,
     DeleteAllInvalidRecordings,
     OpenFolder(std::path::PathBuf),
 }
@@ -78,7 +78,7 @@ pub enum UiUpdate {
     UploadFailed(String),
     UpdateTrayIconRecording(bool),
     UpdateNewerReleaseAvailable(GitHubRelease),
-    UpdateInvalidRecordings(Vec<InvalidRecording>),
+    UpdateLocalRecordings(Vec<LocalRecording>),
 }
 
 /// A sender for [`UiUpdate`] messages. Will automatically repaint the UI after sending a message.

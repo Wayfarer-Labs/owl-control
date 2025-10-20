@@ -186,7 +186,7 @@ async fn main(
 
                         if valid_api_key_and_user_id.is_some() {
                             app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
-                            app_state.async_request_tx.send(AsyncRequest::LoadInvalidRecordings).await.ok();
+                            app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
                         }
                     }
                     AsyncRequest::UploadData => {
@@ -239,19 +239,19 @@ async fn main(
                             }
                         }
                     }
-                    AsyncRequest::LoadInvalidRecordings => {
+                    AsyncRequest::LoadLocalRecordings => {
                         tokio::spawn({
                             let app_state = app_state.clone();
                             let recording_location = recording_location.clone();
                             async move {
-                                let invalid_recordings = tokio::task::spawn_blocking(move || {
-                                    upload::scan_invalid_recordings(&recording_location)
+                                let local_recordings = tokio::task::spawn_blocking(move || {
+                                    upload::scan_local_recordings(&recording_location)
                                 }).await.unwrap_or_default();
 
-                                tracing::info!("Found {} invalid recordings", invalid_recordings.len());
+                                tracing::info!("Found {} local recordings", local_recordings.len());
                                 app_state
                                     .ui_update_tx
-                                    .try_send(UiUpdate::UpdateInvalidRecordings(invalid_recordings))
+                                    .try_send(UiUpdate::UpdateLocalRecordings(local_recordings))
                                     .ok();
                             }
                         });
@@ -261,35 +261,47 @@ async fn main(
                             let app_state = app_state.clone();
                             let recording_location = recording_location.clone();
                             async move {
-                                // Get current list of invalid recordings
-                                let invalid_recordings = tokio::task::spawn_blocking({
+                                // Get current list of local recordings
+                                let local_recordings = tokio::task::spawn_blocking({
                                     let recording_location = recording_location.clone();
-                                    move || upload::scan_invalid_recordings(&recording_location)
+                                    move || upload::scan_local_recordings(&recording_location)
                                 }).await.unwrap_or_default();
 
-                                if invalid_recordings.is_empty() {
+                                // Filter only invalid recordings and collect paths to delete
+                                let invalid_folders_to_delete: Vec<_> = local_recordings.iter()
+                                    .filter_map(|r| {
+                                        match r {
+                                            upload::LocalRecording::Invalid { folder_name, folder_path, .. } => {
+                                                Some((folder_name.clone(), folder_path.clone()))
+                                            }
+                                            _ => None,
+                                        }
+                                    })
+                                    .collect();
+
+                                if invalid_folders_to_delete.is_empty() {
                                     tracing::info!("No invalid recordings to delete");
                                     return;
                                 }
 
-                                let total_count = invalid_recordings.len();
+                                let total_count = invalid_folders_to_delete.len();
                                 tracing::info!("Deleting {} invalid recordings", total_count);
 
                                 // Delete all invalid recording folders
                                 let errors = tokio::task::spawn_blocking(move || {
                                     let mut errors = Vec::new();
-                                    for recording in invalid_recordings.iter() {
-                                        if let Err(e) = std::fs::remove_dir_all(&recording.folder_path) {
+                                    for (folder_name, folder_path) in invalid_folders_to_delete.iter() {
+                                        if let Err(e) = std::fs::remove_dir_all(folder_path) {
                                             tracing::error!(
                                                 "Failed to delete invalid recording folder {}: {:?}",
-                                                recording.folder_path.display(),
+                                                folder_path.display(),
                                                 e
                                             );
-                                            errors.push(recording.folder_name.clone());
+                                            errors.push(folder_name.clone());
                                         } else {
                                             tracing::info!(
                                                 "Deleted invalid recording folder: {}",
-                                                recording.folder_path.display()
+                                                folder_path.display()
                                             );
                                         }
                                     }
@@ -302,14 +314,14 @@ async fn main(
                                     tracing::warn!("Failed to delete {} recordings: {:?}", errors.len(), errors);
                                 }
 
-                                // Refresh the invalid recordings list
-                                let invalid_recordings = tokio::task::spawn_blocking(move || {
-                                    upload::scan_invalid_recordings(&recording_location)
+                                // Refresh the local recordings list
+                                let local_recordings = tokio::task::spawn_blocking(move || {
+                                    upload::scan_local_recordings(&recording_location)
                                 }).await.unwrap_or_default();
 
                                 app_state
                                     .ui_update_tx
-                                    .try_send(UiUpdate::UpdateInvalidRecordings(invalid_recordings))
+                                    .try_send(UiUpdate::UpdateLocalRecordings(local_recordings))
                                     .ok();
                             }
                         });
@@ -406,6 +418,12 @@ async fn stop_recording_with_notification(
 ) -> Result<()> {
     recorder.stop().await?;
     notify_of_recording_state_change(sink, honk, app_state, false);
+    // refresh the uploads
+    app_state
+        .async_request_tx
+        .send(AsyncRequest::LoadLocalRecordings)
+        .await
+        .ok();
     Ok(())
 }
 

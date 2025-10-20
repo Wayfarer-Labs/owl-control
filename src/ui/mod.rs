@@ -528,8 +528,8 @@ impl MainApp {
             Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
                 self.newer_release_available = Some(release);
             }
-            Ok(UiUpdate::UpdateInvalidRecordings(invalid_recordings)) => {
-                *self.app_state.invalid_recordings.write().unwrap() = invalid_recordings;
+            Ok(UiUpdate::UpdateLocalRecordings(local_recordings)) => {
+                *self.app_state.local_recordings.write().unwrap() = local_recordings;
             }
             Err(_) => {}
         };

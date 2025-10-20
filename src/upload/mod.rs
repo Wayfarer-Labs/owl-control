@@ -26,11 +26,44 @@ pub struct ProgressData {
 }
 
 #[derive(Debug, Clone)]
-pub struct InvalidRecording {
-    pub folder_name: String,
-    pub folder_path: PathBuf,
-    pub error_reasons: Vec<String>,
-    pub timestamp: Option<std::time::SystemTime>,
+pub enum LocalRecording {
+    Invalid {
+        folder_name: String,
+        folder_path: PathBuf,
+        error_reasons: Vec<String>,
+        timestamp: Option<std::time::SystemTime>,
+    },
+    Unuploaded {
+        folder_name: String,
+        folder_path: PathBuf,
+        timestamp: Option<std::time::SystemTime>,
+    },
+}
+
+impl LocalRecording {
+    // maybe we'll need this functions, who knows?
+    #[allow(dead_code)]
+    pub fn folder_name(&self) -> &str {
+        match self {
+            LocalRecording::Invalid { folder_name, .. } => folder_name,
+            LocalRecording::Unuploaded { folder_name, .. } => folder_name,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn folder_path(&self) -> &PathBuf {
+        match self {
+            LocalRecording::Invalid { folder_path, .. } => folder_path,
+            LocalRecording::Unuploaded { folder_path, .. } => folder_path,
+        }
+    }
+
+    pub fn timestamp(&self) -> Option<std::time::SystemTime> {
+        match self {
+            LocalRecording::Invalid { timestamp, .. } => *timestamp,
+            LocalRecording::Unuploaded { timestamp, .. } => *timestamp,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -73,7 +106,7 @@ pub async fn start(
     .await
     {
         Ok(_final_stats) => {
-            // Request a re-fetch of our upload stats and invalid recordings
+            // Request a re-fetch of our upload stats and local recordings
             app_state
                 .async_request_tx
                 .send(AsyncRequest::LoadUploadStats)
@@ -81,7 +114,7 @@ pub async fn start(
                 .ok();
             app_state
                 .async_request_tx
-                .send(AsyncRequest::LoadInvalidRecordings)
+                .send(AsyncRequest::LoadLocalRecordings)
                 .await
                 .ok();
         }
@@ -159,7 +192,7 @@ async fn run(
             tokio::spawn(async move {
                 async_req_tx.send(AsyncRequest::LoadUploadStats).await.ok();
                 async_req_tx
-                    .send(AsyncRequest::LoadInvalidRecordings)
+                    .send(AsyncRequest::LoadLocalRecordings)
                     .await
                     .ok();
             });
@@ -584,12 +617,12 @@ fn send_progress(
         .ok();
 }
 
-/// Scans the recording location for folders with .invalid files and returns information about them
-pub fn scan_invalid_recordings(recording_location: &Path) -> Vec<InvalidRecording> {
-    let mut invalid_recordings = Vec::new();
+/// Scans the recording location for folders with .invalid files or without .uploaded files and returns information about them
+pub fn scan_local_recordings(recording_location: &Path) -> Vec<LocalRecording> {
+    let mut local_recordings = Vec::new();
 
     let Ok(entries) = recording_location.read_dir() else {
-        return invalid_recordings;
+        return local_recordings;
     };
 
     for entry in entries.flatten() {
@@ -599,16 +632,7 @@ pub fn scan_invalid_recordings(recording_location: &Path) -> Vec<InvalidRecordin
         }
 
         let invalid_file_path = path.join(".invalid");
-        if !invalid_file_path.is_file() {
-            continue;
-        }
-
-        // Read the error reasons from the .invalid file
-        let error_reasons = std::fs::read_to_string(&invalid_file_path)
-            .unwrap_or_else(|_| "Unknown error".to_string())
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
+        let uploaded_file_path = path.join(".uploaded");
 
         // Get the folder name
         let folder_name = path
@@ -617,23 +641,43 @@ pub fn scan_invalid_recordings(recording_location: &Path) -> Vec<InvalidRecordin
             .unwrap_or("Unknown")
             .to_string();
 
-        // Get the timestamp from the folder metadata
-        let timestamp = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        // Parse the timestamp from the folder name (unix timestamp in seconds)
+        // Surely the user won't change the folder name :cluegi:
+        let timestamp = folder_name
+            .parse::<u64>()
+            .ok()
+            .map(|secs| std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs));
 
-        invalid_recordings.push(InvalidRecording {
-            folder_name,
-            folder_path: path,
-            error_reasons,
-            timestamp,
-        });
+        if invalid_file_path.is_file() {
+            // Read the error reasons from the .invalid file
+            let error_reasons = std::fs::read_to_string(&invalid_file_path)
+                .unwrap_or_else(|_| "Unknown error".to_string())
+                .lines()
+                .map(|s| s.to_string())
+                .collect();
+
+            local_recordings.push(LocalRecording::Invalid {
+                folder_name,
+                folder_path: path,
+                error_reasons,
+                timestamp,
+            });
+        } else if !uploaded_file_path.is_file() {
+            // Not uploaded yet (and not invalid)
+            local_recordings.push(LocalRecording::Unuploaded {
+                folder_name,
+                folder_path: path,
+                timestamp,
+            });
+        }
     }
 
     // Sort by timestamp, most recent first
-    invalid_recordings.sort_by(|a, b| {
-        b.timestamp
+    local_recordings.sort_by(|a, b| {
+        b.timestamp()
             .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-            .cmp(&a.timestamp.unwrap_or(std::time::SystemTime::UNIX_EPOCH))
+            .cmp(&a.timestamp().unwrap_or(std::time::SystemTime::UNIX_EPOCH))
     });
 
-    invalid_recordings
+    local_recordings
 }
