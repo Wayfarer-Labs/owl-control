@@ -467,13 +467,16 @@ impl MainApp {
         });
 
         // Encoder Settings Window
-        egui::Window::new("Video Encoder Settings")
-            .open(&mut self.encoder_settings_window_open)
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                encoder_settings_window(ui, &mut self.local_preferences.encoder);
-            });
+        egui::Window::new(format!(
+            "{} Settings",
+            self.local_preferences.encoder.encoder
+        ))
+        .open(&mut self.encoder_settings_window_open)
+        .collapsible(false)
+        .resizable(false)
+        .show(ctx, |ui| {
+            encoder_settings_window(ui, &mut self.local_preferences.encoder);
+        });
     }
 }
 
@@ -1046,24 +1049,10 @@ fn unified_recordings_view(
 }
 
 fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSettings) {
-    use egui::RichText;
-
-    ui.heading("Encoder Settings");
-    ui.add_space(10.0);
-
-    ui.label(RichText::new(format!("Current Encoder: {}", encoder_settings.encoder)).strong());
-
-    ui.add_space(10.0);
-    ui.separator();
-    ui.add_space(5.0);
-
-    ui.add_space(5.0);
     match encoder_settings.encoder {
         VideoEncoderType::X264 => encoder_settings_x264(ui, &mut encoder_settings.x264),
         VideoEncoderType::NvEnc => encoder_settings_nvenc(ui, &mut encoder_settings.nvenc),
     }
-
-    ui.add_space(10.0);
 }
 
 fn encoder_settings_x264(ui: &mut egui::Ui, x264_settings: &mut ObsX264Settings) {
