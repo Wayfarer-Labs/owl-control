@@ -104,14 +104,17 @@ fn main() -> Result<()> {
         let stopped_tx = stopped_tx.clone();
         let stopped_rx = stopped_rx.resubscribe();
         move || {
-            tokio_thread::run(
+            let result = tokio_thread::run(
                 app_state.clone(),
                 recording_location,
                 log_path,
                 async_request_rx,
                 stopped_rx,
-            )
-            .unwrap();
+            );
+
+            if let Err(e) = result {
+                tracing::error!("Error in tokio thread: {e}");
+            }
 
             // note: this is usually the ctrl+c shut down path, but its a known bug that if the app is minimized to tray,
             // killing it via ctrl+c will not kill the app immediately, the MainApp will not receive the stop signal until

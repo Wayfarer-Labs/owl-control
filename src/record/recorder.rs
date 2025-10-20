@@ -226,6 +226,8 @@ impl Recorder {
             .stop(self.video_recorder.as_mut(), &self.app_state.adapter_infos)
             .await?;
         *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
+
+        tracing::info!("Recording stopped");
         Ok(())
     }
 }

@@ -131,7 +131,9 @@ async fn main(
 
                 if window_unfocused_at.is_none(){
                     // we don't want to be logging any inputs if the user is alt tabbed out or unfocused the game window
-                    recorder.seen_input(e).await?;
+                    if let Err(e) = recorder.seen_input(e).await {
+                        tracing::error!(e=?e, "Failed to seen input");
+                    }
                 }
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
                     if key == start_key && recorder.recording().is_none() {
@@ -143,7 +145,9 @@ async fn main(
                         }
                     } else if key == stop_key && recorder.recording().is_some() {
                         tracing::info!("Stop key pressed, stopping recording");
-                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                        if let Err(e) = stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await {
+                            tracing::error!(e=?e, "Failed to stop recording on stop key");
+                        }
 
                         actively_recording_window = None;
                         window_unfocused_at = None;
@@ -317,18 +321,24 @@ async fn main(
             },
             _ = perform_checks.tick() => {
                 if let Some(recording) = recorder.recording() {
-                    if !does_process_exist(recording.pid())? {
+                    if !does_process_exist(recording.pid()).unwrap_or_default() {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
-                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                        if let Err(e) = stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await {
+                            tracing::error!(e=?e, "Failed to stop recording on game process exit");
+                        }
                     } else if last_active.elapsed() > MAX_IDLE_DURATION {
                         tracing::info!("No input detected for {} seconds, stopping recording", MAX_IDLE_DURATION.as_secs());
-                        stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                        if let Err(e) = stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await {
+                            tracing::error!(e=?e, "Failed to stop recording on idle timeout");
+                        }
                         *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_FOOTAGE {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_FOOTAGE.as_secs());
                         // We intentionally do not notify of recording state change here because we're restarting the recording
-                        recorder.stop().await?;
+                        if let Err(e) = recorder.stop().await {
+                            tracing::error!(e=?e, "Failed to stop recording on recording duration exceeded");
+                        }
                         start_recording_safely(&mut recorder, &unsupported_games, None).await;
                         last_active = Instant::now();
                         window_unfocused_at = None;
@@ -338,19 +348,25 @@ async fn main(
                             window_unfocused_at = Some(Instant::now());
                             tracing::info!("Window {window:?} lost focus, starting {ALT_TAB_GRACE_PERIOD:?} grace period");
                             // Insert flag into logs
-                            recorder.write_focus(false).await?;
+                            if let Err(e) = recorder.write_focus(false).await {
+                                tracing::error!(e=?e, "Failed to write focus on window lost focus");
+                            }
                         } else if let Some(unfocused_at) = window_unfocused_at {
                             // Check if grace period has elapsed
                             if unfocused_at.elapsed() > ALT_TAB_GRACE_PERIOD {
                                 tracing::info!("Window {window:?} lost focus for more than {ALT_TAB_GRACE_PERIOD:?}, stopping recording");
-                                stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await?;
+                                if let Err(e) = stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await {
+                                    tracing::error!(e=?e, "Failed to stop recording on window lost focus for more than {ALT_TAB_GRACE_PERIOD:?}");
+                                }
                                 window_unfocused_at = None;
                             }
                         }
                     } else if let Some(window) = actively_recording_window && is_window_focused(window) && window_unfocused_at.is_some() {
                         // Window regained focus within grace period
                         tracing::info!("Window {window:?} regained focus within grace period, continuing recording");
-                        recorder.write_focus(true).await?;
+                        if let Err(e) = recorder.write_focus(true).await {
+                            tracing::error!(e=?e, "Failed to write focus on window regained focus");
+                        }
                         window_unfocused_at = None;
                     }
                 } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
@@ -364,7 +380,9 @@ async fn main(
         }
     }
 
-    recorder.stop().await?;
+    if let Err(e) = recorder.stop().await {
+        tracing::error!(e=?e, "Failed to stop recording on shutdown");
+    }
     Ok(())
 }
 
