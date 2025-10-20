@@ -186,6 +186,7 @@ async fn main(
 
                         if valid_api_key_and_user_id.is_some() {
                             app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                            app_state.async_request_tx.send(AsyncRequest::LoadInvalidRecordings).await.ok();
                         }
                     }
                     AsyncRequest::UploadData => {
@@ -202,6 +203,9 @@ async fn main(
                     }
                     AsyncRequest::OpenLog => {
                         opener::reveal(&log_path).ok();
+                    }
+                    AsyncRequest::OpenFolder(path) => {
+                        opener::open(&path).ok();
                     }
                     AsyncRequest::UpdateUnsupportedGames(new_games) => {
                         let old_game_count = unsupported_games.games.len();
@@ -234,6 +238,81 @@ async fn main(
                                 tracing::error!("API key and user ID not found, skipping upload stats load");
                             }
                         }
+                    }
+                    AsyncRequest::LoadInvalidRecordings => {
+                        tokio::spawn({
+                            let app_state = app_state.clone();
+                            let recording_location = recording_location.clone();
+                            async move {
+                                let invalid_recordings = tokio::task::spawn_blocking(move || {
+                                    upload::scan_invalid_recordings(&recording_location)
+                                }).await.unwrap_or_default();
+
+                                tracing::info!("Found {} invalid recordings", invalid_recordings.len());
+                                app_state
+                                    .ui_update_tx
+                                    .try_send(UiUpdate::UpdateInvalidRecordings(invalid_recordings))
+                                    .ok();
+                            }
+                        });
+                    }
+                    AsyncRequest::DeleteAllInvalidRecordings => {
+                        tokio::spawn({
+                            let app_state = app_state.clone();
+                            let recording_location = recording_location.clone();
+                            async move {
+                                // Get current list of invalid recordings
+                                let invalid_recordings = tokio::task::spawn_blocking({
+                                    let recording_location = recording_location.clone();
+                                    move || upload::scan_invalid_recordings(&recording_location)
+                                }).await.unwrap_or_default();
+
+                                if invalid_recordings.is_empty() {
+                                    tracing::info!("No invalid recordings to delete");
+                                    return;
+                                }
+
+                                let total_count = invalid_recordings.len();
+                                tracing::info!("Deleting {} invalid recordings", total_count);
+
+                                // Delete all invalid recording folders
+                                let errors = tokio::task::spawn_blocking(move || {
+                                    let mut errors = Vec::new();
+                                    for recording in invalid_recordings.iter() {
+                                        if let Err(e) = std::fs::remove_dir_all(&recording.folder_path) {
+                                            tracing::error!(
+                                                "Failed to delete invalid recording folder {}: {:?}",
+                                                recording.folder_path.display(),
+                                                e
+                                            );
+                                            errors.push(recording.folder_name.clone());
+                                        } else {
+                                            tracing::info!(
+                                                "Deleted invalid recording folder: {}",
+                                                recording.folder_path.display()
+                                            );
+                                        }
+                                    }
+                                    errors
+                                }).await.unwrap_or_default();
+
+                                if errors.is_empty() {
+                                    tracing::info!("Successfully deleted all {} invalid recordings", total_count);
+                                } else {
+                                    tracing::warn!("Failed to delete {} recordings: {:?}", errors.len(), errors);
+                                }
+
+                                // Refresh the invalid recordings list
+                                let invalid_recordings = tokio::task::spawn_blocking(move || {
+                                    upload::scan_invalid_recordings(&recording_location)
+                                }).await.unwrap_or_default();
+
+                                app_state
+                                    .ui_update_tx
+                                    .try_send(UiUpdate::UpdateInvalidRecordings(invalid_recordings))
+                                    .ok();
+                            }
+                        });
                     }
                 }
             },

@@ -25,6 +25,14 @@ pub struct ProgressData {
     pub percent: f64,
 }
 
+#[derive(Debug, Clone)]
+pub struct InvalidRecording {
+    pub folder_name: String,
+    pub folder_path: PathBuf,
+    pub error_reasons: Vec<String>,
+    pub timestamp: Option<std::time::SystemTime>,
+}
+
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct FinalStats {
     pub total_files_uploaded: u64,
@@ -65,10 +73,15 @@ pub async fn start(
     .await
     {
         Ok(_final_stats) => {
-            // Request a re-fetch of our upload stats
+            // Request a re-fetch of our upload stats and invalid recordings
             app_state
                 .async_request_tx
                 .send(AsyncRequest::LoadUploadStats)
+                .await
+                .ok();
+            app_state
+                .async_request_tx
+                .send(AsyncRequest::LoadInvalidRecordings)
                 .await
                 .ok();
         }
@@ -145,6 +158,10 @@ async fn run(
             let async_req_tx = async_req_tx.clone();
             tokio::spawn(async move {
                 async_req_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                async_req_tx
+                    .send(AsyncRequest::LoadInvalidRecordings)
+                    .await
+                    .ok();
             });
         }
     }
@@ -565,4 +582,58 @@ fn send_progress(
     };
     tx.try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))
         .ok();
+}
+
+/// Scans the recording location for folders with .invalid files and returns information about them
+pub fn scan_invalid_recordings(recording_location: &Path) -> Vec<InvalidRecording> {
+    let mut invalid_recordings = Vec::new();
+
+    let Ok(entries) = recording_location.read_dir() else {
+        return invalid_recordings;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let invalid_file_path = path.join(".invalid");
+        if !invalid_file_path.is_file() {
+            continue;
+        }
+
+        // Read the error reasons from the .invalid file
+        let error_reasons = std::fs::read_to_string(&invalid_file_path)
+            .unwrap_or_else(|_| "Unknown error".to_string())
+            .lines()
+            .map(|s| s.to_string())
+            .collect();
+
+        // Get the folder name
+        let folder_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        // Get the timestamp from the folder metadata
+        let timestamp = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+
+        invalid_recordings.push(InvalidRecording {
+            folder_name,
+            folder_path: path,
+            error_reasons,
+            timestamp,
+        });
+    }
+
+    // Sort by timestamp, most recent first
+    invalid_recordings.sort_by(|a, b| {
+        b.timestamp
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+            .cmp(&a.timestamp.unwrap_or(std::time::SystemTime::UNIX_EPOCH))
+    });
+
+    invalid_recordings
 }

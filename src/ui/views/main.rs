@@ -327,12 +327,28 @@ impl MainApp {
                     });
                     ui.add_space(8.0);
 
-                    egui::CollapsingHeader::new(egui::RichText::new("History").size(16.0))
-                        .default_open(true)
-                        .show(ui, |ui| {
-                            ui.add_space(4.0);
-                            uploads_view(ui, user_uploads.as_ref().map(|u| u.uploads.as_slice()));
-                        });
+                    // Unified Recordings Section
+                    let invalid_recordings = self.app_state.invalid_recordings.read().unwrap();
+                    egui::CollapsingHeader::new(
+                        if invalid_recordings.len() > 0 {
+                            egui::RichText::new(format!("History ({} failed)", invalid_recordings.len()))
+                                .size(16.0)
+                        } else {
+                            egui::RichText::new("History").size(16.0)
+                        }
+                    )
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui.add_space(4.0);
+
+                        // Unified view with both successful and failed recordings
+                        unified_recordings_view(
+                            ui,
+                            user_uploads.as_ref().map(|u| u.uploads.as_slice()),
+                            &invalid_recordings,
+                            &self.app_state,
+                        );
+                    });
 
                     // Progress Bar
                     let is_uploading = self.current_upload_progress.is_some();
@@ -654,8 +670,30 @@ fn upload_stats(
     ui.add_space(10.0);
 }
 
-fn uploads_view(ui: &mut egui::Ui, uploads: Option<&[UserUpload]>) {
-    // Scrollable upload history section
+enum RecordingEntry<'a> {
+    Successful(&'a UserUpload),
+    Failed(&'a crate::upload::InvalidRecording),
+}
+
+impl<'a> RecordingEntry<'a> {
+    fn timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+        match self {
+            RecordingEntry::Successful(upload) => upload.created_at,
+            RecordingEntry::Failed(recording) => recording
+                .timestamp
+                .map(chrono::DateTime::<chrono::Utc>::from)
+                .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::from(std::time::UNIX_EPOCH)),
+        }
+    }
+}
+
+fn unified_recordings_view(
+    ui: &mut egui::Ui,
+    uploads: Option<&[UserUpload]>,
+    invalid_recordings: &[crate::upload::InvalidRecording],
+    app_state: &crate::app_state::AppState,
+) {
+    const FONTSIZE: f32 = 13.0;
     egui::Frame::new()
         .inner_margin(egui::Margin {
             left: 4,
@@ -664,53 +702,226 @@ fn uploads_view(ui: &mut egui::Ui, uploads: Option<&[UserUpload]>) {
             bottom: 4,
         })
         .show(ui, |ui| {
-            let height = 60.0;
-            let Some(uploads) = uploads else {
+            let height = 150.0;
+
+            // Show spinner if still loading
+            if uploads.is_none() {
                 ui.vertical_centered(|ui| {
                     ui.add(egui::widgets::Spinner::new().size(height));
                 });
                 return;
-            };
+            }
+
+            // Delete All Failed button (only show if there are failed recordings)
+            if invalid_recordings.len() > 0 {
+                if ui
+                    .add_sized(
+                        egui::vec2(ui.available_width(), 28.0),
+                        egui::Button::new(
+                            egui::RichText::new(format!("Delete All {} Failed Recordings", invalid_recordings.len()))
+                                .size(FONTSIZE)
+                                .color(egui::Color32::WHITE),
+                        )
+                        .fill(egui::Color32::from_rgb(180, 60, 60)),
+                    )
+                    .clicked()
+                {
+                    // Send async request to delete all invalid recordings
+                    app_state
+                        .async_request_tx
+                        .blocking_send(crate::app_state::AsyncRequest::DeleteAllInvalidRecordings)
+                        .ok();
+                }
+                ui.add_space(8.0);
+            }
+
+            // Merge and sort recordings
+            let mut entries: Vec<RecordingEntry> = Vec::new();
+
+            if let Some(uploads) = uploads {
+                entries.extend(uploads.iter().map(RecordingEntry::Successful));
+            }
+            entries.extend(invalid_recordings.iter().map(RecordingEntry::Failed));
+
+            // Sort by timestamp, most recent first
+            entries.sort_by(|a, b| b.timestamp().cmp(&a.timestamp()));
 
             egui::ScrollArea::vertical()
                 .max_height(height)
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
-                    if uploads.is_empty() {
-                        ui.label("No uploads yet");
+                    if entries.is_empty() {
+                        ui.label("No recordings yet");
                         return;
                     }
-                    for upload in uploads.iter() {
-                        egui::Frame::new()
-                            .fill(ui.visuals().faint_bg_color)
-                            .inner_margin(4.0)
-                            .corner_radius(4.0)
-                            .show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    // Filename
-                                    ui.add(egui::TextEdit::singleline(&mut upload.id.as_str()));
 
-                                    ui.with_layout(
-                                        egui::Layout::right_to_left(egui::Align::Center),
-                                        |ui| {
-                                            // Timestamp
-                                            let local_time =
-                                                upload.created_at.with_timezone(&chrono::Local);
+                    for entry in entries.iter() {
+                        match entry {
+                            RecordingEntry::Successful(upload) => {
+                                // Successful upload entry
+                                egui::Frame::new()
+                                    .fill(ui.visuals().faint_bg_color)
+                                    .inner_margin(4.0)
+                                    .corner_radius(4.0)
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            // Success indicator
                                             ui.label(
-                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                                egui::RichText::new("✔")
+                                                    .size(FONTSIZE)
+                                                    .color(egui::Color32::from_rgb(100, 255, 100)),
                                             );
 
-                                            // File size
-                                            ui.label(format!("{:.2} MB", upload.file_size_mb));
+                                            // Filename
+                                            ui.label(egui::RichText::new(upload.id.as_str())
+                                                        .size(FONTSIZE));
 
-                                            // Duration if available
-                                            if let Some(duration) = upload.video_duration_seconds {
-                                                ui.label(format!("{:.1}s", duration));
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(egui::Align::Center),
+                                                |ui| {
+                                                    // Timestamp
+                                                    let local_time =
+                                                        upload.created_at.with_timezone(&chrono::Local);
+                                                    ui.label(
+                                                        egui::RichText::new(local_time.format("%Y-%m-%d %H:%M:%S").to_string())
+                                                        .size(FONTSIZE)
+                                                    );
+
+                                                    // File size
+                                                    ui.label(egui::RichText::new(format!("{:.2} MB", upload.file_size_mb))
+                                                        .size(FONTSIZE));
+
+                                                    // Duration if available
+                                                    if let Some(duration) = upload.video_duration_seconds {
+                                                        ui.label(egui::RichText::new(format!("{:.1}s", duration))
+                                                        .size(FONTSIZE));
+                                                    }
+                                                },
+                                            );
+                                        });
+                                    });
+                            }
+                            RecordingEntry::Failed(recording) => {
+                                // Failed upload entry
+                                egui::Frame::new()
+                                    .fill(egui::Color32::from_rgb(80, 40, 40))
+                                    .inner_margin(4.0)
+                                    .corner_radius(4.0)
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            // Failure indicator
+                                            ui.label(
+                                                egui::RichText::new("❌")
+                                                    .size(FONTSIZE)
+                                                    .color(egui::Color32::from_rgb(255, 100, 100)),
+                                            );
+
+                                            // Folder name (clickable to open folder)
+                                            if ui.add(
+                                                egui::Label::new(
+                                                    egui::RichText::new(&recording.folder_name)
+                                                        .size(FONTSIZE)
+                                                        .color(egui::Color32::from_rgb(255, 200, 200))
+                                                        .underline()
+                                                )
+                                                .sense(egui::Sense::click())
+                                            )
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                            .clicked()
+                                            {
+                                                app_state
+                                                    .async_request_tx
+                                                    .blocking_send(
+                                                        crate::app_state::AsyncRequest::OpenFolder(
+                                                            recording.folder_path.clone()
+                                                        ),
+                                                    )
+                                                    .ok();
                                             }
-                                        },
-                                    );
-                                });
-                            });
+
+                                            // Info icon with error tooltip
+                                            ui.add(
+                                                egui::Label::new(
+                                                    egui::RichText::new("ℹ")
+                                                        .size(FONTSIZE)
+                                                        .color(egui::Color32::from_rgb(255, 150, 150))
+                                                )
+                                            )
+                                            .on_hover_cursor(egui::CursorIcon::Help)
+                                            .on_hover_text({
+                                                let mut tooltip_text = String::from("Validation errors:\n");
+                                                for (i, reason) in recording.error_reasons.iter().enumerate() {
+                                                    if i > 0 {
+                                                        tooltip_text.push('\n');
+                                                    }
+                                                    tooltip_text.push_str("• ");
+                                                    tooltip_text.push_str(reason);
+                                                }
+                                                tooltip_text
+                                            });
+
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(egui::Align::Center),
+                                                |ui| {
+                                                    // Delete button
+                                                    if ui
+                                                        .add_sized(
+                                                            egui::vec2(60.0, 20.0),
+                                                            egui::Button::new(
+                                                                egui::RichText::new("Delete")
+                                                                    .size(FONTSIZE)
+                                                                    .color(egui::Color32::WHITE),
+                                                            )
+                                                            .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                                        )
+                                                        .clicked()
+                                                    {
+                                                        if let Err(e) =
+                                                            std::fs::remove_dir_all(&recording.folder_path)
+                                                        {
+                                                            tracing::error!(
+                                                                "Failed to delete invalid recording folder {}: {:?}",
+                                                                recording.folder_path.display(),
+                                                                e
+                                                            );
+                                                        } else {
+                                                            tracing::info!(
+                                                                "Deleted invalid recording folder: {}",
+                                                                recording.folder_path.display()
+                                                            );
+                                                            app_state
+                                                                .async_request_tx
+                                                                .blocking_send(
+                                                                    crate::app_state::AsyncRequest::LoadInvalidRecordings,
+                                                                )
+                                                                .ok();
+                                                        }
+                                                    }
+
+                                                    // Timestamp if available
+                                                    if let Some(timestamp) = recording.timestamp {
+                                                        let datetime =
+                                                            chrono::DateTime::<chrono::Utc>::from(timestamp);
+                                                        let local_time =
+                                                            datetime.with_timezone(&chrono::Local);
+                                                        ui.label(
+                                                            egui::RichText::new(
+                                                                local_time
+                                                                    .format("%Y-%m-%d %H:%M:%S")
+                                                                    .to_string(),
+                                                            )
+                                                            .size(FONTSIZE)
+                                                            .color(egui::Color32::from_rgb(
+                                                                200, 200, 200,
+                                                            )),
+                                                        );
+                                                    }
+                                                },
+                                            );
+                                        });
+                                    });
+                            }
+                        }
                         ui.add_space(4.0);
                     }
                 });
