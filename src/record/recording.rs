@@ -8,6 +8,7 @@ use egui_wgpu::wgpu;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
 
 use crate::{
+    config::EncoderSettings,
     output_types::Metadata,
     record::{input_recorder::InputRecorder, recorder::VideoRecorder},
     system::{hardware_id, hardware_specs},
@@ -34,6 +35,7 @@ impl Recording {
         game_exe: String,
         pid: Pid,
         hwnd: HWND,
+        video_settings: EncoderSettings,
     ) -> Result<Self> {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
@@ -46,7 +48,14 @@ impl Recording {
         let csv_path = recording_location.join(constants::filename::recording::INPUTS);
 
         video_recorder
-            .start_recording(&video_path, pid.0, hwnd, &game_exe, game_resolution)
+            .start_recording(
+                &video_path,
+                pid.0,
+                hwnd,
+                &game_exe,
+                video_settings,
+                game_resolution,
+            )
             .await?;
         let input_recorder = InputRecorder::start(&csv_path).await?;
 
@@ -117,6 +126,8 @@ impl Recording {
             self.start_instant,
             self.start_time,
             adapter_infos,
+            recorder.id(),
+            result.as_ref().ok().cloned(),
         )
         .await?;
         let metadata = serde_json::to_string_pretty(&metadata)?;
@@ -141,6 +152,8 @@ impl Recording {
         start_instant: Instant,
         start_time: SystemTime,
         adapter_infos: &[wgpu::AdapterInfo],
+        recorder: &str,
+        recorder_extra: Option<serde_json::Value>,
     ) -> Result<Metadata> {
         let duration = start_instant.elapsed().as_secs_f32();
 
@@ -183,6 +196,8 @@ impl Recording {
             end_timestamp,
             duration,
             input_stats: None,
+            recorder: Some(recorder.to_string()),
+            recorder_extra,
         })
     }
 }

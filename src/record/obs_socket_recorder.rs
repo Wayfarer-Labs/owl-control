@@ -17,13 +17,12 @@ use obws::{
 };
 use windows::Win32::Foundation::HWND;
 
-use crate::record::recorder::VideoRecorder;
+use crate::{config::EncoderSettings, record::recorder::VideoRecorder};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 
-const VIDEO_BITRATE: u32 = 2500;
 const SET_ENCODER: bool = false;
 
 pub struct ObsSocketRecorder {
@@ -50,6 +49,7 @@ impl VideoRecorder for ObsSocketRecorder {
         _pid: u32,
         hwnd: HWND,
         game_exe: &str,
+        _video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
     ) -> Result<()> {
         // Connect to OBS
@@ -149,7 +149,11 @@ impl VideoRecorder for ObsSocketRecorder {
 
         for (category, name, value) in [
             ("SimpleOutput", "RecQuality", "Stream"),
-            ("SimpleOutput", "VBitrate", &VIDEO_BITRATE.to_string()),
+            (
+                "SimpleOutput",
+                "VBitrate",
+                &constants::encoding::BITRATE.to_string(),
+            ),
             ("Output", "Mode", "Simple"),
             ("SimpleOutput", "RecFormat2", "mp4"),
         ] {
@@ -270,7 +274,7 @@ impl VideoRecorder for ObsSocketRecorder {
         Ok(())
     }
 
-    async fn stop_recording(&mut self) -> Result<()> {
+    async fn stop_recording(&mut self) -> Result<serde_json::Value> {
         tracing::info!("Stopping OBS recording");
         if let Some(client) = &self.client {
             // Log, but do not explode if it fails
@@ -279,7 +283,7 @@ impl VideoRecorder for ObsSocketRecorder {
             }
         }
         tracing::info!("OBS recording stopped successfully");
-        Ok(())
+        Ok(serde_json::Value::Null)
     }
 }
 impl Drop for ObsSocketRecorder {

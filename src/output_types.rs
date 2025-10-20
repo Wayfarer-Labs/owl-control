@@ -21,6 +21,10 @@ pub struct Metadata {
     pub duration: f32,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub input_stats: Option<InputStats>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub recorder: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub recorder_extra: Option<serde_json::Value>,
 }
 
 #[derive(Debug)]

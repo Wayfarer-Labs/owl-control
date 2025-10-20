@@ -10,7 +10,7 @@ use color_eyre::{
     Result,
     eyre::{Context, OptionExt as _, bail, eyre},
 };
-use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
+use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH, encoding::VideoEncoderType};
 use windows::Win32::Foundation::HWND;
 
 use libobs_sources::{
@@ -27,12 +27,10 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::record::recorder::VideoRecorder;
+use crate::{config::EncoderSettings, record::recorder::VideoRecorder};
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
-
-const VIDEO_BITRATE: u32 = 2500;
 
 // Untested! Added for testing purposes, but will probably not be used as
 // we want to ensure we're capturing a game and WindowCapture will capture
@@ -42,6 +40,7 @@ const USE_WINDOW_CAPTURE: bool = false;
 pub struct ObsEmbeddedRecorder {
     obs_context: ObsContext,
     adapter_index: usize,
+    last_encoder_settings: Option<serde_json::Value>,
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
     hook_successful: Arc<AtomicBool>,
@@ -72,6 +71,7 @@ impl ObsEmbeddedRecorder {
         Ok(Self {
             obs_context,
             adapter_index,
+            last_encoder_settings: None,
             current_output: None,
             source: None,
             hook_successful: Arc::new(AtomicBool::new(false)),
@@ -90,6 +90,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         pid: u32,
         _hwnd: HWND,
         game_exe: &str,
+        video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
     ) -> Result<()> {
         let recording_path: &str = dummy_video_path
@@ -200,28 +201,39 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         let mut output = self.obs_context.output(output_info).await?;
 
         // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
-        // Register the video encoder
-        let mut video_settings = self.obs_context.data().await?;
-        video_settings
-            .bulk_update()
-            .set_int("bf", 2)
-            .set_bool("psycho_aq", true)
-            .set_bool("lookahead", true)
-            .set_string("profile", "high")
-            .set_string("preset", "hq")
-            .set_string("rate_control", "cbr")
-            .set_int("bitrate", VIDEO_BITRATE.into())
-            .update()
-            .await?;
+        // Register the video encoder with encoder-specific settings
+        let video_encoder_data = self.obs_context.data().await?;
+        let video_encoder_settings = video_settings.apply_to_obs_data(video_encoder_data).await?;
+        self.last_encoder_settings = video_encoder_settings
+            .get_json()
+            .await
+            .ok()
+            .and_then(|j| serde_json::from_str(&j).ok());
+        if let Some(last_encoder_settings) = &mut self.last_encoder_settings {
+            if let Some(object) = last_encoder_settings.as_object_mut() {
+                object.insert(
+                    "encoder".to_string(),
+                    match video_settings.encoder {
+                        VideoEncoderType::X264 => "x264",
+                        VideoEncoderType::NvEnc => "nvenc",
+                    }
+                    .into(),
+                );
+            }
+            tracing::info!("Recording starting with video settings: {last_encoder_settings:?}");
+        }
 
         // Get video handler and attach encoder to output
         let video_handler = self.obs_context.get_video_ptr().await?;
         output
             .video_encoder(
                 VideoEncoderInfo::new(
-                    ObsVideoEncoderType::OBS_X264,
+                    match video_settings.encoder {
+                        VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
+                        VideoEncoderType::NvEnc => ObsVideoEncoderType::FFMPEG_NVENC,
+                    },
                     "video_encoder",
-                    Some(video_settings),
+                    Some(video_encoder_settings),
                     None,
                 ),
                 video_handler,
@@ -248,7 +260,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         Ok(())
     }
 
-    async fn stop_recording(&mut self) -> Result<()> {
+    async fn stop_recording(&mut self) -> Result<serde_json::Value> {
         tracing::debug!("Stopping OBS recording...");
 
         if let Some(mut output) = self.current_output.take() {
@@ -267,7 +279,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             bail!("Application was never hooked, recording will be blank");
         }
 
-        Ok(())
+        Ok(self.last_encoder_settings.take().unwrap_or_default())
     }
 }
 

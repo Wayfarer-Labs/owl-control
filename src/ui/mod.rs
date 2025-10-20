@@ -305,7 +305,7 @@ impl ApplicationHandler for App {
             .expect("Failed to create window icon");
 
         // The size here is optimised to show everything in the layout at 1x scaling.
-        let inner_size = PhysicalSize::new(600, 770);
+        let inner_size = PhysicalSize::new(600, 915);
 
         let window_attributes = Window::default_attributes()
             .with_title("OWL Control")
@@ -432,6 +432,9 @@ pub struct MainApp {
     main_view_state: views::main::MainViewState,
 
     tray_icon: tray_icon::TrayIconState,
+
+    /// Whether the encoder settings window is open
+    encoder_settings_window_open: bool,
 }
 impl MainApp {
     fn new(
@@ -486,6 +489,8 @@ impl MainApp {
             main_view_state: views::main::MainViewState::default(),
 
             tray_icon,
+
+            encoder_settings_window_open: false,
         })
     }
 
@@ -522,6 +527,9 @@ impl MainApp {
             }
             Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
                 self.newer_release_available = Some(release);
+            }
+            Ok(UiUpdate::UpdateLocalRecordings(local_recordings)) => {
+                *self.app_state.local_recordings.write().unwrap() = local_recordings;
             }
             Err(_) => {}
         };

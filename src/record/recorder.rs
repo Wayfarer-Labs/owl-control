@@ -13,7 +13,7 @@ use windows::Win32::Foundation::HWND;
 
 use crate::{
     app_state::{AppState, RecordingStatus},
-    config::RecordingBackend,
+    config::{EncoderSettings, RecordingBackend},
     record::{
         obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
         recording::Recording,
@@ -32,10 +32,12 @@ pub trait VideoRecorder {
         pid: u32,
         hwnd: HWND,
         game_exe: &str,
+        video_settings: EncoderSettings,
         game_resolution: (u32, u32),
     ) -> Result<()>;
+    /// Result contains any additional metadata the recorder wants to return about the recording
     /// If this returns an error, the recording will be invalidated with the error message
-    async fn stop_recording(&mut self) -> Result<()>;
+    async fn stop_recording(&mut self) -> Result<serde_json::Value>;
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
@@ -149,12 +151,22 @@ impl Recorder {
             "Starting recording"
         );
 
+        let video_settings = self
+            .app_state
+            .config
+            .read()
+            .unwrap()
+            .preferences
+            .encoder
+            .clone();
+
         let recording = Recording::start(
             self.video_recorder.as_mut(),
             recording_location.clone(),
             game_exe.clone(),
             pid,
             hwnd,
+            video_settings,
         )
         .await;
 

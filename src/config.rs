@@ -1,4 +1,5 @@
 use color_eyre::eyre::{Context, Result, eyre};
+use constants::encoding::VideoEncoderType;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{fs, path::PathBuf};
 
@@ -24,6 +25,8 @@ pub struct Preferences {
     pub honk: bool,
     #[serde(default)]
     pub recording_backend: RecordingBackend,
+    #[serde(default)]
+    pub encoder: EncoderSettings,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -37,6 +40,7 @@ impl Default for Preferences {
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
             recording_backend: Default::default(),
+            encoder: Default::default(),
         }
     }
 }
@@ -117,9 +121,8 @@ where
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-#[derive(Default)]
 pub struct Credentials {
     #[serde(default)]
     pub api_key: String,
@@ -200,5 +203,103 @@ impl Config {
         tracing::info!("Saving configs to {}", config_path.to_string_lossy());
         fs::write(&config_path, serde_json::to_string_pretty(&self)?)?;
         Ok(())
+    }
+}
+
+/// Base struct containing common video encoder settings shared across all encoders
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct EncoderSettings {
+    /// Encoder type
+    pub encoder: VideoEncoderType,
+
+    /// Encoder specific settings
+    pub x264: ObsX264Settings,
+    pub nvenc: FfmpegNvencSettings,
+}
+impl Default for EncoderSettings {
+    fn default() -> Self {
+        Self {
+            encoder: VideoEncoderType::X264,
+            x264: Default::default(),
+            nvenc: Default::default(),
+        }
+    }
+}
+impl EncoderSettings {
+    /// Apply encoder settings to ObsData
+    pub async fn apply_to_obs_data(
+        &self,
+        mut data: libobs_wrapper::data::ObsData,
+    ) -> color_eyre::Result<libobs_wrapper::data::ObsData> {
+        // Apply common settings shared by all encoders
+        let mut updater = data.bulk_update();
+        updater = updater
+            .set_int("bitrate", constants::encoding::BITRATE)
+            .set_string("rate_control", constants::encoding::RATE_CONTROL)
+            .set_string("profile", constants::encoding::VIDEO_PROFILE)
+            .set_int("bf", constants::encoding::B_FRAMES)
+            .set_bool("psycho_aq", constants::encoding::PSYCHO_AQ)
+            .set_bool("lookahead", constants::encoding::LOOKAHEAD);
+
+        updater = match self.encoder {
+            VideoEncoderType::X264 => self.x264.apply_to_data_updater(updater),
+            VideoEncoderType::NvEnc => self.nvenc.apply_to_data_updater(updater),
+        };
+        updater.update().await?;
+
+        Ok(data)
+    }
+}
+
+/// OBS x264 (CPU) encoder specific settings
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ObsX264Settings {
+    pub preset: String,
+    pub tune: String,
+}
+impl Default for ObsX264Settings {
+    fn default() -> Self {
+        Self {
+            preset: constants::encoding::X264_PRESETS[0].to_string(),
+            tune: String::new(),
+        }
+    }
+}
+impl ObsX264Settings {
+    fn apply_to_data_updater(
+        &self,
+        updater: libobs_wrapper::data::ObsDataUpdater,
+    ) -> libobs_wrapper::data::ObsDataUpdater {
+        updater
+            .set_string("preset", self.preset.as_str())
+            .set_string("tune", self.tune.as_str())
+    }
+}
+
+/// NVENC (NVIDIA GPU) encoder specific settings
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct FfmpegNvencSettings {
+    pub preset2: String,
+    pub tune: String,
+}
+impl Default for FfmpegNvencSettings {
+    fn default() -> Self {
+        Self {
+            preset2: constants::encoding::NVENC_PRESETS[0].to_string(),
+            tune: constants::encoding::NVENC_TUNE_OPTIONS[0].to_string(),
+        }
+    }
+}
+impl FfmpegNvencSettings {
+    fn apply_to_data_updater(
+        &self,
+        updater: libobs_wrapper::data::ObsDataUpdater,
+    ) -> libobs_wrapper::data::ObsDataUpdater {
+        updater
+            .set_string("preset2", self.preset2.as_str())
+            .set_string("tune", self.tune.as_str())
     }
 }
