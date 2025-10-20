@@ -274,7 +274,7 @@ impl VideoRecorder for ObsSocketRecorder {
         Ok(())
     }
 
-    async fn stop_recording(&mut self) -> Result<()> {
+    async fn stop_recording(&mut self) -> Result<serde_json::Value> {
         tracing::info!("Stopping OBS recording");
         if let Some(client) = &self.client {
             // Log, but do not explode if it fails
@@ -283,7 +283,7 @@ impl VideoRecorder for ObsSocketRecorder {
             }
         }
         tracing::info!("OBS recording stopped successfully");
-        Ok(())
+        Ok(serde_json::Value::Null)
     }
 }
 impl Drop for ObsSocketRecorder {

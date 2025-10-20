@@ -40,6 +40,7 @@ const USE_WINDOW_CAPTURE: bool = false;
 pub struct ObsEmbeddedRecorder {
     obs_context: ObsContext,
     adapter_index: usize,
+    last_encoder_settings: Option<serde_json::Value>,
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
     hook_successful: Arc<AtomicBool>,
@@ -70,6 +71,7 @@ impl ObsEmbeddedRecorder {
         Ok(Self {
             obs_context,
             adapter_index,
+            last_encoder_settings: None,
             current_output: None,
             source: None,
             hook_successful: Arc::new(AtomicBool::new(false)),
@@ -202,10 +204,24 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         // Register the video encoder with encoder-specific settings
         let video_encoder_data = self.obs_context.data().await?;
         let video_encoder_settings = video_settings.apply_to_obs_data(video_encoder_data).await?;
-        tracing::info!(
-            "Recording starting with video settings: {:#?}",
-            video_settings
-        );
+        self.last_encoder_settings = video_encoder_settings
+            .get_json()
+            .await
+            .ok()
+            .and_then(|j| serde_json::from_str(&j).ok());
+        if let Some(last_encoder_settings) = &mut self.last_encoder_settings {
+            if let Some(object) = last_encoder_settings.as_object_mut() {
+                object.insert(
+                    "encoder".to_string(),
+                    match video_settings.encoder {
+                        VideoEncoderType::X264 => "x264",
+                        VideoEncoderType::NvEnc => "nvenc",
+                    }
+                    .into(),
+                );
+            }
+            tracing::info!("Recording starting with video settings: {last_encoder_settings:?}");
+        }
 
         // Get video handler and attach encoder to output
         let video_handler = self.obs_context.get_video_ptr().await?;
@@ -244,7 +260,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         Ok(())
     }
 
-    async fn stop_recording(&mut self) -> Result<()> {
+    async fn stop_recording(&mut self) -> Result<serde_json::Value> {
         tracing::debug!("Stopping OBS recording...");
 
         if let Some(mut output) = self.current_output.take() {
@@ -263,7 +279,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             bail!("Application was never hooked, recording will be blank");
         }
 
-        Ok(())
+        Ok(self.last_encoder_settings.take().unwrap_or_default())
     }
 }
 

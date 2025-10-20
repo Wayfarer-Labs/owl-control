@@ -126,6 +126,8 @@ impl Recording {
             self.start_instant,
             self.start_time,
             adapter_infos,
+            recorder.id(),
+            result.as_ref().ok().cloned(),
         )
         .await?;
         let metadata = serde_json::to_string_pretty(&metadata)?;
@@ -150,6 +152,8 @@ impl Recording {
         start_instant: Instant,
         start_time: SystemTime,
         adapter_infos: &[wgpu::AdapterInfo],
+        recorder: &str,
+        recorder_extra: Option<serde_json::Value>,
     ) -> Result<Metadata> {
         let duration = start_instant.elapsed().as_secs_f32();
 
@@ -192,6 +196,8 @@ impl Recording {
             end_timestamp,
             duration,
             input_stats: None,
+            recorder: Some(recorder.to_string()),
+            recorder_extra,
         })
     }
 }
