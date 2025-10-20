@@ -1,8 +1,7 @@
 use color_eyre::eyre::{Context, Result, eyre};
-use constants::encoding::{self, VideoEncoderType};
+use constants::encoding::VideoEncoderType;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::Value;
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
@@ -217,9 +216,6 @@ pub struct EncoderSettings {
     /// Encoder specific settings
     pub x264: ObsX264Settings,
     pub nvenc: FfmpegNvencSettings,
-
-    /// Shared encoder settings
-    pub profile: String,
 }
 impl Default for EncoderSettings {
     fn default() -> Self {
@@ -227,7 +223,6 @@ impl Default for EncoderSettings {
             encoder: VideoEncoderType::X264,
             x264: Default::default(),
             nvenc: Default::default(),
-            profile: encoding::VIDEO_PROFILES[0].to_string(),
         }
     }
 }
@@ -242,7 +237,7 @@ impl EncoderSettings {
         updater = updater
             .set_int("bitrate", constants::encoding::BITRATE)
             .set_string("rate_control", constants::encoding::RATE_CONTROL)
-            .set_string("profile", self.profile.as_str())
+            .set_string("profile", constants::encoding::VIDEO_PROFILE)
             .set_int("bf", constants::encoding::B_FRAMES)
             .set_bool("psycho_aq", constants::encoding::PSYCHO_AQ)
             .set_bool("lookahead", constants::encoding::LOOKAHEAD);

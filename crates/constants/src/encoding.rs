@@ -52,8 +52,8 @@ pub const X264_TUNE_OPTIONS: [&str; 9] = [
 /// both are the same
 pub const NVENC_TUNE_OPTIONS: [&str; 3] = ["hq", "ll", "ull"];
 
-/// List of allowed video profiles (you really only want "high", but it's a list in case you want to include "main" ig)
-pub const VIDEO_PROFILES: [&str; 1] = ["high"];
+/// We lock to the high profile for now. Other profiles are not of much use to us.
+pub const VIDEO_PROFILE: &str = "high";
 
 /// Bitrate (kbps)
 pub const BITRATE: i64 = 2500;

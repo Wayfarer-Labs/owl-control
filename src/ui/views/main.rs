@@ -1058,14 +1058,6 @@ fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSett
     ui.add_space(5.0);
 
     ui.add_space(5.0);
-    dropdown_list(
-        ui,
-        "Profile:",
-        &constants::encoding::VIDEO_PROFILES,
-        &mut encoder_settings.profile,
-    );
-
-    ui.add_space(5.0);
     match encoder_settings.encoder {
         VideoEncoderType::X264 => encoder_settings_x264(ui, &mut encoder_settings.x264),
         VideoEncoderType::NvEnc => encoder_settings_nvenc(ui, &mut encoder_settings.nvenc),
