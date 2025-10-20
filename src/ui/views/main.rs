@@ -3,11 +3,11 @@ use std::time::{Duration, Instant};
 use crate::{
     api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
-    config::{RecordingBackend, encoder_type_display_name},
+    config::{EncoderSettings, RecordingBackend},
     ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
 };
 
-use constants::obs::{SUPPORTED_VIDEO_ENCODERS, VIDEO_PROFILES};
+use constants::encoding::{SUPPORTED_VIDEO_ENCODERS, VIDEO_PROFILES};
 use constants::{GH_ORG, GH_REPO};
 
 #[derive(Default)]
@@ -274,16 +274,16 @@ impl MainApp {
                     ui.horizontal(|ui| {
                         add_settings_text(ui, egui::Label::new("Video Encoder:"));
                         add_settings_ui(ui, |ui| {
-                            let encoder_name = self.local_preferences.video_settings.display_name();
+                            let encoder_name = self.local_preferences.encoder.encoder.to_string();
                             egui::ComboBox::from_id_salt("video_encoder")
-                                .selected_text(encoder_name)
+                                .selected_text(&encoder_name)
                                 .width(150.0)
                                 .show_ui(ui, |ui| {
                                     for encoder in SUPPORTED_VIDEO_ENCODERS {
                                         ui.selectable_value(
-                                            &mut self.local_preferences.video_settings.encoder,
-                                            encoder.clone(),
-                                            encoder_type_display_name(&encoder),
+                                            &mut self.local_preferences.encoder.encoder,
+                                            encoder,
+                                            encoder.to_string(),
                                         );
                                     }
                                 });
@@ -472,7 +472,7 @@ impl MainApp {
             .collapsible(false)
             .resizable(false)
             .show(ctx, |ui| {
-                encoder_settings_window(ui, &mut self.local_preferences.video_settings);
+                encoder_settings_window(ui, &mut self.local_preferences.encoder);
             });
     }
 }
@@ -1045,19 +1045,13 @@ fn unified_recordings_view(
         });
 }
 
-fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config::EncoderSettings) {
+fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSettings) {
     use egui::RichText;
 
     ui.heading("Encoder Settings");
     ui.add_space(10.0);
 
-    ui.label(
-        RichText::new(format!(
-            "Current Encoder: {}",
-            video_settings.display_name()
-        ))
-        .strong(),
-    );
+    ui.label(RichText::new(format!("Current Encoder: {}", encoder_settings.encoder)).strong());
 
     ui.add_space(10.0);
     ui.separator();
@@ -1067,20 +1061,20 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
     ui.horizontal(|ui| {
         ui.label("Rate Control:");
         egui::ComboBox::from_id_salt("rate_control")
-            .selected_text(&video_settings.rate_control)
+            .selected_text(&encoder_settings.rate_control)
             .show_ui(ui, |ui| {
                 ui.selectable_value(
-                    &mut video_settings.rate_control,
+                    &mut encoder_settings.rate_control,
                     "cbr".to_string(),
                     "CBR (Constant Bitrate)",
                 );
                 ui.selectable_value(
-                    &mut video_settings.rate_control,
+                    &mut encoder_settings.rate_control,
                     "vbr".to_string(),
                     "VBR (Variable Bitrate)",
                 );
                 ui.selectable_value(
-                    &mut video_settings.rate_control,
+                    &mut encoder_settings.rate_control,
                     "cqp".to_string(),
                     "CQP (Constant QP)",
                 );
@@ -1091,10 +1085,14 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
     ui.horizontal(|ui| {
         ui.label("Profile:");
         egui::ComboBox::from_id_salt("enc_profile")
-            .selected_text(&video_settings.profile)
+            .selected_text(&encoder_settings.profile)
             .show_ui(ui, |ui| {
                 for profile in VIDEO_PROFILES {
-                    ui.selectable_value(&mut video_settings.profile, profile.to_string(), profile);
+                    ui.selectable_value(
+                        &mut encoder_settings.profile,
+                        profile.to_string(),
+                        profile,
+                    );
                 }
             });
     });
@@ -1102,26 +1100,26 @@ fn encoder_settings_window(ui: &mut egui::Ui, video_settings: &mut crate::config
     ui.add_space(5.0);
     ui.horizontal(|ui| {
         ui.label("B-Frames:");
-        ui.add(egui::Slider::new(&mut video_settings.bf, 0..=4));
+        ui.add(egui::Slider::new(&mut encoder_settings.bf, 0..=4));
     });
 
     ui.add_space(5.0);
     ui.horizontal(|ui| {
-        ui.checkbox(&mut video_settings.psycho_aq, "Psycho Visual AQ");
+        ui.checkbox(&mut encoder_settings.psycho_aq, "Psycho Visual AQ");
     });
 
     ui.add_space(5.0);
     ui.horizontal(|ui| {
-        ui.checkbox(&mut video_settings.lookahead, "Lookahead");
+        ui.checkbox(&mut encoder_settings.lookahead, "Lookahead");
     });
 
     // Get unique per encoder fields for this encoder variant
-    let supported_fields = video_settings.get_encoder_field_options();
+    let supported_fields = encoder_settings.get_encoder_field_options();
     for (field, values) in supported_fields {
         ui.add_space(5.0);
         ui.horizontal(|ui| {
             ui.label(format!("{}:", field));
-            if let Some(field_ref) = video_settings.get_field_mut(&field) {
+            if let Some(field_ref) = encoder_settings.get_field_mut(&field) {
                 egui::ComboBox::from_id_salt(format!("enc_{}", field))
                     .selected_text(field_ref.as_str())
                     .show_ui(ui, |ui| {

@@ -152,7 +152,7 @@ impl VideoRecorder for ObsSocketRecorder {
             (
                 "SimpleOutput",
                 "VBitrate",
-                &constants::obs::BITRATE.to_string(),
+                &constants::encoding::BITRATE.to_string(),
             ),
             ("Output", "Mode", "Simple"),
             ("SimpleOutput", "RecFormat2", "mp4"),

@@ -1,10 +1,8 @@
 use color_eyre::eyre::{Context, Result, eyre};
-use constants::obs::{NVENC_PRESETS, NVENC_TUNE_OPTIONS, X264_PRESETS};
+use constants::encoding::{self, VideoEncoderType};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, fs, path::PathBuf, str::FromStr};
-
-use libobs_wrapper::encoders::ObsVideoEncoderType;
+use std::{collections::HashMap, fs, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
@@ -29,7 +27,7 @@ pub struct Preferences {
     #[serde(default)]
     pub recording_backend: RecordingBackend,
     #[serde(default)]
-    pub video_settings: EncoderSettings,
+    pub encoder: EncoderSettings,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -43,7 +41,7 @@ impl Default for Preferences {
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
             recording_backend: Default::default(),
-            video_settings: Default::default(),
+            encoder: Default::default(),
         }
     }
 }
@@ -209,24 +207,12 @@ impl Config {
     }
 }
 
-pub fn encoder_type_display_name(encoder_type: &ObsVideoEncoderType) -> &'static str {
-    match encoder_type {
-        ObsVideoEncoderType::OBS_X264 => "OBS x264 (CPU)",
-        ObsVideoEncoderType::FFMPEG_NVENC => "NVIDIA NVENC (GPU)",
-        _ => "HONK",
-    }
-}
-
 /// Base struct containing common video encoder settings shared across all encoders
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct EncoderSettings {
     /// Encoder type
-    #[serde(
-        serialize_with = "serialize_encoder_type",
-        deserialize_with = "deserialize_encoder_type"
-    )]
-    pub encoder: ObsVideoEncoderType,
+    pub encoder: VideoEncoderType,
 
     /// Encoder specific settings
     pub x264: ObsX264Settings,
@@ -242,10 +228,10 @@ pub struct EncoderSettings {
 impl Default for EncoderSettings {
     fn default() -> Self {
         Self {
-            encoder: ObsVideoEncoderType::OBS_X264,
+            encoder: VideoEncoderType::X264,
             x264: Default::default(),
             nvenc: Default::default(),
-            profile: "high".to_string(),
+            profile: encoding::VIDEO_PROFILES[0].to_string(),
             rate_control: "cbr".to_string(),
             bf: 2,
             psycho_aq: true,
@@ -270,7 +256,7 @@ impl EncoderSettings {
         // Apply common settings shared by all encoders
         let mut updater = data.bulk_update();
         updater = updater
-            .set_int("bitrate", constants::obs::BITRATE)
+            .set_int("bitrate", constants::encoding::BITRATE)
             .set_string("rate_control", self.rate_control.as_str())
             .set_string("profile", self.profile.as_str())
             .set_int("bf", self.bf)
@@ -278,9 +264,8 @@ impl EncoderSettings {
             .set_bool("lookahead", self.lookahead);
 
         let encoder_settings = match self.encoder {
-            ObsVideoEncoderType::OBS_X264 => to_hashmap(&self.x264),
-            ObsVideoEncoderType::FFMPEG_NVENC => to_hashmap(&self.nvenc),
-            _ => to_hashmap(&self.x264),
+            VideoEncoderType::X264 => to_hashmap(&self.x264),
+            VideoEncoderType::NvEnc => to_hashmap(&self.nvenc),
         };
         // Apply encoder-specific settings
         for (field_name, value) in encoder_settings {
@@ -291,10 +276,6 @@ impl EncoderSettings {
         Ok(data)
     }
 
-    pub fn display_name(&self) -> &'static str {
-        encoder_type_display_name(&self.encoder)
-    }
-
     /// Generate an ordered list of encoder-specific field options for a given encoder type
     /// Returns a Vec of tuples where the first element is the field name (e.g., "preset", "tune")
     /// and the second is a Vec of possible options.
@@ -303,32 +284,34 @@ impl EncoderSettings {
     /// mapping from ObsVideoEncoderType to the const array of possible values is done somewhere, so its done here.
     pub fn get_encoder_field_options(&self) -> Vec<(String, Vec<String>)> {
         match self.encoder {
-            ObsVideoEncoderType::OBS_X264 => {
+            VideoEncoderType::X264 => {
                 vec![(
                     "preset".to_string(),
-                    X264_PRESETS.iter().map(|s| s.to_string()).collect(),
+                    encoding::X264_PRESETS
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                 )]
                 // I don't think users *should* have access to x264 tune options
                 // it should stay as the default "" none.
             }
-            ObsVideoEncoderType::FFMPEG_NVENC => {
+            VideoEncoderType::NvEnc => {
                 vec![
                     (
                         "preset2".to_string(),
-                        NVENC_PRESETS.iter().map(|s| s.to_string()).collect(),
+                        encoding::NVENC_PRESETS
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect(),
                     ),
                     (
                         "tune".to_string(),
-                        NVENC_TUNE_OPTIONS.iter().map(|s| s.to_string()).collect(),
+                        encoding::NVENC_TUNE_OPTIONS
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect(),
                     ),
                 ]
-            }
-            _ => {
-                // Default fallback
-                vec![(
-                    "preset".to_string(),
-                    NVENC_PRESETS.iter().map(|s| s.to_string()).collect(),
-                )]
             }
         }
     }
@@ -338,32 +321,13 @@ impl EncoderSettings {
     /// in order to update it based on user input.
     pub fn get_field_mut(&mut self, field: &str) -> Option<&mut String> {
         match (&self.encoder, field) {
-            (ObsVideoEncoderType::OBS_X264, "preset") => Some(&mut self.x264.preset),
-            (ObsVideoEncoderType::OBS_X264, "tune") => Some(&mut self.x264.tune),
-            (ObsVideoEncoderType::FFMPEG_NVENC, "preset2") => Some(&mut self.nvenc.preset2),
-            (ObsVideoEncoderType::FFMPEG_NVENC, "tune") => Some(&mut self.nvenc.tune),
+            (VideoEncoderType::X264, "preset") => Some(&mut self.x264.preset),
+            (VideoEncoderType::X264, "tune") => Some(&mut self.x264.tune),
+            (VideoEncoderType::NvEnc, "preset2") => Some(&mut self.nvenc.preset2),
+            (VideoEncoderType::NvEnc, "tune") => Some(&mut self.nvenc.tune),
             _ => None,
         }
     }
-}
-/// very convenient that libobs provides inbuilt from_str conversion for ObsVideoEncoderType that we can use for serialization
-fn serialize_encoder_type<S>(
-    encoder_type: &ObsVideoEncoderType,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    use libobs_wrapper::utils::ObsString;
-    let obs_string: ObsString = encoder_type.clone().into();
-    serializer.serialize_str(&obs_string.to_string())
-}
-fn deserialize_encoder_type<'de, D>(deserializer: D) -> Result<ObsVideoEncoderType, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    Ok(ObsVideoEncoderType::from_str(&s).unwrap())
 }
 
 /// OBS x264 (CPU) encoder specific settings

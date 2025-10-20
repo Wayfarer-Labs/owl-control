@@ -949,7 +949,6 @@ dependencies = [
 name = "constants"
 version = "0.1.0"
 dependencies = [
- "libobs-wrapper",
  "serde",
  "serde_json",
 ]

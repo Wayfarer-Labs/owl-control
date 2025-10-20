@@ -10,7 +10,7 @@ use color_eyre::{
     Result,
     eyre::{Context, OptionExt as _, bail, eyre},
 };
-use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
+use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH, encoding::VideoEncoderType};
 use windows::Win32::Foundation::HWND;
 
 use libobs_sources::{
@@ -21,6 +21,7 @@ use libobs_window_helper::WindowSearchMode;
 use libobs_wrapper::{
     context::ObsContext,
     data::{output::ObsOutputRef, video::ObsVideoInfoBuilder},
+    encoders::ObsVideoEncoderType,
     logger::ObsLogger,
     sources::ObsSourceRef,
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
@@ -213,7 +214,10 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         output
             .video_encoder(
                 VideoEncoderInfo::new(
-                    video_settings.encoder.clone(),
+                    match video_settings.encoder {
+                        VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
+                        VideoEncoderType::NvEnc => ObsVideoEncoderType::FFMPEG_NVENC,
+                    },
                     "video_encoder",
                     Some(video_encoder_settings),
                     None,

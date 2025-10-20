@@ -156,7 +156,7 @@ impl Recorder {
             .read()
             .unwrap()
             .preferences
-            .video_settings
+            .encoder
             .clone();
 
         let recording = Recording::start(
