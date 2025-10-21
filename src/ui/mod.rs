@@ -168,7 +168,7 @@ struct App {
     wgpu_state: Option<WgpuState>,
     window: Option<Arc<Window>>,
     main_app: MainApp,
-    mouse_inside_window: bool,
+    last_repaint_requested: Instant,
 }
 
 impl App {
@@ -195,7 +195,7 @@ impl App {
             wgpu_state: None,
             window: None,
             main_app,
-            mouse_inside_window: false,
+            last_repaint_requested: Instant::now(),
         })
     }
 
@@ -231,7 +231,6 @@ impl App {
     }
 
     fn handle_redraw(&mut self) {
-        tracing::info!("redraw handled");
         // Attempt to handle minimizing window
         if let Some(window) = self.window.as_ref()
             && let Some(min) = window.is_minimized()
@@ -357,8 +356,7 @@ impl ApplicationHandler for App {
 
         if let Some(window) = self.window.clone() {
             ctx.set_request_repaint_callback(move |_info| {
-                // do something with _info.duration; spawn a thread? send a message to a thread already running to deal with this? your choice
-                tracing::info!("hit request repaint callback {:#?}", _info);
+                // We just ignore the delay for now
                 window.request_redraw();
             })
         }
@@ -370,12 +368,21 @@ impl ApplicationHandler for App {
         }
 
         // Let egui renderer process the event first
-        let _response = self
+        let response = self
             .wgpu_state
             .as_mut()
             .unwrap()
             .egui_renderer
             .handle_input(self.window.as_ref().unwrap(), &event);
+
+        // We throttle this so we aren't unnecessarily repainting for what is otherwise a relatively
+        // simple UI. 16ms ~= 60fps.
+        if response.repaint && self.last_repaint_requested.elapsed() > Duration::from_millis(16) {
+            if let Some(window) = self.window.as_ref() {
+                window.request_redraw();
+            }
+            self.last_repaint_requested = Instant::now();
+        }
 
         // Handle window events
         self.main_app.handle_window_event(
@@ -398,21 +405,6 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 self.handle_redraw();
-                // kind of disgusting, but i'm abusing the fact that we accidentally utilised this recursive redraw call
-                // previously to get polling style event loop behaviour whenever the mouse is inside the window. I would
-                // much rather use something like WindowEvent::CursorMoved but the issue is that if the user doesn't move
-                // the mouse and then clicks the UI is just unresponsive because there's no more repainting if the mouse
-                // is stationary. Also should add throttling somehow, but that would require a dedicated thread.
-                if self.mouse_inside_window {
-                    self.window.as_ref().unwrap().request_redraw();
-                }
-            }
-            WindowEvent::CursorEntered { .. } => {
-                self.mouse_inside_window = true;
-                self.window.as_ref().unwrap().request_redraw();
-            }
-            WindowEvent::CursorLeft { .. } => {
-                self.mouse_inside_window = false;
             }
             WindowEvent::Resized(new_size) => {
                 self.handle_resized(new_size.width, new_size.height);
