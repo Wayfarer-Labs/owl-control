@@ -1,0 +1,8 @@
+[package]
+name = "bump-version"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+clap.workspace = true
+color-eyre.workspace = true
