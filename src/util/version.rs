@@ -192,12 +192,12 @@ mod tests {
     #[test]
     fn test_version_comparison_basic() {
         // Basic version comparison
-        assert!(is_version_newer("1.2.3", "1.2.2"));
-        assert!(is_version_newer("1.3.0", "1.2.9"));
-        assert!(is_version_newer("2.0.0", "1.9.9"));
-        assert!(!is_version_newer("1.2.2", "1.2.3"));
-        assert!(!is_version_newer("1.2.9", "1.3.0"));
-        assert!(!is_version_newer("1.9.9", "2.0.0"));
+        assert!(is_version_newer("1.2.2", "1.2.3"));
+        assert!(is_version_newer("1.2.9", "1.3.0"));
+        assert!(is_version_newer("1.9.9", "2.0.0"));
+        assert!(!is_version_newer("1.2.3", "1.2.2"));
+        assert!(!is_version_newer("1.3.0", "1.2.9"));
+        assert!(!is_version_newer("2.0.0", "1.9.9"));
 
         // Equal versions
         assert!(!is_version_newer("1.2.3", "1.2.3"));
@@ -206,55 +206,55 @@ mod tests {
     #[test]
     fn test_version_comparison_with_suffixes() {
         // Version with suffix vs version without suffix
-        assert!(!is_version_newer("1.2.3-rc1", "1.2.3"));
-        assert!(is_version_newer("1.2.3", "1.2.3-rc1"));
+        assert!(!is_version_newer("1.2.3", "1.2.3-rc1"));
+        assert!(is_version_newer("1.2.3-rc1", "1.2.3"));
 
         // Different suffix types
-        assert!(is_version_newer("1.2.3", "1.2.3-alpha"));
-        assert!(is_version_newer("1.2.3", "1.2.3-beta"));
-        assert!(is_version_newer("1.2.3", "1.2.3-rc1"));
-        assert!(is_version_newer("1.2.3", "1.2.3-prerelease"));
+        assert!(is_version_newer("1.2.3-alpha", "1.2.3"));
+        assert!(is_version_newer("1.2.3-beta", "1.2.3"));
+        assert!(is_version_newer("1.2.3-rc1", "1.2.3"));
+        assert!(is_version_newer("1.2.3-prerelease", "1.2.3"));
 
         // Same suffix type, different numbers
-        assert!(is_version_newer("1.2.3-rc2", "1.2.3-rc1"));
-        assert!(!is_version_newer("1.2.3-rc1", "1.2.3-rc2"));
+        assert!(is_version_newer("1.2.3-rc1", "1.2.3-rc2"));
+        assert!(!is_version_newer("1.2.3-rc2", "1.2.3-rc1"));
 
         // Different suffix types with same version
-        assert!(is_version_newer("1.2.3-beta", "1.2.3-alpha"));
-        assert!(is_version_newer("1.2.3-rc1", "1.2.3-beta"));
-        assert!(is_version_newer("1.2.3", "1.2.3-rc1"));
+        assert!(is_version_newer("1.2.3-alpha", "1.2.3-beta"));
+        assert!(is_version_newer("1.2.3-beta", "1.2.3-rc1"));
+        assert!(is_version_newer("1.2.3-rc1", "1.2.3"));
 
         // Numeric suffixes
-        assert!(is_version_newer("1.2.3-alpha2", "1.2.3-alpha1"));
-        assert!(is_version_newer("1.2.3-beta5", "1.2.3-beta3"));
-        assert!(is_version_newer("1.2.3-rc10", "1.2.3-rc2"));
+        assert!(is_version_newer("1.2.3-alpha1", "1.2.3-alpha2"));
+        assert!(is_version_newer("1.2.3-beta3", "1.2.3-beta5"));
+        assert!(is_version_newer("1.2.3-rc2", "1.2.3-rc10"));
 
         // Suffixes without numbers
-        assert!(is_version_newer("1.2.3-beta", "1.2.3-alpha"));
-        assert!(is_version_newer("1.2.3-rc", "1.2.3-beta"));
-        assert!(is_version_newer("1.2.3", "1.2.3-rc"));
+        assert!(is_version_newer("1.2.3-alpha", "1.2.3-beta"));
+        assert!(is_version_newer("1.2.3-beta", "1.2.3-rc"));
+        assert!(is_version_newer("1.2.3-rc", "1.2.3"));
 
         // Mixed numeric and non-numeric
-        assert!(is_version_newer("1.2.3-rc1", "1.2.3-beta"));
-        assert!(is_version_newer("1.2.3-beta2", "1.2.3-alpha"));
+        assert!(is_version_newer("1.2.3-beta", "1.2.3-rc1"));
+        assert!(is_version_newer("1.2.3-alpha", "1.2.3-beta2"));
     }
 
     #[test]
     fn test_version_comparison_edge_cases() {
         // Missing parts (should default to 0)
-        assert!(is_version_newer("1.2", "1.1.9"));
-        assert!(is_version_newer("1", "0.9.9"));
-        assert!(is_version_newer("1.2.3", "1.2"));
-        assert!(is_version_newer("1.2.3", "1"));
+        assert!(is_version_newer("1.1.9", "1.2"));
+        assert!(is_version_newer("0.9.9", "1"));
+        assert!(is_version_newer("1.2", "1.2.3"));
+        assert!(is_version_newer("1", "1.2.3"));
 
         // v prefix
-        assert!(is_version_newer("v1.2.3", "1.2.2"));
-        assert!(is_version_newer("1.2.3", "v1.2.2"));
+        assert!(is_version_newer("1.2.2", "v1.2.3"));
+        assert!(is_version_newer("v1.2.2", "1.2.3"));
         assert!(!is_version_newer("v1.2.3", "v1.2.3"));
 
         // Empty or invalid versions
-        assert!(is_version_newer("1.0.0", ""));
-        assert!(is_version_newer("1.0.0", "invalid"));
+        assert!(is_version_newer("", "1.0.0"));
+        assert!(is_version_newer("invalid", "1.0.0"));
 
         // Same suffix
         assert!(!is_version_newer("1.2.3-rc1", "1.2.3-rc1"));
@@ -263,15 +263,15 @@ mod tests {
     #[test]
     fn test_version_comparison_real_world_examples() {
         // Real-world version comparison examples
-        assert!(is_version_newer("2.1.0", "2.0.9"));
-        assert!(is_version_newer("2.1.0", "2.0.9-rc1"));
-        assert!(is_version_newer("2.1.0-rc1", "2.0.9"));
-        assert!(is_version_newer("2.1.0-rc2", "2.1.0-rc1"));
+        assert!(is_version_newer("2.0.9", "2.1.0"));
+        assert!(is_version_newer("2.0.9-rc1", "2.1.0"));
+        assert!(is_version_newer("2.0.9", "2.1.0-rc1"));
+        assert!(is_version_newer("2.1.0-rc1", "2.1.0-rc2"));
 
         // GitHub release examples
-        assert!(is_version_newer("v1.0.0", "v0.9.9"));
-        assert!(is_version_newer("v1.0.0", "v1.0.0-rc1"));
-        assert!(is_version_newer("v1.0.0-beta2", "v1.0.0-beta1"));
-        assert!(is_version_newer("v1.0.0-rc1", "v1.0.0-beta2"));
+        assert!(is_version_newer("v0.9.9", "v1.0.0"));
+        assert!(is_version_newer("v1.0.0-rc1", "v1.0.0"));
+        assert!(is_version_newer("v1.0.0-beta1", "v1.0.0-beta2"));
+        assert!(is_version_newer("v1.0.0-beta2", "v1.0.0-rc1"));
     }
 }
