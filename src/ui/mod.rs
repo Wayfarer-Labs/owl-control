@@ -168,6 +168,7 @@ struct App {
     wgpu_state: Option<WgpuState>,
     window: Option<Arc<Window>>,
     main_app: MainApp,
+    last_repaint_requested: Instant,
 }
 
 impl App {
@@ -194,6 +195,7 @@ impl App {
             wgpu_state: None,
             window: None,
             main_app,
+            last_repaint_requested: Instant::now(),
         })
     }
 
@@ -288,6 +290,11 @@ impl App {
         }
 
         state.queue.submit(Some(encoder.finish()));
+
+        // I don't feel like this is doing anything, but according to the docs it's supposed to be useful
+        // eh. I'll just leave it here I guess...
+        window.pre_present_notify();
+
         surface_texture.present();
     }
 }
@@ -346,6 +353,13 @@ impl ApplicationHandler for App {
             style.visuals.window_fill = bg_color;
             style.visuals.panel_fill = bg_color;
         });
+
+        if let Some(window) = self.window.clone() {
+            ctx.set_request_repaint_callback(move |_info| {
+                // We just ignore the delay for now
+                window.request_redraw();
+            })
+        }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
@@ -354,12 +368,21 @@ impl ApplicationHandler for App {
         }
 
         // Let egui renderer process the event first
-        let _response = self
+        let response = self
             .wgpu_state
             .as_mut()
             .unwrap()
             .egui_renderer
             .handle_input(self.window.as_ref().unwrap(), &event);
+
+        // We throttle this so we aren't unnecessarily repainting for what is otherwise a relatively
+        // simple UI. 16ms ~= 60fps.
+        if response.repaint && self.last_repaint_requested.elapsed() > Duration::from_millis(16) {
+            if let Some(window) = self.window.as_ref() {
+                window.request_redraw();
+            }
+            self.last_repaint_requested = Instant::now();
+        }
 
         // Handle window events
         self.main_app.handle_window_event(
@@ -382,7 +405,6 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 self.handle_redraw();
-                self.window.as_ref().unwrap().request_redraw();
             }
             WindowEvent::Resized(new_size) => {
                 self.handle_resized(new_size.width, new_size.height);
