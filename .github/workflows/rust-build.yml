@@ -44,6 +44,9 @@ jobs:
       - name: Check Rust with Clippy
         run: cargo clippy -- -D warnings
 
+      - name: Run tests
+        run: cargo test
+
       - name: Install NSIS
         id: nsis
         uses: negrutiu/nsis-install@v2

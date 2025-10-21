@@ -1,9 +1,6 @@
 use std::{
     path::Path,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex},
 };
 
 use color_eyre::{
@@ -39,63 +36,24 @@ const OWL_CAPTURE_NAME: &str = "owl_game_capture";
 const USE_WINDOW_CAPTURE: bool = false;
 
 pub struct ObsEmbeddedRecorder {
-    adapter_index: usize,
-    last_encoder_settings: Option<serde_json::Value>,
-    hook_successful: Arc<AtomicBool>,
-    obs_data: Option<ObsData>,
-}
-impl Drop for ObsEmbeddedRecorder {
-    fn drop(&mut self) {
-        if let Some(obs_data) = self.obs_data.take() {
-            // Move the ObsData into a blocking context,
-            // and let it detach, so that it can drop in its own time
-            tokio::task::spawn_blocking(move || {
-                std::mem::drop(obs_data);
-            });
-        }
-    }
-}
-// Separate struct that can be dropped in a Tokio-blocking context
-// as to avoid blocking a Tokio thread on drop
-struct ObsData {
-    obs_context: ObsContext,
-    current_output: Option<ObsOutputRef>,
-    source: Option<ObsSourceRef>,
+    _obs_thread: std::thread::JoinHandle<()>,
+    obs_tx: tokio::sync::mpsc::Sender<RecorderMessage>,
 }
 impl ObsEmbeddedRecorder {
     pub async fn new(adapter_index: usize) -> Result<Self>
     where
         Self: Sized,
     {
-        let obs_context = tokio::task::spawn_blocking(move || {
-            ObsContext::new(
-                ObsContext::builder()
-                    .set_logger(Box::new(TracingObsLogger))
-                    .set_video_info(
-                        ObsVideoInfoBuilder::new()
-                            .adapter(adapter_index as u32)
-                            .fps_num(FPS)
-                            .fps_den(1)
-                            .base_width(RECORDING_WIDTH)
-                            .base_height(RECORDING_HEIGHT)
-                            .output_width(RECORDING_WIDTH)
-                            .output_height(RECORDING_HEIGHT)
-                            .build(),
-                    ),
-            )
-        })
-        .await??;
+        let (obs_tx, obs_rx) = tokio::sync::mpsc::channel(100);
+        let (init_success_tx, init_success_rx) = tokio::sync::oneshot::channel();
+        let obs_thread =
+            std::thread::spawn(move || recorder_thread(adapter_index, obs_rx, init_success_tx));
+        // Wait for the OBS context to be initialized, and bail out if it fails
+        init_success_rx.await??;
 
-        tracing::debug!("OBS context initialized successfully");
         Ok(Self {
-            adapter_index,
-            obs_data: Some(ObsData {
-                obs_context,
-                current_output: None,
-                source: None,
-            }),
-            last_encoder_settings: None,
-            hook_successful: Arc::new(AtomicBool::new(false)),
+            _obs_thread: obs_thread,
+            obs_tx,
         })
     }
 }
@@ -119,162 +77,279 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             .ok_or_eyre("Recording path must be valid UTF-8")?
             .to_string();
 
-        tracing::debug!("Starting recording with path: {}", recording_path);
+        tracing::debug!("Starting recording with path: {recording_path}");
 
-        let Some(obs_data) = &mut self.obs_data else {
-            bail!("No OBS data to start recording");
-        };
+        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+        self.obs_tx
+            .send(RecorderMessage::StartRecording {
+                request: RecordingRequest {
+                    game_resolution: (base_width, base_height),
+                    video_settings,
+                    recording_path,
+                    game_exe: game_exe.to_string(),
+                    pid,
+                },
+                result_tx,
+            })
+            .await?;
+        result_rx.await??;
 
-        // Check if already recording
-        if obs_data.current_output.is_some() {
-            bail!("Recording is already in progress");
-        }
-
-        let mut obs_context = obs_data.obs_context.clone();
-        let hook_successful = self.hook_successful.clone();
-        let adapter_index = self.adapter_index;
-        let game_exe = game_exe.to_string();
-
-        let (output, source, last_encoder_settings) = tokio::task::spawn_blocking(move || {
-            // Set up scene and window capture based on input pid
-            let mut scene = obs_context.scene(OWL_SCENE_NAME)?;
-
-            obs_context.reset_video(
-                ObsVideoInfoBuilder::new()
-                    .adapter(adapter_index as u32)
-                    .fps_num(FPS)
-                    .fps_den(1)
-                    .base_width(base_width)
-                    .base_height(base_height)
-                    .output_width(RECORDING_WIDTH)
-                    .output_height(RECORDING_HEIGHT)
-                    .build(),
-            )?;
-
-            let source = build_source(&mut obs_context, pid, &game_exe, &mut scene)?;
-
-            // Register a signal to detect when the source is hooked,
-            // so we can invalidate non-hooked recordings
-            hook_successful.store(false, Ordering::SeqCst);
-            tokio::spawn({
-                let mut on_hooked = source
-                    .signal_manager()
-                    .on_hooked()
-                    .context("failed to register on_hooked signal")?;
-                async move {
-                    if on_hooked.recv().await.is_ok() {
-                        tracing::info!(
-                            "Game capture source was able to successfully hook the game, recording will be valid"
-                        );
-                        hook_successful.store(true, Ordering::SeqCst);
-                    }
-                }
-            });
-
-            // Register the source
-            scene.set_to_channel(0)?;
-
-            // Set up output
-            let mut output_settings = obs_context.data()?;
-            output_settings.set_string("path", ObsPath::new(&recording_path).build())?;
-
-            let output_info =
-                OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
-            let mut output = obs_context.output(output_info)?;
-
-            // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
-            // Register the video encoder with encoder-specific settings
-            let video_encoder_data = obs_context.data()?;
-            let video_encoder_settings = video_settings.apply_to_obs_data(video_encoder_data)?;
-            let mut last_encoder_settings: Option<serde_json::Value> = video_encoder_settings
-                .get_json()
-                .ok()
-                .and_then(|j| serde_json::from_str(&j).ok());
-            if let Some(last_encoder_settings) = &mut last_encoder_settings {
-                if let Some(object) = last_encoder_settings.as_object_mut() {
-                    object.insert(
-                        "encoder".to_string(),
-                        match video_settings.encoder {
-                            VideoEncoderType::X264 => "x264",
-                            VideoEncoderType::NvEnc => "nvenc",
-                        }
-                        .into(),
-                    );
-                }
-                tracing::info!("Recording starting with video settings: {last_encoder_settings:?}");
-            }
-
-            // Get video handler and attach encoder to output
-            let video_handler = obs_context.get_video_ptr()?;
-            output.video_encoder(
-                VideoEncoderInfo::new(
-                    match video_settings.encoder {
-                        VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
-                        VideoEncoderType::NvEnc => ObsVideoEncoderType::FFMPEG_NVENC,
-                    },
-                    "video_encoder",
-                    Some(video_encoder_settings),
-                    None,
-                ),
-                video_handler,
-            )?;
-
-            // Register the audio encoder
-            let mut audio_settings = obs_context.data()?;
-            audio_settings.set_int("bitrate", 160)?;
-
-            let audio_info =
-                AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
-
-            let audio_handler = obs_context.get_audio_ptr()?;
-            output.audio_encoder(audio_info, 0, audio_handler)?;
-
-            output.start()?;
-
-            eyre::Ok((output, source, last_encoder_settings))
-        })
-        .await??;
-
-        obs_data.current_output = Some(output);
-        obs_data.source = Some(source);
-        self.last_encoder_settings = last_encoder_settings;
-
-        tracing::debug!("OBS recording started successfully");
+        tracing::info!("OBS embedded recording started successfully");
 
         Ok(())
     }
 
     async fn stop_recording(&mut self) -> Result<serde_json::Value> {
-        tracing::debug!("Stopping OBS recording...");
+        tracing::info!("Stopping OBS embedded recording...");
 
-        let Some(obs_data) = &mut self.obs_data else {
-            bail!("No OBS data to stop recording");
-        };
+        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+        self.obs_tx
+            .send(RecorderMessage::StopRecording { result_tx })
+            .await?;
+        let result = result_rx.await??;
 
-        if let Some(mut output) = obs_data.current_output.take() {
-            let mut context = obs_data.obs_context.clone();
-            let source = obs_data.source.take();
-            tokio::task::spawn_blocking(move || {
-                output.stop().wrap_err("Failed to stop OBS output")?;
-                if let Some(mut scene) = context.get_scene(OWL_SCENE_NAME)
-                    && let Some(source) = source
-                {
-                    scene.remove_source(&source)?;
-                }
+        tracing::info!("OBS embedded recording stopped successfully");
 
-                eyre::Ok(())
-            })
-            .await??;
+        Ok(result)
+    }
+}
+
+enum RecorderMessage {
+    StartRecording {
+        request: RecordingRequest,
+        result_tx: tokio::sync::oneshot::Sender<Result<()>>,
+    },
+    StopRecording {
+        result_tx: tokio::sync::oneshot::Sender<Result<serde_json::Value>>,
+    },
+}
+
+struct RecordingRequest {
+    game_resolution: (u32, u32),
+    video_settings: EncoderSettings,
+    recording_path: String,
+    game_exe: String,
+    pid: u32,
+}
+
+fn recorder_thread(
+    adapter_index: usize,
+    mut rx: tokio::sync::mpsc::Receiver<RecorderMessage>,
+    init_success_tx: tokio::sync::oneshot::Sender<Result<(), libobs_wrapper::utils::ObsError>>,
+) {
+    let skipped_frames = Arc::new(Mutex::new(None));
+    let obs_context = ObsContext::new(
+        ObsContext::builder()
+            .set_logger(Box::new(TracingObsLogger {
+                skipped_frames: skipped_frames.clone(),
+            }))
+            .set_video_info(
+                ObsVideoInfoBuilder::new()
+                    .adapter(adapter_index as u32)
+                    .fps_num(FPS)
+                    .fps_den(1)
+                    .base_width(RECORDING_WIDTH)
+                    .base_height(RECORDING_HEIGHT)
+                    .output_width(RECORDING_WIDTH)
+                    .output_height(RECORDING_HEIGHT)
+                    .build(),
+            ),
+    );
+    let obs_context = match obs_context {
+        Ok(obs_context) => {
+            init_success_tx.send(Ok(())).unwrap();
+            obs_context
+        }
+        Err(e) => {
+            init_success_tx.send(Err(e)).unwrap();
+            return;
+        }
+    };
+
+    let mut state = RecorderState {
+        obs_context,
+        adapter_index,
+        skipped_frames,
+        current_output: None,
+        source: None,
+        last_encoder_settings: None,
+        last_hooked_signal: None,
+    };
+
+    while let Some(message) = rx.blocking_recv() {
+        match message {
+            RecorderMessage::StartRecording { request, result_tx } => {
+                result_tx.send(state.start_recording(request)).ok();
+            }
+            RecorderMessage::StopRecording { result_tx } => {
+                result_tx.send(state.stop_recording()).ok();
+            }
+        }
+    }
+}
+
+struct RecorderState {
+    obs_context: ObsContext,
+    adapter_index: usize,
+    skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
+    current_output: Option<ObsOutputRef>,
+    source: Option<ObsSourceRef>,
+    last_encoder_settings: Option<serde_json::Value>,
+    last_hooked_signal:
+        Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
+}
+impl RecorderState {
+    fn start_recording(&mut self, request: RecordingRequest) -> eyre::Result<()> {
+        if self.current_output.is_some() {
+            bail!("Recording is already in progress");
+        }
+
+        // Set up scene and window capture based on input pid
+        let mut scene = self.obs_context.scene(OWL_SCENE_NAME)?;
+
+        self.obs_context.reset_video(
+            ObsVideoInfoBuilder::new()
+                .adapter(self.adapter_index as u32)
+                .fps_num(FPS)
+                .fps_den(1)
+                .base_width(request.game_resolution.0)
+                .base_height(request.game_resolution.1)
+                .output_width(RECORDING_WIDTH)
+                .output_height(RECORDING_HEIGHT)
+                .build(),
+        )?;
+
+        let source = build_source(
+            &mut self.obs_context,
+            request.pid,
+            &request.game_exe,
+            &mut scene,
+        )?;
+
+        // Register a signal to detect when the source is hooked,
+        // so we can invalidate non-hooked recordings
+        self.last_hooked_signal = Some(
+            source
+                .signal_manager()
+                .on_hooked()
+                .context("failed to register on_hooked signal")?,
+        );
+
+        // Register the source
+        scene.set_to_channel(0)?;
+
+        // Set up output
+        let mut output_settings = self.obs_context.data()?;
+        output_settings.set_string("path", ObsPath::new(&request.recording_path).build())?;
+
+        let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
+        let mut output = self.obs_context.output(output_info)?;
+
+        // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
+        // Register the video encoder with encoder-specific settings
+        let video_encoder_data = self.obs_context.data()?;
+        let video_encoder_settings = request
+            .video_settings
+            .apply_to_obs_data(video_encoder_data)?;
+        self.last_encoder_settings = video_encoder_settings
+            .get_json()
+            .ok()
+            .and_then(|j| serde_json::from_str(&j).ok());
+        if let Some(encoder_settings_json) = &mut self.last_encoder_settings {
+            if let Some(object) = encoder_settings_json.as_object_mut() {
+                object.insert(
+                    "encoder".to_string(),
+                    match request.video_settings.encoder {
+                        VideoEncoderType::X264 => "x264",
+                        VideoEncoderType::NvEnc => "nvenc",
+                    }
+                    .into(),
+                );
+            }
+            tracing::info!("Recording starting with video settings: {encoder_settings_json:?}");
+        }
+
+        // Get video handler and attach encoder to output
+        let video_handler = self.obs_context.get_video_ptr()?;
+        output.video_encoder(
+            VideoEncoderInfo::new(
+                match request.video_settings.encoder {
+                    VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
+                    VideoEncoderType::NvEnc => ObsVideoEncoderType::FFMPEG_NVENC,
+                },
+                "video_encoder",
+                Some(video_encoder_settings),
+                None,
+            ),
+            video_handler,
+        )?;
+
+        // Register the audio encoder
+        let mut audio_settings = self.obs_context.data()?;
+        audio_settings.set_int("bitrate", 160)?;
+
+        let audio_info =
+            AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
+
+        let audio_handler = self.obs_context.get_audio_ptr()?;
+        output.audio_encoder(audio_info, 0, audio_handler)?;
+
+        // Just before we start, clear out our skipped frame counter
+        self.skipped_frames.lock().unwrap().take();
+
+        output.start()?;
+
+        self.current_output = Some(output);
+        self.source = Some(source);
+
+        Ok(())
+    }
+
+    fn stop_recording(&mut self) -> eyre::Result<serde_json::Value> {
+        if let Some(mut output) = self.current_output.take() {
+            output.stop().wrap_err("Failed to stop OBS output")?;
+            if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)
+                && let Some(source) = self.source.take()
+            {
+                scene.remove_source(&source)?;
+            }
             tracing::debug!("OBS recording stopped");
         } else {
             tracing::warn!("No active recording to stop");
         }
 
-        if !self.hook_successful.load(Ordering::SeqCst) {
+        if let Some(mut hooked_signal) = self.last_hooked_signal.take()
+            && hooked_signal.try_recv().is_err()
+        {
             bail!("Application was never hooked, recording will be blank");
         }
 
-        Ok(self.last_encoder_settings.take().unwrap_or_default())
+        let mut output = self.last_encoder_settings.take().unwrap_or_default();
+
+        // Extremely ugly hack: We want to get the skipped frames percentage from the logs,
+        // but that's not guaranteed to be present by the time this function would normally end.
+        //
+        // So, we wait 200ms to make sure we've cleared it.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        if let Some(skipped_frames) = self.skipped_frames.lock().unwrap().take() {
+            let percentage = skipped_frames.percentage();
+            if percentage > 5.0 {
+                bail!(
+                    "Too many frames were dropped ({}/{}, {percentage:.2}%), recording is unusable. Please consider using another encoder or tweaking your settings.",
+                    skipped_frames.skipped,
+                    skipped_frames.total
+                );
+            }
+
+            if let Some(object) = output.as_object_mut() {
+                object.insert(
+                    "skipped_frames".to_string(),
+                    serde_json::to_value(&skipped_frames)?,
+                );
+            }
+        }
+
+        Ok(output)
     }
 }
 
@@ -329,16 +404,92 @@ fn build_source(
     Ok(result?)
 }
 
+#[derive(Debug, serde::Serialize)]
+struct SkippedFrames {
+    skipped: usize,
+    total: usize,
+}
+impl SkippedFrames {
+    /// 0-100%
+    pub fn percentage(&self) -> f64 {
+        if self.total == 0 {
+            0.0
+        } else {
+            (self.skipped as f64 / self.total as f64) * 100.0
+        }
+    }
+}
+
 #[derive(Debug)]
-struct TracingObsLogger;
+struct TracingObsLogger {
+    skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
+}
 impl ObsLogger for TracingObsLogger {
     fn log(&mut self, level: libobs_wrapper::enums::ObsLogLevel, msg: String) {
         use libobs_wrapper::enums::ObsLogLevel;
         match level {
             ObsLogLevel::Error => tracing::error!(target: "obs", "{msg}"),
             ObsLogLevel::Warning => tracing::warn!(target: "obs", "{msg}"),
-            ObsLogLevel::Info => tracing::info!(target: "obs", "{msg}"),
+            ObsLogLevel::Info => {
+                // HACK: If we encounter a message of the sort
+                //   Video stopped, number of skipped frames due to encoding lag: 10758/22640 (47.5%)
+                // we parse out the numbers to allow us to determine if it's an acceptable number
+                // of skipped frames.
+                if msg.contains("number of skipped frames due to encoding lag:")
+                    && let Some(frames_data) = parse_skipped_frames(&msg)
+                {
+                    *self.skipped_frames.lock().unwrap() = Some(frames_data);
+                }
+                tracing::info!(target: "obs", "{msg}");
+            }
             ObsLogLevel::Debug => tracing::debug!(target: "obs", "{msg}"),
         }
+    }
+}
+
+fn parse_skipped_frames(msg: &str) -> Option<SkippedFrames> {
+    // Find the colon and start from there
+    let after_colon = msg.split(':').nth(1)?;
+    let mut chars = after_colon.chars();
+
+    // Skip to first digit and parse number (skipped frames)
+    while let Some(c) = chars.next() {
+        if !c.is_ascii_digit() {
+            continue;
+        }
+        let mut num_str = c.to_string();
+        num_str.extend(chars.by_ref().take_while(|c| c.is_ascii_digit()));
+        let skipped = num_str.parse::<usize>().ok()?;
+
+        // Skip to next digit and parse number (total frames)
+        while let Some(c) = chars.next() {
+            if !c.is_ascii_digit() {
+                continue;
+            }
+
+            let mut num_str = c.to_string();
+            num_str.extend(chars.by_ref().take_while(|c| c.is_ascii_digit()));
+            let total = num_str.parse::<usize>().ok()?;
+
+            return Some(SkippedFrames { skipped, total });
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_skipped_frames_basic() {
+        let msg =
+            "Video stopped, number of skipped frames due to encoding lag: 10758/22640 (47.5%)";
+        let result = parse_skipped_frames(msg).expect("Failed to parse");
+
+        assert_eq!(result.skipped, 10758);
+        assert_eq!(result.total, 22640);
+        assert!((result.percentage() - 47.48).abs() < 0.1);
     }
 }
