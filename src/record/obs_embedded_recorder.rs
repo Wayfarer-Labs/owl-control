@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use color_eyre::{
     Result,
@@ -91,13 +94,13 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             .await?;
         result_rx.await??;
 
-        tracing::debug!("OBS recording started successfully");
+        tracing::info!("OBS embedded recording started successfully");
 
         Ok(())
     }
 
     async fn stop_recording(&mut self) -> Result<serde_json::Value> {
-        tracing::debug!("Stopping OBS recording...");
+        tracing::info!("Stopping OBS embedded recording...");
 
         let (result_tx, result_rx) = tokio::sync::oneshot::channel();
         self.obs_tx
@@ -105,7 +108,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
             .await?;
         let result = result_rx.await??;
 
-        tracing::debug!("OBS recording stopped successfully");
+        tracing::info!("OBS embedded recording stopped successfully");
 
         Ok(result)
     }
@@ -134,9 +137,12 @@ fn recorder_thread(
     mut rx: tokio::sync::mpsc::Receiver<RecorderMessage>,
     init_success_tx: tokio::sync::oneshot::Sender<Result<(), libobs_wrapper::utils::ObsError>>,
 ) {
+    let skipped_frames = Arc::new(Mutex::new(None));
     let obs_context = ObsContext::new(
         ObsContext::builder()
-            .set_logger(Box::new(TracingObsLogger))
+            .set_logger(Box::new(TracingObsLogger {
+                skipped_frames: skipped_frames.clone(),
+            }))
             .set_video_info(
                 ObsVideoInfoBuilder::new()
                     .adapter(adapter_index as u32)
@@ -163,6 +169,7 @@ fn recorder_thread(
     let mut state = RecorderState {
         obs_context,
         adapter_index,
+        skipped_frames,
         current_output: None,
         source: None,
         last_encoder_settings: None,
@@ -184,6 +191,7 @@ fn recorder_thread(
 struct RecorderState {
     obs_context: ObsContext,
     adapter_index: usize,
+    skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
     last_encoder_settings: Option<serde_json::Value>,
@@ -286,6 +294,9 @@ impl RecorderState {
         let audio_handler = self.obs_context.get_audio_ptr()?;
         output.audio_encoder(audio_info, 0, audio_handler)?;
 
+        // Just before we start, clear out our skipped frame counter
+        self.skipped_frames.lock().unwrap().take();
+
         output.start()?;
 
         self.current_output = Some(output);
@@ -308,11 +319,37 @@ impl RecorderState {
         }
 
         if let Some(mut hooked_signal) = self.last_hooked_signal.take()
-            && hooked_signal.try_recv().is_err() {
-                bail!("Application was never hooked, recording will be blank");
+            && hooked_signal.try_recv().is_err()
+        {
+            bail!("Application was never hooked, recording will be blank");
+        }
+
+        let mut output = self.last_encoder_settings.take().unwrap_or_default();
+
+        // Extremely ugly hack: We want to get the skipped frames percentage from the logs,
+        // but that's not guaranteed to be present by the time this function would normally end.
+        //
+        // So, we wait 200ms to make sure we've cleared it.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        if let Some(skipped_frames) = self.skipped_frames.lock().unwrap().take() {
+            let percentage = skipped_frames.percentage();
+            if percentage > 5.0 {
+                bail!(
+                    "Too many frames were dropped ({}/{}, {percentage:.2}%), recording is unusable. Please consider using another encoder or tweaking your settings.",
+                    skipped_frames.skipped,
+                    skipped_frames.total
+                );
             }
 
-        Ok(self.last_encoder_settings.take().unwrap_or_default())
+            if let Some(object) = output.as_object_mut() {
+                object.insert(
+                    "skipped_frames".to_string(),
+                    serde_json::to_value(&skipped_frames)?,
+                );
+            }
+        }
+
+        Ok(output)
     }
 }
 
@@ -367,16 +404,92 @@ fn build_source(
     Ok(result?)
 }
 
+#[derive(Debug, serde::Serialize)]
+struct SkippedFrames {
+    skipped: usize,
+    total: usize,
+}
+impl SkippedFrames {
+    /// 0-100%
+    pub fn percentage(&self) -> f64 {
+        if self.total == 0 {
+            0.0
+        } else {
+            (self.skipped as f64 / self.total as f64) * 100.0
+        }
+    }
+}
+
 #[derive(Debug)]
-struct TracingObsLogger;
+struct TracingObsLogger {
+    skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
+}
 impl ObsLogger for TracingObsLogger {
     fn log(&mut self, level: libobs_wrapper::enums::ObsLogLevel, msg: String) {
         use libobs_wrapper::enums::ObsLogLevel;
         match level {
             ObsLogLevel::Error => tracing::error!(target: "obs", "{msg}"),
             ObsLogLevel::Warning => tracing::warn!(target: "obs", "{msg}"),
-            ObsLogLevel::Info => tracing::info!(target: "obs", "{msg}"),
+            ObsLogLevel::Info => {
+                // HACK: If we encounter a message of the sort
+                //   Video stopped, number of skipped frames due to encoding lag: 10758/22640 (47.5%)
+                // we parse out the numbers to allow us to determine if it's an acceptable number
+                // of skipped frames.
+                if msg.contains("number of skipped frames due to encoding lag:")
+                    && let Some(frames_data) = parse_skipped_frames(&msg)
+                {
+                    *self.skipped_frames.lock().unwrap() = Some(frames_data);
+                }
+                tracing::info!(target: "obs", "{msg}");
+            }
             ObsLogLevel::Debug => tracing::debug!(target: "obs", "{msg}"),
         }
+    }
+}
+
+fn parse_skipped_frames(msg: &str) -> Option<SkippedFrames> {
+    // Find the colon and start from there
+    let after_colon = msg.split(':').nth(1)?;
+    let mut chars = after_colon.chars();
+
+    // Skip to first digit and parse number (skipped frames)
+    while let Some(c) = chars.next() {
+        if !c.is_ascii_digit() {
+            continue;
+        }
+        let mut num_str = c.to_string();
+        num_str.extend(chars.by_ref().take_while(|c| c.is_ascii_digit()));
+        let skipped = num_str.parse::<usize>().ok()?;
+
+        // Skip to next digit and parse number (total frames)
+        while let Some(c) = chars.next() {
+            if !c.is_ascii_digit() {
+                continue;
+            }
+
+            let mut num_str = c.to_string();
+            num_str.extend(chars.by_ref().take_while(|c| c.is_ascii_digit()));
+            let total = num_str.parse::<usize>().ok()?;
+
+            return Some(SkippedFrames { skipped, total });
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_skipped_frames_basic() {
+        let msg =
+            "Video stopped, number of skipped frames due to encoding lag: 10758/22640 (47.5%)";
+        let result = parse_skipped_frames(msg).expect("Failed to parse");
+
+        assert_eq!(result.skipped, 10758);
+        assert_eq!(result.total, 22640);
+        assert!((result.percentage() - 47.48).abs() < 0.1);
     }
 }
