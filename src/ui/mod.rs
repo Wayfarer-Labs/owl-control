@@ -43,6 +43,14 @@ enum HotkeyRebindTarget {
     Stop,
 }
 
+/// Optimized to show everything in the layout at 1x scaling.
+///
+/// Update this whenever you add or remove content. Assume that everything that a normal useer
+/// might see should be covered by this size (e.g. no temporary notices, but yes "delete invalid" button)
+///
+/// Try to keep this below ~840px ((1080/1.25 = 864) - 24px taskbar)).
+const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 820);
+
 pub fn start(
     wgpu_instance: wgpu::Instance,
     app_state: Arc<AppState>,
@@ -311,9 +319,7 @@ impl ApplicationHandler for App {
         let window_icon = winit::window::Icon::from_rgba(icon_rgb, icon_width, icon_height)
             .expect("Failed to create window icon");
 
-        // The size here is optimised to show everything in the layout at 1x scaling.
-        let inner_size = PhysicalSize::new(600, 915);
-
+        let inner_size = WINDOW_INNER_SIZE;
         let window_attributes = Window::default_attributes()
             .with_title("OWL Control")
             .with_inner_size(inner_size)

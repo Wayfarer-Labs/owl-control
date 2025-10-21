@@ -4,7 +4,7 @@ use crate::{
     api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease},
     config::{EncoderSettings, FfmpegNvencSettings, ObsX264Settings, RecordingBackend},
-    ui::{HEADING_TEXT_SIZE, HotkeyRebindTarget, MainApp, SUBHEADING_TEXT_SIZE, util},
+    ui::{HotkeyRebindTarget, MainApp, util},
     upload::LocalRecording,
 };
 
@@ -69,17 +69,6 @@ impl MainApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(
-                egui::RichText::new("Settings")
-                    .size(HEADING_TEXT_SIZE)
-                    .strong(),
-            );
-            ui.label(
-                egui::RichText::new("Configure your recording preferences")
-                    .size(SUBHEADING_TEXT_SIZE),
-            );
-            ui.add_space(10.0);
-
             // Show new release warning if available
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
@@ -697,24 +686,37 @@ fn unified_recordings_view(
             bottom: 4,
         })
         .show(ui, |ui| {
-            let height = 150.0;
+            // Delete All Invalid button (only show if there are invalid recordings)
+            let invalid_count = local_recordings
+                .iter()
+                .filter(|r| matches!(r, crate::upload::LocalRecording::Invalid { .. }))
+                .count();
+
+            let button_height = 28.0;
+            let button_gap = 8.0;
+
+            let height = 120.0;
 
             // Show spinner if still loading
             if uploads.is_none() {
                 ui.vertical_centered(|ui| {
-                    ui.add(egui::widgets::Spinner::new().size(height));
+                    ui.add(egui::widgets::Spinner::new().size(
+                        height
+                            + if invalid_count > 0 {
+                                // Accommodate the button to match heights
+                                button_height + button_gap
+                            } else {
+                                0.0
+                            },
+                    ));
                 });
                 return;
             }
 
-            // Delete All Invalid button (only show if there are invalid recordings)
-            let invalid_count = local_recordings.iter()
-                .filter(|r| matches!(r, crate::upload::LocalRecording::Invalid { .. }))
-                .count();
             if invalid_count > 0 {
                 if ui
                     .add_sized(
-                        egui::vec2(ui.available_width(), 28.0),
+                        egui::vec2(ui.available_width(), button_height),
                         egui::Button::new(
                             egui::RichText::new("Delete Invalid Recordings")
                                 .size(FONTSIZE)
@@ -730,7 +732,7 @@ fn unified_recordings_view(
                         .blocking_send(crate::app_state::AsyncRequest::DeleteAllInvalidRecordings)
                         .ok();
                 }
-                ui.add_space(8.0);
+                ui.add_space(button_gap);
             }
 
             // Merge and sort recordings
