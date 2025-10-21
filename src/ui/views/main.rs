@@ -274,9 +274,13 @@ impl MainApp {
                                     }
                                 });
 
-                            if ui.button("⚙ Settings").clicked() {
-                                self.encoder_settings_window_open = true;
-                            }
+                            ui.horizontal(|ui| {
+                                if ui.button("⚙ Settings").clicked() {
+                                    self.encoder_settings_window_open = true;
+                                }
+
+                                tooltip(ui, "Consider switching encoders and/or using a different preset if your recordings suffer from dropped frames. NVENC is known to drop frames when the GPU is under heavy load or does not have enough VRAM.", None)
+                            });
                         });
                     });
                 });
