@@ -1,10 +1,4 @@
-use std::{
-    path::Path,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::path::Path;
 
 use color_eyre::{
     Result,
@@ -155,7 +149,7 @@ fn recorder_thread(
                     .build(),
             ),
     );
-    let mut obs_context = match obs_context {
+    let obs_context = match obs_context {
         Ok(obs_context) => {
             init_success_tx.send(Ok(())).unwrap();
             obs_context
@@ -166,175 +160,160 @@ fn recorder_thread(
         }
     };
 
-    let mut current_output: Option<ObsOutputRef> = None;
-    let mut source: Option<ObsSourceRef> = None;
-    let hook_successful = Arc::new(AtomicBool::new(false));
-    let mut last_encoder_settings: Option<serde_json::Value> = None;
+    let mut state = RecorderState {
+        obs_context,
+        adapter_index,
+        current_output: None,
+        source: None,
+        last_encoder_settings: None,
+        last_hooked_signal: None,
+    };
 
     while let Some(message) = rx.blocking_recv() {
         match message {
             RecorderMessage::StartRecording { request, result_tx } => {
-                let result = start_recording(
-                    &mut obs_context,
-                    &mut current_output,
-                    &mut source,
-                    adapter_index,
-                    request,
-                    hook_successful.clone(),
-                );
-                last_encoder_settings = result.as_ref().ok().cloned().flatten();
-                result_tx.send(result.map(|_| ())).ok();
+                result_tx.send(state.start_recording(request)).ok();
             }
             RecorderMessage::StopRecording { result_tx } => {
-                let result = stop_recording(
-                    &mut obs_context,
-                    &mut current_output,
-                    &mut source,
-                    &hook_successful,
-                );
-                result_tx
-                    .send(result.map(|_| last_encoder_settings.take().unwrap_or_default()))
-                    .ok();
+                result_tx.send(state.stop_recording()).ok();
             }
         }
     }
 }
 
-fn start_recording(
-    obs_context: &mut ObsContext,
-    current_output: &mut Option<ObsOutputRef>,
-    current_source: &mut Option<ObsSourceRef>,
+struct RecorderState {
+    obs_context: ObsContext,
     adapter_index: usize,
-    request: RecordingRequest,
-    hook_successful: Arc<AtomicBool>,
-) -> eyre::Result<Option<serde_json::Value>> {
-    if current_output.is_some() {
-        bail!("Recording is already in progress");
-    }
-
-    // Set up scene and window capture based on input pid
-    let mut scene = obs_context.scene(OWL_SCENE_NAME)?;
-
-    obs_context.reset_video(
-        ObsVideoInfoBuilder::new()
-            .adapter(adapter_index as u32)
-            .fps_num(FPS)
-            .fps_den(1)
-            .base_width(request.game_resolution.0)
-            .base_height(request.game_resolution.1)
-            .output_width(RECORDING_WIDTH)
-            .output_height(RECORDING_HEIGHT)
-            .build(),
-    )?;
-
-    let source = build_source(obs_context, request.pid, &request.game_exe, &mut scene)?;
-
-    // Register a signal to detect when the source is hooked,
-    // so we can invalidate non-hooked recordings
-    hook_successful.store(false, Ordering::SeqCst);
-    let mut on_hooked = source
-        .signal_manager()
-        .on_hooked()
-        .context("failed to register on_hooked signal")?;
-    std::thread::spawn(move || {
-        if on_hooked.blocking_recv().is_ok() {
-            tracing::info!(
-                "Game capture source was able to successfully hook the game, recording will be valid"
-            );
-            hook_successful.store(true, Ordering::SeqCst);
-        }
-    });
-
-    // Register the source
-    scene.set_to_channel(0)?;
-
-    // Set up output
-    let mut output_settings = obs_context.data()?;
-    output_settings.set_string("path", ObsPath::new(&request.recording_path).build())?;
-
-    let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
-    let mut output = obs_context.output(output_info)?;
-
-    // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
-    // Register the video encoder with encoder-specific settings
-    let video_encoder_data = obs_context.data()?;
-    let video_encoder_settings = request
-        .video_settings
-        .apply_to_obs_data(video_encoder_data)?;
-    let mut encoder_settings_json: Option<serde_json::Value> = video_encoder_settings
-        .get_json()
-        .ok()
-        .and_then(|j| serde_json::from_str(&j).ok());
-    if let Some(encoder_settings_json) = &mut encoder_settings_json {
-        if let Some(object) = encoder_settings_json.as_object_mut() {
-            object.insert(
-                "encoder".to_string(),
-                match request.video_settings.encoder {
-                    VideoEncoderType::X264 => "x264",
-                    VideoEncoderType::NvEnc => "nvenc",
-                }
-                .into(),
-            );
-        }
-        tracing::info!("Recording starting with video settings: {encoder_settings_json:?}");
-    }
-
-    // Get video handler and attach encoder to output
-    let video_handler = obs_context.get_video_ptr()?;
-    output.video_encoder(
-        VideoEncoderInfo::new(
-            match request.video_settings.encoder {
-                VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
-                VideoEncoderType::NvEnc => ObsVideoEncoderType::FFMPEG_NVENC,
-            },
-            "video_encoder",
-            Some(video_encoder_settings),
-            None,
-        ),
-        video_handler,
-    )?;
-
-    // Register the audio encoder
-    let mut audio_settings = obs_context.data()?;
-    audio_settings.set_int("bitrate", 160)?;
-
-    let audio_info =
-        AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
-
-    let audio_handler = obs_context.get_audio_ptr()?;
-    output.audio_encoder(audio_info, 0, audio_handler)?;
-
-    output.start()?;
-
-    *current_output = Some(output);
-    *current_source = Some(source);
-
-    Ok(encoder_settings_json)
+    current_output: Option<ObsOutputRef>,
+    source: Option<ObsSourceRef>,
+    last_encoder_settings: Option<serde_json::Value>,
+    last_hooked_signal:
+        Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
 }
-
-fn stop_recording(
-    context: &mut ObsContext,
-    output: &mut Option<ObsOutputRef>,
-    source: &mut Option<ObsSourceRef>,
-    hook_successful: &AtomicBool,
-) -> eyre::Result<()> {
-    if let Some(mut output) = output.take() {
-        output.stop().wrap_err("Failed to stop OBS output")?;
-        if let Some(mut scene) = context.get_scene(OWL_SCENE_NAME)
-            && let Some(source) = source.take()
-        {
-            scene.remove_source(&source)?;
+impl RecorderState {
+    fn start_recording(&mut self, request: RecordingRequest) -> eyre::Result<()> {
+        if self.current_output.is_some() {
+            bail!("Recording is already in progress");
         }
-        tracing::debug!("OBS recording stopped");
-    } else {
-        tracing::warn!("No active recording to stop");
+
+        // Set up scene and window capture based on input pid
+        let mut scene = self.obs_context.scene(OWL_SCENE_NAME)?;
+
+        self.obs_context.reset_video(
+            ObsVideoInfoBuilder::new()
+                .adapter(self.adapter_index as u32)
+                .fps_num(FPS)
+                .fps_den(1)
+                .base_width(request.game_resolution.0)
+                .base_height(request.game_resolution.1)
+                .output_width(RECORDING_WIDTH)
+                .output_height(RECORDING_HEIGHT)
+                .build(),
+        )?;
+
+        let source = build_source(
+            &mut self.obs_context,
+            request.pid,
+            &request.game_exe,
+            &mut scene,
+        )?;
+
+        // Register a signal to detect when the source is hooked,
+        // so we can invalidate non-hooked recordings
+        self.last_hooked_signal = Some(
+            source
+                .signal_manager()
+                .on_hooked()
+                .context("failed to register on_hooked signal")?,
+        );
+
+        // Register the source
+        scene.set_to_channel(0)?;
+
+        // Set up output
+        let mut output_settings = self.obs_context.data()?;
+        output_settings.set_string("path", ObsPath::new(&request.recording_path).build())?;
+
+        let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
+        let mut output = self.obs_context.output(output_info)?;
+
+        // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
+        // Register the video encoder with encoder-specific settings
+        let video_encoder_data = self.obs_context.data()?;
+        let video_encoder_settings = request
+            .video_settings
+            .apply_to_obs_data(video_encoder_data)?;
+        self.last_encoder_settings = video_encoder_settings
+            .get_json()
+            .ok()
+            .and_then(|j| serde_json::from_str(&j).ok());
+        if let Some(encoder_settings_json) = &mut self.last_encoder_settings {
+            if let Some(object) = encoder_settings_json.as_object_mut() {
+                object.insert(
+                    "encoder".to_string(),
+                    match request.video_settings.encoder {
+                        VideoEncoderType::X264 => "x264",
+                        VideoEncoderType::NvEnc => "nvenc",
+                    }
+                    .into(),
+                );
+            }
+            tracing::info!("Recording starting with video settings: {encoder_settings_json:?}");
+        }
+
+        // Get video handler and attach encoder to output
+        let video_handler = self.obs_context.get_video_ptr()?;
+        output.video_encoder(
+            VideoEncoderInfo::new(
+                match request.video_settings.encoder {
+                    VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
+                    VideoEncoderType::NvEnc => ObsVideoEncoderType::FFMPEG_NVENC,
+                },
+                "video_encoder",
+                Some(video_encoder_settings),
+                None,
+            ),
+            video_handler,
+        )?;
+
+        // Register the audio encoder
+        let mut audio_settings = self.obs_context.data()?;
+        audio_settings.set_int("bitrate", 160)?;
+
+        let audio_info =
+            AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
+
+        let audio_handler = self.obs_context.get_audio_ptr()?;
+        output.audio_encoder(audio_info, 0, audio_handler)?;
+
+        output.start()?;
+
+        self.current_output = Some(output);
+        self.source = Some(source);
+
+        Ok(())
     }
 
-    if !hook_successful.load(Ordering::SeqCst) {
-        bail!("Application was never hooked, recording will be blank");
-    }
+    fn stop_recording(&mut self) -> eyre::Result<serde_json::Value> {
+        if let Some(mut output) = self.current_output.take() {
+            output.stop().wrap_err("Failed to stop OBS output")?;
+            if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)
+                && let Some(source) = self.source.take()
+            {
+                scene.remove_source(&source)?;
+            }
+            tracing::debug!("OBS recording stopped");
+        } else {
+            tracing::warn!("No active recording to stop");
+        }
 
-    Ok(())
+        if let Some(mut hooked_signal) = self.last_hooked_signal.take()
+            && hooked_signal.try_recv().is_err() {
+                bail!("Application was never hooked, recording will be blank");
+            }
+
+        Ok(self.last_encoder_settings.take().unwrap_or_default())
+    }
 }
 
 fn build_source(
