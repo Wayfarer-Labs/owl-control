@@ -1,6 +1,7 @@
 use std::{
     path::Path,
     sync::{Arc, Mutex},
+    time::SystemTime,
 };
 
 use color_eyre::{
@@ -71,7 +72,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
-    ) -> Result<()> {
+    ) -> Result<Option<tokio::sync::mpsc::Receiver<SystemTime>>> {
         let recording_path = dummy_video_path
             .to_str()
             .ok_or_eyre("Recording path must be valid UTF-8")?
@@ -92,11 +93,11 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 result_tx,
             })
             .await?;
-        result_rx.await??;
+        let hook_time_rx = result_rx.await??;
 
         tracing::info!("OBS embedded recording started successfully");
 
-        Ok(())
+        Ok(hook_time_rx)
     }
 
     async fn stop_recording(&mut self) -> Result<serde_json::Value> {
@@ -117,7 +118,8 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 enum RecorderMessage {
     StartRecording {
         request: RecordingRequest,
-        result_tx: tokio::sync::oneshot::Sender<Result<()>>,
+        result_tx:
+            tokio::sync::oneshot::Sender<Result<Option<tokio::sync::mpsc::Receiver<SystemTime>>>>,
     },
     StopRecording {
         result_tx: tokio::sync::oneshot::Sender<Result<serde_json::Value>>,
@@ -199,7 +201,10 @@ struct RecorderState {
         Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
 }
 impl RecorderState {
-    fn start_recording(&mut self, request: RecordingRequest) -> eyre::Result<()> {
+    fn start_recording(
+        &mut self,
+        request: RecordingRequest,
+    ) -> eyre::Result<Option<tokio::sync::mpsc::Receiver<SystemTime>>> {
         if self.current_output.is_some() {
             bail!("Recording is already in progress");
         }
@@ -228,12 +233,25 @@ impl RecorderState {
 
         // Register a signal to detect when the source is hooked,
         // so we can invalidate non-hooked recordings
-        self.last_hooked_signal = Some(
-            source
-                .signal_manager()
-                .on_hooked()
-                .context("failed to register on_hooked signal")?,
-        );
+        let hook_signal_rx = source
+            .signal_manager()
+            .on_hooked()
+            .context("failed to register on_hooked signal")?;
+
+        // Spawn a thread to monitor the hooked signal and send the hook time
+        let (hook_tx, hook_rx) = tokio::sync::mpsc::channel(1);
+        {
+            let mut hook_signal_rx = hook_signal_rx.resubscribe();
+            std::thread::spawn(move || {
+                if hook_signal_rx.blocking_recv().is_ok() {
+                    let hook_time = SystemTime::now();
+                    tracing::info!("Game hooked at: {:?}", hook_time);
+                    let _ = hook_tx.blocking_send(hook_time);
+                }
+            });
+        }
+
+        self.last_hooked_signal = Some(hook_signal_rx);
 
         // Register the source
         scene.set_to_channel(0)?;
@@ -302,7 +320,7 @@ impl RecorderState {
         self.current_output = Some(output);
         self.source = Some(source);
 
-        Ok(())
+        Ok(Some(hook_rx))
     }
 
     fn stop_recording(&mut self) -> eyre::Result<serde_json::Value> {
