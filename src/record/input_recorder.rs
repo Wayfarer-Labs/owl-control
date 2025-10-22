@@ -38,7 +38,9 @@ impl InputRecorder {
             .unwrap()
             .as_secs_f64();
         tracing::info!("OBS hooked into game at timestamp: {}", timestamp);
-        let _ = self.write_entry(InputEvent::new(timestamp, InputEventType::ObsHooked)).await;
+        let _ = self
+            .write_entry(InputEvent::new(timestamp, InputEventType::VideoStart))
+            .await;
     }
 
     pub(crate) async fn stop(mut self) -> Result<()> {
