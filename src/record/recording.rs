@@ -107,11 +107,6 @@ impl Recording {
         self.input_recorder.seen_input(e).await
     }
 
-    pub(crate) async fn write_focus(&mut self, focused: bool) -> Result<()> {
-        // write alt tab status to the input tracker
-        self.input_recorder.write_focus(focused).await
-    }
-
     pub(crate) async fn stop(
         self,
         recorder: &mut dyn VideoRecorder,

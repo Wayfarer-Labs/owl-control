@@ -20,8 +20,7 @@ use color_eyre::{
 };
 
 use constants::{
-    ALT_TAB_GRACE_PERIOD, GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION,
-    unsupported_games::UnsupportedGames,
+    GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames,
 };
 use game_process::does_process_exist;
 use input_capture::InputCapture;
@@ -83,7 +82,6 @@ async fn main(
     let mut last_active = Instant::now();
     let mut start_on_activity = false;
     let mut actively_recording_window: Option<HWND> = None;
-    let mut window_unfocused_at: Option<Instant> = None;
 
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -129,18 +127,14 @@ async fn main(
                     continue;
                 }
 
-                if window_unfocused_at.is_none(){
-                    // we don't want to be logging any inputs if the user is alt tabbed out or unfocused the game window
-                    if let Err(e) = recorder.seen_input(e).await {
-                        tracing::error!(e=?e, "Failed to seen input");
-                    }
+                if let Err(e) = recorder.seen_input(e).await {
+                    tracing::error!(e=?e, "Failed to seen input");
                 }
                 if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
                     if key == start_key && recorder.recording().is_none() {
                         tracing::info!("Start key pressed, starting recording");
                         if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
-                            window_unfocused_at = None;
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
                     } else if key == stop_key && recorder.recording().is_some() {
@@ -150,14 +144,12 @@ async fn main(
                         }
 
                         actively_recording_window = None;
-                        window_unfocused_at = None;
                         start_on_activity = false;
                     }
                 } else if start_on_activity && actively_recording_window.is_some_and(is_window_focused) {
                     tracing::info!("Input detected, restarting recording");
                     if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                         start_on_activity = false;
-                        window_unfocused_at = None;
                     }
                 }
                 last_active = Instant::now();
@@ -341,40 +333,17 @@ async fn main(
                         }
                         start_recording_safely(&mut recorder, &unsupported_games, None).await;
                         last_active = Instant::now();
-                        window_unfocused_at = None;
                     } else if let Some(window) = actively_recording_window && !is_window_focused(window) {
-                        // Window lost focus - start grace period if not already started
-                        if window_unfocused_at.is_none() {
-                            window_unfocused_at = Some(Instant::now());
-                            tracing::info!("Window {window:?} lost focus, starting {ALT_TAB_GRACE_PERIOD:?} grace period");
-                            // Insert flag into logs
-                            if let Err(e) = recorder.write_focus(false).await {
-                                tracing::error!(e=?e, "Failed to write focus on window lost focus");
-                            }
-                        } else if let Some(unfocused_at) = window_unfocused_at {
-                            // Check if grace period has elapsed
-                            if unfocused_at.elapsed() > ALT_TAB_GRACE_PERIOD {
-                                tracing::info!("Window {window:?} lost focus for more than {ALT_TAB_GRACE_PERIOD:?}, stopping recording");
-                                if let Err(e) = stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await {
-                                    tracing::error!(e=?e, "Failed to stop recording on window lost focus for more than {ALT_TAB_GRACE_PERIOD:?}");
-                                }
-                                window_unfocused_at = None;
-                            }
+                        tracing::info!("Window {window:?} lost focus, stopping recording");
+                        if let Err(e) = stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await {
+                            tracing::error!(e=?e, "Failed to stop recording on window lost focus");
                         }
-                    } else if let Some(window) = actively_recording_window && is_window_focused(window) && window_unfocused_at.is_some() {
-                        // Window regained focus within grace period
-                        tracing::info!("Window {window:?} regained focus within grace period, continuing recording");
-                        if let Err(e) = recorder.write_focus(true).await {
-                            tracing::error!(e=?e, "Failed to write focus on window regained focus");
-                        }
-                        window_unfocused_at = None;
                     }
                 } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
                     // If we're not currently in a recording, but we were actively recording this window, and this window
                     // is now focused, and we're not waiting on input, let's restart the recording.
                     tracing::info!("Window {window:?} regained focus, restarting recording");
                     start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await;
-                    window_unfocused_at = None;
                 }
             },
         }
