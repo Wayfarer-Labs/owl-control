@@ -12,7 +12,7 @@ pub const RECORDING_HEIGHT: u32 = 360;
 pub const MIN_FREE_SPACE_MB: u64 = 512;
 
 /// Minimum footage length
-pub const MIN_FOOTAGE: Duration = Duration::from_secs(30);
+pub const MIN_FOOTAGE: Duration = Duration::from_secs(20);
 /// Maximum footage length
 pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
