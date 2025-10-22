@@ -30,6 +30,7 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ## Top-Priority Games
 
+- [Vampire: The Masquerade® - Bloodlines 2](https://store.steampowered.com/app/532790/Vampire_The_Masquerade__Bloodlines_2/)
 - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
 - [The Vanishing of Ethan Carter](https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter)
