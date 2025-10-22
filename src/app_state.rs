@@ -1,5 +1,5 @@
 use std::{
-    sync::{OnceLock, RwLock, atomic::AtomicBool},
+    sync::{OnceLock, RwLock},
     time::{Duration, Instant},
 };
 
@@ -21,8 +21,8 @@ pub struct AppState {
     pub local_recordings: RwLock<Vec<LocalRecording>>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
-    pub is_currently_rebinding: AtomicBool,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
+    pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
 }
 
 impl AppState {
@@ -38,8 +38,8 @@ impl AppState {
             local_recordings: RwLock::new(Vec::new()),
             async_request_tx,
             ui_update_tx,
-            is_currently_rebinding: AtomicBool::new(false),
             adapter_infos,
+            listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
         }
     }
 }
@@ -52,6 +52,34 @@ pub enum RecordingStatus {
         game_exe: String,
     },
     Paused,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum ListeningForNewHotkey {
+    NotListening,
+    Listening {
+        target: HotkeyRebindTarget,
+    },
+    Captured {
+        target: HotkeyRebindTarget,
+        key: u16,
+    },
+}
+impl ListeningForNewHotkey {
+    pub fn listening_hotkey_target(&self) -> Option<HotkeyRebindTarget> {
+        match self {
+            ListeningForNewHotkey::Listening { target } => Some(*target),
+            _ => None,
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Copy, Eq)]
+pub enum HotkeyRebindTarget {
+    /// Listening for start key
+    Start,
+    /// Listening for stop key
+    Stop,
 }
 
 pub struct GitHubRelease {

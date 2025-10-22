@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use crate::{
     api::{UserUpload, UserUploadStatistics},
-    app_state::{AsyncRequest, GitHubRelease},
+    app_state::{AsyncRequest, GitHubRelease, ListeningForNewHotkey},
     config::{EncoderSettings, FfmpegNvencSettings, ObsX264Settings, RecordingBackend},
     ui::{HotkeyRebindTarget, MainApp, util},
     upload::LocalRecording,
@@ -146,7 +146,7 @@ impl MainApp {
                         } else {
                             "Toggle Recording:"
                         }));
-                        let button_text = if self.listening_for_hotkey_rebind
+                        let button_text = if self.app_state.listening_for_new_hotkey.read().unwrap().listening_hotkey_target()
                             == Some(HotkeyRebindTarget::Start)
                         {
                             "Press any key...".to_string()
@@ -155,7 +155,7 @@ impl MainApp {
                         };
 
                         if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                            self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Start);
+                            *self.app_state.listening_for_new_hotkey.write().unwrap() = ListeningForNewHotkey::Listening { target: HotkeyRebindTarget::Start };
                         }
                     });
 
@@ -164,14 +164,16 @@ impl MainApp {
                         ui.horizontal(|ui| {
                             add_settings_text(ui, egui::Label::new("Stop Recording:"));
                             let button_text =
-                                if self.listening_for_hotkey_rebind == Some(HotkeyRebindTarget::Stop) {
+                                if self.app_state.listening_for_new_hotkey.read().unwrap().listening_hotkey_target()
+                                    == Some(HotkeyRebindTarget::Stop)
+                                {
                                     "Press any key...".to_string()
                                 } else {
                                     self.local_preferences.stop_recording_key.clone()
                                 };
 
                             if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                                self.listening_for_hotkey_rebind = Some(HotkeyRebindTarget::Stop);
+                                *self.app_state.listening_for_new_hotkey.write().unwrap() = ListeningForNewHotkey::Listening { target: HotkeyRebindTarget::Stop };
                             }
                         });
                     }
