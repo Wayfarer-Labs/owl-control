@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{output_types::InputEventType, system::keycode::lookup_keycode};
+use crate::{output_types::InputEventType, system::keycode::name_to_virtual_keycode};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -51,7 +51,7 @@ fn get_stats(input: &super::ValidationInput) -> KeyboardStats {
     // Get WASD keycodes
     let wasd_codes: Vec<u16> = ["W", "A", "S", "D"]
         .iter()
-        .filter_map(|&key| lookup_keycode(key))
+        .filter_map(|&key| name_to_virtual_keycode(key))
         .collect();
 
     // Filter for keyboard events only

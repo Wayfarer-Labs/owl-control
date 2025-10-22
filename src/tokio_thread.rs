@@ -1,8 +1,10 @@
 use crate::{
     api::ApiClient,
-    app_state::{AppState, AsyncRequest, GitHubRelease, RecordingStatus, UiUpdate},
+    app_state::{
+        AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey, RecordingStatus, UiUpdate,
+    },
     assets::{get_honk_0_bytes, get_honk_1_bytes},
-    system::keycode::lookup_keycode,
+    system::keycode::name_to_virtual_keycode,
     ui::notification::{NotificationType, show_notification},
     upload,
     util::version::is_version_newer,
@@ -10,7 +12,7 @@ use crate::{
 use std::{
     io::Cursor,
     path::PathBuf,
-    sync::{Arc, atomic::Ordering},
+    sync::Arc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -107,10 +109,10 @@ async fn main(
                 cfg.preferences.stop_recording_key().to_string(),
             )
         };
-        let start_key =
-            lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-        let stop_key =
-            lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
+        let start_key = name_to_virtual_keycode(&start_key)
+            .ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
+        let stop_key = name_to_virtual_keycode(&stop_key)
+            .ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
         tokio::select! {
             r = &mut ctrlc_rx => {
                 r.expect("ctrl-c signal handler was closed early");
@@ -129,13 +131,20 @@ async fn main(
                     continue;
                 }
 
+                if let Some(key) = e.key_press_keycode() {
+                    let listening_for_new_hotkey = *app_state.listening_for_new_hotkey.read().unwrap();
+                    if let ListeningForNewHotkey::Listening { target } = listening_for_new_hotkey {
+                        *app_state.listening_for_new_hotkey.write().unwrap() = ListeningForNewHotkey::Captured { target, key };
+                    }
+                }
+
                 if window_unfocused_at.is_none(){
                     // we don't want to be logging any inputs if the user is alt tabbed out or unfocused the game window
                     if let Err(e) = recorder.seen_input(e).await {
                         tracing::error!(e=?e, "Failed to seen input");
                     }
                 }
-                if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
+                if let Some(key) = e.key_press_keycode() && *app_state.listening_for_new_hotkey.read().unwrap() == ListeningForNewHotkey::NotListening {
                     if key == start_key && recorder.recording().is_none() {
                         tracing::info!("Start key pressed, starting recording");
                         if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
