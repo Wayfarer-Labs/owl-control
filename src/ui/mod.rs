@@ -19,9 +19,12 @@ use winit::{
 };
 
 use crate::{
-    app_state::{AppState, AsyncRequest, GitHubRelease, UiUpdate},
+    app_state::{
+        AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey, UiUpdate,
+    },
     assets,
     config::{Credentials, Preferences},
+    system::keycode::virtual_keycode_to_name,
     upload,
 };
 
@@ -34,14 +37,6 @@ mod util;
 mod views;
 
 pub mod notification;
-
-#[derive(PartialEq, Clone, Copy)]
-enum HotkeyRebindTarget {
-    /// Listening for start key
-    Start,
-    /// Listening for stop key
-    Stop,
-}
 
 /// Optimized to show everything in the layout at 1x scaling.
 ///
@@ -440,8 +435,6 @@ pub struct MainApp {
     local_preferences: Preferences,
     /// Time since last requested config edit: we only attempt to save once enough time has passed
     config_last_edit: Option<Instant>,
-    /// Is the UI currently listening for user to select a new hotkey for recording shortcut
-    listening_for_hotkey_rebind: Option<HotkeyRebindTarget>,
 
     /// Current upload progress, updated from upload bridge via mpsc channel
     current_upload_progress: Option<upload::ProgressData>,
@@ -501,7 +494,6 @@ impl MainApp {
             local_credentials,
             local_preferences,
             config_last_edit: None,
-            listening_for_hotkey_rebind: None,
 
             current_upload_progress: None,
             last_upload_error: None,
@@ -576,25 +568,23 @@ impl MainApp {
         }
 
         // Handle hotkey rebinds
-        if let Some(target) = self.listening_for_hotkey_rebind {
-            ctx.input(|i| {
-                let Some(key) = i.keys_down.iter().next().map(|k| k.name().to_string()) else {
-                    return;
-                };
-
+        let listening_for_new_hotkey = *self.app_state.listening_for_new_hotkey.read().unwrap();
+        if let ListeningForNewHotkey::Captured { target, key } = listening_for_new_hotkey {
+            if let Some(key_name) = virtual_keycode_to_name(key) {
                 let rebind_target = match target {
                     HotkeyRebindTarget::Start => &mut self.local_preferences.start_recording_key,
                     HotkeyRebindTarget::Stop => &mut self.local_preferences.stop_recording_key,
                 };
-                *rebind_target = key;
-                self.listening_for_hotkey_rebind = None;
-            });
+                *rebind_target = key_name.to_string();
+
+                *self.app_state.listening_for_new_hotkey.write().unwrap() =
+                    ListeningForNewHotkey::NotListening;
+            } else {
+                // Invalid hotkey? Try again
+                *self.app_state.listening_for_new_hotkey.write().unwrap() =
+                    ListeningForNewHotkey::Listening { target };
+            }
         }
-        // Very lazy solution (as opposed to tracking state changes), but should be sufficient
-        self.app_state.is_currently_rebinding.store(
-            self.listening_for_hotkey_rebind.is_some(),
-            Ordering::Relaxed,
-        );
     }
 
     fn render(&mut self, ctx: &egui::Context) {

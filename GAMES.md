@@ -26,6 +26,8 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 **Replaying games is OK!** It's perfectly fine to replay games you've already played, but try to play a bit differently between playthroughs. This could mean different approaches, strategies, or playstyles. It's okay if you can't play _that_ differently - we're looking to cover as many of the ways you can play games as possible.
 
+**Mods are OK!** Feel free to use game modifications (mods) while recording. We're happy to collect data from modded playthroughs as well - it represents valid gameplay scenarios.
+
 ## Top-Priority Games
 
 - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)

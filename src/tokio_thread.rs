@@ -1,8 +1,10 @@
 use crate::{
     api::ApiClient,
-    app_state::{AppState, AsyncRequest, GitHubRelease, RecordingStatus, UiUpdate},
+    app_state::{
+        AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey, RecordingStatus, UiUpdate,
+    },
     assets::{get_honk_0_bytes, get_honk_1_bytes},
-    system::keycode::lookup_keycode,
+    system::keycode::name_to_virtual_keycode,
     ui::notification::{NotificationType, show_notification},
     upload,
     util::version::is_version_newer,
@@ -10,14 +12,11 @@ use crate::{
 use std::{
     io::Cursor,
     path::PathBuf,
-    sync::{Arc, atomic::Ordering},
+    sync::Arc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use color_eyre::{
-    Result,
-    eyre::{Context, eyre},
-};
+use color_eyre::{Result, eyre::Context};
 
 use constants::{
     GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames,
@@ -101,14 +100,10 @@ async fn main(
             let cfg = app_state.config.read().unwrap();
             (
                 cfg.preferences.honk,
-                cfg.preferences.start_recording_key().to_string(),
-                cfg.preferences.stop_recording_key().to_string(),
+                name_to_virtual_keycode(cfg.preferences.start_recording_key()),
+                name_to_virtual_keycode(cfg.preferences.stop_recording_key()),
             )
         };
-        let start_key =
-            lookup_keycode(&start_key).ok_or_else(|| eyre!("Invalid start key: {start_key}"))?;
-        let stop_key =
-            lookup_keycode(&stop_key).ok_or_else(|| eyre!("Invalid stop key: {stop_key}"))?;
         tokio::select! {
             r = &mut ctrlc_rx => {
                 r.expect("ctrl-c signal handler was closed early");
@@ -127,17 +122,24 @@ async fn main(
                     continue;
                 }
 
+                if let Some(key) = e.key_press_keycode() {
+                    let listening_for_new_hotkey = *app_state.listening_for_new_hotkey.read().unwrap();
+                    if let ListeningForNewHotkey::Listening { target } = listening_for_new_hotkey {
+                        *app_state.listening_for_new_hotkey.write().unwrap() = ListeningForNewHotkey::Captured { target, key };
+                    }
+                }
+
                 if let Err(e) = recorder.seen_input(e).await {
                     tracing::error!(e=?e, "Failed to seen input");
                 }
-                if let Some(key) = e.key_press_keycode() && !app_state.is_currently_rebinding.load(Ordering::Relaxed) {
-                    if key == start_key && recorder.recording().is_none() {
+                if let Some(key) = e.key_press_keycode() && *app_state.listening_for_new_hotkey.read().unwrap() == ListeningForNewHotkey::NotListening {
+                    if Some(key) == start_key && recorder.recording().is_none() {
                         tracing::info!("Start key pressed, starting recording");
                         if start_recording_safely(&mut recorder, &unsupported_games, Some((&sink, honk, &app_state))).await {
                             actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
                             tracing::info!("Recording started with HWND {actively_recording_window:?}");
                         }
-                    } else if key == stop_key && recorder.recording().is_some() {
+                    } else if Some(key) == stop_key && recorder.recording().is_some() {
                         tracing::info!("Stop key pressed, stopping recording");
                         if let Err(e) = stop_recording_with_notification(&mut recorder, &sink, honk, &app_state).await {
                             tracing::error!(e=?e, "Failed to stop recording on stop key");

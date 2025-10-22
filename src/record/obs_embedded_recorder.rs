@@ -118,8 +118,9 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 enum RecorderMessage {
     StartRecording {
         request: RecordingRequest,
-        result_tx:
-            tokio::sync::oneshot::Sender<Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>>>,
+        result_tx: tokio::sync::oneshot::Sender<
+            Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>>,
+        >,
     },
     StopRecording {
         result_tx: tokio::sync::oneshot::Sender<Result<serde_json::Value>>,
