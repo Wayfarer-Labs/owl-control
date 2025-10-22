@@ -32,7 +32,7 @@ impl InputRecorder {
             .await
     }
 
-    pub(crate) async fn obs_hooked(&mut self, hook_time: SystemTime) {
+    pub(crate) async fn video_start(&mut self, hook_time: SystemTime) {
         let timestamp = hook_time
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()

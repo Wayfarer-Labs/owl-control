@@ -16,7 +16,7 @@ use crate::{
 
 pub(crate) struct Recording {
     input_recorder: InputRecorder,
-    hook_time_rx: Option<tokio::sync::mpsc::Receiver<SystemTime>>,
+    hook_time_rx: Option<tokio::sync::oneshot::Receiver<SystemTime>>,
 
     recording_location: PathBuf,
     metadata_path: PathBuf,
@@ -110,10 +110,12 @@ impl Recording {
         // Sort of weird to check it here, but this is the cleaner way because spawning
         // a dedicated thread requires mutex locks. Instead we can just take the timestamp
         // out of the rx whenever the obs hook callback triggers.
-        if let Some(ref mut hook_rx) = self.hook_time_rx {
+        if let Some(mut hook_rx) = self.hook_time_rx.take() {
             if let Ok(hook_time) = hook_rx.try_recv() {
-                self.input_recorder.obs_hooked(hook_time).await;
-                self.hook_time_rx = None; // Clear the receiver after handling
+                self.input_recorder.video_start(hook_time).await;
+            } else {
+                // Put it back if not ready yet
+                self.hook_time_rx = Some(hook_rx);
             }
         }
 

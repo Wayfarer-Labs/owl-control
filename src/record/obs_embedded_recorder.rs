@@ -72,7 +72,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
-    ) -> Result<Option<tokio::sync::mpsc::Receiver<SystemTime>>> {
+    ) -> Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>> {
         let recording_path = dummy_video_path
             .to_str()
             .ok_or_eyre("Recording path must be valid UTF-8")?
@@ -119,7 +119,7 @@ enum RecorderMessage {
     StartRecording {
         request: RecordingRequest,
         result_tx:
-            tokio::sync::oneshot::Sender<Result<Option<tokio::sync::mpsc::Receiver<SystemTime>>>>,
+            tokio::sync::oneshot::Sender<Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>>>,
     },
     StopRecording {
         result_tx: tokio::sync::oneshot::Sender<Result<serde_json::Value>>,
@@ -204,7 +204,7 @@ impl RecorderState {
     fn start_recording(
         &mut self,
         request: RecordingRequest,
-    ) -> eyre::Result<Option<tokio::sync::mpsc::Receiver<SystemTime>>> {
+    ) -> eyre::Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>> {
         if self.current_output.is_some() {
             bail!("Recording is already in progress");
         }
@@ -239,14 +239,14 @@ impl RecorderState {
             .context("failed to register on_hooked signal")?;
 
         // Spawn a thread to monitor the hooked signal and send the hook time
-        let (hook_tx, hook_rx) = tokio::sync::mpsc::channel(1);
+        let (hook_tx, hook_rx) = tokio::sync::oneshot::channel();
         {
             let mut hook_signal_rx = hook_signal_rx.resubscribe();
             std::thread::spawn(move || {
                 if hook_signal_rx.blocking_recv().is_ok() {
                     let hook_time = SystemTime::now();
                     tracing::info!("Game hooked at: {:?}", hook_time);
-                    let _ = hook_tx.blocking_send(hook_time);
+                    let _ = hook_tx.send(hook_time);
                 }
             });
         }

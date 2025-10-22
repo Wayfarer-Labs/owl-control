@@ -34,7 +34,7 @@ pub trait VideoRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         game_resolution: (u32, u32),
-    ) -> Result<Option<tokio::sync::mpsc::Receiver<SystemTime>>>;
+    ) -> Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>>;
     /// Result contains any additional metadata the recorder wants to return about the recording
     /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
