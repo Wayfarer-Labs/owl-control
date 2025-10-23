@@ -4,6 +4,7 @@ use color_eyre::{
     Result,
     eyre::{WrapErr as _, eyre},
 };
+use input_capture::InputCapture;
 use tokio::{fs::File, io::AsyncWriteExt as _, sync::mpsc};
 
 use crate::output_types::{InputEvent, InputEventType};
@@ -49,7 +50,10 @@ pub(crate) struct InputEventWriter {
 }
 
 impl InputEventWriter {
-    pub(crate) async fn start(path: &Path) -> Result<(Self, InputEventStream)> {
+    pub(crate) async fn start(
+        path: &Path,
+        input_capture: &InputCapture,
+    ) -> Result<(Self, InputEventStream)> {
         let file = File::create_new(path)
             .await
             .wrap_err_with(|| eyre!("failed to create and open {path:?}"))?;
@@ -60,7 +64,9 @@ impl InputEventWriter {
 
         writer.write_header().await?;
         writer
-            .write_entry(InputEvent::new_at_now(InputEventType::Start))
+            .write_entry(InputEvent::new_at_now(InputEventType::Start {
+                inputs: input_capture.active_input(),
+            }))
             .await?;
 
         Ok((writer, stream))
@@ -74,7 +80,7 @@ impl InputEventWriter {
         Ok(())
     }
 
-    pub(crate) async fn stop(mut self) -> Result<()> {
+    pub(crate) async fn stop(mut self, input_capture: &InputCapture) -> Result<()> {
         // Most accurate possible timestamp of exactly when the stop input recording was called
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -85,8 +91,13 @@ impl InputEventWriter {
         self.flush().await?;
 
         // Write the end marker
-        self.write_entry(InputEvent::new(timestamp, InputEventType::End))
-            .await
+        self.write_entry(InputEvent::new(
+            timestamp,
+            InputEventType::End {
+                inputs: input_capture.active_input(),
+            },
+        ))
+        .await
     }
 
     async fn write_header(&mut self) -> Result<()> {

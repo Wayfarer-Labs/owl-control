@@ -9,6 +9,7 @@ use color_eyre::{
     eyre::{Context as _, OptionExt as _, bail},
 };
 use egui_wgpu::wgpu::DeviceType;
+use input_capture::InputCapture;
 use windows::Win32::Foundation::HWND;
 
 use crate::{
@@ -98,7 +99,11 @@ impl Recorder {
         self.recording.as_ref()
     }
 
-    pub async fn start(&mut self, unsupported_games: &UnsupportedGames) -> Result<()> {
+    pub async fn start(
+        &mut self,
+        input_capture: &InputCapture,
+        unsupported_games: &UnsupportedGames,
+    ) -> Result<()> {
         if self.recording.is_some() {
             return Ok(());
         }
@@ -169,6 +174,7 @@ impl Recorder {
             pid,
             hwnd,
             video_settings,
+            input_capture,
         )
         .await;
 
@@ -211,7 +217,7 @@ impl Recorder {
         recording.flush_input_events().await
     }
 
-    pub async fn stop(&mut self) -> Result<()> {
+    pub async fn stop(&mut self, input_capture: &InputCapture) -> Result<()> {
         let Some(recording) = self.recording.take() else {
             return Ok(());
         };
@@ -224,7 +230,11 @@ impl Recorder {
         );
 
         recording
-            .stop(self.video_recorder.as_mut(), &self.app_state.adapter_infos)
+            .stop(
+                self.video_recorder.as_mut(),
+                &self.app_state.adapter_infos,
+                input_capture,
+            )
             .await?;
         *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
 

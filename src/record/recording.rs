@@ -6,6 +6,7 @@ use std::{
 use color_eyre::{Result, eyre::ContextCompat};
 use egui_wgpu::wgpu;
 use game_process::{Pid, windows::Win32::Foundation::HWND};
+use input_capture::InputCapture;
 
 use crate::{
     config::EncoderSettings,
@@ -40,6 +41,7 @@ impl Recording {
         pid: Pid,
         hwnd: HWND,
         video_settings: EncoderSettings,
+        input_capture: &InputCapture,
     ) -> Result<Self> {
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
@@ -51,7 +53,8 @@ impl Recording {
         let video_path = recording_location.join(constants::filename::recording::VIDEO);
         let csv_path = recording_location.join(constants::filename::recording::INPUTS);
 
-        let (input_writer, input_stream) = InputEventWriter::start(&csv_path).await?;
+        let (input_writer, input_stream) =
+            InputEventWriter::start(&csv_path, input_capture).await?;
         video_recorder
             .start_recording(
                 &video_path,
@@ -142,10 +145,11 @@ impl Recording {
         self,
         recorder: &mut dyn VideoRecorder,
         adapter_infos: &[wgpu::AdapterInfo],
+        input_capture: &InputCapture,
     ) -> Result<()> {
         let window_name = self.get_window_name();
         let result = recorder.stop_recording().await;
-        self.input_writer.stop().await?;
+        self.input_writer.stop(input_capture).await?;
         let metadata = Self::final_metadata(
             self.game_exe,
             self.game_resolution,

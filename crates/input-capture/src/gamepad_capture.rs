@@ -1,6 +1,6 @@
 use std::{
-    collections::HashSet,
-    sync::{Arc, RwLock},
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use tokio::sync::mpsc;
@@ -43,7 +43,21 @@ pub const AXIS_RIGHTZ: u16 = 6;
 pub const AXIS_DPADX: u16 = 7;
 pub const AXIS_DPADY: u16 = 8;
 
-pub fn initialize_thread(input_tx: mpsc::Sender<Event>) -> std::thread::JoinHandle<()> {
+#[derive(Default)]
+pub struct ActiveGamepad {
+    pub gamepad_digital: HashSet<u16>,
+    pub gamepad_analog: HashMap<u16, f32>,
+}
+
+pub struct GamepadThreads {
+    _xinput_thread: std::thread::JoinHandle<()>,
+    _wgi_thread: std::thread::JoinHandle<()>,
+}
+
+pub fn initialize_thread(
+    input_tx: mpsc::Sender<Event>,
+    active_gamepad: Arc<Mutex<ActiveGamepad>>,
+) -> GamepadThreads {
     let already_captured_by_xinput = Arc::new(RwLock::new(HashSet::new()));
 
     // We use both the `xinput` and `wgi` versions of gilrs so that we can capture Xbox controllers
@@ -56,9 +70,10 @@ pub fn initialize_thread(input_tx: mpsc::Sender<Event>) -> std::thread::JoinHand
     // I love Windows.
 
     // xinput
-    std::thread::spawn({
+    let _xinput_thread = std::thread::spawn({
         let already_captured_by_xinput = already_captured_by_xinput.clone();
         let input_tx = input_tx.clone();
+        let active_gamepad = active_gamepad.clone();
         move || {
             let mut gilrs = gilrs_xinput::Gilrs::new().unwrap();
 
@@ -71,6 +86,7 @@ pub fn initialize_thread(input_tx: mpsc::Sender<Event>) -> std::thread::JoinHand
                 let Some(event) = map_event_xinput(event) else {
                     continue;
                 };
+                update_active_gamepad(&mut active_gamepad.lock().unwrap(), event);
                 if input_tx.blocking_send(event).is_err() {
                     tracing::warn!("Gamepad input tx closed, stopping gamepad capture");
                     break;
@@ -80,7 +96,7 @@ pub fn initialize_thread(input_tx: mpsc::Sender<Event>) -> std::thread::JoinHand
     });
 
     // wgi
-    std::thread::spawn({
+    let _wgi_thread = std::thread::spawn({
         let already_captured_by_xinput = already_captured_by_xinput.clone();
         move || {
             let mut gilrs = gilrs_wgi::Gilrs::new().unwrap();
@@ -95,13 +111,33 @@ pub fn initialize_thread(input_tx: mpsc::Sender<Event>) -> std::thread::JoinHand
                 let Some(event) = map_event_wgi(event) else {
                     continue;
                 };
+                update_active_gamepad(&mut active_gamepad.lock().unwrap(), event);
                 if input_tx.blocking_send(event).is_err() {
                     tracing::warn!("Gamepad input tx closed, stopping gamepad capture");
                     break;
                 }
             }
         }
-    })
+    });
+
+    fn update_active_gamepad(active_gamepad: &mut ActiveGamepad, event: Event) {
+        match event {
+            Event::GamepadButtonPress { key, press_state } => {
+                if press_state == PressState::Pressed {
+                    active_gamepad.gamepad_digital.insert(key);
+                }
+            }
+            Event::GamepadButtonChange { key, value } => {
+                active_gamepad.gamepad_analog.insert(key, value);
+            }
+            _ => {}
+        }
+    }
+
+    GamepadThreads {
+        _xinput_thread,
+        _wgi_thread,
+    }
 }
 
 macro_rules! generate_map_functions {

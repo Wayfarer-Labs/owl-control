@@ -41,13 +41,13 @@ pub fn for_recording(
 
     let start_time = events
         .iter()
-        .find(|event| matches!(event.event, InputEventType::Start))
+        .find(|event| matches!(event.event, InputEventType::Start { .. }))
         .map(|event| event.timestamp)
         .unwrap_or(0.0);
 
     let end_time = events
         .iter()
-        .find(|event| matches!(event.event, InputEventType::End))
+        .find(|event| matches!(event.event, InputEventType::End { .. }))
         .or_else(|| events.last())
         .map(|event| event.timestamp)
         .unwrap_or(0.0);
@@ -55,7 +55,7 @@ pub fn for_recording(
     let filtered_events: Vec<_> = events
         .iter()
         .filter(|event| event.timestamp >= start_time && event.timestamp <= end_time)
-        .copied()
+        .cloned()
         .collect();
 
     let input = ValidationInput {

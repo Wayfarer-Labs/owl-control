@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{system::hardware_specs, upload::validation::InputStats};
@@ -78,12 +80,12 @@ impl std::fmt::Display for InputEventReadError {
 /// - timestamp [unix time]
 /// - event type (see events.py) [str]
 /// - event_args (see callback args) [list[any]]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum InputEventType {
     /// Start
-    Start,
+    Start { inputs: input_capture::ActiveInput },
     /// End
-    End,
+    End { inputs: input_capture::ActiveInput },
     /// VIDEO_START
     VideoStart,
     /// VIDEO_END
@@ -103,11 +105,19 @@ pub enum InputEventType {
     /// GAMEPAD_AXIS: [axis_idx : int, value : float]
     GamepadAxis { axis: u16, value: f32 },
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SerializedStart {
+    pub inputs: Inputs,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SerializedEnd {
+    pub inputs: Inputs,
+}
 impl InputEventType {
     pub fn id(&self) -> &'static str {
         match self {
-            InputEventType::Start => "START",
-            InputEventType::End => "END",
+            InputEventType::Start { .. } => "START",
+            InputEventType::End { .. } => "END",
             InputEventType::VideoStart => "VIDEO_START",
             InputEventType::VideoEnd => "VIDEO_END",
             InputEventType::MouseMove { .. } => "MOUSE_MOVE",
@@ -123,8 +133,14 @@ impl InputEventType {
     pub fn json_args(&self) -> serde_json::Value {
         use serde_json::json;
         match self {
-            InputEventType::Start => json!([]),
-            InputEventType::End => json!([]),
+            InputEventType::Start { inputs } => serde_json::to_value(SerializedStart {
+                inputs: Inputs::from(inputs.clone()),
+            })
+            .unwrap(),
+            InputEventType::End { inputs } => serde_json::to_value(SerializedEnd {
+                inputs: Inputs::from(inputs.clone()),
+            })
+            .unwrap(),
             InputEventType::VideoStart => json!([]),
             InputEventType::VideoEnd => json!([]),
             InputEventType::MouseMove { dx, dy } => json!([dx, dy]),
@@ -169,7 +185,7 @@ impl InputEventType {
         id: &str,
         json_args: serde_json::Value,
     ) -> Result<Self, InputEventReadError> {
-        fn parse_args_tuple<T: serde::de::DeserializeOwned>(
+        fn parse_args<T: serde::de::DeserializeOwned>(
             id: &str,
             json_args: serde_json::Value,
         ) -> Result<T, InputEventReadError> {
@@ -183,51 +199,55 @@ impl InputEventType {
         }
 
         match id {
-            "START" => Ok(InputEventType::Start),
-            "END" => Ok(InputEventType::End),
+            "START" => Ok(InputEventType::Start {
+                inputs: parse_args::<SerializedStart>(id, json_args)?.inputs.into(),
+            }),
+            "END" => Ok(InputEventType::End {
+                inputs: parse_args::<SerializedEnd>(id, json_args)?.inputs.into(),
+            }),
             "VIDEO_START" => Ok(InputEventType::VideoStart),
             "VIDEO_END" => Ok(InputEventType::VideoEnd),
             "MOUSE_MOVE" => {
-                let args: (i32, i32) = parse_args_tuple(id, json_args)?;
+                let args: (i32, i32) = parse_args(id, json_args)?;
                 Ok(InputEventType::MouseMove {
                     dx: args.0,
                     dy: args.1,
                 })
             }
             "MOUSE_BUTTON" => {
-                let args: (u16, bool) = parse_args_tuple(id, json_args)?;
+                let args: (u16, bool) = parse_args(id, json_args)?;
                 Ok(InputEventType::MouseButton {
                     button: args.0,
                     pressed: args.1,
                 })
             }
             "SCROLL" => {
-                let args: (i16,) = parse_args_tuple(id, json_args)?;
+                let args: (i16,) = parse_args(id, json_args)?;
                 Ok(InputEventType::Scroll { amount: args.0 })
             }
             "KEYBOARD" => {
-                let args: (u16, bool) = parse_args_tuple(id, json_args)?;
+                let args: (u16, bool) = parse_args(id, json_args)?;
                 Ok(InputEventType::Keyboard {
                     key: args.0,
                     pressed: args.1,
                 })
             }
             "GAMEPAD_BUTTON" => {
-                let args: (u16, bool) = parse_args_tuple(id, json_args)?;
+                let args: (u16, bool) = parse_args(id, json_args)?;
                 Ok(InputEventType::GamepadButton {
                     button: args.0,
                     pressed: args.1,
                 })
             }
             "GAMEPAD_BUTTON_VALUE" => {
-                let args: (u16, f32) = parse_args_tuple(id, json_args)?;
+                let args: (u16, f32) = parse_args(id, json_args)?;
                 Ok(InputEventType::GamepadButtonValue {
                     button: args.0,
                     value: args.1,
                 })
             }
             "GAMEPAD_AXIS" => {
-                let args: (u16, f32) = parse_args_tuple(id, json_args)?;
+                let args: (u16, f32) = parse_args(id, json_args)?;
                 Ok(InputEventType::GamepadAxis {
                     axis: args.0,
                     value: args.1,
@@ -238,7 +258,35 @@ impl InputEventType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Inputs {
+    pub keyboard: HashSet<u16>,
+    pub mouse: HashSet<u16>,
+    pub gamepad_digital: HashSet<u16>,
+    pub gamepad_analog: HashMap<u16, f32>,
+}
+impl From<input_capture::ActiveInput> for Inputs {
+    fn from(inputs: input_capture::ActiveInput) -> Self {
+        Self {
+            keyboard: inputs.keyboard,
+            mouse: inputs.mouse,
+            gamepad_digital: inputs.gamepad_digital,
+            gamepad_analog: inputs.gamepad_analog,
+        }
+    }
+}
+impl From<Inputs> for input_capture::ActiveInput {
+    fn from(event: Inputs) -> Self {
+        Self {
+            keyboard: event.keyboard,
+            mouse: event.mouse,
+            gamepad_digital: event.gamepad_digital,
+            gamepad_analog: event.gamepad_analog,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct InputEvent {
     pub timestamp: f64,
     pub event: InputEventType,
