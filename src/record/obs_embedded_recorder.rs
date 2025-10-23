@@ -1,7 +1,7 @@
 use std::{
     path::Path,
     sync::{Arc, Mutex},
-    time::SystemTime,
+    time::Instant,
 };
 
 use color_eyre::{
@@ -180,13 +180,21 @@ fn recorder_thread(
         last_hooked_signal: None,
     };
 
+    let mut last_shutdown_tx = None;
     while let Some(message) = rx.blocking_recv() {
         match message {
             RecorderMessage::StartRecording { request, result_tx } => {
-                result_tx.send(state.start_recording(request)).ok();
+                let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+
+                result_tx
+                    .send(state.start_recording(request, shutdown_rx))
+                    .ok();
+                last_shutdown_tx = Some(shutdown_tx);
             }
             RecorderMessage::StopRecording { result_tx } => {
-                result_tx.send(state.stop_recording()).ok();
+                result_tx
+                    .send(state.stop_recording(last_shutdown_tx.take()))
+                    .ok();
             }
         }
     }
@@ -203,7 +211,11 @@ struct RecorderState {
         Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
 }
 impl RecorderState {
-    fn start_recording(&mut self, request: RecordingRequest) -> eyre::Result<()> {
+    fn start_recording(
+        &mut self,
+        request: RecordingRequest,
+        shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+    ) -> eyre::Result<()> {
         if self.current_output.is_some() {
             bail!("Recording is already in progress");
         }
@@ -237,17 +249,34 @@ impl RecorderState {
 
         let event_stream = request.event_stream;
         std::thread::spawn(move || {
-            // TODO: yes confirmed, this thread will leak if u start recording on an unhookable application
-            if hook_signal_rx.blocking_recv().is_ok() {
-                let hook_time = SystemTime::now();
-                tracing::info!("Game hooked at: {:?}", hook_time);
-                let _ = event_stream.send_video_state(true);
-            }
-            if unhook_signal_rx.blocking_recv().is_ok() {
-                let hook_time = SystemTime::now();
-                tracing::info!("Game unhooked at: {:?}", hook_time);
-                let _ = event_stream.send_video_state(false);
-            }
+            let initial_time = Instant::now();
+            futures::executor::block_on(async {
+                // Seems a bit dubious to use a tokio::select with
+                // a tokio oneshot in a non-Tokio context, but it seems to work
+                tokio::select! {
+                    r = hook_signal_rx.recv() => {
+                        if r.is_ok() {
+                            let hook_time = Instant::now();
+                            tracing::info!("Game hooked at {}s", (hook_time - initial_time).as_secs_f64());
+                            let _ = event_stream.send_video_state(true);
+                        }
+                    }
+                    _ = shutdown_rx => {
+                        return;
+                    }
+                }
+
+                // We don't need to check for shutdown_rx here because it will only get
+                // to this point if we've already hooked successfully.
+                if unhook_signal_rx.recv().await.is_ok() {
+                    let unhook_time = Instant::now();
+                    tracing::info!(
+                        "Game unhooked at {}s",
+                        (unhook_time - initial_time).as_secs_f64()
+                    );
+                    let _ = event_stream.send_video_state(false);
+                }
+            });
             tracing::info!("Game hook monitoring thread closed");
         });
 
@@ -323,7 +352,10 @@ impl RecorderState {
         Ok(())
     }
 
-    fn stop_recording(&mut self) -> eyre::Result<serde_json::Value> {
+    fn stop_recording(
+        &mut self,
+        last_shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
+    ) -> eyre::Result<serde_json::Value> {
         if let Some(mut output) = self.current_output.take() {
             output.stop().wrap_err("Failed to stop OBS output")?;
             if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)
@@ -342,6 +374,10 @@ impl RecorderState {
             && hooked_signal.try_recv().is_err()
         {
             bail!("Application was never hooked, recording will be blank");
+        }
+
+        if let Some(shutdown_tx) = last_shutdown_tx {
+            shutdown_tx.send(()).ok();
         }
 
         // Extremely ugly hack: We want to get the skipped frames percentage from the logs,
