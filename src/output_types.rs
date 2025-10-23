@@ -84,6 +84,10 @@ pub enum InputEventType {
     Start,
     /// End
     End,
+    /// VIDEO_START
+    VideoStart,
+    /// VIDEO_END
+    VideoEnd,
     /// MOUSE_MOVE: [dx : int, dy : int]
     MouseMove { dx: i32, dy: i32 },
     /// MOUSE_BUTTON: [button_idx : int, key_down : bool]
@@ -104,6 +108,8 @@ impl InputEventType {
         match self {
             InputEventType::Start => "START",
             InputEventType::End => "END",
+            InputEventType::VideoStart => "VIDEO_START",
+            InputEventType::VideoEnd => "VIDEO_END",
             InputEventType::MouseMove { .. } => "MOUSE_MOVE",
             InputEventType::MouseButton { .. } => "MOUSE_BUTTON",
             InputEventType::Scroll { .. } => "SCROLL",
@@ -119,6 +125,8 @@ impl InputEventType {
         match self {
             InputEventType::Start => json!([]),
             InputEventType::End => json!([]),
+            InputEventType::VideoStart => json!([]),
+            InputEventType::VideoEnd => json!([]),
             InputEventType::MouseMove { dx, dy } => json!([dx, dy]),
             InputEventType::MouseButton { button, pressed } => json!([button, pressed]),
             InputEventType::Scroll { amount } => json!([amount]),
@@ -177,6 +185,8 @@ impl InputEventType {
         match id {
             "START" => Ok(InputEventType::Start),
             "END" => Ok(InputEventType::End),
+            "VIDEO_START" => Ok(InputEventType::VideoStart),
+            "VIDEO_END" => Ok(InputEventType::VideoEnd),
             "MOUSE_MOVE" => {
                 let args: (i32, i32) = parse_args_tuple(id, json_args)?;
                 Ok(InputEventType::MouseMove {

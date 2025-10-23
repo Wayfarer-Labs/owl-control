@@ -10,12 +10,16 @@ use game_process::{Pid, windows::Win32::Foundation::HWND};
 use crate::{
     config::EncoderSettings,
     output_types::Metadata,
-    record::{input_recorder::InputRecorder, recorder::VideoRecorder},
+    record::{
+        input_recorder::{InputEventStream, InputEventWriter},
+        recorder::VideoRecorder,
+    },
     system::{hardware_id, hardware_specs},
 };
 
 pub(crate) struct Recording {
-    input_recorder: InputRecorder,
+    input_writer: InputEventWriter,
+    input_stream: InputEventStream,
 
     recording_location: PathBuf,
     metadata_path: PathBuf,
@@ -47,6 +51,7 @@ impl Recording {
         let video_path = recording_location.join(constants::filename::recording::VIDEO);
         let csv_path = recording_location.join(constants::filename::recording::INPUTS);
 
+        let (input_writer, input_stream) = InputEventWriter::start(&csv_path).await?;
         video_recorder
             .start_recording(
                 &video_path,
@@ -55,12 +60,13 @@ impl Recording {
                 &game_exe,
                 video_settings,
                 game_resolution,
+                input_stream.clone(),
             )
             .await?;
-        let input_recorder = InputRecorder::start(&csv_path).await?;
 
         Ok(Self {
-            input_recorder,
+            input_writer,
+            input_stream,
             recording_location,
             metadata_path,
             game_exe,
@@ -123,8 +129,13 @@ impl Recording {
         None
     }
 
-    pub(crate) async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
-        self.input_recorder.seen_input(e).await
+    pub(crate) fn input_stream(&self) -> &InputEventStream {
+        &self.input_stream
+    }
+
+    /// Flush all pending input events to disk
+    pub(crate) async fn flush_input_events(&mut self) -> Result<()> {
+        self.input_writer.flush().await
     }
 
     pub(crate) async fn stop(
@@ -134,7 +145,7 @@ impl Recording {
     ) -> Result<()> {
         let window_name = self.get_window_name();
         let result = recorder.stop_recording().await;
-        self.input_recorder.stop().await?;
+        self.input_writer.stop().await?;
         let metadata = Self::final_metadata(
             self.game_exe,
             self.game_resolution,

@@ -17,7 +17,7 @@ use obws::{
 };
 use windows::Win32::Foundation::HWND;
 
-use crate::{config::EncoderSettings, record::recorder::VideoRecorder};
+use crate::{config::EncoderSettings, record::{input_recorder::InputEventStream, recorder::VideoRecorder}};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -51,6 +51,7 @@ impl VideoRecorder for ObsSocketRecorder {
         game_exe: &str,
         _video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
+        _event_stream: InputEventStream,
     ) -> Result<()> {
         // Connect to OBS
         let client = Client::connect("localhost", 4455, None::<&str>)

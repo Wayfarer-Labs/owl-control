@@ -28,7 +28,7 @@ use libobs_wrapper::{
 
 use crate::{
     config::EncoderSettings,
-    record::recorder::{HookEvent, VideoRecorder},
+    record::{input_recorder::InputEventStream, recorder::VideoRecorder},
 };
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -75,6 +75,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
+        event_stream: InputEventStream,
     ) -> Result<()> {
         let recording_path = dummy_video_path
             .to_str()
@@ -92,6 +93,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     recording_path,
                     game_exe: game_exe.to_string(),
                     pid,
+                    event_stream,
                 },
                 result_tx,
             })
@@ -134,6 +136,7 @@ struct RecordingRequest {
     recording_path: String,
     game_exe: String,
     pid: u32,
+    event_stream: InputEventStream,
 }
 
 fn recorder_thread(
@@ -177,7 +180,7 @@ fn recorder_thread(
         current_output: None,
         source: None,
         last_encoder_settings: None,
-        hook_rx: None,
+        last_hooked_signal: None,
     };
 
     while let Some(message) = rx.blocking_recv() {
@@ -199,7 +202,8 @@ struct RecorderState {
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
     last_encoder_settings: Option<serde_json::Value>,
-    hook_rx: Option<tokio::sync::mpsc::Receiver<HookEvent>>,
+    last_hooked_signal:
+        Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
 }
 impl RecorderState {
     fn start_recording(&mut self, request: RecordingRequest) -> eyre::Result<()> {
@@ -235,6 +239,7 @@ impl RecorderState {
             .signal_manager()
             .on_hooked()
             .context("failed to register on_hooked signal")?;
+        self.last_hooked_signal = Some(hook_signal_rx.resubscribe());
 
         // unhook signal
         let mut unhook_signal_rx = source
@@ -242,24 +247,20 @@ impl RecorderState {
             .on_unhooked()
             .context("failed to register on_hooked signal")?;
 
-        // Spawn a thread to monitor the hook signals and send the hook time
-        let (hook_tx, hook_rx) = tokio::sync::mpsc::channel(2);
-        // In case it's a socket recorder that doesn't export hook signals or something
-        self.hook_rx = match Some(&hook_signal_rx).is_some() {
-            true => Some(hook_rx),
-            false => None,
-        };
+        let event_stream = request.event_stream;
         std::thread::spawn(move || {
+            // TODO: yes confirmed, this thread will leak if u start recording on an unhookable application
             if hook_signal_rx.blocking_recv().is_ok() {
                 let hook_time = SystemTime::now();
                 tracing::info!("Game hooked at: {:?}", hook_time);
-                let _ = hook_tx.blocking_send(HookEvent::Hooked(hook_time));
+                let _ = event_stream.send_video_state(true);
             }
             if unhook_signal_rx.blocking_recv().is_ok() {
                 let hook_time = SystemTime::now();
                 tracing::info!("Game unhooked at: {:?}", hook_time);
-                let _ = hook_tx.blocking_send(HookEvent::Unhooked(hook_time));
+                let _ = event_stream.send_video_state(false);
             }
+            tracing::info!("Game hook monitoring thread closed");
         });
 
         // Register the source
@@ -347,35 +348,10 @@ impl RecorderState {
 
         let mut output = self.last_encoder_settings.take().unwrap_or_default();
 
-        // Write video_start and video_end obs hook timings to the metadata
-        if let Some(mut hook_rx) = self.hook_rx.take() {
-            // unfortunately receivers do not allow us to peek at the value without taking
-            let hook_event = hook_rx.try_recv();
-            if hook_event.is_err() {
-                bail!("Application was never hooked, recording will be blank");
-            } else {
-                if let Some(object) = output.as_object_mut() {
-                    // first event is logically guaranteed to be a hook event
-                    if let HookEvent::Hooked(hook_time) = hook_event.unwrap() {
-                        let hook_time = hook_time
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs_f64();
-                        object.insert("video_start".to_string(), serde_json::to_value(hook_time)?);
-                    }
-                    // second event should be unhook event, but we block_recv here because it actually takes
-                    // a bit of time to unhook. Might be a possible deadlock, but since every hook is guaranteed
-                    // to have a corresponding unhook, I think it's fine. The only case a hook would not be followed
-                    // by an unhook, would be the app crashing / already deadlocking somewhere else.
-                    if let Some(HookEvent::Unhooked(hook_time)) = hook_rx.blocking_recv() {
-                        let hook_time = hook_time
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs_f64();
-                        object.insert("video_end".to_string(), serde_json::to_value(hook_time)?);
-                    }
-                }
-            }
+        if let Some(mut hooked_signal) = self.last_hooked_signal.take()
+            && hooked_signal.try_recv().is_err()
+        {
+            bail!("Application was never hooked, recording will be blank");
         }
 
         // Extremely ugly hack: We want to get the skipped frames percentage from the logs,
