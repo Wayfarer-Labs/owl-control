@@ -25,7 +25,7 @@ pub const SUPPORTED_VIDEO_ENCODERS: &[VideoEncoderType] =
 pub const X264_PRESETS: &[&str] = &["fast", "faster", "veryfast"];
 
 /// https://github.com/obsproject/obs-studio/blob/0b1229632063a13dfd26cf1cd9dd43431d8c68f6/plugins/obs-nvenc/nvenc-properties.c#L145
-pub const NVENC_PRESETS: &[&str] = &["p5", "p4", "p3", "p2", "p1"];
+pub const NVENC_PRESETS: &[&str] = &["p7", "p6", "p5", "p4", "p3", "p2", "p1"];
 
 // Placeholders for now as we only expose obsx264 and ffmpeg nvenc
 pub const QSV_PRESETS: &[&str] = &[
@@ -45,7 +45,7 @@ pub const VIDEO_PROFILE: &str = "high";
 pub const BITRATE: i64 = 2500;
 
 /// Rate control
-pub const RATE_CONTROL: &str = "cbr";
+pub const RATE_CONTROL: &str = "CBR";
 
 /// B-frames
 pub const B_FRAMES: i64 = 2;
