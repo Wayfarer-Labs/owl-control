@@ -26,7 +26,10 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::{config::EncoderSettings, record::recorder::VideoRecorder};
+use crate::{
+    config::EncoderSettings,
+    record::recorder::{HookEvent, VideoRecorder},
+};
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
@@ -72,7 +75,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
-    ) -> Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>> {
+    ) -> Result<()> {
         let recording_path = dummy_video_path
             .to_str()
             .ok_or_eyre("Recording path must be valid UTF-8")?
@@ -93,11 +96,11 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 result_tx,
             })
             .await?;
-        let hook_time_rx = result_rx.await??;
+        result_rx.await??;
 
         tracing::info!("OBS embedded recording started successfully");
 
-        Ok(hook_time_rx)
+        Ok(())
     }
 
     async fn stop_recording(&mut self) -> Result<serde_json::Value> {
@@ -118,9 +121,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 enum RecorderMessage {
     StartRecording {
         request: RecordingRequest,
-        result_tx: tokio::sync::oneshot::Sender<
-            Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>>,
-        >,
+        result_tx: tokio::sync::oneshot::Sender<Result<()>>,
     },
     StopRecording {
         result_tx: tokio::sync::oneshot::Sender<Result<serde_json::Value>>,
@@ -176,7 +177,7 @@ fn recorder_thread(
         current_output: None,
         source: None,
         last_encoder_settings: None,
-        last_hooked_signal: None,
+        hook_rx: None,
     };
 
     while let Some(message) = rx.blocking_recv() {
@@ -198,14 +199,10 @@ struct RecorderState {
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
     last_encoder_settings: Option<serde_json::Value>,
-    last_hooked_signal:
-        Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
+    hook_rx: Option<tokio::sync::mpsc::Receiver<HookEvent>>,
 }
 impl RecorderState {
-    fn start_recording(
-        &mut self,
-        request: RecordingRequest,
-    ) -> eyre::Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>> {
+    fn start_recording(&mut self, request: RecordingRequest) -> eyre::Result<()> {
         if self.current_output.is_some() {
             bail!("Recording is already in progress");
         }
@@ -234,25 +231,36 @@ impl RecorderState {
 
         // Register a signal to detect when the source is hooked,
         // so we can invalidate non-hooked recordings
-        let hook_signal_rx = source
+        let mut hook_signal_rx = source
             .signal_manager()
             .on_hooked()
             .context("failed to register on_hooked signal")?;
 
-        // Spawn a thread to monitor the hooked signal and send the hook time
-        let (hook_tx, hook_rx) = tokio::sync::oneshot::channel();
-        {
-            let mut hook_signal_rx = hook_signal_rx.resubscribe();
-            std::thread::spawn(move || {
-                if hook_signal_rx.blocking_recv().is_ok() {
-                    let hook_time = SystemTime::now();
-                    tracing::info!("Game hooked at: {:?}", hook_time);
-                    let _ = hook_tx.send(hook_time);
-                }
-            });
-        }
+        // unhook signal
+        let mut unhook_signal_rx = source
+            .signal_manager()
+            .on_unhooked()
+            .context("failed to register on_hooked signal")?;
 
-        self.last_hooked_signal = Some(hook_signal_rx);
+        // Spawn a thread to monitor the hook signals and send the hook time
+        let (hook_tx, hook_rx) = tokio::sync::mpsc::channel(2);
+        // In case it's a socket recorder that doesn't export hook signals or something
+        self.hook_rx = match Some(&hook_signal_rx).is_some() {
+            true => Some(hook_rx),
+            false => None,
+        };
+        std::thread::spawn(move || {
+            if hook_signal_rx.blocking_recv().is_ok() {
+                let hook_time = SystemTime::now();
+                tracing::info!("Game hooked at: {:?}", hook_time);
+                let _ = hook_tx.send(HookEvent::Hooked(hook_time));
+            }
+            if unhook_signal_rx.blocking_recv().is_ok() {
+                let hook_time = SystemTime::now();
+                tracing::info!("Game unhooked at: {:?}", hook_time);
+                let _ = hook_tx.send(HookEvent::Unhooked(hook_time));
+            }
+        });
 
         // Register the source
         scene.set_to_channel(0)?;
@@ -321,7 +329,7 @@ impl RecorderState {
         self.current_output = Some(output);
         self.source = Some(source);
 
-        Ok(Some(hook_rx))
+        Ok(())
     }
 
     fn stop_recording(&mut self) -> eyre::Result<serde_json::Value> {
@@ -337,13 +345,35 @@ impl RecorderState {
             tracing::warn!("No active recording to stop");
         }
 
-        if let Some(mut hooked_signal) = self.last_hooked_signal.take()
-            && hooked_signal.try_recv().is_err()
-        {
-            bail!("Application was never hooked, recording will be blank");
-        }
-
         let mut output = self.last_encoder_settings.take().unwrap_or_default();
+
+        // Write video_start and video_end obs hook timings to the metadata
+        if let Some(mut hook_rx) = self.hook_rx.take() {
+            // unfortunately receivers do not allow us to peek at the value without taking
+            let hook_event = hook_rx.try_recv();
+            if hook_event.is_err() {
+                bail!("Application was never hooked, recording will be blank");
+            } else {
+                if let Some(object) = output.as_object_mut() {
+                    // first event is logically guaranteed to be a hook event
+                    if let HookEvent::Hooked(hook_time) = hook_event.unwrap() {
+                        let hook_time = hook_time
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs_f64();
+                        object.insert("video_start".to_string(), serde_json::to_value(hook_time)?);
+                    }
+                    // second event should be unhook event
+                    if let Ok(HookEvent::Unhooked(hook_time)) = hook_rx.try_recv() {
+                        let hook_time = hook_time
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs_f64();
+                        object.insert("video_end".to_string(), serde_json::to_value(hook_time)?);
+                    }
+                }
+            }
+        }
 
         // Extremely ugly hack: We want to get the skipped frames percentage from the logs,
         // but that's not guaranteed to be present by the time this function would normally end.

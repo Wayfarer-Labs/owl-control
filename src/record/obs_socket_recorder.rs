@@ -1,7 +1,4 @@
-use std::{
-    path::Path,
-    time::{Duration, SystemTime},
-};
+use std::{path::Path, time::Duration};
 
 use color_eyre::{
     Result,
@@ -54,7 +51,7 @@ impl VideoRecorder for ObsSocketRecorder {
         game_exe: &str,
         _video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
-    ) -> Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>> {
+    ) -> Result<()> {
         // Connect to OBS
         let client = Client::connect("localhost", 4455, None::<&str>)
             .await
@@ -275,7 +272,7 @@ impl VideoRecorder for ObsSocketRecorder {
         self.client = Some(client);
 
         // Socket recorder doesn't support hook detection
-        Ok(None)
+        Ok(())
     }
 
     async fn stop_recording(&mut self) -> Result<serde_json::Value> {

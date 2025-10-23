@@ -1,4 +1,4 @@
-use std::{path::Path, time::SystemTime};
+use std::path::Path;
 
 use color_eyre::{
     Result,
@@ -30,17 +30,6 @@ impl InputRecorder {
     pub(crate) async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
         self.write_entry(InputEvent::new_at_now(InputEventType::from_input_event(e)?))
             .await
-    }
-
-    pub(crate) async fn video_start(&mut self, hook_time: SystemTime) {
-        let timestamp = hook_time
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
-        tracing::info!("OBS hooked into game at timestamp: {}", timestamp);
-        let _ = self
-            .write_entry(InputEvent::new(timestamp, InputEventType::VideoStart))
-            .await;
     }
 
     pub(crate) async fn stop(mut self) -> Result<()> {

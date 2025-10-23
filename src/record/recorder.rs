@@ -34,10 +34,14 @@ pub trait VideoRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         game_resolution: (u32, u32),
-    ) -> Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>>;
+    ) -> Result<()>;
     /// Result contains any additional metadata the recorder wants to return about the recording
     /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
+}
+pub enum HookEvent {
+    Hooked(SystemTime),
+    Unhooked(SystemTime),
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
