@@ -8,6 +8,8 @@ pub struct Metadata {
     // Whenever adding new fields to this, ensure you use an `Option` to ensure
     // that the uploader will not fail to upload older recordings.
     #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub window_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub game_resolution: Option<(u32, u32)>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub owl_control_version: Option<String>,
@@ -16,9 +18,9 @@ pub struct Metadata {
     pub session_id: String,
     pub hardware_id: String,
     pub hardware_specs: Option<hardware_specs::HardwareSpecs>,
-    pub start_timestamp: u64,
-    pub end_timestamp: u64,
-    pub duration: f32,
+    pub start_timestamp: f64,
+    pub end_timestamp: f64,
+    pub duration: f64,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub input_stats: Option<InputStats>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -82,8 +84,10 @@ pub enum InputEventType {
     Start,
     /// End
     End,
-    /// OBS encoder hooked successfully on application
+    /// VIDEO_START
     VideoStart,
+    /// VIDEO_END
+    VideoEnd,
     /// MOUSE_MOVE: [dx : int, dy : int]
     MouseMove { dx: i32, dy: i32 },
     /// MOUSE_BUTTON: [button_idx : int, key_down : bool]
@@ -105,6 +109,7 @@ impl InputEventType {
             InputEventType::Start => "START",
             InputEventType::End => "END",
             InputEventType::VideoStart => "VIDEO_START",
+            InputEventType::VideoEnd => "VIDEO_END",
             InputEventType::MouseMove { .. } => "MOUSE_MOVE",
             InputEventType::MouseButton { .. } => "MOUSE_BUTTON",
             InputEventType::Scroll { .. } => "SCROLL",
@@ -121,6 +126,7 @@ impl InputEventType {
             InputEventType::Start => json!([]),
             InputEventType::End => json!([]),
             InputEventType::VideoStart => json!([]),
+            InputEventType::VideoEnd => json!([]),
             InputEventType::MouseMove { dx, dy } => json!([dx, dy]),
             InputEventType::MouseButton { button, pressed } => json!([button, pressed]),
             InputEventType::Scroll { amount } => json!([amount]),
@@ -180,6 +186,7 @@ impl InputEventType {
             "START" => Ok(InputEventType::Start),
             "END" => Ok(InputEventType::End),
             "VIDEO_START" => Ok(InputEventType::VideoStart),
+            "VIDEO_END" => Ok(InputEventType::VideoEnd),
             "MOUSE_MOVE" => {
                 let args: (i32, i32) = parse_args_tuple(id, json_args)?;
                 Ok(InputEventType::MouseMove {

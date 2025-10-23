@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
-    time::{Instant, SystemTime},
+    time::Instant,
 };
 
 use color_eyre::{
@@ -15,8 +15,8 @@ use crate::{
     app_state::{AppState, RecordingStatus},
     config::{EncoderSettings, RecordingBackend},
     record::{
-        obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
-        recording::Recording,
+        input_recorder::InputEventStream, obs_embedded_recorder::ObsEmbeddedRecorder,
+        obs_socket_recorder::ObsSocketRecorder, recording::Recording,
     },
     ui::notification::{NotificationType, show_notification},
 };
@@ -34,7 +34,8 @@ pub trait VideoRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         game_resolution: (u32, u32),
-    ) -> Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>>;
+        event_stream: InputEventStream,
+    ) -> Result<()>;
     /// Result contains any additional metadata the recorder wants to return about the recording
     /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
@@ -194,11 +195,19 @@ impl Recorder {
     }
 
     pub async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
+        let Some(recording) = self.recording.as_ref() else {
+            return Ok(());
+        };
+        recording.input_stream().send_input(e)?;
+        Ok(())
+    }
+
+    /// Flush all pending input events to disk
+    pub async fn flush_input_events(&mut self) -> Result<()> {
         let Some(recording) = self.recording.as_mut() else {
             return Ok(());
         };
-        recording.seen_input(e).await?;
-        Ok(())
+        recording.flush_input_events().await
     }
 
     pub async fn stop(&mut self) -> Result<()> {

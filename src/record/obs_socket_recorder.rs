@@ -1,7 +1,4 @@
-use std::{
-    path::Path,
-    time::{Duration, SystemTime},
-};
+use std::{path::Path, time::Duration};
 
 use color_eyre::{
     Result,
@@ -20,7 +17,7 @@ use obws::{
 };
 use windows::Win32::Foundation::HWND;
 
-use crate::{config::EncoderSettings, record::recorder::VideoRecorder};
+use crate::{config::EncoderSettings, record::{input_recorder::InputEventStream, recorder::VideoRecorder}};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -54,7 +51,8 @@ impl VideoRecorder for ObsSocketRecorder {
         game_exe: &str,
         _video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
-    ) -> Result<Option<tokio::sync::oneshot::Receiver<SystemTime>>> {
+        _event_stream: InputEventStream,
+    ) -> Result<()> {
         // Connect to OBS
         let client = Client::connect("localhost", 4455, None::<&str>)
             .await
@@ -275,7 +273,7 @@ impl VideoRecorder for ObsSocketRecorder {
         self.client = Some(client);
 
         // Socket recorder doesn't support hook detection
-        Ok(None)
+        Ok(())
     }
 
     async fn stop_recording(&mut self) -> Result<serde_json::Value> {

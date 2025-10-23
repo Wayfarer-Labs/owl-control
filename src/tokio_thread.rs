@@ -314,6 +314,11 @@ async fn main(
                 }
             },
             _ = perform_checks.tick() => {
+                // Flush pending input events to disk
+                if let Err(e) = recorder.flush_input_events().await {
+                    tracing::error!(e=?e, "Failed to flush input events");
+                }
+
                 if let Some(recording) = recorder.recording() {
                     if !does_process_exist(recording.pid()).unwrap_or_default() {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
