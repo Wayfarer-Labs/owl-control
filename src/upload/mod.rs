@@ -384,7 +384,7 @@ async fn upload_tar(
     unreliable_connection: bool,
     video_filename: &str,
     control_filename: &str,
-    video_duration_seconds: f32,
+    video_duration_seconds: f64,
     tx: app_state::UiUpdateSender,
 ) -> eyre::Result<String> {
     let file_size = std::fs::metadata(tar_path)

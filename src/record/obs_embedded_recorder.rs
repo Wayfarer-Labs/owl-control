@@ -253,12 +253,12 @@ impl RecorderState {
             if hook_signal_rx.blocking_recv().is_ok() {
                 let hook_time = SystemTime::now();
                 tracing::info!("Game hooked at: {:?}", hook_time);
-                let _ = hook_tx.send(HookEvent::Hooked(hook_time));
+                let _ = hook_tx.blocking_send(HookEvent::Hooked(hook_time));
             }
             if unhook_signal_rx.blocking_recv().is_ok() {
                 let hook_time = SystemTime::now();
                 tracing::info!("Game unhooked at: {:?}", hook_time);
-                let _ = hook_tx.send(HookEvent::Unhooked(hook_time));
+                let _ = hook_tx.blocking_send(HookEvent::Unhooked(hook_time));
             }
         });
 
@@ -363,8 +363,11 @@ impl RecorderState {
                             .as_secs_f64();
                         object.insert("video_start".to_string(), serde_json::to_value(hook_time)?);
                     }
-                    // second event should be unhook event
-                    if let Ok(HookEvent::Unhooked(hook_time)) = hook_rx.try_recv() {
+                    // second event should be unhook event, but we block_recv here because it actually takes
+                    // a bit of time to unhook. Might be a possible deadlock, but since every hook is guaranteed
+                    // to have a corresponding unhook, I think it's fine. The only case a hook would not be followed
+                    // by an unhook, would be the app crashing / already deadlocking somewhere else.
+                    if let Some(HookEvent::Unhooked(hook_time)) = hook_rx.blocking_recv() {
                         let hook_time = hook_time
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap()

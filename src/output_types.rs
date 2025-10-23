@@ -18,9 +18,9 @@ pub struct Metadata {
     pub session_id: String,
     pub hardware_id: String,
     pub hardware_specs: Option<hardware_specs::HardwareSpecs>,
-    pub start_timestamp: u64,
-    pub end_timestamp: u64,
-    pub duration: f32,
+    pub start_timestamp: f64,
+    pub end_timestamp: f64,
+    pub duration: f64,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub input_stats: Option<InputStats>,
     #[serde(skip_serializing_if = "Option::is_none", default)]

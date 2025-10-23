@@ -172,13 +172,13 @@ impl Recording {
         recorder: &str,
         recorder_extra: Option<serde_json::Value>,
     ) -> Result<Metadata> {
-        let duration = start_instant.elapsed().as_secs_f32();
+        let duration = start_instant.elapsed().as_secs_f64();
 
-        let start_timestamp = start_time.duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let start_timestamp = start_time.duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
         let end_timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs();
+            .as_secs_f64();
 
         let hardware_id = hardware_id::get()?;
 
