@@ -8,6 +8,8 @@ pub struct Metadata {
     // Whenever adding new fields to this, ensure you use an `Option` to ensure
     // that the uploader will not fail to upload older recordings.
     #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub window_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub game_resolution: Option<(u32, u32)>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub owl_control_version: Option<String>,

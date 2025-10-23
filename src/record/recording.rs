@@ -105,6 +105,26 @@ impl Recording {
         self.hwnd
     }
 
+    pub(crate) fn get_window_name(&self) -> Option<String> {
+        use game_process::windows::Win32::UI::WindowsAndMessaging::{
+            GetWindowTextLengthW, GetWindowTextW,
+        };
+
+        let title_len = unsafe { GetWindowTextLengthW(self.hwnd) };
+        if title_len > 0 {
+            let mut buf = vec![0u16; (title_len + 1) as usize];
+            let copied = unsafe { GetWindowTextW(self.hwnd, &mut buf) };
+            if copied > 0 {
+                if let Some(end) = buf.iter().position(|&c| c == 0) {
+                    return Some(String::from_utf16_lossy(&buf[..end]));
+                } else {
+                    return Some(String::from_utf16_lossy(&buf));
+                }
+            }
+        }
+        None
+    }
+
     pub(crate) async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
         // Check if the hook signal has been received
         // Sort of weird to check it here, but this is the cleaner way because spawning
@@ -127,14 +147,15 @@ impl Recording {
         recorder: &mut dyn VideoRecorder,
         adapter_infos: &[wgpu::AdapterInfo],
     ) -> Result<()> {
+        let window_name = self.get_window_name();
         let result = recorder.stop_recording().await;
         self.input_recorder.stop().await?;
-
         let metadata = Self::final_metadata(
             self.game_exe,
             self.game_resolution,
             self.start_instant,
             self.start_time,
+            window_name,
             adapter_infos,
             recorder.id(),
             result.as_ref().ok().cloned(),
@@ -161,6 +182,7 @@ impl Recording {
         game_resolution: (u32, u32),
         start_instant: Instant,
         start_time: SystemTime,
+        window_name: Option<String>,
         adapter_infos: &[wgpu::AdapterInfo],
         recorder: &str,
         recorder_extra: Option<serde_json::Value>,
@@ -208,6 +230,7 @@ impl Recording {
             input_stats: None,
             recorder: Some(recorder.to_string()),
             recorder_extra,
+            window_name,
         })
     }
 }
