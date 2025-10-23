@@ -17,8 +17,12 @@ use libobs_sources::{
 use libobs_window_helper::WindowSearchMode;
 use libobs_wrapper::{
     context::ObsContext,
-    data::{output::ObsOutputRef, video::ObsVideoInfoBuilder},
+    data::{
+        output::ObsOutputRef,
+        video::{ObsVideoInfo, ObsVideoInfoBuilder},
+    },
     encoders::ObsVideoEncoderType,
+    enums::ObsScaleType,
     logger::ObsLogger,
     scenes::ObsSceneRef,
     sources::ObsSourceRef,
@@ -143,17 +147,10 @@ fn recorder_thread(
             .set_logger(Box::new(TracingObsLogger {
                 skipped_frames: skipped_frames.clone(),
             }))
-            .set_video_info(
-                ObsVideoInfoBuilder::new()
-                    .adapter(adapter_index as u32)
-                    .fps_num(FPS)
-                    .fps_den(1)
-                    .base_width(RECORDING_WIDTH)
-                    .base_height(RECORDING_HEIGHT)
-                    .output_width(RECORDING_WIDTH)
-                    .output_height(RECORDING_HEIGHT)
-                    .build(),
-            ),
+            .set_video_info(video_info(
+                adapter_index,
+                (RECORDING_WIDTH, RECORDING_HEIGHT),
+            )),
     );
     let obs_context = match obs_context {
         Ok(obs_context) => {
@@ -207,17 +204,8 @@ impl RecorderState {
         // Set up scene and window capture based on input pid
         let mut scene = self.obs_context.scene(OWL_SCENE_NAME)?;
 
-        self.obs_context.reset_video(
-            ObsVideoInfoBuilder::new()
-                .adapter(self.adapter_index as u32)
-                .fps_num(FPS)
-                .fps_den(1)
-                .base_width(request.game_resolution.0)
-                .base_height(request.game_resolution.1)
-                .output_width(RECORDING_WIDTH)
-                .output_height(RECORDING_HEIGHT)
-                .build(),
-        )?;
+        self.obs_context
+            .reset_video(video_info(self.adapter_index, request.game_resolution))?;
 
         let source = build_source(
             &mut self.obs_context,
@@ -353,6 +341,19 @@ impl RecorderState {
 
         Ok(output)
     }
+}
+
+fn video_info(adapter_index: usize, (base_width, base_height): (u32, u32)) -> ObsVideoInfo {
+    ObsVideoInfoBuilder::new()
+        .adapter(adapter_index as u32)
+        .fps_num(FPS)
+        .fps_den(1)
+        .base_width(base_width)
+        .base_height(base_height)
+        .output_width(RECORDING_WIDTH)
+        .output_height(RECORDING_HEIGHT)
+        .scale_type(ObsScaleType::Bicubic)
+        .build()
 }
 
 fn build_source(
