@@ -275,7 +275,9 @@ impl RecorderState {
             VideoEncoderInfo::new(
                 match request.video_settings.encoder {
                     VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
-                    VideoEncoderType::NvEnc => ObsVideoEncoderType::FFMPEG_NVENC,
+                    VideoEncoderType::NvEnc => {
+                        ObsVideoEncoderType::Other("obs_nvenc_h264_tex".to_string())
+                    }
                 },
                 "video_encoder",
                 Some(video_encoder_settings),
