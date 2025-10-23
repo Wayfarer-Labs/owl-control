@@ -26,6 +26,7 @@ use constants::{MIN_FREE_SPACE_MB, unsupported_games::UnsupportedGames};
 pub trait VideoRecorder {
     fn id(&self) -> &'static str;
 
+    #[allow(clippy::too_many_arguments)]
     async fn start_recording(
         &mut self,
         dummy_video_path: &Path,

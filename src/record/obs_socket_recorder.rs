@@ -17,7 +17,10 @@ use obws::{
 };
 use windows::Win32::Foundation::HWND;
 
-use crate::{config::EncoderSettings, record::{input_recorder::InputEventStream, recorder::VideoRecorder}};
+use crate::{
+    config::EncoderSettings,
+    record::{input_recorder::InputEventStream, recorder::VideoRecorder},
+};
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";

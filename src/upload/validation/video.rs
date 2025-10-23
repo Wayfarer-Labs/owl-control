@@ -27,7 +27,7 @@ pub fn validate(video_path: &Path, metadata: &Metadata) -> Vec<String> {
     let size_mbits = size_mbytes * 8.0;
 
     let bitrate = 2.0;
-    let expected_mbits = bitrate * metadata.duration as f64;
+    let expected_mbits = bitrate * metadata.duration;
 
     if size_mbits < 0.25 * expected_mbits {
         invalid_reasons.push(format!(

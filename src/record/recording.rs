@@ -173,6 +173,7 @@ impl Recording {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn final_metadata(
         game_exe: String,
         game_resolution: (u32, u32),
