@@ -216,6 +216,8 @@ pub struct EncoderSettings {
     /// Encoder specific settings
     pub x264: ObsX264Settings,
     pub nvenc: FfmpegNvencSettings,
+    pub qsv: ObsQsvSettings,
+    pub amf: ObsAmfSettings,
 }
 impl Default for EncoderSettings {
     fn default() -> Self {
@@ -223,6 +225,8 @@ impl Default for EncoderSettings {
             encoder: VideoEncoderType::X264,
             x264: Default::default(),
             nvenc: Default::default(),
+            qsv: Default::default(),
+            amf: Default::default(),
         }
     }
 }
@@ -245,6 +249,8 @@ impl EncoderSettings {
         updater = match self.encoder {
             VideoEncoderType::X264 => self.x264.apply_to_data_updater(updater),
             VideoEncoderType::NvEnc => self.nvenc.apply_to_data_updater(updater),
+            VideoEncoderType::Amf => self.amf.apply_to_data_updater(updater),
+            VideoEncoderType::Qsv => self.qsv.apply_to_data_updater(updater),
         };
         updater.update()?;
 
@@ -301,5 +307,49 @@ impl FfmpegNvencSettings {
         updater
             .set_string("preset2", self.preset2.as_str())
             .set_string("tune", self.tune.as_str())
+    }
+}
+
+/// QuickSync H.264 encoder specific settings
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ObsQsvSettings {
+    pub target_usage: String,
+}
+impl Default for ObsQsvSettings {
+    fn default() -> Self {
+        Self {
+            target_usage: constants::encoding::QSV_TARGET_USAGES[0].to_string(),
+        }
+    }
+}
+impl ObsQsvSettings {
+    fn apply_to_data_updater(
+        &self,
+        updater: libobs_wrapper::data::ObsDataUpdater,
+    ) -> libobs_wrapper::data::ObsDataUpdater {
+        updater.set_string("target_usage", self.target_usage.as_str())
+    }
+}
+
+/// AMD HW H.264 (AVC) encoder specific settings
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ObsAmfSettings {
+    pub preset: String,
+}
+impl Default for ObsAmfSettings {
+    fn default() -> Self {
+        Self {
+            preset: constants::encoding::AMF_PRESETS[0].to_string(),
+        }
+    }
+}
+impl ObsAmfSettings {
+    fn apply_to_data_updater(
+        &self,
+        updater: libobs_wrapper::data::ObsDataUpdater,
+    ) -> libobs_wrapper::data::ObsDataUpdater {
+        updater.set_string("preset", self.preset.as_str())
     }
 }

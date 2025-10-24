@@ -73,6 +73,12 @@ async fn main(
         app_state.clone(),
     )
     .await?;
+    app_state
+        .ui_update_tx
+        .try_send(UiUpdate::UpdateAvailableVideoEncoders(
+            recorder.available_video_encoders().to_vec(),
+        ))
+        .ok();
 
     tracing::info!("recorder initialized");
     let (_input_capture, mut input_rx) = InputCapture::new()?;
