@@ -7,6 +7,7 @@ use std::{
 };
 
 use color_eyre::Result;
+use constants::encoding::VideoEncoderType;
 use egui_commonmark::CommonMarkCache;
 use egui_wgpu::{ScreenDescriptor, wgpu};
 use wgpu::SurfaceError;
@@ -424,6 +425,9 @@ pub struct MainApp {
     /// Receives commands from various tx in other threads to perform some UI update
     ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
 
+    /// Available video encoders, updated from tokio thread via mpsc channel
+    available_video_encoders: Vec<VideoEncoderType>,
+
     login_api_key: String,
     is_authenticating_login_api_key: bool,
     authenticated_user_id: Option<Result<String, String>>,
@@ -491,6 +495,8 @@ impl MainApp {
             authenticated_user_id: None,
             has_scrolled_to_bottom_of_consent: false,
 
+            available_video_encoders: vec![],
+
             local_credentials,
             local_preferences,
             config_last_edit: None,
@@ -527,6 +533,9 @@ impl MainApp {
         match self.ui_update_rx.try_recv() {
             Ok(UiUpdate::ForceUpdate) => {
                 ctx.request_repaint();
+            }
+            Ok(UiUpdate::UpdateAvailableVideoEncoders(encoders)) => {
+                self.available_video_encoders = encoders;
             }
             Ok(UiUpdate::UpdateUploadProgress(progress_data)) => {
                 self.current_upload_progress = progress_data;

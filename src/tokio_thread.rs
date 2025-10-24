@@ -72,6 +72,12 @@ async fn main(
         app_state.clone(),
     )
     .await?;
+    app_state
+        .ui_update_tx
+        .try_send(UiUpdate::UpdateAvailableVideoEncoders(
+            recorder.available_video_encoders().to_vec(),
+        ))
+        .ok();
 
     tracing::info!("recorder initialized");
     // I initially tried to move this into `Recorder`, so that it could be passed down to

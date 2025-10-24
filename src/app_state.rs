@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use constants::unsupported_games::UnsupportedGames;
+use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames};
 use egui_wgpu::wgpu;
 use tokio::sync::mpsc;
 
@@ -105,6 +105,7 @@ pub enum AsyncRequest {
 pub enum UiUpdate {
     /// Dummy update to force the UI to repaint
     ForceUpdate,
+    UpdateAvailableVideoEncoders(Vec<VideoEncoderType>),
     UpdateUserId(Result<String, String>),
     UpdateUploadProgress(Option<ProgressData>),
     UploadFailed(String),

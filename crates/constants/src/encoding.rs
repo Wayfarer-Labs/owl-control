@@ -5,20 +5,29 @@ use serde::{Deserialize, Serialize};
 pub enum VideoEncoderType {
     X264,
     NvEnc,
+    Amf,
+    Qsv,
 }
 impl std::fmt::Display for VideoEncoderType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             VideoEncoderType::X264 => write!(f, "OBS x264 (CPU)"),
             VideoEncoderType::NvEnc => write!(f, "NVIDIA NVENC (GPU)"),
+            VideoEncoderType::Amf => write!(f, "AMD HW H.264 (AVC)"),
+            VideoEncoderType::Qsv => write!(f, "QuickSync H.264"),
         }
     }
 }
-
-/// Video encoder constants
-/// List of supported video encoders that will be displayed for user to select
-pub const SUPPORTED_VIDEO_ENCODERS: &[VideoEncoderType] =
-    &[VideoEncoderType::X264, VideoEncoderType::NvEnc];
+impl VideoEncoderType {
+    pub fn id(&self) -> &str {
+        match self {
+            VideoEncoderType::X264 => "x264",
+            VideoEncoderType::NvEnc => "nvenc",
+            VideoEncoderType::Amf => "amf",
+            VideoEncoderType::Qsv => "qsv",
+        }
+    }
+}
 
 /// Preset options for different encoder types
 /// https://github.com/obsproject/obs-studio/blob/5ec3af3f6d6465122dc2b0abff9661cbe64b406b/plugins/obs-x264/obs-x264.c
@@ -27,10 +36,12 @@ pub const X264_PRESETS: &[&str] = &["fast", "faster", "veryfast"];
 /// https://github.com/obsproject/obs-studio/blob/0b1229632063a13dfd26cf1cd9dd43431d8c68f6/plugins/obs-nvenc/nvenc-properties.c#L145
 pub const NVENC_PRESETS: &[&str] = &["p7", "p6", "p5", "p4", "p3", "p2", "p1"];
 
-// Placeholders for now as we only expose obsx264 and ffmpeg nvenc
-pub const QSV_PRESETS: &[&str] = &[
+/// https://github.com/obsproject/obs-studio/blob/c025f210d36ada93c6b9ef2affd0f671b34c9775/plugins/obs-qsv11/obs-qsv11.c#L293-L311
+pub const QSV_TARGET_USAGES: &[&str] = &[
     "quality", "balanced", "speed", "veryfast", "faster", "fast", "medium",
 ];
+
+/// https://github.com/obsproject/obs-studio/blob/c025f210d36ada93c6b9ef2affd0f671b34c9775/plugins/obs-ffmpeg/texture-amf.cpp#L1276-L1284
 pub const AMF_PRESETS: &[&str] = &["quality", "balanced", "speed"];
 
 /// ffmpeg-nvenc: https://github.com/obsproject/obs-studio/blob/0b1229632063a13dfd26cf1cd9dd43431d8c68f6/plugins/obs-ffmpeg/obs-ffmpeg-nvenc.c#L504

@@ -21,11 +21,14 @@ use crate::{
     },
     ui::notification::{NotificationType, show_notification},
 };
-use constants::{MIN_FREE_SPACE_MB, unsupported_games::UnsupportedGames};
+use constants::{
+    MIN_FREE_SPACE_MB, encoding::VideoEncoderType, unsupported_games::UnsupportedGames,
+};
 
 #[async_trait::async_trait(?Send)]
 pub trait VideoRecorder {
     fn id(&self) -> &'static str;
+    fn available_encoders(&self) -> &[VideoEncoderType];
 
     #[allow(clippy::too_many_arguments)]
     async fn start_recording(
@@ -97,6 +100,10 @@ impl Recorder {
 
     pub fn recording(&self) -> Option<&Recording> {
         self.recording.as_ref()
+    }
+
+    pub fn available_video_encoders(&self) -> &[VideoEncoderType] {
+        self.video_recorder.available_encoders()
     }
 
     pub async fn start(

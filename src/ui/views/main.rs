@@ -3,13 +3,15 @@ use std::time::{Duration, Instant};
 use crate::{
     api::{UserUpload, UserUploadStatistics},
     app_state::{AsyncRequest, GitHubRelease, ListeningForNewHotkey},
-    config::{EncoderSettings, FfmpegNvencSettings, ObsX264Settings, RecordingBackend},
+    config::{
+        EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
+        RecordingBackend,
+    },
     ui::{HotkeyRebindTarget, MainApp, util},
     upload::LocalRecording,
 };
 
-use constants::encoding::{SUPPORTED_VIDEO_ENCODERS, VideoEncoderType};
-use constants::{GH_ORG, GH_REPO};
+use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
 
 #[derive(Default)]
 pub(crate) struct MainViewState {
@@ -267,7 +269,7 @@ impl MainApp {
                                 .selected_text(&encoder_name)
                                 .width(150.0)
                                 .show_ui(ui, |ui| {
-                                    for encoder in SUPPORTED_VIDEO_ENCODERS {
+                                    for encoder in &self.available_video_encoders {
                                         ui.selectable_value(
                                             &mut self.local_preferences.encoder.encoder,
                                             *encoder,
@@ -1041,6 +1043,8 @@ fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSett
     match encoder_settings.encoder {
         VideoEncoderType::X264 => encoder_settings_x264(ui, &mut encoder_settings.x264),
         VideoEncoderType::NvEnc => encoder_settings_nvenc(ui, &mut encoder_settings.nvenc),
+        VideoEncoderType::Amf => encoder_settings_amf(ui, &mut encoder_settings.amf),
+        VideoEncoderType::Qsv => encoder_settings_qsv(ui, &mut encoder_settings.qsv),
     }
 }
 
@@ -1075,6 +1079,26 @@ fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSet
         "Tune:",
         constants::encoding::NVENC_TUNE_OPTIONS,
         &mut nvenc_settings.tune,
+        |_| {},
+    );
+}
+
+fn encoder_settings_qsv(ui: &mut egui::Ui, qsv_settings: &mut ObsQsvSettings) {
+    dropdown_list(
+        ui,
+        "Target Usage:",
+        constants::encoding::QSV_TARGET_USAGES,
+        &mut qsv_settings.target_usage,
+        |_| {},
+    );
+}
+
+fn encoder_settings_amf(ui: &mut egui::Ui, amf_settings: &mut ObsAmfSettings) {
+    dropdown_list(
+        ui,
+        "Preset:",
+        constants::encoding::AMF_PRESETS,
+        &mut amf_settings.preset,
         |_| {},
     );
 }
