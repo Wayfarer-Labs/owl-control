@@ -210,7 +210,6 @@ struct RecordingStats {
     duration: f64,
     bytes: u64,
 }
-
 async fn upload_folder(
     path: &Path,
     api_client: Arc<ApiClient>,
@@ -463,16 +462,6 @@ async fn upload_tar(
     };
 
     let mut chunk_etags = vec![];
-    let start_time = std::time::Instant::now();
-
-    struct UploadProgressState {
-        bytes_uploaded: u64,
-        last_update_time: std::time::Instant,
-    }
-    let upload_progress_state = Arc::new(Mutex::new(UploadProgressState {
-        bytes_uploaded: 0,
-        last_update_time: start_time,
-    }));
 
     {
         let mut file = tokio::fs::File::open(tar_path)
@@ -485,6 +474,8 @@ async fn upload_tar(
         // directly into the hasher, and then stream each chunk directly into the uploader
         let mut buffer = vec![0u8; upload_session.chunk_size_bytes as usize];
         let client = reqwest::Client::new();
+
+        let progress_sender = Arc::new(Mutex::new(ProgressSender::new(tx.clone(), file_size)));
         for chunk_number in 1..=upload_session.total_chunks {
             tracing::info!(
                 "Uploading chunk {}/{} for upload_id {}",
@@ -493,92 +484,81 @@ async fn upload_tar(
                 upload_session.upload_id
             );
 
+            // Read chunk data from file (only once per chunk, not per retry)
             let mut buffer_start = 0;
             loop {
-                let chunk_size = file
+                let bytes_read = file
                     .read(&mut buffer[buffer_start..])
                     .await
                     .context("failed to read chunk")?;
-                if chunk_size == 0 {
+                if bytes_read == 0 {
                     break;
                 }
-
-                buffer_start += chunk_size;
+                buffer_start += bytes_read;
             }
-            // After the loop, buffer_start is the total number of bytes read
             let chunk_size = buffer_start;
-
             let chunk_data = buffer[..chunk_size].to_vec();
             let chunk_hash = sha256::digest(&chunk_data);
-            let multipart_chunk_response = api_client
-                .upload_multipart_chunk(
+
+            const MAX_RETRIES: u32 = 5;
+
+            for attempt in 1..=MAX_RETRIES {
+                // Store bytes_uploaded before attempting the chunk
+                let bytes_before_chunk = progress_sender.lock().unwrap().bytes_uploaded;
+
+                let chunk = Chunk {
+                    data: &chunk_data,
+                    hash: &chunk_hash,
+                    number: chunk_number,
+                };
+
+                match upload_single_chunk(
+                    chunk,
+                    &api_client,
                     api_token,
                     &upload_session.upload_id,
-                    chunk_number,
-                    &chunk_hash,
+                    progress_sender.clone(),
+                    &client,
                 )
                 .await
-                .context("failed to upload chunk")?;
+                {
+                    Ok(etag) => {
+                        progress_sender.lock().unwrap().send();
 
-            // Create a stream that wraps chunk_data and tracks upload progress
-            let progress_stream =
-                tokio_util::io::ReaderStream::new(std::io::Cursor::new(chunk_data)).inspect_ok({
-                    let tx = tx.clone();
-                    let ups = upload_progress_state.clone();
-                    move |bytes| {
-                        let bytes_uploaded =
-                            ups.lock().unwrap().bytes_uploaded + bytes.len() as u64;
-                        ups.lock().unwrap().bytes_uploaded = bytes_uploaded;
-
-                        let last_update_time = ups.lock().unwrap().last_update_time;
-                        if last_update_time.elapsed().as_millis() > 25 {
-                            send_progress(tx.clone(), bytes_uploaded, file_size, start_time);
-                            ups.lock().unwrap().last_update_time = std::time::Instant::now();
-                        }
+                        chunk_etags.push(CompleteMultipartUploadChunk { chunk_number, etag });
+                        tracing::info!(
+                            "Uploaded chunk {}/{} for upload_id {}",
+                            chunk_number,
+                            upload_session.total_chunks,
+                            upload_session.upload_id
+                        );
+                        break; // Success, move to next chunk
                     }
-                });
+                    Err(e) => {
+                        // Reset bytes_uploaded to what it was before the chunk attempt
+                        {
+                            let mut progress_sender = progress_sender.lock().unwrap();
+                            progress_sender.set_bytes_uploaded(bytes_before_chunk);
+                        }
 
-            let res = client
-                .put(&multipart_chunk_response.upload_url)
-                .header("Content-Type", "application/octet-stream")
-                .header("Content-Length", chunk_size)
-                .body(reqwest::Body::wrap_stream(progress_stream))
-                .send()
-                .await
-                .context("failed to stream chunk to upload url")?;
+                        tracing::warn!(
+                            "Failed to upload chunk {chunk_number}/{} (attempt {attempt}/{MAX_RETRIES}): {e:?}",
+                            upload_session.total_chunks,
+                        );
 
-            if !res.status().is_success() {
-                eyre::bail!(
-                    "Uploading chunk {}/{} for upload_id {} failed with status: {}",
-                    chunk_number,
-                    upload_session.total_chunks,
-                    upload_session.upload_id,
-                    res.status()
-                )
+                        if attempt == MAX_RETRIES {
+                            eyre::bail!(
+                                "Failed to upload chunk {chunk_number}/{} after {MAX_RETRIES} attempts: {e}",
+                                upload_session.total_chunks
+                            );
+                        }
+
+                        // Optional: add a small delay before retrying
+                        tokio::time::sleep(std::time::Duration::from_millis(500 * attempt as u64))
+                            .await;
+                    }
+                }
             }
-
-            send_progress(
-                tx.clone(),
-                upload_progress_state.lock().unwrap().bytes_uploaded,
-                file_size,
-                start_time,
-            );
-
-            // Extract etag header from response
-            let etag = res
-                .headers()
-                .get("etag")
-                .and_then(|hv| hv.to_str().ok())
-                .map(|s| s.trim_matches('"').to_owned())
-                .ok_or_else(|| eyre::eyre!("No ETag header found after chunk upload"))?;
-
-            chunk_etags.push(CompleteMultipartUploadChunk { chunk_number, etag });
-            tracing::info!(
-                "Uploaded chunk {}/{} for upload_id {}",
-                chunk_number,
-                upload_session.total_chunks,
-                upload_session.upload_id
-            );
         }
     }
     let completion_result = api_client
@@ -605,30 +585,116 @@ async fn upload_tar(
     Ok(completion_result.game_control_id)
 }
 
-fn send_progress(
+struct Chunk<'a> {
+    data: &'a [u8],
+    hash: &'a str,
+    number: u64,
+}
+
+async fn upload_single_chunk(
+    chunk: Chunk<'_>,
+    api_client: &Arc<ApiClient>,
+    api_token: &str,
+    upload_id: &str,
+    progress_sender: Arc<Mutex<ProgressSender>>,
+    client: &reqwest::Client,
+) -> eyre::Result<String> {
+    let multipart_chunk_response = api_client
+        .upload_multipart_chunk(api_token, upload_id, chunk.number, chunk.hash)
+        .await
+        .context("failed to upload chunk")?;
+
+    // Create a stream that wraps chunk_data and tracks upload progress
+    let progress_stream =
+        tokio_util::io::ReaderStream::new(std::io::Cursor::new(chunk.data.to_vec())).inspect_ok({
+            let progress_sender = progress_sender.clone();
+            move |bytes| {
+                progress_sender
+                    .lock()
+                    .unwrap()
+                    .increment_bytes_uploaded(bytes.len() as u64);
+            }
+        });
+
+    let res = client
+        .put(&multipart_chunk_response.upload_url)
+        .header("Content-Type", "application/octet-stream")
+        .header("Content-Length", chunk.data.len())
+        .body(reqwest::Body::wrap_stream(progress_stream))
+        .send()
+        .await
+        .context("failed to stream chunk to upload url")?;
+
+    if !res.status().is_success() {
+        eyre::bail!("Chunk upload failed with status: {}", res.status())
+    }
+
+    // Extract etag header from response
+    let etag = res
+        .headers()
+        .get("etag")
+        .and_then(|hv| hv.to_str().ok())
+        .map(|s| s.trim_matches('"').to_owned())
+        .ok_or_else(|| eyre::eyre!("No ETag header found after chunk upload"))?;
+
+    Ok(etag)
+}
+
+struct ProgressSender {
     tx: app_state::UiUpdateSender,
     bytes_uploaded: u64,
-    total_bytes: u64,
+    last_update_time: std::time::Instant,
+    file_size: u64,
     start_time: std::time::Instant,
-) {
-    let bps = bytes_uploaded as f64 / start_time.elapsed().as_secs_f64();
-    let data = ProgressData {
-        bytes_uploaded,
-        total_bytes,
-        speed_mbps: bps / (1024.0 * 1024.0),
-        eta_seconds: if bps > 0.0 {
-            (total_bytes - bytes_uploaded) as f64 / bps
-        } else {
-            0.0
-        },
-        percent: if total_bytes > 0 {
-            ((bytes_uploaded as f64 / total_bytes as f64) * 100.0).min(100.0)
-        } else {
-            0.0
-        },
-    };
-    tx.try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))
-        .ok();
+}
+impl ProgressSender {
+    pub fn new(tx: app_state::UiUpdateSender, file_size: u64) -> Self {
+        Self {
+            tx,
+            bytes_uploaded: 0,
+            last_update_time: std::time::Instant::now(),
+            file_size,
+            start_time: std::time::Instant::now(),
+        }
+    }
+
+    pub fn increment_bytes_uploaded(&mut self, bytes: u64) {
+        self.set_bytes_uploaded(self.bytes_uploaded + bytes);
+    }
+
+    pub fn set_bytes_uploaded(&mut self, bytes: u64) {
+        self.bytes_uploaded = bytes;
+        self.send();
+    }
+
+    fn send(&mut self) {
+        if self.last_update_time.elapsed().as_millis() > 25 {
+            self.send_impl();
+            self.last_update_time = std::time::Instant::now();
+        }
+    }
+
+    fn send_impl(&self) {
+        let bps = self.bytes_uploaded as f64 / self.start_time.elapsed().as_secs_f64();
+        let data = ProgressData {
+            bytes_uploaded: self.bytes_uploaded,
+            total_bytes: self.file_size,
+            speed_mbps: bps / (1024.0 * 1024.0),
+            eta_seconds: if bps > 0.0 {
+                (self.file_size - self.bytes_uploaded) as f64 / bps
+            } else {
+                0.0
+            },
+            percent: if self.file_size > 0 {
+                ((self.bytes_uploaded as f64 / self.file_size as f64) * 100.0).min(100.0)
+            } else {
+                0.0
+            },
+        };
+        self.tx
+            .try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))
+            .ok();
+    }
 }
 
 /// Scans the recording location for folders with .invalid files or without .uploaded files and returns information about them
