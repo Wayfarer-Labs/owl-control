@@ -20,25 +20,9 @@ impl InputEventStream {
     /// since now that we rely on the rx queue to flush outputs to file, we also want this
     /// queue to be populated in chronological order, so arbitrary timestamp writing
     /// shouldn't be supported anyway.
-    pub(crate) fn send_input(&self, event: input_capture::Event) -> Result<()> {
-        // maybe we can make this faster by deferring lookups until flush event, but don't think
-        // such level of optimisation is necessary yet.
-        let event_type = InputEventType::from_input_event(event)?;
-        let input_event = InputEvent::new_at_now(event_type);
+    pub(crate) fn send(&self, event: InputEventType) -> Result<()> {
         self.tx
-            .send(input_event)
-            .map_err(|_| eyre!("input event stream receiver was closed"))?;
-        Ok(())
-    }
-
-    /// Send a timestamped video_start or video_end event.
-    pub(crate) fn send_video_state(&self, starting: bool) -> Result<()> {
-        let event = InputEvent::new_at_now(match starting {
-            true => InputEventType::VideoStart,
-            false => InputEventType::VideoEnd,
-        });
-        self.tx
-            .send(event)
+            .send(InputEvent::new_at_now(event))
             .map_err(|_| eyre!("input event stream receiver was closed"))?;
         Ok(())
     }

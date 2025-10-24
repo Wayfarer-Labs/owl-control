@@ -15,6 +15,7 @@ use windows::Win32::Foundation::HWND;
 use crate::{
     app_state::{AppState, RecordingStatus},
     config::{EncoderSettings, RecordingBackend},
+    output_types::InputEventType,
     record::{
         input_recorder::InputEventStream, obs_embedded_recorder::ObsEmbeddedRecorder,
         obs_socket_recorder::ObsSocketRecorder, recording::Recording,
@@ -212,7 +213,9 @@ impl Recorder {
         let Some(recording) = self.recording.as_ref() else {
             return Ok(());
         };
-        recording.input_stream().send_input(e)?;
+        recording
+            .input_stream()
+            .send(InputEventType::from_input_event(e)?)?;
         Ok(())
     }
 

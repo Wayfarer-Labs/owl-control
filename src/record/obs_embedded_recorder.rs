@@ -1,6 +1,9 @@
 use std::{
     path::Path,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Instant,
 };
 
@@ -32,6 +35,7 @@ use libobs_wrapper::{
 
 use crate::{
     config::EncoderSettings,
+    output_types::InputEventType,
     record::{input_recorder::InputEventStream, recorder::VideoRecorder},
 };
 
@@ -218,7 +222,7 @@ fn recorder_thread(
         current_output: None,
         source: None,
         last_encoder_settings: None,
-        last_hooked_signal: None,
+        was_hooked: Arc::new(AtomicBool::new(false)),
     };
 
     let mut last_shutdown_tx = None;
@@ -248,14 +252,13 @@ struct RecorderState {
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
     last_encoder_settings: Option<serde_json::Value>,
-    last_hooked_signal:
-        Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
+    was_hooked: Arc<AtomicBool>,
 }
 impl RecorderState {
     fn start_recording(
         &mut self,
         request: Box<RecordingRequest>,
-        shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+        mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     ) -> eyre::Result<()> {
         if self.current_output.is_some() {
             bail!("Recording is already in progress");
@@ -274,53 +277,6 @@ impl RecorderState {
             &mut scene,
         )?;
 
-        // Register a signal to detect when the source is hooked,
-        // so we can invalidate non-hooked recordings
-        let mut hook_signal_rx = source
-            .signal_manager()
-            .on_hooked()
-            .context("failed to register on_hooked signal")?;
-        self.last_hooked_signal = Some(hook_signal_rx.resubscribe());
-
-        // unhook signal
-        let mut unhook_signal_rx = source
-            .signal_manager()
-            .on_unhooked()
-            .context("failed to register on_hooked signal")?;
-
-        let event_stream = request.event_stream;
-        std::thread::spawn(move || {
-            let initial_time = Instant::now();
-            futures::executor::block_on(async {
-                // Seems a bit dubious to use a tokio::select with
-                // a tokio oneshot in a non-Tokio context, but it seems to work
-                tokio::select! {
-                    r = hook_signal_rx.recv() => {
-                        if r.is_ok() {
-                            let hook_time = Instant::now();
-                            tracing::info!("Game hooked at {}s", (hook_time - initial_time).as_secs_f64());
-                            let _ = event_stream.send_video_state(true);
-                        }
-                    }
-                    _ = shutdown_rx => {
-                        return;
-                    }
-                }
-
-                // We don't need to check for shutdown_rx here because it will only get
-                // to this point if we've already hooked successfully.
-                if unhook_signal_rx.recv().await.is_ok() {
-                    let unhook_time = Instant::now();
-                    tracing::info!(
-                        "Game unhooked at {}s",
-                        (unhook_time - initial_time).as_secs_f64()
-                    );
-                    let _ = event_stream.send_video_state(false);
-                }
-            });
-            tracing::info!("Game hook monitoring thread closed");
-        });
-
         // Register the source
         scene.set_to_channel(0)?;
 
@@ -330,6 +286,74 @@ impl RecorderState {
 
         let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
         let mut output = self.obs_context.output(output_info)?;
+
+        // Listen for signals to pass onto the event stream
+        self.was_hooked.store(false, Ordering::Relaxed);
+        std::thread::spawn({
+            let event_stream = request.event_stream;
+            let was_hooked = self.was_hooked.clone();
+
+            // output
+            let mut start_signal_rx = output
+                .signal_manager()
+                .on_start()
+                .context("failed to register output on_start signal")?;
+            let mut stop_signal_rx = output
+                .signal_manager()
+                .on_stop()
+                .context("failed to register output on_stop signal")?;
+
+            // source
+            let mut hook_signal_rx = source
+                .signal_manager()
+                .on_hooked()
+                .context("failed to register source on_hooked signal")?;
+            let mut unhook_signal_rx = source
+                .signal_manager()
+                .on_unhooked()
+                .context("failed to register source on_unhooked signal")?;
+
+            move || {
+                let initial_time = Instant::now();
+                futures::executor::block_on(async {
+                    // Seems a bit dubious to use a tokio::select with
+                    // a tokio oneshot in a non-Tokio context, but it seems to work
+                    loop {
+                        tokio::select! {
+                            r = start_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Video started at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::VideoStart);
+                                }
+                            }
+                            r = stop_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Video ended at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::VideoEnd);
+                                }
+                            }
+                            r = hook_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Game hooked at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::HookStart);
+                                    was_hooked.store(true, Ordering::Relaxed);
+                                }
+                            }
+                            r = unhook_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Game unhooked at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::HookEnd);
+                                }
+                            }
+                            _ = &mut shutdown_rx => {
+                                return;
+                            }
+                        }
+                    }
+                });
+                tracing::info!("Game hook monitoring thread closed");
+            }
+        });
 
         // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
         // Register the video encoder with encoder-specific settings
@@ -402,9 +426,7 @@ impl RecorderState {
 
         let mut output = self.last_encoder_settings.take().unwrap_or_default();
 
-        if let Some(mut hooked_signal) = self.last_hooked_signal.take()
-            && hooked_signal.try_recv().is_err()
-        {
+        if !self.was_hooked.load(Ordering::Relaxed) {
             bail!("Application was never hooked, recording will be blank");
         }
 
