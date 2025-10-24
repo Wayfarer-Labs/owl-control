@@ -21,7 +21,7 @@ use libobs_wrapper::{
         output::ObsOutputRef,
         video::{ObsVideoInfo, ObsVideoInfoBuilder},
     },
-    encoders::ObsVideoEncoderType,
+    encoders::{ObsContextEncoders, ObsVideoEncoderType},
     enums::ObsScaleType,
     logger::ObsLogger,
     scenes::ObsSceneRef,
@@ -42,6 +42,7 @@ const USE_WINDOW_CAPTURE: bool = false;
 pub struct ObsEmbeddedRecorder {
     _obs_thread: std::thread::JoinHandle<()>,
     obs_tx: tokio::sync::mpsc::Sender<RecorderMessage>,
+    available_encoders: Vec<VideoEncoderType>,
 }
 impl ObsEmbeddedRecorder {
     pub async fn new(adapter_index: usize) -> Result<Self>
@@ -53,11 +54,12 @@ impl ObsEmbeddedRecorder {
         let obs_thread =
             std::thread::spawn(move || recorder_thread(adapter_index, obs_rx, init_success_tx));
         // Wait for the OBS context to be initialized, and bail out if it fails
-        init_success_rx.await??;
+        let available_encoders = init_success_rx.await??;
 
         Ok(Self {
             _obs_thread: obs_thread,
             obs_tx,
+            available_encoders,
         })
     }
 }
@@ -65,6 +67,10 @@ impl ObsEmbeddedRecorder {
 impl VideoRecorder for ObsEmbeddedRecorder {
     fn id(&self) -> &'static str {
         "ObsEmbedded"
+    }
+
+    fn available_encoders(&self) -> &[VideoEncoderType] {
+        &self.available_encoders
     }
 
     async fn start_recording(
@@ -86,13 +92,13 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         let (result_tx, result_rx) = tokio::sync::oneshot::channel();
         self.obs_tx
             .send(RecorderMessage::StartRecording {
-                request: RecordingRequest {
+                request: Box::new(RecordingRequest {
                     game_resolution: (base_width, base_height),
                     video_settings,
                     recording_path,
                     game_exe: game_exe.to_string(),
                     pid,
-                },
+                }),
                 result_tx,
             })
             .await?;
@@ -120,7 +126,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
 
 enum RecorderMessage {
     StartRecording {
-        request: RecordingRequest,
+        request: Box<RecordingRequest>,
         result_tx: tokio::sync::oneshot::Sender<Result<()>>,
     },
     StopRecording {
@@ -136,10 +142,31 @@ struct RecordingRequest {
     pid: u32,
 }
 
+pub fn vet_to_obs_vet(vet: VideoEncoderType) -> ObsVideoEncoderType {
+    match vet {
+        VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
+        VideoEncoderType::NvEnc => ObsVideoEncoderType::OBS_NVENC_H264_TEX,
+        VideoEncoderType::Amf => ObsVideoEncoderType::H264_TEXTURE_AMF,
+        VideoEncoderType::Qsv => ObsVideoEncoderType::OBS_QSV11_V2,
+    }
+}
+
+pub fn obs_vet_to_vet(vet: &ObsVideoEncoderType) -> Option<VideoEncoderType> {
+    match vet {
+        ObsVideoEncoderType::OBS_X264 => Some(VideoEncoderType::X264),
+        ObsVideoEncoderType::OBS_NVENC_H264_TEX => Some(VideoEncoderType::NvEnc),
+        ObsVideoEncoderType::H264_TEXTURE_AMF => Some(VideoEncoderType::Amf),
+        ObsVideoEncoderType::OBS_QSV11_V2 => Some(VideoEncoderType::Qsv),
+        _ => None,
+    }
+}
+
 fn recorder_thread(
     adapter_index: usize,
     mut rx: tokio::sync::mpsc::Receiver<RecorderMessage>,
-    init_success_tx: tokio::sync::oneshot::Sender<Result<(), libobs_wrapper::utils::ObsError>>,
+    init_success_tx: tokio::sync::oneshot::Sender<
+        Result<Vec<VideoEncoderType>, libobs_wrapper::utils::ObsError>,
+    >,
 ) {
     let skipped_frames = Arc::new(Mutex::new(None));
     let obs_context = ObsContext::new(
@@ -154,7 +181,21 @@ fn recorder_thread(
     );
     let obs_context = match obs_context {
         Ok(obs_context) => {
-            init_success_tx.send(Ok(())).unwrap();
+            let available_encoders = obs_context.available_video_encoders().map(|es| {
+                es.into_iter()
+                    .filter_map(|e| obs_vet_to_vet(e.get_encoder_id()))
+                    .collect::<Vec<_>>()
+            });
+            let available_encoders = match available_encoders {
+                Ok(available_encoders) => available_encoders,
+                Err(e) => {
+                    tracing::error!(
+                        "Failed to get available video encoders, assuming x264 only: {e}"
+                    );
+                    vec![VideoEncoderType::X264]
+                }
+            };
+            init_success_tx.send(Ok(available_encoders)).unwrap();
             obs_context
         }
         Err(e) => {
@@ -196,7 +237,7 @@ struct RecorderState {
         Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
 }
 impl RecorderState {
-    fn start_recording(&mut self, request: RecordingRequest) -> eyre::Result<()> {
+    fn start_recording(&mut self, request: Box<RecordingRequest>) -> eyre::Result<()> {
         if self.current_output.is_some() {
             bail!("Recording is already in progress");
         }
@@ -247,11 +288,7 @@ impl RecorderState {
             if let Some(object) = encoder_settings_json.as_object_mut() {
                 object.insert(
                     "encoder".to_string(),
-                    match request.video_settings.encoder {
-                        VideoEncoderType::X264 => "x264",
-                        VideoEncoderType::NvEnc => "nvenc",
-                    }
-                    .into(),
+                    request.video_settings.encoder.id().into(),
                 );
             }
             tracing::info!("Recording starting with video settings: {encoder_settings_json:?}");
@@ -261,12 +298,7 @@ impl RecorderState {
         let video_handler = self.obs_context.get_video_ptr()?;
         output.video_encoder(
             VideoEncoderInfo::new(
-                match request.video_settings.encoder {
-                    VideoEncoderType::X264 => ObsVideoEncoderType::OBS_X264,
-                    VideoEncoderType::NvEnc => {
-                        ObsVideoEncoderType::Other("obs_nvenc_h264_tex".to_string())
-                    }
-                },
+                vet_to_obs_vet(request.video_settings.encoder),
                 "video_encoder",
                 Some(video_encoder_settings),
                 None,

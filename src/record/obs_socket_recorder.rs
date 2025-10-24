@@ -4,7 +4,7 @@ use color_eyre::{
     Result,
     eyre::{Context, OptionExt as _},
 };
-use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH};
+use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH, encoding::VideoEncoderType};
 use obws::{
     Client,
     requests::{
@@ -41,6 +41,10 @@ impl ObsSocketRecorder {
 impl VideoRecorder for ObsSocketRecorder {
     fn id(&self) -> &'static str {
         "ObsSocket"
+    }
+
+    fn available_encoders(&self) -> &[VideoEncoderType] {
+        &[VideoEncoderType::X264]
     }
 
     async fn start_recording(
