@@ -45,6 +45,8 @@ pub trait VideoRecorder {
     /// Result contains any additional metadata the recorder wants to return about the recording
     /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
+    /// Called periodically for any work the recorder might need to do
+    async fn poll(&mut self);
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
@@ -250,6 +252,10 @@ impl Recorder {
 
         tracing::info!("Recording stopped");
         Ok(())
+    }
+
+    pub async fn poll(&mut self) {
+        self.video_recorder.poll().await;
     }
 }
 

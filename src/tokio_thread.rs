@@ -362,6 +362,8 @@ async fn main(
                     tracing::info!("Window {window:?} regained focus, restarting recording");
                     start_recording_safely(&mut recorder, &input_capture, &unsupported_games, Some((&sink, honk, &app_state))).await;
                 }
+
+                recorder.poll().await;
             },
         }
     }

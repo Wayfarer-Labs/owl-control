@@ -58,6 +58,7 @@ impl VideoRecorder for ObsSocketRecorder {
         game_exe: &str,
         _video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
+        // TODO: hook / start events
         _event_stream: InputEventStream,
     ) -> Result<()> {
         // Connect to OBS
@@ -294,6 +295,8 @@ impl VideoRecorder for ObsSocketRecorder {
         tracing::info!("OBS recording stopped successfully");
         Ok(serde_json::Value::Null)
     }
+
+    async fn poll(&mut self) {}
 }
 impl Drop for ObsSocketRecorder {
     fn drop(&mut self) {
