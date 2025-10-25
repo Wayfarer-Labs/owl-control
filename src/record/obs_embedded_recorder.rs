@@ -454,11 +454,6 @@ impl RecorderState {
             && self.is_recording
         {
             output.stop().wrap_err("Failed to stop OBS output")?;
-            if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)
-                && let Some(source) = self.source.as_ref()
-            {
-                scene.remove_source(source)?;
-            }
             tracing::debug!("OBS recording stopped");
             self.is_recording = false;
         } else {
@@ -561,12 +556,6 @@ fn prepare_source(
             .find(|w| w.pid == pid)
             .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
 
-        if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
-            bail!(
-                "The window you're trying to record ({game_exe}) is already being captured by another process. Do you have OBS or another instance of OWL Control open?\n\nNote that OBS is no longer required to use OWL Control - please close it if you have it running!",
-            );
-        }
-
         if !window.is_game {
             bail!(
                 "The window you're trying to record ({game_exe}) cannot be captured. Please ensure you are capturing a game."
@@ -586,6 +575,14 @@ fn prepare_source(
             Ok(source)
         } else {
             tracing::info!("Creating new game capture source");
+
+            if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
+                // We should only check this if we're creating a new source, as "another process" could be us otherwise
+                bail!(
+                    "The window you're trying to record ({game_exe}) is already being captured by another process. Do you have OBS or another instance of OWL Control open?\n\nNote that OBS is no longer required to use OWL Control - please close it if you have it running!",
+                );
+            }
+
             obs_context
                 .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)?
                 .set_capture_mode(capture_mode)
