@@ -7,7 +7,7 @@ use crate::output_types::Metadata;
 pub fn validate(video_path: &Path, metadata: &Metadata) -> Vec<String> {
     let mut invalid_reasons = vec![];
 
-    let duration = Duration::from_secs_f32(metadata.duration);
+    let duration = Duration::from_secs_f64(metadata.duration);
     if duration < MIN_FOOTAGE {
         invalid_reasons.push(format!("Video length {} too short.", metadata.duration));
     }
@@ -27,7 +27,7 @@ pub fn validate(video_path: &Path, metadata: &Metadata) -> Vec<String> {
     let size_mbits = size_mbytes * 8.0;
 
     let bitrate = 2.0;
-    let expected_mbits = bitrate * metadata.duration as f64;
+    let expected_mbits = bitrate * metadata.duration;
 
     if size_mbits < 0.25 * expected_mbits {
         invalid_reasons.push(format!(

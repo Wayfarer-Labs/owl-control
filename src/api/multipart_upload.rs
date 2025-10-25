@@ -11,7 +11,7 @@ pub struct InitMultipartUploadArgs<'a> {
     pub tags: Option<&'a [String]>,
     pub video_filename: Option<&'a str>,
     pub control_filename: Option<&'a str>,
-    pub video_duration_seconds: Option<f32>,
+    pub video_duration_seconds: Option<f64>,
     pub video_width: Option<u32>,
     pub video_height: Option<u32>,
     pub video_codec: Option<&'a str>,
@@ -88,7 +88,7 @@ impl ApiClient {
             control_filename: Option<&'a str>,
 
             #[serde(skip_serializing_if = "Option::is_none")]
-            video_duration_seconds: Option<f32>,
+            video_duration_seconds: Option<f64>,
             #[serde(skip_serializing_if = "Option::is_none")]
             video_width: Option<u32>,
             #[serde(skip_serializing_if = "Option::is_none")]

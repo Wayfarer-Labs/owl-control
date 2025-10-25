@@ -1,3 +1,8 @@
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex},
+};
+
 use color_eyre::Result;
 use tokio::sync::mpsc;
 
@@ -41,39 +46,64 @@ pub enum PressState {
     Released,
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ActiveInput {
+    pub keyboard: HashSet<u16>,
+    pub mouse: HashSet<u16>,
+    pub gamepad_digital: HashSet<u16>,
+    pub gamepad_analog: HashMap<u16, f32>,
+}
+
 pub struct InputCapture {
     _raw_input_thread: std::thread::JoinHandle<()>,
-    _gilrs_thread: std::thread::JoinHandle<()>,
+    _gamepad_threads: gamepad_capture::GamepadThreads,
+    active_keys: Arc<Mutex<kbm_capture::ActiveKeys>>,
+    active_gamepad: Arc<Mutex<gamepad_capture::ActiveGamepad>>,
 }
 impl InputCapture {
     pub fn new() -> Result<(Self, mpsc::Receiver<Event>)> {
         let (input_tx, input_rx) = mpsc::channel(10);
 
+        let active_keys = Arc::new(Mutex::new(kbm_capture::ActiveKeys::default()));
         let _raw_input_thread = std::thread::spawn({
             let input_tx = input_tx.clone();
+            let active_keys = active_keys.clone();
             move || {
-                let mut raw_input =
-                    Some(KbmCapture::initialize().expect("failed to initialize raw input"));
-                KbmCapture::run_queue(move |event| {
-                    if input_tx.blocking_send(event).is_err() {
-                        tracing::warn!("Keyboard input tx closed, stopping keyboard capture");
-                        // Force the raw input to be dropped, which will unregister the window
-                        // class and destroy the window, stopping the message queue.
-                        raw_input.take();
-                    }
-                })
-                .expect("failed to run windows message queue");
+                KbmCapture::initialize(active_keys)
+                    .expect("failed to initialize raw input")
+                    .run_queue(move |event| {
+                        if input_tx.blocking_send(event).is_err() {
+                            tracing::warn!("Keyboard input tx closed, stopping keyboard capture");
+                            return false;
+                        }
+                        true
+                    })
+                    .expect("failed to run windows message queue");
             }
         });
 
-        let _gilrs_thread = gamepad_capture::initialize_thread(input_tx);
+        let active_gamepad = Arc::new(Mutex::new(gamepad_capture::ActiveGamepad::default()));
+        let _gamepad_threads = gamepad_capture::initialize_thread(input_tx, active_gamepad.clone());
 
         Ok((
             Self {
                 _raw_input_thread,
-                _gilrs_thread,
+                _gamepad_threads,
+                active_keys,
+                active_gamepad,
             },
             input_rx,
         ))
+    }
+
+    pub fn active_input(&self) -> ActiveInput {
+        let active_keys = self.active_keys.lock().unwrap();
+        let active_gamepad = self.active_gamepad.lock().unwrap();
+        ActiveInput {
+            keyboard: active_keys.keyboard.clone(),
+            mouse: active_keys.mouse.clone(),
+            gamepad_digital: active_gamepad.gamepad_digital.clone(),
+            gamepad_analog: active_gamepad.gamepad_analog.clone(),
+        }
     }
 }

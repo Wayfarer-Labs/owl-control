@@ -4,45 +4,83 @@ use color_eyre::{
     Result,
     eyre::{WrapErr as _, eyre},
 };
-use tokio::{fs::File, io::AsyncWriteExt as _};
+use input_capture::InputCapture;
+use tokio::{fs::File, io::AsyncWriteExt as _, sync::mpsc};
 
 use crate::output_types::{InputEvent, InputEventType};
 
-pub(crate) struct InputRecorder {
-    file: File,
+/// Stream for sending timestamped input events to the writer
+#[derive(Clone)]
+pub(crate) struct InputEventStream {
+    tx: mpsc::UnboundedSender<InputEvent>,
 }
 
-impl InputRecorder {
-    pub(crate) async fn start(path: &Path) -> Result<Self> {
+impl InputEventStream {
+    /// Send a timestamped input event at current time. This is the only supported send
+    /// since now that we rely on the rx queue to flush outputs to file, we also want this
+    /// queue to be populated in chronological order, so arbitrary timestamp writing
+    /// shouldn't be supported anyway.
+    pub(crate) fn send(&self, event: InputEventType) -> Result<()> {
+        self.tx
+            .send(InputEvent::new_at_now(event))
+            .map_err(|_| eyre!("input event stream receiver was closed"))?;
+        Ok(())
+    }
+}
+
+pub(crate) struct InputEventWriter {
+    file: File,
+    rx: mpsc::UnboundedReceiver<InputEvent>,
+}
+
+impl InputEventWriter {
+    pub(crate) async fn start(
+        path: &Path,
+        input_capture: &InputCapture,
+    ) -> Result<(Self, InputEventStream)> {
         let file = File::create_new(path)
             .await
             .wrap_err_with(|| eyre!("failed to create and open {path:?}"))?;
-        let mut recorder = Self { file };
 
-        recorder.write_header().await?;
-        recorder
-            .write_entry(InputEvent::new_at_now(InputEventType::Start))
+        let (tx, rx) = mpsc::unbounded_channel();
+        let stream = InputEventStream { tx };
+        let mut writer = Self { file, rx };
+
+        writer.write_header().await?;
+        writer
+            .write_entry(InputEvent::new_at_now(InputEventType::Start {
+                inputs: input_capture.active_input(),
+            }))
             .await?;
 
-        Ok(recorder)
+        Ok((writer, stream))
     }
 
-    pub(crate) async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
-        self.write_entry(InputEvent::new_at_now(InputEventType::from_input_event(e)?))
-            .await
+    /// Flush all pending events from the channel and write them to file
+    pub(crate) async fn flush(&mut self) -> Result<()> {
+        while let Ok(event) = self.rx.try_recv() {
+            self.write_entry(event).await?;
+        }
+        Ok(())
     }
 
-    pub(crate) async fn stop(mut self) -> Result<()> {
-        self.write_entry(InputEvent::new_at_now(InputEventType::End))
-            .await
-    }
+    pub(crate) async fn stop(mut self, input_capture: &InputCapture) -> Result<()> {
+        // Most accurate possible timestamp of exactly when the stop input recording was called
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64();
 
-    pub(crate) async fn write_focus(&mut self, focused: bool) -> Result<()> {
-        // write alt tab status to the input tracker
-        self.write_entry(InputEvent::new_at_now(match focused {
-            true => InputEventType::Refocus,
-            false => InputEventType::Unfocus,
-        }))
+        // Flush any remaining events
+        self.flush().await?;
+
+        // Write the end marker
+        self.write_entry(InputEvent::new(
+            timestamp,
+            InputEventType::End {
+                inputs: input_capture.active_input(),
+            },
+        ))
         .await
     }
 

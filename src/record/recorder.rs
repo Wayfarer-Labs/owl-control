@@ -9,14 +9,16 @@ use color_eyre::{
     eyre::{Context as _, OptionExt as _, bail},
 };
 use egui_wgpu::wgpu::DeviceType;
+use input_capture::InputCapture;
 use windows::Win32::Foundation::HWND;
 
 use crate::{
     app_state::{AppState, RecordingStatus},
     config::{EncoderSettings, RecordingBackend},
+    output_types::InputEventType,
     record::{
-        obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
-        recording::Recording,
+        input_recorder::InputEventStream, obs_embedded_recorder::ObsEmbeddedRecorder,
+        obs_socket_recorder::ObsSocketRecorder, recording::Recording,
     },
     ui::notification::{NotificationType, show_notification},
 };
@@ -29,6 +31,7 @@ pub trait VideoRecorder {
     fn id(&self) -> &'static str;
     fn available_encoders(&self) -> &[VideoEncoderType];
 
+    #[allow(clippy::too_many_arguments)]
     async fn start_recording(
         &mut self,
         dummy_video_path: &Path,
@@ -37,6 +40,7 @@ pub trait VideoRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         game_resolution: (u32, u32),
+        event_stream: InputEventStream,
     ) -> Result<()>;
     /// Result contains any additional metadata the recorder wants to return about the recording
     /// If this returns an error, the recording will be invalidated with the error message
@@ -103,7 +107,11 @@ impl Recorder {
         self.video_recorder.available_encoders()
     }
 
-    pub async fn start(&mut self, unsupported_games: &UnsupportedGames) -> Result<()> {
+    pub async fn start(
+        &mut self,
+        input_capture: &InputCapture,
+        unsupported_games: &UnsupportedGames,
+    ) -> Result<()> {
         if self.recording.is_some() {
             return Ok(());
         }
@@ -174,6 +182,7 @@ impl Recorder {
             pid,
             hwnd,
             video_settings,
+            input_capture,
         )
         .await;
 
@@ -201,23 +210,24 @@ impl Recorder {
     }
 
     pub async fn seen_input(&mut self, e: input_capture::Event) -> Result<()> {
-        let Some(recording) = self.recording.as_mut() else {
+        let Some(recording) = self.recording.as_ref() else {
             return Ok(());
         };
-        recording.seen_input(e).await?;
+        recording
+            .input_stream()
+            .send(InputEventType::from_input_event(e)?)?;
         Ok(())
     }
 
-    pub async fn write_focus(&mut self, focused: bool) -> Result<()> {
-        // write alt tab focus of window status to input recorder
+    /// Flush all pending input events to disk
+    pub async fn flush_input_events(&mut self) -> Result<()> {
         let Some(recording) = self.recording.as_mut() else {
             return Ok(());
         };
-        recording.write_focus(focused).await?;
-        Ok(())
+        recording.flush_input_events().await
     }
 
-    pub async fn stop(&mut self) -> Result<()> {
+    pub async fn stop(&mut self, input_capture: &InputCapture) -> Result<()> {
         let Some(recording) = self.recording.take() else {
             return Ok(());
         };
@@ -230,7 +240,11 @@ impl Recorder {
         );
 
         recording
-            .stop(self.video_recorder.as_mut(), &self.app_state.adapter_infos)
+            .stop(
+                self.video_recorder.as_mut(),
+                &self.app_state.adapter_infos,
+                input_capture,
+            )
             .await?;
         *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
 

@@ -754,282 +754,289 @@ fn unified_recordings_view(
             // Sort by timestamp, most recent first
             entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
 
-            egui::ScrollArea::vertical()
-                .max_height(height)
-                .auto_shrink([false, true])
-                .show(ui, |ui| {
-                    if entries.is_empty() {
-                        ui.label("No recordings yet");
-                        return;
-                    }
+            if entries.is_empty() {
+                ui.label("No recordings yet");
+            } else {
+                // Calculate row height: frame padding + content + spacing
+                let row_height = 4.0 + 4.0 + FONTSIZE + 4.0 + 4.0 + 4.0; // inner_margin top/bottom + text + spacing
+                let total_rows = entries.len();
 
-                    for entry in entries.iter() {
-                        match entry {
-                            RecordingEntry::Successful(upload) => {
-                                // Successful upload entry
-                                egui::Frame::new()
-                                    .fill(ui.visuals().faint_bg_color)
-                                    .inner_margin(4.0)
-                                    .corner_radius(4.0)
-                                    .show(ui, |ui| {
-                                        ui.horizontal(|ui| {
-                                            // Success indicator
-                                            ui.label(
-                                                egui::RichText::new("✔")
-                                                    .size(FONTSIZE)
-                                                    .color(egui::Color32::from_rgb(100, 255, 100)),
-                                            );
-
-                                            // Filename
-                                            ui.label(egui::RichText::new(upload.id.as_str())
-                                                        .size(FONTSIZE));
-
-                                            ui.with_layout(
-                                                egui::Layout::right_to_left(egui::Align::Center),
-                                                |ui| {
-                                                    // Timestamp
-                                                    let local_time =
-                                                        upload.created_at.with_timezone(&chrono::Local);
-                                                    ui.label(
-                                                        egui::RichText::new(local_time.format("%Y-%m-%d %H:%M:%S").to_string())
-                                                        .size(FONTSIZE)
-                                                    );
-
-                                                    // File size
-                                                    ui.label(egui::RichText::new(format!("{:.2} MB", upload.file_size_mb))
-                                                        .size(FONTSIZE));
-
-                                                    // Duration if available
-                                                    if let Some(duration) = upload.video_duration_seconds {
-                                                        ui.label(egui::RichText::new(format!("{:.1}s", duration))
-                                                        .size(FONTSIZE));
-                                                    }
-                                                },
-                                            );
-                                        });
-                                    });
-                            }
-                            RecordingEntry::Local(recording) => {
-                                match recording {
-                                    LocalRecording::Invalid { folder_name, folder_path, error_reasons, timestamp } => {
-                                        // Invalid upload entry
-                                        egui::Frame::new()
-                                            .fill(egui::Color32::from_rgb(80, 40, 40))
-                                            .inner_margin(4.0)
-                                            .corner_radius(4.0)
-                                            .show(ui, |ui| {
-                                                ui.horizontal(|ui| {
-                                                    // Failure indicator
-                                                    ui.label(
-                                                        egui::RichText::new("❌")
-                                                            .size(FONTSIZE)
-                                                            .color(egui::Color32::from_rgb(255, 100, 100)),
-                                                    );
-
-                                                    // Folder name (clickable to open folder)
-                                                    if ui.add(
-                                                        egui::Label::new(
-                                                            egui::RichText::new(folder_name)
-                                                                .size(FONTSIZE)
-                                                                .color(egui::Color32::from_rgb(255, 200, 200))
-                                                                .underline()
-                                                        )
-                                                        .sense(egui::Sense::click())
-                                                    )
-                                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                                    .clicked()
-                                                    {
-                                                        app_state
-                                                            .async_request_tx
-                                                            .blocking_send(
-                                                                crate::app_state::AsyncRequest::OpenFolder(
-                                                                    folder_path.clone()
-                                                                ),
-                                                            )
-                                                            .ok();
-                                                    }
-
-                                                    // Info icon with error tooltip
-                                                    tooltip(ui,
-                                                        &std::iter::once("Validation errors:".to_string()).chain(error_reasons.iter().map(|reason| format!("• {reason}"))).collect::<Vec<_>>().join("\n"),
-                                                        Some(egui::Color32::from_rgb(255, 150, 150))
-                                                    );
-
-                                                    ui.with_layout(
-                                                        egui::Layout::right_to_left(egui::Align::Center),
-                                                        |ui| {
-                                                            // Timestamp if available
-                                                            if let Some(timestamp) = timestamp {
-                                                                let datetime =
-                                                                    chrono::DateTime::<chrono::Utc>::from(*timestamp);
-                                                                let local_time =
-                                                                    datetime.with_timezone(&chrono::Local);
-                                                                ui.label(
-                                                                    egui::RichText::new(
-                                                                        local_time
-                                                                            .format("%Y-%m-%d %H:%M:%S")
-                                                                            .to_string(),
-                                                                    )
-                                                                    .size(FONTSIZE)
-                                                                    .color(egui::Color32::from_rgb(
-                                                                        200, 200, 200,
-                                                                    )),
-                                                                );
-                                                            }
-
-                                                            // Delete button
-                                                            if ui
-                                                                .add_sized(
-                                                                    egui::vec2(60.0, 20.0),
-                                                                    egui::Button::new(
-                                                                        egui::RichText::new("Delete")
-                                                                            .size(FONTSIZE)
-                                                                            .color(egui::Color32::WHITE),
-                                                                    )
-                                                                    .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                                                )
-                                                                .clicked()
-                                                            {
-                                                                if let Err(e) =
-                                                                    std::fs::remove_dir_all(folder_path)
-                                                                {
-                                                                    tracing::error!(
-                                                                        "Failed to delete invalid recording folder {}: {:?}",
-                                                                        folder_path.display(),
-                                                                        e
-                                                                    );
-                                                                } else {
-                                                                    tracing::info!(
-                                                                        "Deleted invalid recording folder: {}",
-                                                                        folder_path.display()
-                                                                    );
-                                                                    app_state
-                                                                        .async_request_tx
-                                                                        .blocking_send(
-                                                                            crate::app_state::AsyncRequest::LoadLocalRecordings,
-                                                                        )
-                                                                        .ok();
-                                                                }
-                                                            }
-                                                        },
-                                                    );
-                                                });
-                                            });
-                                    }
-                                    LocalRecording::Unuploaded { folder_name, folder_path, timestamp } => {
-                                        // Unuploaded entry
-                                        egui::Frame::new()
-                                            .fill(egui::Color32::from_rgb(90, 80, 40))
-                                            .inner_margin(4.0)
-                                            .corner_radius(4.0)
-                                            .show(ui, |ui| {
-                                                ui.horizontal(|ui| {
-                                                    // Pending indicator
-                                                    ui.label(
-                                                        egui::RichText::new("⏳")
-                                                            .size(FONTSIZE)
-                                                            .color(egui::Color32::from_rgb(255, 255, 100)),
-                                                    );
-
-                                                    // Folder name (clickable to open folder)
-                                                    if ui.add(
-                                                        egui::Label::new(
-                                                            egui::RichText::new(folder_name)
-                                                                .size(FONTSIZE)
-                                                                .color(egui::Color32::from_rgb(255, 255, 150))
-                                                                .underline()
-                                                        )
-                                                        .sense(egui::Sense::click())
-                                                    )
-                                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                                    .clicked()
-                                                    {
-                                                        app_state
-                                                            .async_request_tx
-                                                            .blocking_send(
-                                                                crate::app_state::AsyncRequest::OpenFolder(
-                                                                    folder_path.clone()
-                                                                ),
-                                                            )
-                                                            .ok();
-                                                    }
-
-                                                    // "Pending upload" label
-                                                    ui.label(
-                                                        egui::RichText::new("(pending upload)")
-                                                            .size(FONTSIZE - 1.0)
-                                                            .color(egui::Color32::from_rgb(200, 180, 100))
-                                                            .italics()
-                                                    );
-
-                                                    ui.with_layout(
-                                                        egui::Layout::right_to_left(egui::Align::Center),
-                                                        |ui| {
-                                                            // Timestamp if available
-                                                            if let Some(timestamp) = timestamp {
-                                                                let datetime =
-                                                                    chrono::DateTime::<chrono::Utc>::from(*timestamp);
-                                                                let local_time =
-                                                                    datetime.with_timezone(&chrono::Local);
-                                                                ui.label(
-                                                                    egui::RichText::new(
-                                                                        local_time
-                                                                            .format("%Y-%m-%d %H:%M:%S")
-                                                                            .to_string(),
-                                                                    )
-                                                                    .size(FONTSIZE)
-                                                                    .color(egui::Color32::from_rgb(
-                                                                        200, 200, 200,
-                                                                    )),
-                                                                );
-                                                            }
-
-                                                            // Delete button
-                                                            if ui
-                                                                .add_sized(
-                                                                    egui::vec2(60.0, 20.0),
-                                                                    egui::Button::new(
-                                                                        egui::RichText::new("Delete")
-                                                                            .size(FONTSIZE)
-                                                                            .color(egui::Color32::WHITE),
-                                                                    )
-                                                                    .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                                                )
-                                                                .clicked()
-                                                            {
-                                                                if let Err(e) =
-                                                                    std::fs::remove_dir_all(folder_path)
-                                                                {
-                                                                    tracing::error!(
-                                                                        "Failed to delete unuploaded recording folder {}: {:?}",
-                                                                        folder_path.display(),
-                                                                        e
-                                                                    );
-                                                                } else {
-                                                                    tracing::info!(
-                                                                        "Deleted unuploaded recording folder: {}",
-                                                                        folder_path.display()
-                                                                    );
-                                                                    app_state
-                                                                        .async_request_tx
-                                                                        .blocking_send(
-                                                                            crate::app_state::AsyncRequest::LoadLocalRecordings,
-                                                                        )
-                                                                        .ok();
-                                                                }
-                                                            }
-                                                        },
-                                                    );
-                                                });
-                                            });
-                                    }
-                                }
+                // Use show_rows as the efficient version of show(), otherwise egui crashes out
+                // when we have too many entries, starts calling window redraws all the time and
+                // cpu usage explodes for no reason whenever upload tracker is open
+                egui::ScrollArea::vertical()
+                    .max_height(height)
+                    .auto_shrink([false, true])
+                    .show_rows(ui, row_height, total_rows, |ui, row_range| {
+                        for row_idx in row_range {
+                            if let Some(entry) = entries.get(row_idx) {
+                                render_recording_entry(ui, entry, app_state, FONTSIZE);
+                                ui.add_space(4.0);
                             }
                         }
-                        ui.add_space(4.0);
-                    }
-                });
+                    });
+            }
         });
+}
+
+fn render_recording_entry(
+    ui: &mut egui::Ui,
+    entry: &RecordingEntry,
+    app_state: &crate::app_state::AppState,
+    font_size: f32,
+) {
+    match entry {
+        RecordingEntry::Successful(upload) => {
+            // Successful upload entry
+            egui::Frame::new()
+                .fill(ui.visuals().faint_bg_color)
+                .inner_margin(4.0)
+                .corner_radius(4.0)
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        // Success indicator
+                        ui.label(
+                            egui::RichText::new("✔")
+                                .size(font_size)
+                                .color(egui::Color32::from_rgb(100, 255, 100)),
+                        );
+
+                        // Filename
+                        ui.label(egui::RichText::new(upload.id.as_str()).size(font_size));
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            // Timestamp
+                            let local_time = upload.created_at.with_timezone(&chrono::Local);
+                            ui.label(
+                                egui::RichText::new(
+                                    local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                )
+                                .size(font_size),
+                            );
+
+                            // File size
+                            ui.label(
+                                egui::RichText::new(format!("{:.2} MB", upload.file_size_mb))
+                                    .size(font_size),
+                            );
+
+                            // Duration if available
+                            if let Some(duration) = upload.video_duration_seconds {
+                                ui.label(
+                                    egui::RichText::new(format!("{:.1}s", duration))
+                                        .size(font_size),
+                                );
+                            }
+                        });
+                    });
+                });
+        }
+        RecordingEntry::Local(recording) => match recording {
+            LocalRecording::Invalid {
+                folder_name,
+                folder_path,
+                error_reasons,
+                timestamp,
+            } => {
+                // Invalid upload entry
+                egui::Frame::new()
+                    .fill(egui::Color32::from_rgb(80, 40, 40))
+                    .inner_margin(4.0)
+                    .corner_radius(4.0)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            // Failure indicator
+                            ui.label(
+                                egui::RichText::new("❌")
+                                    .size(font_size)
+                                    .color(egui::Color32::from_rgb(255, 100, 100)),
+                            );
+
+                            // Folder name (clickable to open folder)
+                            if ui
+                                .add(
+                                    egui::Label::new(
+                                        egui::RichText::new(folder_name)
+                                            .size(font_size)
+                                            .color(egui::Color32::from_rgb(255, 200, 200))
+                                            .underline(),
+                                    )
+                                    .sense(egui::Sense::click()),
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                app_state
+                                    .async_request_tx
+                                    .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
+                                        folder_path.clone(),
+                                    ))
+                                    .ok();
+                            }
+
+                            // Info icon with error tooltip
+                            tooltip(
+                                ui,
+                                &std::iter::once("Validation errors:".to_string())
+                                    .chain(error_reasons.iter().map(|reason| format!("• {reason}")))
+                                    .collect::<Vec<_>>()
+                                    .join("\n"),
+                                Some(egui::Color32::from_rgb(255, 150, 150)),
+                            );
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                // Timestamp if available
+                                if let Some(timestamp) = timestamp {
+                                    let datetime =
+                                        chrono::DateTime::<chrono::Utc>::from(*timestamp);
+                                    let local_time = datetime.with_timezone(&chrono::Local);
+                                    ui.label(
+                                        egui::RichText::new(
+                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                        )
+                                        .size(font_size)
+                                        .color(egui::Color32::from_rgb(200, 200, 200)),
+                                    );
+                                }
+
+                                // Delete button
+                                if ui
+                                    .add_sized(
+                                        egui::vec2(60.0, 20.0),
+                                        egui::Button::new(
+                                            egui::RichText::new("Delete")
+                                                .size(font_size)
+                                                .color(egui::Color32::WHITE),
+                                        )
+                                        .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                    )
+                                    .clicked()
+                                {
+                                    if let Err(e) = std::fs::remove_dir_all(folder_path) {
+                                        tracing::error!(
+                                            "Failed to delete invalid recording folder {}: {:?}",
+                                            folder_path.display(),
+                                            e
+                                        );
+                                    } else {
+                                        tracing::info!(
+                                            "Deleted invalid recording folder: {}",
+                                            folder_path.display()
+                                        );
+                                        app_state
+                                            .async_request_tx
+                                            .blocking_send(
+                                                crate::app_state::AsyncRequest::LoadLocalRecordings,
+                                            )
+                                            .ok();
+                                    }
+                                }
+                            });
+                        });
+                    });
+            }
+            LocalRecording::Unuploaded {
+                folder_name,
+                folder_path,
+                timestamp,
+            } => {
+                // Unuploaded entry
+                egui::Frame::new()
+                    .fill(egui::Color32::from_rgb(90, 80, 40))
+                    .inner_margin(4.0)
+                    .corner_radius(4.0)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            // Pending indicator
+                            ui.label(
+                                egui::RichText::new("⏳")
+                                    .size(font_size)
+                                    .color(egui::Color32::from_rgb(255, 255, 100)),
+                            );
+
+                            // Folder name (clickable to open folder)
+                            if ui
+                                .add(
+                                    egui::Label::new(
+                                        egui::RichText::new(folder_name)
+                                            .size(font_size)
+                                            .color(egui::Color32::from_rgb(255, 255, 150))
+                                            .underline(),
+                                    )
+                                    .sense(egui::Sense::click()),
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .clicked()
+                            {
+                                app_state
+                                    .async_request_tx
+                                    .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
+                                        folder_path.clone(),
+                                    ))
+                                    .ok();
+                            }
+
+                            // "Pending upload" label
+                            ui.label(
+                                egui::RichText::new("(pending upload)")
+                                    .size(font_size - 1.0)
+                                    .color(egui::Color32::from_rgb(200, 180, 100))
+                                    .italics(),
+                            );
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                // Timestamp if available
+                                if let Some(timestamp) = timestamp {
+                                    let datetime =
+                                        chrono::DateTime::<chrono::Utc>::from(*timestamp);
+                                    let local_time = datetime.with_timezone(&chrono::Local);
+                                    ui.label(
+                                        egui::RichText::new(
+                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                        )
+                                        .size(font_size)
+                                        .color(egui::Color32::from_rgb(200, 200, 200)),
+                                    );
+                                }
+
+                                // Delete button
+                                if ui
+                                    .add_sized(
+                                        egui::vec2(60.0, 20.0),
+                                        egui::Button::new(
+                                            egui::RichText::new("Delete")
+                                                .size(font_size)
+                                                .color(egui::Color32::WHITE),
+                                        )
+                                        .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                    )
+                                    .clicked()
+                                {
+                                    if let Err(e) = std::fs::remove_dir_all(folder_path) {
+                                        tracing::error!(
+                                            "Failed to delete unuploaded recording folder {}: {:?}",
+                                            folder_path.display(),
+                                            e
+                                        );
+                                    } else {
+                                        tracing::info!(
+                                            "Deleted unuploaded recording folder: {}",
+                                            folder_path.display()
+                                        );
+                                        app_state
+                                            .async_request_tx
+                                            .blocking_send(
+                                                crate::app_state::AsyncRequest::LoadLocalRecordings,
+                                            )
+                                            .ok();
+                                    }
+                                }
+                            });
+                        });
+                    });
+            }
+        },
+    }
 }
 
 fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSettings) {

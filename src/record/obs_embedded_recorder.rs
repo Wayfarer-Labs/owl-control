@@ -1,6 +1,10 @@
 use std::{
     path::Path,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Instant,
 };
 
 use color_eyre::{
@@ -29,7 +33,11 @@ use libobs_wrapper::{
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
-use crate::{config::EncoderSettings, record::recorder::VideoRecorder};
+use crate::{
+    config::EncoderSettings,
+    output_types::InputEventType,
+    record::{input_recorder::InputEventStream, recorder::VideoRecorder},
+};
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
 const OWL_CAPTURE_NAME: &str = "owl_game_capture";
@@ -81,6 +89,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         game_exe: &str,
         video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
+        event_stream: InputEventStream,
     ) -> Result<()> {
         let recording_path = dummy_video_path
             .to_str()
@@ -98,6 +107,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     recording_path,
                     game_exe: game_exe.to_string(),
                     pid,
+                    event_stream,
                 }),
                 result_tx,
             })
@@ -140,6 +150,7 @@ struct RecordingRequest {
     recording_path: String,
     game_exe: String,
     pid: u32,
+    event_stream: InputEventStream,
 }
 
 pub fn vet_to_obs_vet(vet: VideoEncoderType) -> ObsVideoEncoderType {
@@ -211,16 +222,24 @@ fn recorder_thread(
         current_output: None,
         source: None,
         last_encoder_settings: None,
-        last_hooked_signal: None,
+        was_hooked: Arc::new(AtomicBool::new(false)),
     };
 
+    let mut last_shutdown_tx = None;
     while let Some(message) = rx.blocking_recv() {
         match message {
             RecorderMessage::StartRecording { request, result_tx } => {
-                result_tx.send(state.start_recording(request)).ok();
+                let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+
+                result_tx
+                    .send(state.start_recording(request, shutdown_rx))
+                    .ok();
+                last_shutdown_tx = Some(shutdown_tx);
             }
             RecorderMessage::StopRecording { result_tx } => {
-                result_tx.send(state.stop_recording()).ok();
+                result_tx
+                    .send(state.stop_recording(last_shutdown_tx.take()))
+                    .ok();
             }
         }
     }
@@ -233,11 +252,14 @@ struct RecorderState {
     current_output: Option<ObsOutputRef>,
     source: Option<ObsSourceRef>,
     last_encoder_settings: Option<serde_json::Value>,
-    last_hooked_signal:
-        Option<tokio::sync::broadcast::Receiver<libobs_wrapper::sources::HookedSignal>>,
+    was_hooked: Arc<AtomicBool>,
 }
 impl RecorderState {
-    fn start_recording(&mut self, request: Box<RecordingRequest>) -> eyre::Result<()> {
+    fn start_recording(
+        &mut self,
+        request: Box<RecordingRequest>,
+        mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+    ) -> eyre::Result<()> {
         if self.current_output.is_some() {
             bail!("Recording is already in progress");
         }
@@ -255,15 +277,6 @@ impl RecorderState {
             &mut scene,
         )?;
 
-        // Register a signal to detect when the source is hooked,
-        // so we can invalidate non-hooked recordings
-        self.last_hooked_signal = Some(
-            source
-                .signal_manager()
-                .on_hooked()
-                .context("failed to register on_hooked signal")?,
-        );
-
         // Register the source
         scene.set_to_channel(0)?;
 
@@ -273,6 +286,74 @@ impl RecorderState {
 
         let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
         let mut output = self.obs_context.output(output_info)?;
+
+        // Listen for signals to pass onto the event stream
+        self.was_hooked.store(false, Ordering::Relaxed);
+        std::thread::spawn({
+            let event_stream = request.event_stream;
+            let was_hooked = self.was_hooked.clone();
+
+            // output
+            let mut start_signal_rx = output
+                .signal_manager()
+                .on_start()
+                .context("failed to register output on_start signal")?;
+            let mut stop_signal_rx = output
+                .signal_manager()
+                .on_stop()
+                .context("failed to register output on_stop signal")?;
+
+            // source
+            let mut hook_signal_rx = source
+                .signal_manager()
+                .on_hooked()
+                .context("failed to register source on_hooked signal")?;
+            let mut unhook_signal_rx = source
+                .signal_manager()
+                .on_unhooked()
+                .context("failed to register source on_unhooked signal")?;
+
+            move || {
+                let initial_time = Instant::now();
+                futures::executor::block_on(async {
+                    // Seems a bit dubious to use a tokio::select with
+                    // a tokio oneshot in a non-Tokio context, but it seems to work
+                    loop {
+                        tokio::select! {
+                            r = start_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Video started at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::VideoStart);
+                                }
+                            }
+                            r = stop_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Video ended at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::VideoEnd);
+                                }
+                            }
+                            r = hook_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Game hooked at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::HookStart);
+                                    was_hooked.store(true, Ordering::Relaxed);
+                                }
+                            }
+                            r = unhook_signal_rx.recv() => {
+                                if r.is_ok() {
+                                    tracing::info!("Game unhooked at {}s", initial_time.elapsed().as_secs_f64());
+                                    let _ = event_stream.send(InputEventType::HookEnd);
+                                }
+                            }
+                            _ = &mut shutdown_rx => {
+                                return;
+                            }
+                        }
+                    }
+                });
+                tracing::info!("Game hook monitoring thread closed");
+            }
+        });
 
         // TODO: it seems that video encoder and audio encoder should only be created once, instead of new ones every time that recording starts.
         // Register the video encoder with encoder-specific settings
@@ -327,7 +408,10 @@ impl RecorderState {
         Ok(())
     }
 
-    fn stop_recording(&mut self) -> eyre::Result<serde_json::Value> {
+    fn stop_recording(
+        &mut self,
+        last_shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
+    ) -> eyre::Result<serde_json::Value> {
         if let Some(mut output) = self.current_output.take() {
             output.stop().wrap_err("Failed to stop OBS output")?;
             if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)
@@ -340,13 +424,15 @@ impl RecorderState {
             tracing::warn!("No active recording to stop");
         }
 
-        if let Some(mut hooked_signal) = self.last_hooked_signal.take()
-            && hooked_signal.try_recv().is_err()
-        {
+        let mut output = self.last_encoder_settings.take().unwrap_or_default();
+
+        if !self.was_hooked.load(Ordering::Relaxed) {
             bail!("Application was never hooked, recording will be blank");
         }
 
-        let mut output = self.last_encoder_settings.take().unwrap_or_default();
+        if let Some(shutdown_tx) = last_shutdown_tx {
+            shutdown_tx.send(()).ok();
+        }
 
         // Extremely ugly hack: We want to get the skipped frames percentage from the logs,
         // but that's not guaranteed to be present by the time this function would normally end.
