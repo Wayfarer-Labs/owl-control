@@ -26,42 +26,28 @@ pub struct ProgressData {
 }
 
 #[derive(Debug, Clone)]
+pub struct LocalRecordingInfo {
+    pub folder_name: String,
+    pub folder_path: PathBuf,
+    pub folder_size: u64,
+    pub timestamp: Option<std::time::SystemTime>,
+}
+#[derive(Debug, Clone)]
 pub enum LocalRecording {
     Invalid {
-        folder_name: String,
-        folder_path: PathBuf,
+        info: LocalRecordingInfo,
         error_reasons: Vec<String>,
-        timestamp: Option<std::time::SystemTime>,
     },
     Unuploaded {
-        folder_name: String,
-        folder_path: PathBuf,
-        timestamp: Option<std::time::SystemTime>,
+        info: LocalRecordingInfo,
+        metadata: Option<Box<Metadata>>,
     },
 }
-
 impl LocalRecording {
-    // maybe we'll need this functions, who knows?
-    #[allow(dead_code)]
-    pub fn folder_name(&self) -> &str {
+    pub fn info(&self) -> &LocalRecordingInfo {
         match self {
-            LocalRecording::Invalid { folder_name, .. } => folder_name,
-            LocalRecording::Unuploaded { folder_name, .. } => folder_name,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn folder_path(&self) -> &PathBuf {
-        match self {
-            LocalRecording::Invalid { folder_path, .. } => folder_path,
-            LocalRecording::Unuploaded { folder_path, .. } => folder_path,
-        }
-    }
-
-    pub fn timestamp(&self) -> Option<std::time::SystemTime> {
-        match self {
-            LocalRecording::Invalid { timestamp, .. } => *timestamp,
-            LocalRecording::Unuploaded { timestamp, .. } => *timestamp,
+            LocalRecording::Invalid { info, .. } => info,
+            LocalRecording::Unuploaded { info, .. } => info,
         }
     }
 }
@@ -711,8 +697,9 @@ pub fn scan_local_recordings(recording_location: &Path) -> Vec<LocalRecording> {
             continue;
         }
 
-        let invalid_file_path = path.join(".invalid");
-        let uploaded_file_path = path.join(".uploaded");
+        let invalid_file_path = path.join(constants::filename::recording::INVALID);
+        let uploaded_file_path = path.join(constants::filename::recording::UPLOADED);
+        let metadata_path = path.join(constants::filename::recording::METADATA);
 
         // Get the folder name
         let folder_name = path
@@ -728,6 +715,13 @@ pub fn scan_local_recordings(recording_location: &Path) -> Vec<LocalRecording> {
             .ok()
             .map(|secs| std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs));
 
+        let info = LocalRecordingInfo {
+            folder_name,
+            folder_size: folder_size(&path).unwrap_or_default(),
+            folder_path: path,
+            timestamp,
+        };
+
         if invalid_file_path.is_file() {
             // Read the error reasons from the .invalid file
             let error_reasons = std::fs::read_to_string(&invalid_file_path)
@@ -737,27 +731,44 @@ pub fn scan_local_recordings(recording_location: &Path) -> Vec<LocalRecording> {
                 .collect();
 
             local_recordings.push(LocalRecording::Invalid {
-                folder_name,
-                folder_path: path,
+                info,
                 error_reasons,
-                timestamp,
             });
         } else if !uploaded_file_path.is_file() {
             // Not uploaded yet (and not invalid)
+            let metadata: Option<Metadata> = std::fs::read_to_string(metadata_path)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok());
             local_recordings.push(LocalRecording::Unuploaded {
-                folder_name,
-                folder_path: path,
-                timestamp,
+                info,
+                metadata: metadata.map(Box::new),
             });
         }
     }
 
     // Sort by timestamp, most recent first
     local_recordings.sort_by(|a, b| {
-        b.timestamp()
+        b.info()
+            .timestamp
             .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-            .cmp(&a.timestamp().unwrap_or(std::time::SystemTime::UNIX_EPOCH))
+            .cmp(
+                &a.info()
+                    .timestamp
+                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH),
+            )
     });
 
     local_recordings
+}
+
+fn folder_size(path: &Path) -> Result<u64, std::io::Error> {
+    let mut size = 0;
+    for entry in path.read_dir()? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            size += path.metadata()?.len();
+        }
+    }
+    Ok(size)
 }

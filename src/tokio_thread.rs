@@ -266,8 +266,8 @@ async fn main(
                                 let invalid_folders_to_delete: Vec<_> = local_recordings.iter()
                                     .filter_map(|r| {
                                         match r {
-                                            upload::LocalRecording::Invalid { folder_name, folder_path, .. } => {
-                                                Some((folder_name.clone(), folder_path.clone()))
+                                            upload::LocalRecording::Invalid { info, .. } => {
+                                                Some((info.folder_name.clone(), info.folder_path.clone()))
                                             }
                                             _ => None,
                                         }

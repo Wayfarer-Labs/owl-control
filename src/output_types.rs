@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{system::hardware_specs, upload::validation::InputStats};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {
     pub game_exe: String,
     // Whenever adding new fields to this, ensure you use an `Option` to ensure

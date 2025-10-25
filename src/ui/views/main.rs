@@ -317,6 +317,7 @@ impl MainApp {
                             user_uploads
                                 .as_ref()
                                 .map(|u| (&u.statistics, u.uploads.as_slice())),
+                            &self.app_state.local_recordings.read().unwrap(),
                         );
                     });
                     ui.add_space(8.0);
@@ -573,10 +574,25 @@ fn obs_running_warning(ui: &mut egui::Ui) {
 fn upload_stats(
     ui: &mut egui::Ui,
     stats_and_uploads: Option<(&UserUploadStatistics, &[UserUpload])>,
+    local_recordings: &[LocalRecording],
 ) {
     let (stats, uploads) = stats_and_uploads.unzip();
-    let available_width = ui.available_width() - 40.0;
-    let cell_width = available_width / 4.0;
+    let cell_count = 5;
+    let available_width = ui.available_width() - (cell_count as f32 * 10.0);
+    let cell_width = available_width / cell_count as f32;
+
+    // Calculate total duration, count, and size of unuploaded recordings
+    let mut unuploaded_duration: f64 = 0.0;
+    let mut unuploaded_count: usize = 0;
+    let mut unuploaded_size: u64 = 0;
+
+    for rec in local_recordings.iter() {
+        if let crate::upload::LocalRecording::Unuploaded { metadata, info } = rec {
+            unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
+            unuploaded_count += 1;
+            unuploaded_size += info.folder_size;
+        }
+    }
 
     fn create_upload_cell(ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
         // Icon
@@ -639,7 +655,27 @@ fn upload_stats(
         },
     );
 
-    // Cell 4: Last Upload
+    // Cell 4: Pending Uploads
+    ui.allocate_ui_with_layout(
+        egui::vec2(cell_width, ui.available_height()),
+        egui::Layout::top_down(egui::Align::Center),
+        |ui| {
+            let pending_text = format!(
+                "{} / {} files / {}",
+                util::format_seconds(unuploaded_duration as u64),
+                unuploaded_count,
+                util::format_bytes(unuploaded_size)
+            );
+            create_upload_cell(
+                ui,
+                "⏳", // Icon
+                "Pending Uploads",
+                &pending_text,
+            );
+        },
+    );
+
+    // Cell 5: Last Upload
     ui.allocate_ui_with_layout(
         egui::vec2(cell_width, ui.available_height()),
         egui::Layout::top_down(egui::Align::Center),
@@ -672,7 +708,8 @@ impl<'a> RecordingEntry<'a> {
         match self {
             RecordingEntry::Successful(upload) => upload.created_at,
             RecordingEntry::Local(recording) => recording
-                .timestamp()
+                .info()
+                .timestamp
                 .map(chrono::DateTime::<chrono::Utc>::from)
                 .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::from(std::time::UNIX_EPOCH)),
         }
@@ -833,10 +870,8 @@ fn render_recording_entry(
         }
         RecordingEntry::Local(recording) => match recording {
             LocalRecording::Invalid {
-                folder_name,
-                folder_path,
+                info,
                 error_reasons,
-                timestamp,
             } => {
                 // Invalid upload entry
                 egui::Frame::new()
@@ -856,7 +891,7 @@ fn render_recording_entry(
                             if ui
                                 .add(
                                     egui::Label::new(
-                                        egui::RichText::new(folder_name)
+                                        egui::RichText::new(info.folder_name.as_str())
                                             .size(font_size)
                                             .color(egui::Color32::from_rgb(255, 200, 200))
                                             .underline(),
@@ -869,7 +904,7 @@ fn render_recording_entry(
                                 app_state
                                     .async_request_tx
                                     .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
-                                        folder_path.clone(),
+                                        info.folder_path.clone(),
                                     ))
                                     .ok();
                             }
@@ -886,9 +921,9 @@ fn render_recording_entry(
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 // Timestamp if available
-                                if let Some(timestamp) = timestamp {
+                                if let Some(timestamp) = info.timestamp {
                                     let datetime =
-                                        chrono::DateTime::<chrono::Utc>::from(*timestamp);
+                                        chrono::DateTime::<chrono::Utc>::from(timestamp);
                                     let local_time = datetime.with_timezone(&chrono::Local);
                                     ui.label(
                                         egui::RichText::new(
@@ -912,16 +947,16 @@ fn render_recording_entry(
                                     )
                                     .clicked()
                                 {
-                                    if let Err(e) = std::fs::remove_dir_all(folder_path) {
+                                    if let Err(e) = std::fs::remove_dir_all(info.folder_path.clone()) {
                                         tracing::error!(
                                             "Failed to delete invalid recording folder {}: {:?}",
-                                            folder_path.display(),
+                                            info.folder_path.display(),
                                             e
                                         );
                                     } else {
                                         tracing::info!(
                                             "Deleted invalid recording folder: {}",
-                                            folder_path.display()
+                                            info.folder_path.display()
                                         );
                                         app_state
                                             .async_request_tx
@@ -935,11 +970,7 @@ fn render_recording_entry(
                         });
                     });
             }
-            LocalRecording::Unuploaded {
-                folder_name,
-                folder_path,
-                timestamp,
-            } => {
+            LocalRecording::Unuploaded { info, metadata: _ } => {
                 // Unuploaded entry
                 egui::Frame::new()
                     .fill(egui::Color32::from_rgb(90, 80, 40))
@@ -958,7 +989,7 @@ fn render_recording_entry(
                             if ui
                                 .add(
                                     egui::Label::new(
-                                        egui::RichText::new(folder_name)
+                                        egui::RichText::new(info.folder_name.as_str())
                                             .size(font_size)
                                             .color(egui::Color32::from_rgb(255, 255, 150))
                                             .underline(),
@@ -971,7 +1002,7 @@ fn render_recording_entry(
                                 app_state
                                     .async_request_tx
                                     .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
-                                        folder_path.clone(),
+                                        info.folder_path.clone(),
                                     ))
                                     .ok();
                             }
@@ -986,9 +1017,9 @@ fn render_recording_entry(
 
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 // Timestamp if available
-                                if let Some(timestamp) = timestamp {
+                                if let Some(timestamp) = info.timestamp {
                                     let datetime =
-                                        chrono::DateTime::<chrono::Utc>::from(*timestamp);
+                                        chrono::DateTime::<chrono::Utc>::from(timestamp);
                                     let local_time = datetime.with_timezone(&chrono::Local);
                                     ui.label(
                                         egui::RichText::new(
@@ -1012,16 +1043,16 @@ fn render_recording_entry(
                                     )
                                     .clicked()
                                 {
-                                    if let Err(e) = std::fs::remove_dir_all(folder_path) {
+                                    if let Err(e) = std::fs::remove_dir_all(info.folder_path.clone()) {
                                         tracing::error!(
                                             "Failed to delete unuploaded recording folder {}: {:?}",
-                                            folder_path.display(),
+                                            info.folder_path.display(),
                                             e
                                         );
                                     } else {
                                         tracing::info!(
                                             "Deleted unuploaded recording folder: {}",
-                                            folder_path.display()
+                                            info.folder_path.display()
                                         );
                                         app_state
                                             .async_request_tx
