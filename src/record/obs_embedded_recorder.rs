@@ -219,7 +219,6 @@ fn recorder_thread(
     };
 
     let mut state = RecorderState {
-        obs_context,
         adapter_index,
         skipped_frames,
         current_output: None,
@@ -227,7 +226,10 @@ fn recorder_thread(
         last_encoder_settings: None,
         was_hooked: Arc::new(AtomicBool::new(false)),
         last_video_encoder_type: None,
+        last_game_exe: None,
         is_recording: false,
+
+        obs_context,
     };
 
     let mut last_shutdown_tx = None;
@@ -251,7 +253,6 @@ fn recorder_thread(
 }
 
 struct RecorderState {
-    obs_context: ObsContext,
     adapter_index: usize,
     skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
     current_output: Option<ObsOutputRef>,
@@ -259,7 +260,11 @@ struct RecorderState {
     last_encoder_settings: Option<serde_json::Value>,
     was_hooked: Arc<AtomicBool>,
     last_video_encoder_type: Option<VideoEncoderType>,
+    last_game_exe: Option<String>,
     is_recording: bool,
+
+    // This needs to be last as it needs to be dropped last
+    obs_context: ObsContext,
 }
 impl RecorderState {
     fn start_recording(
@@ -377,6 +382,9 @@ impl RecorderState {
                 .on_unhooked()
                 .context("failed to register source on_unhooked signal")?;
 
+            let last_game_exe = self.last_game_exe.clone();
+            let game_exe = request.game_exe.clone();
+
             move || {
                 let initial_time = Instant::now();
                 futures::executor::block_on(async {
@@ -386,6 +394,12 @@ impl RecorderState {
                         tokio::select! {
                             r = start_signal_rx.recv() => {
                                 if r.is_ok() {
+                                    if last_game_exe.as_ref().is_some_and(|g| g == &game_exe) {
+                                        tracing::warn!("Video started again for last game, assuming we're already hooked");
+                                        let _ = event_stream.send(InputEventType::HookStart);
+                                        was_hooked.store(true, Ordering::Relaxed);
+                                    }
+
                                     tracing::info!("Video started at {}s", initial_time.elapsed().as_secs_f64());
                                     let _ = event_stream.send(InputEventType::VideoStart);
                                 }
@@ -441,6 +455,7 @@ impl RecorderState {
 
         self.current_output = Some(output);
         self.source = Some(source);
+        self.last_game_exe = Some(request.game_exe.clone());
         self.is_recording = true;
 
         Ok(())
