@@ -89,7 +89,7 @@ jobs:
           files: |
             artifacts/**/OWL-Control-Setup-*.exe
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
           fail_on_unmatched_files: false
         env:
