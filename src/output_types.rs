@@ -92,8 +92,6 @@ pub enum InputEventType {
     VideoEnd,
     /// HOOK_START
     HookStart,
-    /// HOOK_END
-    HookEnd,
     /// MOUSE_MOVE: [dx : int, dy : int]
     MouseMove { dx: i32, dy: i32 },
     /// MOUSE_BUTTON: [button_idx : int, key_down : bool]
@@ -125,7 +123,6 @@ impl InputEventType {
             InputEventType::VideoStart => "VIDEO_START",
             InputEventType::VideoEnd => "VIDEO_END",
             InputEventType::HookStart => "HOOK_START",
-            InputEventType::HookEnd => "HOOK_END",
             InputEventType::MouseMove { .. } => "MOUSE_MOVE",
             InputEventType::MouseButton { .. } => "MOUSE_BUTTON",
             InputEventType::Scroll { .. } => "SCROLL",
@@ -150,7 +147,6 @@ impl InputEventType {
             InputEventType::VideoStart => json!([]),
             InputEventType::VideoEnd => json!([]),
             InputEventType::HookStart => json!([]),
-            InputEventType::HookEnd => json!([]),
             InputEventType::MouseMove { dx, dy } => json!([dx, dy]),
             InputEventType::MouseButton { button, pressed } => json!([button, pressed]),
             InputEventType::Scroll { amount } => json!([amount]),

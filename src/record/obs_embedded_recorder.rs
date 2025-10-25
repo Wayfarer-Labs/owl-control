@@ -377,10 +377,6 @@ impl RecorderState {
                 .signal_manager()
                 .on_hooked()
                 .context("failed to register source on_hooked signal")?;
-            let mut unhook_signal_rx = source
-                .signal_manager()
-                .on_unhooked()
-                .context("failed to register source on_unhooked signal")?;
 
             let last_game_exe = self.last_game_exe.clone();
             let game_exe = request.game_exe.clone();
@@ -415,12 +411,6 @@ impl RecorderState {
                                     tracing::info!("Game hooked at {}s", initial_time.elapsed().as_secs_f64());
                                     let _ = event_stream.send(InputEventType::HookStart);
                                     was_hooked.store(true, Ordering::Relaxed);
-                                }
-                            }
-                            r = unhook_signal_rx.recv() => {
-                                if r.is_ok() {
-                                    tracing::info!("Game unhooked at {}s", initial_time.elapsed().as_secs_f64());
-                                    let _ = event_stream.send(InputEventType::HookEnd);
                                 }
                             }
                             _ = &mut shutdown_rx => {
