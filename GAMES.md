@@ -30,6 +30,7 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ## Top-Priority Games
 
+- [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
 - [Vampire: The Masquerade® - Bloodlines 2](https://store.steampowered.com/app/532790/Vampire_The_Masquerade__Bloodlines_2/)
 - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
@@ -38,7 +39,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 - [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
 - [Tacoma](https://store.steampowered.com/app/343860/Tacoma/)
 - [Layers of Fear 2](https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019)
-
 - [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
 - [The Witness](https://store.steampowered.com/app/210970/The_Witness/)
 - [What Remains of Edith Finch](https://store.steampowered.com/app/501300/What_Remains_of_Edith_Finch/)
@@ -64,7 +64,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 - [Ghostrunner 2](https://store.steampowered.com/app/2144740/Ghostrunner_2)
 - [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT)
-
 - [Mirror's Edge](https://store.steampowered.com/app/17410/Mirrors_Edge/)
 - [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
 - [Titanfall 2](https://store.steampowered.com/app/1237970/Titanfall_2/)
@@ -76,7 +75,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 - [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
 - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
-
 - [BeamNG.drive](https://store.steampowered.com/app/284160/BeamNGdrive)
 - [The Elder Scrolls IV: Oblivion Remastered](https://store.steampowered.com/app/2623190/The_Elder_Scrolls_IV_Oblivion_Remastered/)
 - [The Elder Scrolls V: Skyrim](https://store.steampowered.com/app/489830/The_Elder_Scrolls_V_Skyrim_Special_Edition/)
@@ -97,7 +95,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 - [Keep Digging](https://store.steampowered.com/app/3585800/Keep_Digging)
 - [Peak](https://store.steampowered.com/app/3527290/PEAK) (no voice chat)
 - [Teardown](https://store.steampowered.com/app/1167630/Teardown)
-
 - [Half‑Life 2: Episode Two](https://store.steampowered.com/app/420/HalfLife_2_Episode_Two/)
 - [Half‑Life 2](https://store.steampowered.com/app/220/HalfLife_2/)
 - [Half‑Life](https://store.steampowered.com/app/70/HalfLife/)
@@ -109,7 +106,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 ### Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
 
 - [Escape From Tarkov](https://store.steampowered.com/app/3932890/Escape_from_Tarkov)
-
 - [BioShock Infinite](https://store.steampowered.com/app/8870/BioShock_Infinite/)
 - [BioShock](https://store.steampowered.com/app/7670/BioShock/)
 - [Deus Ex: Human Revolution](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/)
@@ -119,10 +115,12 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
+- [Painkiller](https://store.steampowered.com/app/2300120/Painkiller/)
+- [DOOM 2016](https://store.steampowered.com/app/379720/DOOM/)
+- [DOOM Eternal](https://store.steampowered.com/app/782330/DOOM_Eternal/)
 - [Borderlands 4](https://store.steampowered.com/app/1285190/Borderlands_4)
 - [High on Life](https://store.steampowered.com/app/1583230/High_On_Life)
 - [Rust](https://store.steampowered.com/app/252490/Rust)
-
 - [Crysis 2](https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/)
 - [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/) (admin)
 - [Crysis](https://store.steampowered.com/app/17300/Crysis/)
@@ -143,14 +141,12 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 - [Devour](https://store.steampowered.com/app/1274570/DEVOUR/)
 - [The Forest](https://store.steampowered.com/app/242760/The_Forest/)
 - [Killing Floor](https://store.steampowered.com/app/1250/Killing_Floor/)
-
 - [Left 4 Dead 2](https://store.steampowered.com/app/550/Left_4_Dead_2)
 - [Lethal Company](https://store.steampowered.com/app/1966720/Lethal_Company) (no voice chat)
 - [Murky Divers](https://store.steampowered.com/app/2963880/Murky_Divers/)
 - [Outlast 2](https://store.steampowered.com/app/414700/Outlast_2/)
 - [Pacify](https://store.steampowered.com/app/967050/Pacify)
 - [Phasmophobia](https://store.steampowered.com/app/739630/Phasmophobia/)
-
 - [Alien: Isolation](https://store.steampowered.com/app/214490/Alien_Isolation/)
 - [Amnesia: The Dark Descent](https://store.steampowered.com/app/57300/Amnesia_The_Dark_Descent/)
 - [Condemned: Criminal Origins](https://store.steampowered.com/app/4720/Condemned_Criminal_Origins/)
@@ -163,7 +159,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 - [Gunfire Reborn](https://store.steampowered.com/app/1217060/Gunfire_Reborn)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
-
 - [Battlefield 3](https://store.steampowered.com/app/1238820/Battlefield_3/)
 - [Battlefield 4](https://store.steampowered.com/app/1238860/Battlefield_4/)
 - [Call of Duty 4: Modern Warfare](https://store.steampowered.com/app/7940/Call_of_Duty_4_Modern_Warfare/)
