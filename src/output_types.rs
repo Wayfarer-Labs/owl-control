@@ -33,8 +33,6 @@ pub struct Metadata {
 
 #[derive(Debug)]
 pub enum InputEventReadError {
-    /// The event type ID is not valid.
-    InvalidEvent { id: String },
     /// The event args for this event type are not valid.
     InvalidArgs {
         id: String,
@@ -55,9 +53,6 @@ impl std::error::Error for InputEventReadError {}
 impl std::fmt::Display for InputEventReadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InputEventReadError::InvalidEvent { id } => {
-                write!(f, "Invalid event type ID: {id}")
-            }
             InputEventReadError::InvalidArgs { id, args, error } => {
                 write!(f, "Invalid event args for {id} with args {args}: {error}")
             }
@@ -92,6 +87,12 @@ pub enum InputEventType {
     VideoEnd,
     /// HOOK_START
     HookStart,
+    /// UNFOCUS
+    #[deprecated(since = "1.1.0", note = "Removed; don't use")]
+    Unfocus,
+    /// FOCUS
+    #[deprecated(since = "1.1.0", note = "Removed; don't use")]
+    Focus,
     /// MOUSE_MOVE: [dx : int, dy : int]
     MouseMove { dx: i32, dy: i32 },
     /// MOUSE_BUTTON: [button_idx : int, key_down : bool]
@@ -106,6 +107,8 @@ pub enum InputEventType {
     GamepadButtonValue { button: u16, value: f32 },
     /// GAMEPAD_AXIS: [axis_idx : int, value : float]
     GamepadAxis { axis: u16, value: f32 },
+    /// UNKNOWN: [unknown : any] - used for backwards compatibility, not ever outputted
+    Unknown,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct SerializedStart {
@@ -117,12 +120,15 @@ pub struct SerializedEnd {
 }
 impl InputEventType {
     pub fn id(&self) -> &'static str {
+        #[allow(deprecated)]
         match self {
             InputEventType::Start { .. } => "START",
             InputEventType::End { .. } => "END",
             InputEventType::VideoStart => "VIDEO_START",
             InputEventType::VideoEnd => "VIDEO_END",
             InputEventType::HookStart => "HOOK_START",
+            InputEventType::Unfocus => "UNFOCUS",
+            InputEventType::Focus => "FOCUS",
             InputEventType::MouseMove { .. } => "MOUSE_MOVE",
             InputEventType::MouseButton { .. } => "MOUSE_BUTTON",
             InputEventType::Scroll { .. } => "SCROLL",
@@ -130,11 +136,13 @@ impl InputEventType {
             InputEventType::GamepadButton { .. } => "GAMEPAD_BUTTON",
             InputEventType::GamepadButtonValue { .. } => "GAMEPAD_BUTTON_VALUE",
             InputEventType::GamepadAxis { .. } => "GAMEPAD_AXIS",
+            InputEventType::Unknown => "UNKNOWN",
         }
     }
 
     pub fn json_args(&self) -> serde_json::Value {
         use serde_json::json;
+        #[allow(deprecated)]
         match self {
             InputEventType::Start { inputs } => serde_json::to_value(SerializedStart {
                 inputs: Inputs::from(inputs.clone()),
@@ -147,6 +155,8 @@ impl InputEventType {
             InputEventType::VideoStart => json!([]),
             InputEventType::VideoEnd => json!([]),
             InputEventType::HookStart => json!([]),
+            InputEventType::Unfocus => json!([]),
+            InputEventType::Focus => json!([]),
             InputEventType::MouseMove { dx, dy } => json!([dx, dy]),
             InputEventType::MouseButton { button, pressed } => json!([button, pressed]),
             InputEventType::Scroll { amount } => json!([amount]),
@@ -154,6 +164,7 @@ impl InputEventType {
             InputEventType::GamepadButton { button, pressed } => json!([button, pressed]),
             InputEventType::GamepadButtonValue { button, value } => json!([button, value]),
             InputEventType::GamepadAxis { axis, value } => json!([axis, value]),
+            InputEventType::Unknown => json!([]),
         }
     }
 
@@ -202,6 +213,7 @@ impl InputEventType {
             })
         }
 
+        #[allow(deprecated)]
         match id {
             // If we can't parse the args, just return a default start or end event
             // Compatibility with older recordings
@@ -218,6 +230,8 @@ impl InputEventType {
             "VIDEO_START" => Ok(InputEventType::VideoStart),
             "VIDEO_END" => Ok(InputEventType::VideoEnd),
             "HOOK_START" => Ok(InputEventType::HookStart),
+            "UNFOCUS" => Ok(InputEventType::Unfocus),
+            "FOCUS" => Ok(InputEventType::Focus),
             "MOUSE_MOVE" => {
                 let args: (i32, i32) = parse_args(id, json_args)?;
                 Ok(InputEventType::MouseMove {
@@ -264,7 +278,10 @@ impl InputEventType {
                     value: args.1,
                 })
             }
-            _ => Err(InputEventReadError::InvalidEvent { id: id.to_string() }),
+            other => {
+                tracing::warn!("Unknown event type: {other}, remapping to UNKNOWN");
+                Ok(InputEventType::Unknown)
+            }
         }
     }
 }

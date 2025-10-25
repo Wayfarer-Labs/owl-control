@@ -20,6 +20,14 @@ When making changes to data structures:
 - This ensures that users can still upload recordings made with older versions of OWL Control
 - Test your changes with both old and new data files to verify upload functionality works correctly
 
+### Event Types
+
+When modifying event types in the codebase:
+
+- **Never remove event types** - even if they're no longer used
+- Instead, mark deprecated event types with appropriate deprecation markers
+- This preserves backwards compatibility with old recordings that may still contain those event types
+
 ## Releasing a New Version
 
 ### Version Bumping
