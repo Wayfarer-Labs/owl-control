@@ -317,7 +317,7 @@ impl ApplicationHandler for App {
 
         let inner_size = WINDOW_INNER_SIZE;
         let window_attributes = Window::default_attributes()
-            .with_title("OWL Control")
+            .with_title(&format!("OWL Control v{}", env!("CARGO_PKG_VERSION")))
             .with_inner_size(inner_size)
             .with_min_inner_size(PhysicalSize::new(400, 450))
             .with_resizable(true)
