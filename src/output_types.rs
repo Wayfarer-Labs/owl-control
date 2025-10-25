@@ -107,11 +107,11 @@ pub enum InputEventType {
     /// GAMEPAD_AXIS: [axis_idx : int, value : float]
     GamepadAxis { axis: u16, value: f32 },
 }
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct SerializedStart {
     pub inputs: Inputs,
 }
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct SerializedEnd {
     pub inputs: Inputs,
 }
@@ -203,11 +203,17 @@ impl InputEventType {
         }
 
         match id {
+            // If we can't parse the args, just return a default start or end event
+            // Compatibility with older recordings
             "START" => Ok(InputEventType::Start {
-                inputs: parse_args::<SerializedStart>(id, json_args)?.inputs.into(),
+                inputs: parse_args::<SerializedStart>(id, json_args)
+                    .map(|s| s.inputs.into())
+                    .unwrap_or_default(),
             }),
             "END" => Ok(InputEventType::End {
-                inputs: parse_args::<SerializedEnd>(id, json_args)?.inputs.into(),
+                inputs: parse_args::<SerializedEnd>(id, json_args)
+                    .map(|s| s.inputs.into())
+                    .unwrap_or_default(),
             }),
             "VIDEO_START" => Ok(InputEventType::VideoStart),
             "VIDEO_END" => Ok(InputEventType::VideoEnd),
@@ -263,7 +269,7 @@ impl InputEventType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Inputs {
     pub keyboard: HashSet<u16>,
     pub mouse: HashSet<u16>,
