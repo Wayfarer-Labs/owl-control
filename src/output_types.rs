@@ -211,6 +211,7 @@ impl InputEventType {
             }),
             "VIDEO_START" => Ok(InputEventType::VideoStart),
             "VIDEO_END" => Ok(InputEventType::VideoEnd),
+            "HOOK_START" => Ok(InputEventType::HookStart),
             "MOUSE_MOVE" => {
                 let args: (i32, i32) = parse_args(id, json_args)?;
                 Ok(InputEventType::MouseMove {
