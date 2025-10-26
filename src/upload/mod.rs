@@ -23,6 +23,8 @@ pub struct ProgressData {
     pub speed_mbps: f64,
     pub eta_seconds: f64,
     pub percent: f64,
+    pub current_file: Option<String>,
+    pub files_remaining: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -136,6 +138,20 @@ async fn run(
 ) -> eyre::Result<FinalStats> {
     let mut stats = FinalStats::default();
 
+    // Count total files to upload
+    let total_files_to_upload = recording_location
+        .read_dir()?
+        .flatten()
+        .filter(|entry| {
+            let path = entry.path();
+            path.is_dir()
+                && !path.join(constants::filename::recording::INVALID).is_file()
+                && !path
+                    .join(constants::filename::recording::UPLOADED)
+                    .is_file()
+        })
+        .count() as u64;
+
     for entry in recording_location.read_dir()? {
         // Check if upload has been cancelled
         if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
@@ -156,6 +172,12 @@ async fn run(
             continue;
         }
 
+        let current_file = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string());
+        let files_remaining = total_files_to_upload.saturating_sub(stats.total_files_uploaded);
+
         let recording_stats = match upload_folder(
             &path,
             api_client.clone(),
@@ -163,6 +185,8 @@ async fn run(
             unreliable_connection,
             tx.clone(),
             cancel_flag.clone(),
+            current_file,
+            files_remaining,
         )
         .await
         {
@@ -217,6 +241,8 @@ async fn upload_folder(
     unreliable_connection: bool,
     tx: app_state::UiUpdateSender,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
+    current_file: Option<String>,
+    files_remaining: u64,
 ) -> eyre::Result<RecordingStats> {
     tracing::info!("Validating folder {}", path.display());
     let validation = match validate_folder(path) {
@@ -287,6 +313,8 @@ async fn upload_folder(
         validation.metadata.duration,
         tx,
         cancel_flag,
+        current_file,
+        files_remaining,
     )
     .await
     .context("error uploading tar file")?;
@@ -388,6 +416,8 @@ async fn upload_tar(
     video_duration_seconds: f64,
     tx: app_state::UiUpdateSender,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
+    current_file: Option<String>,
+    files_remaining: u64,
 ) -> eyre::Result<String> {
     let file_size = std::fs::metadata(tar_path)
         .map(|m| m.len())
@@ -478,7 +508,12 @@ async fn upload_tar(
         let mut buffer = vec![0u8; upload_session.chunk_size_bytes as usize];
         let client = reqwest::Client::new();
 
-        let progress_sender = Arc::new(Mutex::new(ProgressSender::new(tx.clone(), file_size)));
+        let progress_sender = Arc::new(Mutex::new(ProgressSender::new(
+            tx.clone(),
+            file_size,
+            current_file,
+            Some(files_remaining),
+        )));
         for chunk_number in 1..=upload_session.total_chunks {
             // Check if upload has been cancelled
             if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
@@ -654,15 +689,24 @@ struct ProgressSender {
     last_update_time: std::time::Instant,
     file_size: u64,
     start_time: std::time::Instant,
+    current_file: Option<String>,
+    files_remaining: Option<u64>,
 }
 impl ProgressSender {
-    pub fn new(tx: app_state::UiUpdateSender, file_size: u64) -> Self {
+    pub fn new(
+        tx: app_state::UiUpdateSender,
+        file_size: u64,
+        current_file: Option<String>,
+        files_remaining: Option<u64>,
+    ) -> Self {
         Self {
             tx,
             bytes_uploaded: 0,
             last_update_time: std::time::Instant::now(),
             file_size,
             start_time: std::time::Instant::now(),
+            current_file,
+            files_remaining,
         }
     }
 
@@ -698,6 +742,8 @@ impl ProgressSender {
             } else {
                 0.0
             },
+            current_file: self.current_file.clone(),
+            files_remaining: self.files_remaining,
         };
         self.tx
             .try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))

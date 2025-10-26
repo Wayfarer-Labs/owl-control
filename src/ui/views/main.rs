@@ -359,6 +359,21 @@ impl MainApp {
                     let is_uploading = self.current_upload_progress.is_some();
                     if let Some(progress) = &self.current_upload_progress {
                         ui.add_space(10.0);
+
+                        // Display current file and files remaining
+                        if let Some(current_file) = &progress.current_file {
+                            ui.label(format!(
+                                "Uploading: {}",
+                                current_file
+                            ));
+                        }
+                        if let Some(files_remaining) = progress.files_remaining {
+                            ui.label(format!(
+                                "Files remaining: {}",
+                                files_remaining
+                            ));
+                        }
+
                         ui.label(format!(
                             "Current upload: {:.2}% ({}/{})",
                             progress.percent,
