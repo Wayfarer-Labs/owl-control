@@ -234,6 +234,7 @@ struct RecordingStats {
     duration: f64,
     bytes: u64,
 }
+#[allow(clippy::too_many_arguments)]
 async fn upload_folder(
     path: &Path,
     api_client: Arc<ApiClient>,
@@ -338,13 +339,13 @@ async fn upload_folder(
 //
 // TODO: Think of a better way to handle this
 #[derive(Clone)]
-struct ValidationResult {
+pub struct ValidationResult {
     mp4_path: PathBuf,
     csv_path: PathBuf,
     meta_path: PathBuf,
     metadata: Metadata,
 }
-fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
+pub fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
     // This is not guaranteed to be constants::recording::VIDEO_FILENAME if the WebSocket recorder
     // is being used, which is why we search for it
     let Some(mp4_path) = path
