@@ -30,7 +30,15 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ## Top-Priority Games
 
+
+- [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
+- [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
+- [PowerWash Simulator 2](https://store.steampowered.com/app/2968420/PowerWash_Simulator_2/)
+- [PowerWash Simulator](https://store.steampowered.com/app/1290000/PowerWash_Simulator/)
+- [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
+- [House Flipper](https://store.steampowered.com/app/613100/House_Flipper/)
 - [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
+
 - [Vampire: The Masquerade® - Bloodlines 2](https://store.steampowered.com/app/532790/Vampire_The_Masquerade__Bloodlines_2/)
 - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
