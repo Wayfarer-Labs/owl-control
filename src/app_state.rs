@@ -1,5 +1,5 @@
 use std::{
-    sync::{OnceLock, RwLock},
+    sync::{Arc, OnceLock, RwLock, atomic::AtomicBool},
     time::{Duration, Instant},
 };
 
@@ -22,6 +22,7 @@ pub struct AppState {
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
+    pub upload_cancel_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
 }
 
@@ -39,6 +40,7 @@ impl AppState {
             async_request_tx,
             ui_update_tx,
             adapter_infos,
+            upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
         }
     }
@@ -92,6 +94,7 @@ pub struct GitHubRelease {
 pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
     UploadData,
+    CancelUpload,
     OpenDataDump,
     OpenLog,
     UpdateUnsupportedGames(UnsupportedGames),

@@ -400,17 +400,35 @@ impl MainApp {
 
                     // Upload Button
                     ui.add_space(5.0);
-                    ui.add_enabled_ui(!is_uploading, |ui| {
+                    if is_uploading {
+                        // Show Cancel button when uploading
+                        ui.add_enabled_ui(!self.app_state.upload_cancel_flag.load(std::sync::atomic::Ordering::Relaxed), |ui| {
+                            if ui
+                                .add_sized(
+                                    egui::vec2(ui.available_width(), 32.0),
+                                    egui::Button::new(
+                                        egui::RichText::new("Cancel Upload")
+                                            .size(12.0)
+                                            .color(egui::Color32::WHITE),
+                                    )
+                                    .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                )
+                                .clicked()
+                            {
+                                self.app_state
+                                    .async_request_tx
+                                    .blocking_send(AsyncRequest::CancelUpload)
+                                    .ok();
+                            }
+                        });
+                    } else {
+                        // Show Upload button when not uploading
                         if ui
                             .add_sized(
                                 egui::vec2(ui.available_width(), 32.0),
                                 egui::Button::new(
-                                    egui::RichText::new(if is_uploading {
-                                        "Upload in Progress..."
-                                    } else {
-                                        "Upload Recordings"
-                                    })
-                                    .size(12.0),
+                                    egui::RichText::new("Upload Recordings")
+                                        .size(12.0),
                                 ),
                             )
                             .clicked()
@@ -428,7 +446,7 @@ impl MainApp {
                                     .color(egui::Color32::from_rgb(255, 0, 0)),
                             );
                         }
-                    });
+                    }
                 });
 
                 // Logo
@@ -926,54 +944,59 @@ fn render_recording_entry(
                                 Some(egui::Color32::from_rgb(255, 150, 150)),
                             );
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                // Timestamp if available
-                                if let Some(timestamp) = info.timestamp {
-                                    let datetime =
-                                        chrono::DateTime::<chrono::Utc>::from(timestamp);
-                                    let local_time = datetime.with_timezone(&chrono::Local);
-                                    ui.label(
-                                        egui::RichText::new(
-                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                        )
-                                        .size(font_size)
-                                        .color(egui::Color32::from_rgb(200, 200, 200)),
-                                    );
-                                }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    // Timestamp if available
+                                    if let Some(timestamp) = info.timestamp {
+                                        let datetime =
+                                            chrono::DateTime::<chrono::Utc>::from(timestamp);
+                                        let local_time = datetime.with_timezone(&chrono::Local);
+                                        ui.label(
+                                            egui::RichText::new(
+                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                            )
+                                            .size(font_size)
+                                            .color(egui::Color32::from_rgb(200, 200, 200)),
+                                        );
+                                    }
 
-                                // Delete button
-                                if ui
-                                    .add_sized(
-                                        egui::vec2(60.0, 20.0),
-                                        egui::Button::new(
-                                            egui::RichText::new("Delete")
-                                                .size(font_size)
-                                                .color(egui::Color32::WHITE),
+                                    // Delete button
+                                    if ui
+                                        .add_sized(
+                                            egui::vec2(60.0, 20.0),
+                                            egui::Button::new(
+                                                egui::RichText::new("Delete")
+                                                    .size(font_size)
+                                                    .color(egui::Color32::WHITE),
+                                            )
+                                            .fill(egui::Color32::from_rgb(180, 60, 60)),
                                         )
-                                        .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                    )
-                                    .clicked()
-                                {
-                                    if let Err(e) = std::fs::remove_dir_all(info.folder_path.clone()) {
-                                        tracing::error!(
+                                        .clicked()
+                                    {
+                                        if let Err(e) =
+                                            std::fs::remove_dir_all(info.folder_path.clone())
+                                        {
+                                            tracing::error!(
                                             "Failed to delete invalid recording folder {}: {:?}",
                                             info.folder_path.display(),
                                             e
                                         );
-                                    } else {
-                                        tracing::info!(
-                                            "Deleted invalid recording folder: {}",
-                                            info.folder_path.display()
-                                        );
-                                        app_state
+                                        } else {
+                                            tracing::info!(
+                                                "Deleted invalid recording folder: {}",
+                                                info.folder_path.display()
+                                            );
+                                            app_state
                                             .async_request_tx
                                             .blocking_send(
                                                 crate::app_state::AsyncRequest::LoadLocalRecordings,
                                             )
                                             .ok();
+                                        }
                                     }
-                                }
-                            });
+                                },
+                            );
                         });
                     });
             }
@@ -1022,54 +1045,59 @@ fn render_recording_entry(
                                     .italics(),
                             );
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                // Timestamp if available
-                                if let Some(timestamp) = info.timestamp {
-                                    let datetime =
-                                        chrono::DateTime::<chrono::Utc>::from(timestamp);
-                                    let local_time = datetime.with_timezone(&chrono::Local);
-                                    ui.label(
-                                        egui::RichText::new(
-                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                        )
-                                        .size(font_size)
-                                        .color(egui::Color32::from_rgb(200, 200, 200)),
-                                    );
-                                }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    // Timestamp if available
+                                    if let Some(timestamp) = info.timestamp {
+                                        let datetime =
+                                            chrono::DateTime::<chrono::Utc>::from(timestamp);
+                                        let local_time = datetime.with_timezone(&chrono::Local);
+                                        ui.label(
+                                            egui::RichText::new(
+                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                            )
+                                            .size(font_size)
+                                            .color(egui::Color32::from_rgb(200, 200, 200)),
+                                        );
+                                    }
 
-                                // Delete button
-                                if ui
-                                    .add_sized(
-                                        egui::vec2(60.0, 20.0),
-                                        egui::Button::new(
-                                            egui::RichText::new("Delete")
-                                                .size(font_size)
-                                                .color(egui::Color32::WHITE),
+                                    // Delete button
+                                    if ui
+                                        .add_sized(
+                                            egui::vec2(60.0, 20.0),
+                                            egui::Button::new(
+                                                egui::RichText::new("Delete")
+                                                    .size(font_size)
+                                                    .color(egui::Color32::WHITE),
+                                            )
+                                            .fill(egui::Color32::from_rgb(180, 60, 60)),
                                         )
-                                        .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                    )
-                                    .clicked()
-                                {
-                                    if let Err(e) = std::fs::remove_dir_all(info.folder_path.clone()) {
-                                        tracing::error!(
+                                        .clicked()
+                                    {
+                                        if let Err(e) =
+                                            std::fs::remove_dir_all(info.folder_path.clone())
+                                        {
+                                            tracing::error!(
                                             "Failed to delete unuploaded recording folder {}: {:?}",
                                             info.folder_path.display(),
                                             e
                                         );
-                                    } else {
-                                        tracing::info!(
-                                            "Deleted unuploaded recording folder: {}",
-                                            info.folder_path.display()
-                                        );
-                                        app_state
+                                        } else {
+                                            tracing::info!(
+                                                "Deleted unuploaded recording folder: {}",
+                                                info.folder_path.display()
+                                            );
+                                            app_state
                                             .async_request_tx
                                             .blocking_send(
                                                 crate::app_state::AsyncRequest::LoadLocalRecordings,
                                             )
                                             .ok();
+                                        }
                                     }
-                                }
-                            });
+                                },
+                            );
                         });
                     });
             }

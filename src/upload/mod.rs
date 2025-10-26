@@ -65,6 +65,11 @@ pub async fn start(
     recording_location: PathBuf,
 ) {
     let tx = app_state.ui_update_tx.clone();
+    let cancel_flag = app_state.upload_cancel_flag.clone();
+
+    // Reset cancel flag at start of upload
+    cancel_flag.store(false, std::sync::atomic::Ordering::SeqCst);
+
     let (api_token, unreliable_connection, delete_uploaded) = {
         let config = app_state.config.read().unwrap();
         (
@@ -88,6 +93,7 @@ pub async fn start(
         delete_uploaded,
         tx.clone(),
         app_state.async_request_tx.clone(),
+        cancel_flag,
     )
     .await
     {
@@ -125,10 +131,16 @@ async fn run(
     delete_uploaded: bool,
     tx: app_state::UiUpdateSender,
     async_req_tx: mpsc::Sender<AsyncRequest>,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
 ) -> eyre::Result<FinalStats> {
     let mut stats = FinalStats::default();
 
     for entry in recording_location.read_dir()? {
+        // Check if upload has been cancelled
+        if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+            eyre::bail!("Upload cancelled by user");
+        }
+
         let entry = entry?;
         let path = entry.path();
         if !path.is_dir() {
@@ -149,6 +161,7 @@ async fn run(
             &api_token,
             unreliable_connection,
             tx.clone(),
+            cancel_flag.clone(),
         )
         .await
         {
@@ -202,6 +215,7 @@ async fn upload_folder(
     api_token: &str,
     unreliable_connection: bool,
     tx: app_state::UiUpdateSender,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
 ) -> eyre::Result<RecordingStats> {
     tracing::info!("Validating folder {}", path.display());
     let validation = match validate_folder(path) {
@@ -271,6 +285,7 @@ async fn upload_folder(
             .as_ref(),
         validation.metadata.duration,
         tx,
+        cancel_flag,
     )
     .await
     .context("error uploading tar file")?;
@@ -371,6 +386,7 @@ async fn upload_tar(
     control_filename: &str,
     video_duration_seconds: f64,
     tx: app_state::UiUpdateSender,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
 ) -> eyre::Result<String> {
     let file_size = std::fs::metadata(tar_path)
         .map(|m| m.len())
@@ -463,6 +479,11 @@ async fn upload_tar(
 
         let progress_sender = Arc::new(Mutex::new(ProgressSender::new(tx.clone(), file_size)));
         for chunk_number in 1..=upload_session.total_chunks {
+            // Check if upload has been cancelled
+            if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                eyre::bail!("Upload cancelled by user");
+            }
+
             tracing::info!(
                 "Uploading chunk {}/{} for upload_id {}",
                 chunk_number,
