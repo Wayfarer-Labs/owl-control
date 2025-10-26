@@ -123,6 +123,7 @@ pub async fn start(
 }
 
 /// Separate function to allow for fallibility
+#[allow(clippy::too_many_arguments)]
 async fn run(
     recording_location: &Path,
     api_client: Arc<ApiClient>,
