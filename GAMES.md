@@ -1,27 +1,29 @@
-<div align="right">Searchable Index ↑↑↑↑↑</div>
+<div align="right"># Click `☰` for Outline to search this index ↑↑↑↑↑</div>
 
 # Preferred Games
 
- We buy _preferred games_ for contributors who provide significant amounts of data. Just ask for a key!
+ We buy _preferred games_ from `Top-priority`/Games marked with `+` for contributors who provide significant amounts of data.
 
 - First-person
 - High-quality/detailed (Need not be AAA/new, i.e. Crysis 3)
 - Action-packed (doesn't need to be fighting, just lots of events happening beyond moving/looking around)
 
 # Usage Guide
-⌧ Avoid capturing voice chat of real people in any Co-Op/PvP games.
-⌧ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.
 
-☑ Use external apps like Discord for voice
-☑︎ Play games in first-person mode as much as possible
-☑︎ Run games as Administrator if marked with `(admin)`
-☑︎ Playing a single game repeatedly is fine. Try to do new things each time!
-☑︎ Mods are allowed!
+⌧ Avoid capturing voice chat of real people in any Co-Op/PvP games.<br>
+⌧ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.<br>
+⌧ Avoid recording nudity or similar NSFW content.<br>
+
+☑ Use external apps like Discord for voice<br>
+☑︎ Play games in first-person mode as much as possible<br>
+☑︎ Run games as Administrator if marked with `(admin)`<br>
+☑︎ Playing a single game repeatedly is fine. Try to do new things each time!<br>
+☑︎ Game mods are allowed!<br>
 
 > [!IMPORTANT]
-> We don't capture your voice or any music playing in the background that isn't within the game.
-> We don't capture any windows or inputs other than those sent to your own game.
-> Split-screen and VR games are not supported.
+> - We don't capture your voice or any music playing in the background that isn't within the game.
+> - We don't capture any windows or inputs other than those sent to your own game.
+> - Split-screen and VR games are not supported.
 
 
 <details><summary>Top-Priority Games</summary>
