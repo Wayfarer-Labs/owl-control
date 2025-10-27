@@ -149,7 +149,7 @@ pub async fn start(
     .await
     .ok();
 
-    match run(
+    if let Err(e) = run(
         &recording_location,
         api_client,
         api_token,
@@ -161,25 +161,21 @@ pub async fn start(
     )
     .await
     {
-        Ok(_final_stats) => {
-            // Request a re-fetch of our upload stats and local recordings
-            app_state
-                .async_request_tx
-                .send(AsyncRequest::LoadUploadStats)
-                .await
-                .ok();
-            app_state
-                .async_request_tx
-                .send(AsyncRequest::LoadLocalRecordings)
-                .await
-                .ok();
-        }
-        Err(e) => {
-            tx.send(app_state::UiUpdate::UploadFailed(e.to_string()))
-                .await
-                .ok();
-        }
+        tx.send(app_state::UiUpdate::UploadFailed(e.to_string()))
+            .await
+            .ok();
     }
+
+    app_state
+        .async_request_tx
+        .send(AsyncRequest::LoadUploadStats)
+        .await
+        .ok();
+    app_state
+        .async_request_tx
+        .send(AsyncRequest::LoadLocalRecordings)
+        .await
+        .ok();
 
     tx.send(app_state::UiUpdate::UpdateUploadProgress(None))
         .await
