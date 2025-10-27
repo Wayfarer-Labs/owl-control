@@ -210,6 +210,9 @@ async fn run(
         })
         .count() as u64;
 
+    let mut last_upload_time = std::time::Instant::now();
+    let reload_every_n_files = 5;
+    let reload_if_at_least_has_passed = std::time::Duration::from_secs(2 * 60);
     for entry in recording_location.read_dir()? {
         // Check if upload has been cancelled
         if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
@@ -274,17 +277,30 @@ async fn run(
             }
         }
 
-        // every 5 files uploaded we check with server to update list of successfully uploaded files
-        if stats.total_files_uploaded % 5 == 0 {
-            let async_req_tx = async_req_tx.clone();
-            tokio::spawn(async move {
-                async_req_tx.send(AsyncRequest::LoadUploadStats).await.ok();
-                async_req_tx
-                    .send(AsyncRequest::LoadLocalRecordings)
-                    .await
-                    .ok();
-            });
+        let should_reload = if stats.total_files_uploaded % reload_every_n_files == 0 {
+            tracing::info!(
+                "{} files uploaded, reloading upload stats and local recordings",
+                stats.total_files_uploaded
+            );
+            true
+        } else if last_upload_time.elapsed() > reload_if_at_least_has_passed {
+            tracing::info!(
+                "{} seconds since last upload, reloading upload stats and local recordings",
+                last_upload_time.elapsed().as_secs()
+            );
+            true
+        } else {
+            false
+        };
+
+        if should_reload {
+            async_req_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+            async_req_tx
+                .send(AsyncRequest::LoadLocalRecordings)
+                .await
+                .ok();
         }
+        last_upload_time = std::time::Instant::now();
     }
 
     Ok(stats)
