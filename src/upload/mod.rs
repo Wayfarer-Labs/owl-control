@@ -654,7 +654,7 @@ impl ProgressSender {
     }
 
     fn send(&mut self) {
-        if self.last_update_time.elapsed().as_millis() > 25 {
+        if self.last_update_time.elapsed().as_millis() > 100 {
             self.send_impl();
             self.last_update_time = std::time::Instant::now();
         }
