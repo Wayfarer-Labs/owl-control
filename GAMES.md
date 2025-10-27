@@ -12,7 +12,7 @@
 ☑︎ Game mods are allowed!<br>
 
 > [!IMPORTANT]
-> - We buy games those from `Top-priority` for contributors who provide significant amounts of data.
+> - We buy games from `Top-priority` for contributors who provide significant amounts of data.
 > - We don't capture your voice or any music playing in the background that isn't within the game.
 > - We don't capture any windows or inputs other than those sent to your own game.
 > - Split-screen and VR games are not supported.
