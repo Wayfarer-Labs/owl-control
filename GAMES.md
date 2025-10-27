@@ -2,17 +2,9 @@
 
 # Click `☰` for Outline to search this index ↑↑↑↑↑</div>
 
-# Preferred Games
-
- We buy _preferred games_ from `Top-priority`/Games marked with `+` for contributors who provide significant amounts of data.
-
-- First-person
-- High-quality/detailed (Need not be AAA/new, i.e. Crysis 3)
-- Action-packed (doesn't need to be fighting, just lots of events happening beyond moving/looking around)
-
 # Usage Guide
 
-⌧ Avoid capturing voice chat of real people in any Co-Op/PvP games.<br>
+⌧ Avoid capturing voice chat of real people in any Co-Op/PvP games, especiall if marked with `(no voice)`.<br>
 ⌧ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.<br>
 ⌧ Avoid recording nudity or similar NSFW content.<br>
 
@@ -23,12 +15,15 @@
 ☑︎ Game mods are allowed!<br>
 
 > [!IMPORTANT]
+> - We buy _preferred games_ from `Top-priority` / `+` for contributors who provide significant amounts of data.
 > - We don't capture your voice or any music playing in the background that isn't within the game.
 > - We don't capture any windows or inputs other than those sent to your own game.
 > - Split-screen and VR games are not supported.
 
+## Top-Priority Games
 
-<details><summary>Top-Priority Games</summary>
+<details><summary> First-person, High-quality/detailed, Active</summary>
+
 
 ### + [Fishing Planet](https://store.steampowered.com/app/380600/Fishing_Planet/)
 ### + [Thief Simulator](https://store.steampowered.com/app/704850/Thief_Simulator/)
