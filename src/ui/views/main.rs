@@ -362,16 +362,7 @@ impl MainApp {
 
                         // Display current file and files remaining
                         if let Some(file_progress) = &progress.file_progress {
-                            if let Some(current_file) = &file_progress.current_file {
-                                ui.label(format!(
-                                    "Uploading: {current_file}"
-                                ));
-                            }
-                            if let Some(files_remaining) = file_progress.files_remaining {
-                                ui.label(format!(
-                                    "Files remaining: {files_remaining}"
-                                ));
-                            }
+                            ui.label(format!("Uploading: {} ({} files remaining)", file_progress.current_file, file_progress.files_remaining));
                         }
 
                         ui.label(format!(

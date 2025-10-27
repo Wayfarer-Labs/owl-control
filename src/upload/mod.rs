@@ -19,8 +19,8 @@ pub mod validation;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct FileProgress {
-    pub current_file: Option<String>,
-    pub files_remaining: Option<u64>,
+    pub current_file: String,
+    pub files_remaining: u64,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -238,8 +238,9 @@ async fn run(
             current_file: path
                 .file_name()
                 .and_then(|n| n.to_str())
-                .map(|s| s.to_string()),
-            files_remaining: Some(total_files_to_upload.saturating_sub(stats.total_files_uploaded)),
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| path.to_string_lossy().to_string()),
+            files_remaining: total_files_to_upload.saturating_sub(stats.total_files_uploaded),
         };
 
         let recording_stats = match upload_folder(
