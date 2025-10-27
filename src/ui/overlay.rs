@@ -214,53 +214,64 @@ impl EguiOverlay for OverlayApp {
 
                     let font_id = egui::FontId::new(12.0, egui::FontFamily::Proportional);
                     let color = Color32::from_white_alpha(self.overlay_opacity);
-                    let recording_text: egui::WidgetText = match &self.rec_status {
-                        RecordingStatus::Stopped => egui::RichText::new("Stopped")
+                    let recording_text: egui::WidgetText = if self
+                        .app_state
+                        .is_out_of_date
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                    {
+                        egui::RichText::new("Out of date; will not record. Please update!")
                             .font(font_id)
                             .color(color)
-                            .into(),
-                        RecordingStatus::Recording {
-                            start_time,
-                            game_exe,
-                        } => {
-                            let mut job = LayoutJob::default();
-                            job.append(
-                                "Recording ",
-                                0.0,
-                                TextFormat {
-                                    font_id: font_id.clone(),
-                                    color,
-                                    ..Default::default()
-                                },
-                            );
-                            job.append(
+                            .into()
+                    } else {
+                        match &self.rec_status {
+                            RecordingStatus::Stopped => egui::RichText::new("Stopped")
+                                .font(font_id)
+                                .color(color)
+                                .into(),
+                            RecordingStatus::Recording {
+                                start_time,
                                 game_exe,
-                                0.0,
-                                TextFormat {
-                                    font_id: font_id.clone(),
-                                    italics: true,
-                                    color,
-                                    ..Default::default()
-                                },
-                            );
-                            job.append(
-                                &format!(
-                                    " ({})",
-                                    util::format_seconds(start_time.elapsed().as_secs())
-                                ),
-                                0.0,
-                                TextFormat {
-                                    font_id,
-                                    color,
-                                    ..Default::default()
-                                },
-                            );
-                            job.into()
+                            } => {
+                                let mut job = LayoutJob::default();
+                                job.append(
+                                    "Recording ",
+                                    0.0,
+                                    TextFormat {
+                                        font_id: font_id.clone(),
+                                        color,
+                                        ..Default::default()
+                                    },
+                                );
+                                job.append(
+                                    game_exe,
+                                    0.0,
+                                    TextFormat {
+                                        font_id: font_id.clone(),
+                                        italics: true,
+                                        color,
+                                        ..Default::default()
+                                    },
+                                );
+                                job.append(
+                                    &format!(
+                                        " ({})",
+                                        util::format_seconds(start_time.elapsed().as_secs())
+                                    ),
+                                    0.0,
+                                    TextFormat {
+                                        font_id,
+                                        color,
+                                        ..Default::default()
+                                    },
+                                );
+                                job.into()
+                            }
+                            RecordingStatus::Paused => egui::RichText::new("Paused")
+                                .font(font_id)
+                                .color(color)
+                                .into(),
                         }
-                        RecordingStatus::Paused => egui::RichText::new("Paused")
-                            .font(font_id)
-                            .color(color)
-                            .into(),
                     };
                     ui.label(recording_text);
                 });

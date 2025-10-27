@@ -144,10 +144,19 @@ async fn main(
                 }
                 if let Some(key) = e.key_press_keycode() && *app_state.listening_for_new_hotkey.read().unwrap() == ListeningForNewHotkey::NotListening {
                     if Some(key) == start_key && recorder.recording().is_none() {
-                        tracing::info!("Start key pressed, starting recording");
-                        if start_recording_safely(&mut recorder, &input_capture, &unsupported_games, Some((&sink, honk, &app_state))).await {
-                            actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
-                            tracing::info!("Recording started with HWND {actively_recording_window:?}");
+                        if !app_state.is_out_of_date.load(std::sync::atomic::Ordering::SeqCst) {
+                            tracing::info!("Start key pressed, starting recording");
+                            if start_recording_safely(&mut recorder, &input_capture, &unsupported_games, Some((&sink, honk, &app_state))).await {
+                                actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
+                                tracing::info!("Recording started with HWND {actively_recording_window:?}");
+                            }
+                        } else {
+                            show_notification(
+                                "OWL Control - Error",
+                                "You are using an outdated version of OWL Control. Please update to the latest version to continue.",
+                                "Recording and uploading will be blocked until you update.",
+                                NotificationType::Error
+                            );
                         }
                     } else if Some(key) == stop_key && recorder.recording().is_some() {
                         tracing::info!("Stop key pressed, stopping recording");
@@ -568,6 +577,10 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
                 release_date: latest_valid_release.published_at,
             }))
             .ok();
+
+        app_state
+            .is_out_of_date
+            .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 
     Ok(())

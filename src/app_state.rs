@@ -24,6 +24,7 @@ pub struct AppState {
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
     pub upload_cancel_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
+    pub is_out_of_date: AtomicBool,
 }
 
 impl AppState {
@@ -42,6 +43,7 @@ impl AppState {
             adapter_infos,
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
+            is_out_of_date: AtomicBool::new(false),
         }
     }
 }

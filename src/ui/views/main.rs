@@ -435,29 +435,31 @@ impl MainApp {
                         });
                     } else {
                         // Show Upload button when not uploading
-                        if ui
-                            .add_sized(
-                                egui::vec2(ui.available_width(), 32.0),
-                                egui::Button::new(
-                                    egui::RichText::new("Upload Recordings")
-                                        .size(12.0),
-                                ),
-                            )
-                            .clicked()
-                        {
-                            self.last_upload_error = None;
-                            self.app_state
-                                .async_request_tx
-                                .blocking_send(AsyncRequest::UploadData)
-                                .ok();
-                        }
-                        if let Some(error) = &self.last_upload_error {
-                            ui.label(
-                                egui::RichText::new(error)
-                                    .size(12.0)
-                                    .color(egui::Color32::from_rgb(255, 0, 0)),
-                            );
-                        }
+                        ui.add_enabled_ui(self.newer_release_available.is_none(), |ui| {
+                            if ui
+                                .add_sized(
+                                    egui::vec2(ui.available_width(), 32.0),
+                                    egui::Button::new(
+                                        egui::RichText::new("Upload Recordings")
+                                            .size(12.0),
+                                    ),
+                                )
+                                .clicked()
+                            {
+                                self.last_upload_error = None;
+                                self.app_state
+                                    .async_request_tx
+                                    .blocking_send(AsyncRequest::UploadData)
+                                    .ok();
+                            }
+                            if let Some(error) = &self.last_upload_error {
+                                ui.label(
+                                    egui::RichText::new(error)
+                                        .size(12.0)
+                                        .color(egui::Color32::from_rgb(255, 0, 0)),
+                                );
+                            }
+                        });
                     }
                 });
 
@@ -517,15 +519,24 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
                 );
 
                 // Release name
-                ui.label(egui::RichText::new(&release.name).size(16.0).strong());
+                ui.label(egui::RichText::new(&release.name).size(18.0).strong());
 
                 // Release date if available
                 if let Some(date) = &release.release_date {
                     ui.label(
                         egui::RichText::new(format!("Released: {}", date.format("%B %d, %Y")))
-                            .size(12.0),
+                            .size(14.0),
                     );
                 }
+
+                ui.add_space(8.0);
+
+                ui.label(
+                    egui::RichText::new(
+                        "Recording and uploading will be blocked until you update.",
+                    )
+                    .size(14.0),
+                );
 
                 ui.add_space(8.0);
 
