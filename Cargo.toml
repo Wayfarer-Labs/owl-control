@@ -38,13 +38,9 @@ gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = { git = "https://github.com/joshprk/libobs-rs.git", rev = "2186e76c9bfd45ce2426d2e708e252891756938b", features = [
-    "blocking",
-] }
-libobs-sources = { git = "https://github.com/joshprk/libobs-rs.git", rev = "2186e76c9bfd45ce2426d2e708e252891756938b", features = [
-    "blocking",
-] }
-libobs-window-helper = { git = "https://github.com/joshprk/libobs-rs.git", rev = "2186e76c9bfd45ce2426d2e708e252891756938b" }
+libobs-wrapper = "5.0.0"
+libobs-sources = "3.0.0"
+libobs-window-helper = "0.1.6"
 
 [package]
 name = "owl-control"
@@ -106,7 +102,6 @@ reqwest = { version = "0.12.23", features = ["json", "stream"] }
 tar = "0.4.44"
 opener = { version = "0.8", features = ["reveal"] }
 sha256 = "1.6.0"
-
 
 [build-dependencies]
 embed-manifest = "1.3.1"

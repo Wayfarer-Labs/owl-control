@@ -287,7 +287,7 @@ impl RecorderState {
         }
 
         // Set up scene and window capture based on input pid
-        let mut scene = if let Some(scene) = self.obs_context.get_scene(OWL_SCENE_NAME) {
+        let mut scene = if let Some(scene) = self.obs_context.get_scene(OWL_SCENE_NAME)? {
             tracing::info!("Reusing existing scene");
             scene
         } else {
@@ -519,7 +519,7 @@ impl RecorderState {
             .is_some_and(|a| find_game_capture_window(&a.0, a.1).is_err())
         {
             tracing::warn!("Game no longer open, removing source");
-            if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)
+            if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)?
                 && let Some(source) = self.source.take()
             {
                 scene.remove_source(&source)?;
