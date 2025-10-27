@@ -187,6 +187,10 @@ async fn main(
                     AsyncRequest::UploadData => {
                         tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
                     }
+                    AsyncRequest::CancelUpload => {
+                        app_state.upload_cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::info!("Upload cancellation requested");
+                    }
                     AsyncRequest::OpenDataDump => {
                         // Create directory if it doesn't exist
                         if !recording_location.exists() {
@@ -504,6 +508,12 @@ async fn get_unsupported_games() -> Result<UnsupportedGames> {
 
 async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
     #[derive(serde::Deserialize, Debug, Clone)]
+    struct Asset {
+        name: String,
+        browser_download_url: String,
+    }
+
+    #[derive(serde::Deserialize, Debug, Clone)]
     struct Release {
         html_url: String,
         published_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -511,6 +521,7 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
         name: String,
         draft: bool,
         prerelease: bool,
+        assets: Vec<Asset>,
     }
 
     let current_version = env!("CARGO_PKG_VERSION");
@@ -530,17 +541,30 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
         .await
         .context("Failed to parse releases from GitHub")?;
 
-    let latest_valid_release = releases.iter().find(|r| !r.draft && !r.prerelease);
+    let latest_valid_release = releases.iter().find(|r| {
+        !r.draft
+        // filter out prereleases that we don't want users to automatically install
+        && !r.prerelease
+    });
     tracing::info!(latest_valid_release=?latest_valid_release, "Fetched latest valid release");
 
     if let Some(latest_valid_release) = latest_valid_release.cloned()
         && is_version_newer(current_version, &latest_valid_release.tag_name)
     {
+        // Find the Windows installer asset (.exe file)
+        let download_url = latest_valid_release
+            .assets
+            .iter()
+            .find(|asset| asset.name.ends_with(".exe"))
+            .map(|asset| asset.browser_download_url.clone())
+            .unwrap_or(latest_valid_release.html_url.clone());
+
         app_state
             .ui_update_tx
             .try_send(UiUpdate::UpdateNewerReleaseAvailable(GitHubRelease {
                 name: latest_valid_release.name,
-                url: latest_valid_release.html_url,
+                release_notes_url: latest_valid_release.html_url,
+                download_url,
                 release_date: latest_valid_release.published_at,
             }))
             .ok();

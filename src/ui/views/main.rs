@@ -75,7 +75,7 @@ impl MainApp {
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
 
-                ui.add_space(15.0);
+                ui.add_space(8.0);
             }
 
             // Show OBS warning if necessary
@@ -87,7 +87,7 @@ impl MainApp {
             {
                 obs_running_warning(ui);
 
-                ui.add_space(15.0);
+                ui.add_space(8.0);
             }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -137,7 +137,15 @@ impl MainApp {
                                 .strong(),
                         );
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            tooltip(ui, "Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.", None);
+                            tooltip(
+                                ui,
+                                concat!(
+                                    "Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.",
+                                    "\n\n",
+                                    "Recordings will automatically stop every 10 minutes to split them into smaller files. This is intentional behaviour to prevent data loss and make uploads more manageable. The recording will resume automatically after stopping, so you don't need to do anything."
+                                ),
+                                None
+                            );
                         });
                     });
                     ui.separator();
@@ -359,6 +367,10 @@ impl MainApp {
                     let is_uploading = self.current_upload_progress.is_some();
                     if let Some(progress) = &self.current_upload_progress {
                         ui.add_space(10.0);
+
+                        // Display current file and files remaining
+                        ui.label(format!("Uploading: {} ({} files remaining)", progress.file_progress.current_file, progress.file_progress.files_remaining));
+
                         ui.label(format!(
                             "Current upload: {:.2}% ({}/{})",
                             progress.percent,
@@ -400,17 +412,35 @@ impl MainApp {
 
                     // Upload Button
                     ui.add_space(5.0);
-                    ui.add_enabled_ui(!is_uploading, |ui| {
+                    if is_uploading {
+                        // Show Cancel button when uploading
+                        ui.add_enabled_ui(!self.app_state.upload_cancel_flag.load(std::sync::atomic::Ordering::Relaxed), |ui| {
+                            if ui
+                                .add_sized(
+                                    egui::vec2(ui.available_width(), 32.0),
+                                    egui::Button::new(
+                                        egui::RichText::new("Cancel Upload")
+                                            .size(12.0)
+                                            .color(egui::Color32::WHITE),
+                                    )
+                                    .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                ).on_hover_text("Cancel the current upload. This upload will be restarted the next time you click the Upload button.")
+                                .clicked()
+                            {
+                                self.app_state
+                                    .async_request_tx
+                                    .blocking_send(AsyncRequest::CancelUpload)
+                                    .ok();
+                            }
+                        });
+                    } else {
+                        // Show Upload button when not uploading
                         if ui
                             .add_sized(
                                 egui::vec2(ui.available_width(), 32.0),
                                 egui::Button::new(
-                                    egui::RichText::new(if is_uploading {
-                                        "Upload in Progress..."
-                                    } else {
-                                        "Upload Recordings"
-                                    })
-                                    .size(12.0),
+                                    egui::RichText::new("Upload Recordings")
+                                        .size(12.0),
                                 ),
                             )
                             .clicked()
@@ -428,7 +458,7 @@ impl MainApp {
                                     .color(egui::Color32::from_rgb(255, 0, 0)),
                             );
                         }
-                    });
+                    }
                 });
 
                 // Logo
@@ -499,22 +529,47 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
 
                 ui.add_space(8.0);
 
+                let button_width = 200.0;
+                let button_height = 35.0;
+
+                // Release notes button
+                if ui
+                    .add_sized(
+                        egui::vec2(button_width, button_height),
+                        egui::Button::new(
+                            egui::RichText::new("Release Notes")
+                                .size(14.0)
+                                .strong()
+                                .color(egui::Color32::WHITE),
+                        )
+                        .fill(egui::Color32::from_rgb(0x1D, 0x6D, 0xA7)),
+                    )
+                    .clicked()
+                {
+                    #[allow(clippy::collapsible_if)]
+                    if let Err(e) = opener::open_browser(&release.release_notes_url) {
+                        tracing::error!("Failed to open release notes URL: {}", e);
+                    }
+                }
+
+                ui.add_space(4.0);
+
                 // Download button
                 if ui
                     .add_sized(
-                        egui::vec2(200.0, 35.0),
+                        egui::vec2(button_width, button_height),
                         egui::Button::new(
                             egui::RichText::new("Download Now")
                                 .size(14.0)
                                 .strong()
                                 .color(egui::Color32::WHITE),
                         )
-                        .fill(egui::Color32::from_rgb(40, 167, 69)), // Green button
+                        .fill(egui::Color32::from_rgb(0x28, 0xA7, 0x1D)), // Green button
                     )
                     .clicked()
                 {
                     #[allow(clippy::collapsible_if)]
-                    if let Err(e) = opener::open_browser(&release.url) {
+                    if let Err(e) = opener::open_browser(&release.download_url) {
                         tracing::error!("Failed to open release URL: {}", e);
                     }
                 }
@@ -926,54 +981,59 @@ fn render_recording_entry(
                                 Some(egui::Color32::from_rgb(255, 150, 150)),
                             );
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                // Timestamp if available
-                                if let Some(timestamp) = info.timestamp {
-                                    let datetime =
-                                        chrono::DateTime::<chrono::Utc>::from(timestamp);
-                                    let local_time = datetime.with_timezone(&chrono::Local);
-                                    ui.label(
-                                        egui::RichText::new(
-                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                        )
-                                        .size(font_size)
-                                        .color(egui::Color32::from_rgb(200, 200, 200)),
-                                    );
-                                }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    // Timestamp if available
+                                    if let Some(timestamp) = info.timestamp {
+                                        let datetime =
+                                            chrono::DateTime::<chrono::Utc>::from(timestamp);
+                                        let local_time = datetime.with_timezone(&chrono::Local);
+                                        ui.label(
+                                            egui::RichText::new(
+                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                            )
+                                            .size(font_size)
+                                            .color(egui::Color32::from_rgb(200, 200, 200)),
+                                        );
+                                    }
 
-                                // Delete button
-                                if ui
-                                    .add_sized(
-                                        egui::vec2(60.0, 20.0),
-                                        egui::Button::new(
-                                            egui::RichText::new("Delete")
-                                                .size(font_size)
-                                                .color(egui::Color32::WHITE),
+                                    // Delete button
+                                    if ui
+                                        .add_sized(
+                                            egui::vec2(60.0, 20.0),
+                                            egui::Button::new(
+                                                egui::RichText::new("Delete")
+                                                    .size(font_size)
+                                                    .color(egui::Color32::WHITE),
+                                            )
+                                            .fill(egui::Color32::from_rgb(180, 60, 60)),
                                         )
-                                        .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                    )
-                                    .clicked()
-                                {
-                                    if let Err(e) = std::fs::remove_dir_all(info.folder_path.clone()) {
-                                        tracing::error!(
+                                        .clicked()
+                                    {
+                                        if let Err(e) =
+                                            std::fs::remove_dir_all(info.folder_path.clone())
+                                        {
+                                            tracing::error!(
                                             "Failed to delete invalid recording folder {}: {:?}",
                                             info.folder_path.display(),
                                             e
                                         );
-                                    } else {
-                                        tracing::info!(
-                                            "Deleted invalid recording folder: {}",
-                                            info.folder_path.display()
-                                        );
-                                        app_state
+                                        } else {
+                                            tracing::info!(
+                                                "Deleted invalid recording folder: {}",
+                                                info.folder_path.display()
+                                            );
+                                            app_state
                                             .async_request_tx
                                             .blocking_send(
                                                 crate::app_state::AsyncRequest::LoadLocalRecordings,
                                             )
                                             .ok();
+                                        }
                                     }
-                                }
-                            });
+                                },
+                            );
                         });
                     });
             }
@@ -1022,54 +1082,59 @@ fn render_recording_entry(
                                     .italics(),
                             );
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                // Timestamp if available
-                                if let Some(timestamp) = info.timestamp {
-                                    let datetime =
-                                        chrono::DateTime::<chrono::Utc>::from(timestamp);
-                                    let local_time = datetime.with_timezone(&chrono::Local);
-                                    ui.label(
-                                        egui::RichText::new(
-                                            local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                        )
-                                        .size(font_size)
-                                        .color(egui::Color32::from_rgb(200, 200, 200)),
-                                    );
-                                }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    // Timestamp if available
+                                    if let Some(timestamp) = info.timestamp {
+                                        let datetime =
+                                            chrono::DateTime::<chrono::Utc>::from(timestamp);
+                                        let local_time = datetime.with_timezone(&chrono::Local);
+                                        ui.label(
+                                            egui::RichText::new(
+                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                            )
+                                            .size(font_size)
+                                            .color(egui::Color32::from_rgb(200, 200, 200)),
+                                        );
+                                    }
 
-                                // Delete button
-                                if ui
-                                    .add_sized(
-                                        egui::vec2(60.0, 20.0),
-                                        egui::Button::new(
-                                            egui::RichText::new("Delete")
-                                                .size(font_size)
-                                                .color(egui::Color32::WHITE),
+                                    // Delete button
+                                    if ui
+                                        .add_sized(
+                                            egui::vec2(60.0, 20.0),
+                                            egui::Button::new(
+                                                egui::RichText::new("Delete")
+                                                    .size(font_size)
+                                                    .color(egui::Color32::WHITE),
+                                            )
+                                            .fill(egui::Color32::from_rgb(180, 60, 60)),
                                         )
-                                        .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                    )
-                                    .clicked()
-                                {
-                                    if let Err(e) = std::fs::remove_dir_all(info.folder_path.clone()) {
-                                        tracing::error!(
+                                        .clicked()
+                                    {
+                                        if let Err(e) =
+                                            std::fs::remove_dir_all(info.folder_path.clone())
+                                        {
+                                            tracing::error!(
                                             "Failed to delete unuploaded recording folder {}: {:?}",
                                             info.folder_path.display(),
                                             e
                                         );
-                                    } else {
-                                        tracing::info!(
-                                            "Deleted unuploaded recording folder: {}",
-                                            info.folder_path.display()
-                                        );
-                                        app_state
+                                        } else {
+                                            tracing::info!(
+                                                "Deleted unuploaded recording folder: {}",
+                                                info.folder_path.display()
+                                            );
+                                            app_state
                                             .async_request_tx
                                             .blocking_send(
                                                 crate::app_state::AsyncRequest::LoadLocalRecordings,
                                             )
                                             .ok();
+                                        }
                                     }
-                                }
-                            });
+                                },
+                            );
                         });
                     });
             }

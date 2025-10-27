@@ -17,12 +17,19 @@ use crate::{
 pub mod validation;
 
 #[derive(Debug, Deserialize, Clone, Default)]
+pub struct FileProgress {
+    pub current_file: String,
+    pub files_remaining: u64,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct ProgressData {
     pub bytes_uploaded: u64,
     pub total_bytes: u64,
     pub speed_mbps: f64,
     pub eta_seconds: f64,
     pub percent: f64,
+    pub file_progress: FileProgress,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +72,11 @@ pub async fn start(
     recording_location: PathBuf,
 ) {
     let tx = app_state.ui_update_tx.clone();
+    let cancel_flag = app_state.upload_cancel_flag.clone();
+
+    // Reset cancel flag at start of upload
+    cancel_flag.store(false, std::sync::atomic::Ordering::SeqCst);
+
     let (api_token, unreliable_connection, delete_uploaded) = {
         let config = app_state.config.read().unwrap();
         (
@@ -80,7 +92,7 @@ pub async fn start(
     .await
     .ok();
 
-    match run(
+    if let Err(e) = run(
         &recording_location,
         api_client,
         api_token,
@@ -88,28 +100,25 @@ pub async fn start(
         delete_uploaded,
         tx.clone(),
         app_state.async_request_tx.clone(),
+        cancel_flag,
     )
     .await
     {
-        Ok(_final_stats) => {
-            // Request a re-fetch of our upload stats and local recordings
-            app_state
-                .async_request_tx
-                .send(AsyncRequest::LoadUploadStats)
-                .await
-                .ok();
-            app_state
-                .async_request_tx
-                .send(AsyncRequest::LoadLocalRecordings)
-                .await
-                .ok();
-        }
-        Err(e) => {
-            tx.send(app_state::UiUpdate::UploadFailed(e.to_string()))
-                .await
-                .ok();
-        }
+        tx.send(app_state::UiUpdate::UploadFailed(e.to_string()))
+            .await
+            .ok();
     }
+
+    app_state
+        .async_request_tx
+        .send(AsyncRequest::LoadUploadStats)
+        .await
+        .ok();
+    app_state
+        .async_request_tx
+        .send(AsyncRequest::LoadLocalRecordings)
+        .await
+        .ok();
 
     tx.send(app_state::UiUpdate::UpdateUploadProgress(None))
         .await
@@ -117,6 +126,7 @@ pub async fn start(
 }
 
 /// Separate function to allow for fallibility
+#[allow(clippy::too_many_arguments)]
 async fn run(
     recording_location: &Path,
     api_client: Arc<ApiClient>,
@@ -125,10 +135,33 @@ async fn run(
     delete_uploaded: bool,
     tx: app_state::UiUpdateSender,
     async_req_tx: mpsc::Sender<AsyncRequest>,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
 ) -> eyre::Result<FinalStats> {
     let mut stats = FinalStats::default();
 
+    // Count total files to upload
+    let total_files_to_upload = recording_location
+        .read_dir()?
+        .flatten()
+        .filter(|entry| {
+            let path = entry.path();
+            path.is_dir()
+                && !path.join(constants::filename::recording::INVALID).is_file()
+                && !path
+                    .join(constants::filename::recording::UPLOADED)
+                    .is_file()
+        })
+        .count() as u64;
+
+    let mut last_upload_time = std::time::Instant::now();
+    let reload_every_n_files = 5;
+    let reload_if_at_least_has_passed = std::time::Duration::from_secs(2 * 60);
     for entry in recording_location.read_dir()? {
+        // Check if upload has been cancelled
+        if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+            eyre::bail!("Upload cancelled by user");
+        }
+
         let entry = entry?;
         let path = entry.path();
         if !path.is_dir() {
@@ -143,12 +176,23 @@ async fn run(
             continue;
         }
 
+        let file_progress = FileProgress {
+            current_file: path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| path.to_string_lossy().to_string()),
+            files_remaining: total_files_to_upload.saturating_sub(stats.total_files_uploaded),
+        };
+
         let recording_stats = match upload_folder(
             &path,
             api_client.clone(),
             &api_token,
             unreliable_connection,
             tx.clone(),
+            cancel_flag.clone(),
+            file_progress,
         )
         .await
         {
@@ -176,17 +220,30 @@ async fn run(
             }
         }
 
-        // every 5 files uploaded we check with server to update list of successfully uploaded files
-        if stats.total_files_uploaded % 5 == 0 {
-            let async_req_tx = async_req_tx.clone();
-            tokio::spawn(async move {
-                async_req_tx.send(AsyncRequest::LoadUploadStats).await.ok();
-                async_req_tx
-                    .send(AsyncRequest::LoadLocalRecordings)
-                    .await
-                    .ok();
-            });
+        let should_reload = if stats.total_files_uploaded % reload_every_n_files == 0 {
+            tracing::info!(
+                "{} files uploaded, reloading upload stats and local recordings",
+                stats.total_files_uploaded
+            );
+            true
+        } else if last_upload_time.elapsed() > reload_if_at_least_has_passed {
+            tracing::info!(
+                "{} seconds since last upload, reloading upload stats and local recordings",
+                last_upload_time.elapsed().as_secs()
+            );
+            true
+        } else {
+            false
+        };
+
+        if should_reload {
+            async_req_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+            async_req_tx
+                .send(AsyncRequest::LoadLocalRecordings)
+                .await
+                .ok();
         }
+        last_upload_time = std::time::Instant::now();
     }
 
     Ok(stats)
@@ -196,28 +253,9 @@ struct RecordingStats {
     duration: f64,
     bytes: u64,
 }
-async fn upload_folder(
-    path: &Path,
-    api_client: Arc<ApiClient>,
-    api_token: &str,
-    unreliable_connection: bool,
-    tx: app_state::UiUpdateSender,
-) -> eyre::Result<RecordingStats> {
-    tracing::info!("Validating folder {}", path.display());
-    let validation = match validate_folder(path) {
-        Ok(validation_paths) => validation_paths,
-        Err(e) => {
-            std::fs::write(
-                path.join(constants::filename::recording::INVALID),
-                e.join("\n"),
-            )
-            .ok();
-            eyre::bail!("Validation failures: {}", e.join("\n"));
-        }
-    };
 
-    tracing::info!("Creating tar file for {}", path.display());
-    let tar_path = tokio::task::spawn_blocking({
+async fn create_tar_file(validation: &ValidationResult) -> eyre::Result<PathBuf> {
+    tokio::task::spawn_blocking({
         let validation = validation.clone();
         move || {
             let tar_path = PathBuf::from(format!(
@@ -242,7 +280,33 @@ async fn upload_folder(
     .await
     .map_err(eyre::Error::from)
     .flatten()
-    .context("error creating tar file")?;
+    .context("error creating tar file")
+}
+
+async fn upload_folder(
+    path: &Path,
+    api_client: Arc<ApiClient>,
+    api_token: &str,
+    unreliable_connection: bool,
+    tx: app_state::UiUpdateSender,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
+    file_progress: FileProgress,
+) -> eyre::Result<RecordingStats> {
+    tracing::info!("Validating folder {}", path.display());
+    let validation = match validate_folder(path) {
+        Ok(validation_paths) => validation_paths,
+        Err(e) => {
+            std::fs::write(
+                path.join(constants::filename::recording::INVALID),
+                e.join("\n"),
+            )
+            .ok();
+            eyre::bail!("Validation failures: {}", e.join("\n"));
+        }
+    };
+
+    tracing::info!("Creating tar file for {}", path.display());
+    let tar_path = create_tar_file(&validation).await?;
 
     struct DeleteFileOnDrop(PathBuf);
     impl Drop for DeleteFileOnDrop {
@@ -271,6 +335,8 @@ async fn upload_folder(
             .as_ref(),
         validation.metadata.duration,
         tx,
+        cancel_flag,
+        file_progress,
     )
     .await
     .context("error uploading tar file")?;
@@ -294,13 +360,13 @@ async fn upload_folder(
 //
 // TODO: Think of a better way to handle this
 #[derive(Clone)]
-struct ValidationResult {
+pub struct ValidationResult {
     mp4_path: PathBuf,
     csv_path: PathBuf,
     meta_path: PathBuf,
     metadata: Metadata,
 }
-fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
+pub fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
     // This is not guaranteed to be constants::recording::VIDEO_FILENAME if the WebSocket recorder
     // is being used, which is why we search for it
     let Some(mp4_path) = path
@@ -371,6 +437,8 @@ async fn upload_tar(
     control_filename: &str,
     video_duration_seconds: f64,
     tx: app_state::UiUpdateSender,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
+    file_progress: FileProgress,
 ) -> eyre::Result<String> {
     let file_size = std::fs::metadata(tar_path)
         .map(|m| m.len())
@@ -461,8 +529,17 @@ async fn upload_tar(
         let mut buffer = vec![0u8; upload_session.chunk_size_bytes as usize];
         let client = reqwest::Client::new();
 
-        let progress_sender = Arc::new(Mutex::new(ProgressSender::new(tx.clone(), file_size)));
+        let progress_sender = Arc::new(Mutex::new(ProgressSender::new(
+            tx.clone(),
+            file_size,
+            file_progress,
+        )));
         for chunk_number in 1..=upload_session.total_chunks {
+            // Check if upload has been cancelled
+            if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                eyre::bail!("Upload cancelled by user");
+            }
+
             tracing::info!(
                 "Uploading chunk {}/{} for upload_id {}",
                 chunk_number,
@@ -632,15 +709,17 @@ struct ProgressSender {
     last_update_time: std::time::Instant,
     file_size: u64,
     start_time: std::time::Instant,
+    file_progress: FileProgress,
 }
 impl ProgressSender {
-    pub fn new(tx: app_state::UiUpdateSender, file_size: u64) -> Self {
+    pub fn new(tx: app_state::UiUpdateSender, file_size: u64, file_progress: FileProgress) -> Self {
         Self {
             tx,
             bytes_uploaded: 0,
             last_update_time: std::time::Instant::now(),
             file_size,
             start_time: std::time::Instant::now(),
+            file_progress,
         }
     }
 
@@ -676,6 +755,7 @@ impl ProgressSender {
             } else {
                 0.0
             },
+            file_progress: self.file_progress.clone(),
         };
         self.tx
             .try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))

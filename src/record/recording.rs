@@ -16,6 +16,7 @@ use crate::{
         recorder::VideoRecorder,
     },
     system::{hardware_id, hardware_specs},
+    upload::validate_folder,
 };
 
 pub(crate) struct Recording {
@@ -172,6 +173,26 @@ impl Recording {
                 e.to_string(),
             )
             .await?;
+        } else {
+            // Validate the recording immediately after stopping to create .invalid file if needed
+            tracing::info!(
+                "Validating recording at {}",
+                self.recording_location.display()
+            );
+            match validate_folder(&self.recording_location) {
+                Ok(_) => {
+                    tracing::info!("Recording validation passed");
+                }
+                Err(validation_errors) => {
+                    tracing::error!("Recording validation failed: {:?}", validation_errors);
+                    tokio::fs::write(
+                        self.recording_location
+                            .join(constants::filename::recording::INVALID),
+                        validation_errors.join("\n"),
+                    )
+                    .await?;
+                }
+            }
         }
 
         Ok(())
