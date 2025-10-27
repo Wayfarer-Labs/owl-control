@@ -39,7 +39,7 @@ pub struct UploadMultipartChunkResponse {
     pub expires_at: u64,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteMultipartUploadChunk {
     pub chunk_number: u64,
     pub etag: String,
