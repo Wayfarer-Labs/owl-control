@@ -137,7 +137,15 @@ impl MainApp {
                                 .strong(),
                         );
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            tooltip(ui, "Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.", None);
+                            tooltip(
+                                ui,
+                                concat!(
+                                    "Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.",
+                                    "\n\n",
+                                    "Recordings will automatically stop every 10 minutes to split them into smaller files. This is intentional behaviour to prevent data loss and make uploads more manageable. The recording will resume automatically after stopping, so you don't need to do anything."
+                                ),
+                                None
+                            );
                         });
                     });
                     ui.separator();
