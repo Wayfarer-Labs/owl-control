@@ -1,32 +1,28 @@
+<div align="right">Searchable Index ↑↑↑↑↑</div>
+
 # Preferred Games
 
-You may have heard that we are offering to buy games for people so long as they commit to getting us a significant amount of data from that game.
-
-The caveat with this is that we are choosing which games to buy to control the data mixture. We will only buy _preferred games_. While you can use the list below as reference, this refers to games that are:
+ We buy _preferred games_ for contributors who provide significant amounts of data. Just ask for a key!
 
 - First-person
 - High-quality/detailed (Need not be AAA/new, i.e. Crysis 3)
 - Action-packed (doesn't need to be fighting, just lots of events happening beyond moving/looking around)
 
-If you would like a game that fits these criteria and are willing to collect data for it, let us know and we can get you a key!
+# Usage Guide
+⌧ Avoid capturing voice chat of real people in any Co-Op/PvP games.
+⌧ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.
 
-Note that not all games in the below list necessarily meet the above criteria, and that failing to meet this criteria does not make a game "bad data".
+☑ Use external apps like Discord for voice
+☑︎ Play games in first-person mode as much as possible
+☑︎ Run games as Administrator if marked with `(admin)`
+☑︎ Playing a single game repeatedly is fine. Try to do new things each time!
+☑︎ Mods are allowed!
 
-Some games support both first- and third-person mode; where possible, please play games in first-person mode.
+> [!IMPORTANT]
+> We don't capture your voice or any music playing in the background that isn't within the game.
+> We don't capture any windows or inputs other than those sent to your own game.
+> Split-screen and VR games are not supported.
 
-Games marked as `(admin)` have been reported to require running OWL Control in administrator mode to record correctly. Please verify your recordings are not all-black when recording these games.
-
-# Usage Guidelines
-
-**Be careful with voice chat!** While OWL Control does not capture microphone input, it will capture other people's voice chat in games. Here's what to watch out for:
-
-- **Your own voice (✅):** Never recorded (microphone is not captured).
-- **NPC voices (✅):** Fine to record - we want to hear what they're saying.
-- **Other players in voice chat (❌):** Please avoid recording this. The model might learn their voices and it's a privacy risk. Instead, use Discord or another external voice chat solution so their conversations won't be recorded.
-
-**Replaying games is OK!** It's perfectly fine to replay games you've already played, but try to play a bit differently between playthroughs. This could mean different approaches, strategies, or playstyles. It's okay if you can't play _that_ differently - we're looking to cover as many of the ways you can play games as possible.
-
-**Mods are OK!** Feel free to use game modifications (mods) while recording. We're happy to collect data from modded playthroughs as well - it represents valid gameplay scenarios.
 
 <details><summary>Top-Priority Games</summary>
 
@@ -35,37 +31,37 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 ### + [Sons of the Forest](https://store.steampowered.com/app/1326470/Sons_Of_The_Forest)
 ### + [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
 ### + [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
-### - [PowerWash Simulator 2](https://store.steampowered.com/app/2968420/PowerWash_Simulator_2/)
-### - [PowerWash Simulator](https://store.steampowered.com/app/1290000/PowerWash_Simulator/)
-### - [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
-### - [House Flipper](https://store.steampowered.com/app/613100/House_Flipper/)
-### - [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
-### - [Vampire: The Masquerade® - Bloodlines 2](https://store.steampowered.com/app/532790/Vampire_The_Masquerade__Bloodlines_2/)
-### - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
-### - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
-### - [The Vanishing of Ethan Carter](https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter)
-### - [Jazzpunk](https://store.steampowered.com/app/250260/Jazzpunk_Directors_Cut)
-### - [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
-### - [Tacoma](https://store.steampowered.com/app/343860/Tacoma/)
-### - [Layers of Fear 2](https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019)
-### - [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
-### - [The Witness](https://store.steampowered.com/app/210970/The_Witness/)
-### - [What Remains of Edith Finch](https://store.steampowered.com/app/501300/What_Remains_of_Edith_Finch/)
-### - [The Unfinished Swan](https://store.steampowered.com/app/1206430/The_Unfinished_Swan/)
-### - [Superliminal](https://store.steampowered.com/app/1049410/Superliminal/)
-### - [The Talos Principle](https://store.steampowered.com/app/257510/The_Talos_Principle/)
-### - [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
-### - [The Stanley Parable: Ultra Deluxe](https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/)
-### - [Thief](https://store.steampowered.com/app/239160/Thief/)
-### - [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/) (admin)
-### - [Gone Home](https://store.steampowered.com/app/232430/Gone_Home/)
-### - [Dear Esther](https://store.steampowered.com/app/203810/Dear_Esther_Landmark_Edition/)
-### - [Everyone's Gone to the Rapture](https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/)
-### - [Layers of Fear](https://store.steampowered.com/app/391720/Layers_of_Fear/)
-### - [Madison](https://store.steampowered.com/app/1670870/MADiSON/)
-### - [Visage](https://store.steampowered.com/app/594330/Visage/)
-### - [Close to the Sun](https://store.steampowered.com/app/968870/Close_to_the_Sun/)
-### - [Conundrum](https://store.steampowered.com/app/1744140/Conundrum/)</details>
+### + [PowerWash Simulator 2](https://store.steampowered.com/app/2968420/PowerWash_Simulator_2/)
+### + [PowerWash Simulator](https://store.steampowered.com/app/1290000/PowerWash_Simulator/)
+### + [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
+### + [House Flipper](https://store.steampowered.com/app/613100/House_Flipper/)
+### + [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
+### + [Vampire: The Masquerade® - Bloodlines 2](https://store.steampowered.com/app/532790/Vampire_The_Masquerade__Bloodlines_2/)
+### + [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
+### + [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
+### + [The Vanishing of Ethan Carter](https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter)
+### + [Jazzpunk](https://store.steampowered.com/app/250260/Jazzpunk_Directors_Cut)
+### + [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
+### + [Tacoma](https://store.steampowered.com/app/343860/Tacoma/)
+### + [Layers of Fear 2](https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019)
+### + [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
+### + [The Witness](https://store.steampowered.com/app/210970/The_Witness/)
+### + [What Remains of Edith Finch](https://store.steampowered.com/app/501300/What_Remains_of_Edith_Finch/)
+### + [The Unfinished Swan](https://store.steampowered.com/app/1206430/The_Unfinished_Swan/)
+### + [Superliminal](https://store.steampowered.com/app/1049410/Superliminal/)
+### + [The Talos Principle](https://store.steampowered.com/app/257510/The_Talos_Principle/)
+### + [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
+### + [The Stanley Parable: Ultra Deluxe](https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/)
+### + [Thief](https://store.steampowered.com/app/239160/Thief/)
+### + [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/) (admin)
+### + [Gone Home](https://store.steampowered.com/app/232430/Gone_Home/)
+### + [Dear Esther](https://store.steampowered.com/app/203810/Dear_Esther_Landmark_Edition/)
+### + [Everyone's Gone to the Rapture](https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/)
+### + [Layers of Fear](https://store.steampowered.com/app/391720/Layers_of_Fear/)
+### + [Madison](https://store.steampowered.com/app/1670870/MADiSON/)
+### + [Visage](https://store.steampowered.com/app/594330/Visage/)
+### + [Close to the Sun](https://store.steampowered.com/app/968870/Close_to_the_Sun/)
+### + [Conundrum](https://store.steampowered.com/app/1744140/Conundrum/)</details>
 
 ## Lower-Priority Games
 
