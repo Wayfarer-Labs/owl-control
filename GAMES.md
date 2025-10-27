@@ -1,4 +1,6 @@
-<div align="right"># Click `☰` for Outline to search this index ↑↑↑↑↑</div>
+<div align="right">
+
+# Click `☰` for Outline to search this index ↑↑↑↑↑</div>
 
 # Preferred Games
 
