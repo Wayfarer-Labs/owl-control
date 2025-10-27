@@ -28,8 +28,13 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 **Mods are OK!** Feel free to use game modifications (mods) while recording. We're happy to collect data from modded playthroughs as well - it represents valid gameplay scenarios.
 
-## Top-Priority Games
+<details><summary>Top-Priority Games</summary>
 
+### - [Outer Worlds 2](https://store.steampowered.com/app/1449110/The_Outer_Worlds_2/)
+### - [Outer Worlds](https://store.steampowered.com/app/578650/The_Outer_Worlds/)
+### - [RV There Yet](https://store.steampowered.com/app/3949040/RV_There_Yet/)
+### - [Amnesia](https://store.steampowered.com/franchise/frictionalgames/list/37237)
+### - [Soma](https://store.steampowered.com/app/282140/SOMA/)</details>
 
 - [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
 - [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
@@ -38,7 +43,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 - [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
 - [House Flipper](https://store.steampowered.com/app/613100/House_Flipper/)
 - [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
-
 - [Vampire: The Masquerade® - Bloodlines 2](https://store.steampowered.com/app/532790/Vampire_The_Masquerade__Bloodlines_2/)
 - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
