@@ -415,18 +415,18 @@ impl MainApp {
                     // Upload Button
                     ui.add_space(5.0);
                     if is_uploading {
-                        // Show Cancel button when uploading
+                        // Show Pause/Cancel button when uploading
                         ui.add_enabled_ui(!self.app_state.upload_cancel_flag.load(std::sync::atomic::Ordering::Relaxed), |ui| {
                             if ui
                                 .add_sized(
                                     egui::vec2(ui.available_width(), 32.0),
                                     egui::Button::new(
-                                        egui::RichText::new("Cancel Upload")
+                                        egui::RichText::new("Pause/Cancel Upload")
                                             .size(12.0)
                                             .color(egui::Color32::WHITE),
                                     )
                                     .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                )
+                                ).on_hover_text("Pause the current upload, or cancel the next upload. The next upload will resume where the current one left off.")
                                 .clicked()
                             {
                                 self.app_state
