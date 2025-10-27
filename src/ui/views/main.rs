@@ -369,9 +369,7 @@ impl MainApp {
                         ui.add_space(10.0);
 
                         // Display current file and files remaining
-                        if let Some(file_progress) = &progress.file_progress {
-                            ui.label(format!("Uploading: {} ({} files remaining)", file_progress.current_file, file_progress.files_remaining));
-                        }
+                        ui.label(format!("Uploading: {} ({} files remaining)", progress.file_progress.current_file, progress.file_progress.files_remaining));
 
                         ui.label(format!(
                             "Current upload: {:.2}% ({}/{})",

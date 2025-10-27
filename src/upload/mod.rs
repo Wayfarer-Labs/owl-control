@@ -30,7 +30,7 @@ pub struct ProgressData {
     pub speed_mbps: f64,
     pub eta_seconds: f64,
     pub percent: f64,
-    pub file_progress: Option<FileProgress>,
+    pub file_progress: FileProgress,
 }
 
 #[derive(Debug, Clone)]
@@ -690,8 +690,7 @@ async fn upload_tar(
         // Initialize progress sender with bytes already uploaded
         let bytes_already_uploaded = (start_chunk - 1) * upload_session.chunk_size_bytes;
         let progress_sender = Arc::new(Mutex::new({
-            let mut sender =
-                ProgressSender::new(tx.clone(), file_size, Some(file_progress.clone()));
+            let mut sender = ProgressSender::new(tx.clone(), file_size, file_progress);
             sender.set_bytes_uploaded(bytes_already_uploaded);
             sender
         }));
@@ -897,14 +896,10 @@ struct ProgressSender {
     last_update_time: std::time::Instant,
     file_size: u64,
     start_time: std::time::Instant,
-    file_progress: Option<FileProgress>,
+    file_progress: FileProgress,
 }
 impl ProgressSender {
-    pub fn new(
-        tx: app_state::UiUpdateSender,
-        file_size: u64,
-        file_progress: Option<FileProgress>,
-    ) -> Self {
+    pub fn new(tx: app_state::UiUpdateSender, file_size: u64, file_progress: FileProgress) -> Self {
         Self {
             tx,
             bytes_uploaded: 0,
