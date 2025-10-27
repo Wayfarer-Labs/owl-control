@@ -30,13 +30,11 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 <details><summary>Top-Priority Games</summary>
 
-### - [Outer Worlds 2](https://store.steampowered.com/app/1449110/The_Outer_Worlds_2/)
-### - [Outer Worlds](https://store.steampowered.com/app/578650/The_Outer_Worlds/)
-### - [RV There Yet](https://store.steampowered.com/app/3949040/RV_There_Yet/)
-### - [Amnesia](https://store.steampowered.com/franchise/frictionalgames/list/37237)
-### - [Soma](https://store.steampowered.com/app/282140/SOMA/)
-### - [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
-### - [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
+### + [Fishing Planet](https://store.steampowered.com/app/380600/Fishing_Planet/)
+### + [Thief Simulator](https://store.steampowered.com/app/704850/Thief_Simulator/)
+### + [Sons of the Forest](https://store.steampowered.com/app/1326470/Sons_Of_The_Forest)
+### + [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
+### + [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
 ### - [PowerWash Simulator 2](https://store.steampowered.com/app/2968420/PowerWash_Simulator_2/)
 ### - [PowerWash Simulator](https://store.steampowered.com/app/1290000/PowerWash_Simulator/)
 ### - [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
@@ -84,6 +82,9 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 <details><summary>Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)</summary>
 
+### - [Outer Worlds 2](https://store.steampowered.com/app/1449110/The_Outer_Worlds_2/)
+### - [Outer Worlds](https://store.steampowered.com/app/578650/The_Outer_Worlds/)
+### - [RV There Yet](https://store.steampowered.com/app/3949040/RV_There_Yet/)
 ### - [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
 ### - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
 ### - [BeamNG.drive](https://store.steampowered.com/app/284160/BeamNGdrive)
@@ -102,6 +103,7 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 <details><summary>Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)</summary>
 
+### - [Indiana Jones and the Great Circle](https://discord.com/channels/1368288528429088860/1412456753001533471/1432471683263889541)
 ### - [Hardspace: Shipbreaker](https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker)
 ### - [Keep Digging](https://store.steampowered.com/app/3585800/Keep_Digging)
 ### - [Peak](https://store.steampowered.com/app/3527290/PEAK) (no voice chat)
@@ -143,6 +145,8 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 <details><summary>Horror / Evasion (resource management, pursuit‑evasion, sensory stress)</summary>
 
+### - [Amnesia](https://store.steampowered.com/franchise/frictionalgames/list/37237)
+### - [Soma](https://store.steampowered.com/app/282140/SOMA/)
 ### - [Bigfoot](https://store.steampowered.com/app/509980/BIGFOOT/)
 ### - [Content Warning](https://store.steampowered.com/app/2881650/Content_Warning/) (no voice chat)
 ### - [Cry of Fear](https://store.steampowered.com/app/223710/Cry_of_Fear)(free)
