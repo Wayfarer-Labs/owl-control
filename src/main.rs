@@ -14,6 +14,7 @@ mod tokio_thread;
 mod ui;
 mod upload;
 mod util;
+mod validation;
 
 use std::path::PathBuf;
 

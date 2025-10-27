@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{system::hardware_specs, upload::validation::InputStats};
+use crate::{system::hardware_specs, validation::InputStats};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {

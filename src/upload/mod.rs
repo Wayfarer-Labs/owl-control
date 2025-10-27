@@ -12,9 +12,8 @@ use crate::{
     api::{ApiClient, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
     app_state::{self, AppState, AsyncRequest},
     output_types::Metadata,
+    validation::{ValidationResult, validate_folder},
 };
-
-pub mod validation;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct FileProgress {
@@ -293,17 +292,11 @@ async fn upload_folder(
     file_progress: FileProgress,
 ) -> eyre::Result<RecordingStats> {
     tracing::info!("Validating folder {}", path.display());
-    let validation = match validate_folder(path) {
-        Ok(validation_paths) => validation_paths,
-        Err(e) => {
-            std::fs::write(
-                path.join(constants::filename::recording::INVALID),
-                e.join("\n"),
-            )
-            .ok();
-            eyre::bail!("Validation failures: {}", e.join("\n"));
-        }
-    };
+    let validation = tokio::task::spawn_blocking({
+        let path = path.to_owned();
+        move || validate_folder(&path)
+    })
+    .await??;
 
     tracing::info!("Creating tar file for {}", path.display());
     let tar_path = create_tar_file(&validation).await?;
@@ -353,78 +346,6 @@ async fn upload_folder(
             .map(|m| m.len())
             .unwrap_or_default(),
     })
-}
-
-// This is a bit messy - I don't love using a Vec of Strings for the errors -
-// but I wanted to capture the multi-error nature of the validation process
-//
-// TODO: Think of a better way to handle this
-#[derive(Clone)]
-pub struct ValidationResult {
-    mp4_path: PathBuf,
-    csv_path: PathBuf,
-    meta_path: PathBuf,
-    metadata: Metadata,
-}
-pub fn validate_folder(path: &Path) -> Result<ValidationResult, Vec<String>> {
-    // This is not guaranteed to be constants::recording::VIDEO_FILENAME if the WebSocket recorder
-    // is being used, which is why we search for it
-    let Some(mp4_path) = path
-        .read_dir()
-        .map_err(|e| vec![e.to_string()])?
-        .flatten()
-        .map(|e| e.path())
-        .find(|e| e.extension().and_then(|e| e.to_str()) == Some("mp4"))
-    else {
-        return Err(vec![format!("No MP4 file found in {}", path.display())]);
-    };
-    let csv_path = path.join(constants::filename::recording::INPUTS);
-    if !csv_path.is_file() {
-        return Err(vec![format!(
-            "No CSV file found in {} (expected {})",
-            path.display(),
-            csv_path.display()
-        )]);
-    }
-    let meta_path = path.join(constants::filename::recording::METADATA);
-    if !meta_path.is_file() {
-        return Err(vec![format!(
-            "No metadata file found in {} (expected {})",
-            path.display(),
-            meta_path.display()
-        )]);
-    }
-
-    let metadata = std::fs::read_to_string(&meta_path)
-        .map_err(|e| vec![format!("Error reading metadata file: {e:?}")])?;
-    let mut metadata = serde_json::from_str::<Metadata>(&metadata)
-        .map_err(|e| vec![format!("Error parsing metadata file: {e:?}")])?;
-
-    let (input_stats, mut invalid_reasons) =
-        validation::for_recording(&metadata, &mp4_path, &csv_path)
-            .map_err(|e| vec![format!("Error validating recording at {path:?}: {e:?}")])?;
-
-    metadata.input_stats = Some(input_stats);
-
-    match serde_json::to_string_pretty(&metadata) {
-        Ok(metadata) => {
-            if let Err(e) = std::fs::write(&meta_path, metadata) {
-                invalid_reasons.push(format!("Error writing metadata file: {e:?}"));
-            }
-        }
-        Err(e) => invalid_reasons.push(format!("Error generating JSON for metadata file: {e:?}")),
-    }
-
-    if invalid_reasons.is_empty() {
-        Ok(ValidationResult {
-            mp4_path,
-            csv_path,
-            meta_path,
-            metadata,
-        })
-    } else {
-        Err(invalid_reasons)
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
