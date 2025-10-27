@@ -543,9 +543,8 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
 
     let latest_valid_release = releases.iter().find(|r| {
         !r.draft
-        // filter out prerelease and release candidates that we don't want users to automatically install
+        // filter out prereleases that we don't want users to automatically install
         && !r.prerelease
-        && !r.tag_name.contains("-rc")
     });
     tracing::info!(latest_valid_release=?latest_valid_release, "Fetched latest valid release");
 
@@ -564,7 +563,8 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
             .ui_update_tx
             .try_send(UiUpdate::UpdateNewerReleaseAvailable(GitHubRelease {
                 name: latest_valid_release.name,
-                url: download_url,
+                release_notes_url: latest_valid_release.html_url,
+                download_url,
                 release_date: latest_valid_release.published_at,
             }))
             .ok();

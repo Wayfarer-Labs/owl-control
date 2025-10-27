@@ -86,7 +86,8 @@ pub enum HotkeyRebindTarget {
 
 pub struct GitHubRelease {
     pub name: String,
-    pub url: String,
+    pub release_notes_url: String,
+    pub download_url: String,
     pub release_date: Option<chrono::DateTime<chrono::Utc>>,
 }
 

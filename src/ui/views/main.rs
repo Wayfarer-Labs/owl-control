@@ -75,7 +75,7 @@ impl MainApp {
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
 
-                ui.add_space(15.0);
+                ui.add_space(8.0);
             }
 
             // Show OBS warning if necessary
@@ -87,7 +87,7 @@ impl MainApp {
             {
                 obs_running_warning(ui);
 
-                ui.add_space(15.0);
+                ui.add_space(8.0);
             }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -532,22 +532,47 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
 
                 ui.add_space(8.0);
 
+                let button_width = 200.0;
+                let button_height = 35.0;
+
+                // Release notes button
+                if ui
+                    .add_sized(
+                        egui::vec2(button_width, button_height),
+                        egui::Button::new(
+                            egui::RichText::new("Release Notes")
+                                .size(14.0)
+                                .strong()
+                                .color(egui::Color32::WHITE),
+                        )
+                        .fill(egui::Color32::from_rgb(0x1D, 0x6D, 0xA7)),
+                    )
+                    .clicked()
+                {
+                    #[allow(clippy::collapsible_if)]
+                    if let Err(e) = opener::open_browser(&release.release_notes_url) {
+                        tracing::error!("Failed to open release notes URL: {}", e);
+                    }
+                }
+
+                ui.add_space(4.0);
+
                 // Download button
                 if ui
                     .add_sized(
-                        egui::vec2(200.0, 35.0),
+                        egui::vec2(button_width, button_height),
                         egui::Button::new(
                             egui::RichText::new("Download Now")
                                 .size(14.0)
                                 .strong()
                                 .color(egui::Color32::WHITE),
                         )
-                        .fill(egui::Color32::from_rgb(40, 167, 69)), // Green button
+                        .fill(egui::Color32::from_rgb(0x28, 0xA7, 0x1D)), // Green button
                     )
                     .clicked()
                 {
                     #[allow(clippy::collapsible_if)]
-                    if let Err(e) = opener::open_browser(&release.url) {
+                    if let Err(e) = opener::open_browser(&release.download_url) {
                         tracing::error!("Failed to open release URL: {}", e);
                     }
                 }
