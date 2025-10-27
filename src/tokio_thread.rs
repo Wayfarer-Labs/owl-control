@@ -508,6 +508,12 @@ async fn get_unsupported_games() -> Result<UnsupportedGames> {
 
 async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
     #[derive(serde::Deserialize, Debug, Clone)]
+    struct Asset {
+        name: String,
+        browser_download_url: String,
+    }
+
+    #[derive(serde::Deserialize, Debug, Clone)]
     struct Release {
         html_url: String,
         published_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -515,6 +521,7 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
         name: String,
         draft: bool,
         prerelease: bool,
+        assets: Vec<Asset>,
     }
 
     let current_version = env!("CARGO_PKG_VERSION");
@@ -534,17 +541,30 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
         .await
         .context("Failed to parse releases from GitHub")?;
 
-    let latest_valid_release = releases.iter().find(|r| !r.draft && !r.prerelease);
+    let latest_valid_release = releases.iter().find(|r| {
+        !r.draft
+        // filter out prerelease and release candidates that we don't want users to automatically install
+        && !r.prerelease
+        && !r.tag_name.contains("-rc")
+    });
     tracing::info!(latest_valid_release=?latest_valid_release, "Fetched latest valid release");
 
     if let Some(latest_valid_release) = latest_valid_release.cloned()
         && is_version_newer(current_version, &latest_valid_release.tag_name)
     {
+        // Find the Windows installer asset (.exe file)
+        let download_url = latest_valid_release
+            .assets
+            .iter()
+            .find(|asset| asset.name.ends_with(".exe"))
+            .map(|asset| asset.browser_download_url.clone())
+            .unwrap_or(latest_valid_release.html_url.clone());
+
         app_state
             .ui_update_tx
             .try_send(UiUpdate::UpdateNewerReleaseAvailable(GitHubRelease {
                 name: latest_valid_release.name,
-                url: latest_valid_release.html_url,
+                url: download_url,
                 release_date: latest_valid_release.published_at,
             }))
             .ok();
