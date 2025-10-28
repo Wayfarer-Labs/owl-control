@@ -11,7 +11,7 @@ use tokio::{io::AsyncReadExt, sync::mpsc};
 use crate::{
     api::{ApiClient, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
     app_state::{self, AppState, AsyncRequest},
-    output_types::Metadata,
+    record::LocalRecording,
     validation::{ValidationResult, validate_folder},
 };
 
@@ -29,33 +29,6 @@ pub struct ProgressData {
     pub eta_seconds: f64,
     pub percent: f64,
     pub file_progress: FileProgress,
-}
-
-#[derive(Debug, Clone)]
-pub struct LocalRecordingInfo {
-    pub folder_name: String,
-    pub folder_path: PathBuf,
-    pub folder_size: u64,
-    pub timestamp: Option<std::time::SystemTime>,
-}
-#[derive(Debug, Clone)]
-pub enum LocalRecording {
-    Invalid {
-        info: LocalRecordingInfo,
-        error_reasons: Vec<String>,
-    },
-    Unuploaded {
-        info: LocalRecordingInfo,
-        metadata: Option<Box<Metadata>>,
-    },
-}
-impl LocalRecording {
-    pub fn info(&self) -> &LocalRecordingInfo {
-        match self {
-            LocalRecording::Invalid { info, .. } => info,
-            LocalRecording::Unuploaded { info, .. } => info,
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -138,54 +111,35 @@ async fn run(
 ) -> eyre::Result<FinalStats> {
     let mut stats = FinalStats::default();
 
-    // Count total files to upload
-    let total_files_to_upload = recording_location
-        .read_dir()?
-        .flatten()
-        .filter(|entry| {
-            let path = entry.path();
-            path.is_dir()
-                && !path.join(constants::filename::recording::INVALID).is_file()
-                && !path
-                    .join(constants::filename::recording::UPLOADED)
-                    .is_file()
+    // Scan all local recordings and filter to only unuploaded ones
+    let recordings_to_upload: Vec<_> = LocalRecording::scan_directory(recording_location)
+        .into_iter()
+        .filter_map(|rec| match rec {
+            LocalRecording::Unuploaded { info, .. } => Some(info),
+            _ => None,
         })
-        .count() as u64;
+        .collect();
+
+    let total_files_to_upload = recordings_to_upload.len() as u64;
 
     let mut last_upload_time = std::time::Instant::now();
     let reload_every_n_files = 5;
     let reload_if_at_least_has_passed = std::time::Duration::from_secs(2 * 60);
-    for entry in recording_location.read_dir()? {
+    for info in recordings_to_upload {
         // Check if upload has been cancelled
         if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
             eyre::bail!("Upload cancelled by user");
         }
 
-        let entry = entry?;
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-
-        if path.join(constants::filename::recording::INVALID).is_file()
-            || path
-                .join(constants::filename::recording::UPLOADED)
-                .is_file()
-        {
-            continue;
-        }
+        let path = &info.folder_path;
 
         let file_progress = FileProgress {
-            current_file: path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| path.to_string_lossy().to_string()),
+            current_file: info.folder_name.clone(),
             files_remaining: total_files_to_upload.saturating_sub(stats.total_files_uploaded),
         };
 
         let recording_stats = match upload_folder(
-            &path,
+            path,
             api_client.clone(),
             &api_token,
             unreliable_connection,
@@ -682,94 +636,4 @@ impl ProgressSender {
             .try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))
             .ok();
     }
-}
-
-/// Scans the recording location for folders with .invalid files or without .uploaded files and returns information about them
-pub fn scan_local_recordings(recording_location: &Path) -> Vec<LocalRecording> {
-    let mut local_recordings = Vec::new();
-
-    let Ok(entries) = recording_location.read_dir() else {
-        return local_recordings;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-
-        let invalid_file_path = path.join(constants::filename::recording::INVALID);
-        let uploaded_file_path = path.join(constants::filename::recording::UPLOADED);
-        let metadata_path = path.join(constants::filename::recording::METADATA);
-
-        // Get the folder name
-        let folder_name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("Unknown")
-            .to_string();
-
-        // Parse the timestamp from the folder name (unix timestamp in seconds)
-        // Surely the user won't change the folder name :cluegi:
-        let timestamp = folder_name
-            .parse::<u64>()
-            .ok()
-            .map(|secs| std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs));
-
-        let info = LocalRecordingInfo {
-            folder_name,
-            folder_size: folder_size(&path).unwrap_or_default(),
-            folder_path: path,
-            timestamp,
-        };
-
-        if invalid_file_path.is_file() {
-            // Read the error reasons from the .invalid file
-            let error_reasons = std::fs::read_to_string(&invalid_file_path)
-                .unwrap_or_else(|_| "Unknown error".to_string())
-                .lines()
-                .map(|s| s.to_string())
-                .collect();
-
-            local_recordings.push(LocalRecording::Invalid {
-                info,
-                error_reasons,
-            });
-        } else if !uploaded_file_path.is_file() {
-            // Not uploaded yet (and not invalid)
-            let metadata: Option<Metadata> = std::fs::read_to_string(metadata_path)
-                .ok()
-                .and_then(|s| serde_json::from_str(&s).ok());
-            local_recordings.push(LocalRecording::Unuploaded {
-                info,
-                metadata: metadata.map(Box::new),
-            });
-        }
-    }
-
-    // Sort by timestamp, most recent first
-    local_recordings.sort_by(|a, b| {
-        b.info()
-            .timestamp
-            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-            .cmp(
-                &a.info()
-                    .timestamp
-                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH),
-            )
-    });
-
-    local_recordings
-}
-
-fn folder_size(path: &Path) -> Result<u64, std::io::Error> {
-    let mut size = 0;
-    for entry in path.read_dir()? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_file() {
-            size += path.metadata()?.len();
-        }
-    }
-    Ok(size)
 }

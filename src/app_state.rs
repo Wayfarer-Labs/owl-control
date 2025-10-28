@@ -10,7 +10,8 @@ use tokio::sync::mpsc;
 use crate::{
     api::UserUploads,
     config::Config,
-    upload::{LocalRecording, ProgressData},
+    record::LocalRecording,
+    upload::ProgressData,
 };
 
 pub struct AppState {
