@@ -1,14 +1,14 @@
 # Usage Guide
 
-⌧ Avoid capturing voice chat of real people in any Co-Op/PvP games, especially if marked with `(no voice)`.<br>
-⌧ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.<br>
-⌧ Avoid recording nudity or similar NSFW content.<br>
+❌ Avoid capturing voice chat of real people in any Co-Op/PvP games, especially if marked with `(no voice)`.<br>
+❌ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.<br>
+❌ Avoid recording nudity or similar NSFW content.<br>
 
-☑︎ Use external apps like Discord for voice<br>
-☑︎ Play games in first-person mode as much as possible<br>
-☑︎ Run games as Administrator if marked with `(admin)`<br>
-☑︎ Playing a single game repeatedly is fine. Try to do new things each time!<br>
-☑︎ Game mods are allowed!<br>
+✅ Use external apps like Discord for voice<br>
+✅ Play games in first-person mode as much as possible<br>
+✅ Run games as Administrator if marked with `(admin)`<br>
+✅ Playing a single game repeatedly is fine. Try to do new things each time!<br>
+✅ Game mods are allowed!<br>
 
 > [!IMPORTANT]
 >
