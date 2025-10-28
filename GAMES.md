@@ -1,17 +1,17 @@
-
 # Usage Guide
 
 ⌧ Avoid capturing voice chat of real people in any Co-Op/PvP games, especially if marked with `(no voice)`.<br>
 ⌧ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.<br>
 ⌧ Avoid recording nudity or similar NSFW content.<br>
 
-☑ Use external apps like Discord for voice<br>
+☑︎ Use external apps like Discord for voice<br>
 ☑︎ Play games in first-person mode as much as possible<br>
 ☑︎ Run games as Administrator if marked with `(admin)`<br>
 ☑︎ Playing a single game repeatedly is fine. Try to do new things each time!<br>
 ☑︎ Game mods are allowed!<br>
 
 > [!IMPORTANT]
+>
 > - We buy games from `Top-priority` for contributors who provide significant amounts of data.
 > - We don't capture your voice or any music playing in the background that isn't within the game.
 > - We don't capture any windows or inputs other than those sent to your own game.
@@ -19,8 +19,7 @@
 
 ## Top-Priority Games
 
-First-person, High-quality/detailed, Active
-
+### First-person, High-quality/detailed, Active
 
 - [Fishing Planet](https://store.steampowered.com/app/380600/Fishing_Planet/)
 - [Thief Simulator](https://store.steampowered.com/app/704850/Thief_Simulator/)
@@ -61,7 +60,7 @@ First-person, High-quality/detailed, Active
 
 ## Lower-Priority Games
 
-Movement / Parkour (continuous control, momentum, traversal)
+### Movement / Parkour (continuous control, momentum, traversal)
 
 - [Ghostrunner 2](https://store.steampowered.com/app/2144740/Ghostrunner_2)
 - [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT)
@@ -72,7 +71,7 @@ Movement / Parkour (continuous control, momentum, traversal)
 - [Dying Light 2](https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human/)
 - [Ghostrunner](https://store.steampowered.com/app/1139900/Ghostrunner/)
 
-Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
+### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
 - [Outer Worlds 2](https://store.steampowered.com/app/1449110/The_Outer_Worlds_2/)
 - [Outer Worlds](https://store.steampowered.com/app/578650/The_Outer_Worlds/)
@@ -93,7 +92,7 @@ Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 - [Fallout: New Vegas](https://store.steampowered.com/app/22380/Fallout_New_Vegas/)
 - [Red Dead Redemption 2](https://store.steampowered.com/app/1174180/Red_Dead_Redemption_2/)
 
-Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)
+### Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)
 
 - [Indiana Jones and the Great Circle](https://discord.com/channels/1368288528429088860/1412456753001533471/1432471683263889541)
 - [Hardspace: Shipbreaker](https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker)
@@ -108,7 +107,7 @@ Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)
 - [Prey (2017)](https://store.steampowered.com/app/480490/Prey/)
 - [System Shock (2023 Remake)](https://store.steampowered.com/app/482400/System_Shock/)
 
-Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
+### Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
 
 - [Escape From Tarkov](https://store.steampowered.com/app/3932890/Escape_from_Tarkov)
 - [BioShock Infinite](https://store.steampowered.com/app/8870/BioShock_Infinite/)
@@ -118,7 +117,7 @@ Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
 - [F.E.A.R.](https://store.steampowered.com/app/21090/FEAR/)
 - [Shadows of Doubt](https://store.steampowered.com/app/986130/Shadows_of_Doubt)
 
-Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
+### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
 - [Painkiller](https://store.steampowered.com/app/2300120/Painkiller/)
 - [DOOM 2016](https://store.steampowered.com/app/379720/DOOM/)
@@ -135,7 +134,7 @@ Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 - [S.T.A.L.K.E.R.: Call of Pripyat](https://store.steampowered.com/app/41700/STALKER_Call_of_Pripyat/)
 - [S.T.A.L.K.E.R.: Shadow of Chernobyl](https://store.steampowered.com/app/4500/STALKER_Shadow_of_Chernobyl/)
 
-Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
+### Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
 
 - [Amnesia](https://store.steampowered.com/franchise/frictionalgames/list/37237)
 - [Soma](https://store.steampowered.com/app/282140/SOMA/)
@@ -162,7 +161,7 @@ Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
 - [Resident Evil 7: Biohazard](https://store.steampowered.com/app/418370/RESIDENT_EVIL_7_biohazard/)
 - [Resident Evil Village](https://store.steampowered.com/app/1196590/Resident_Evil_Village/)
 
-Campaign Shooters / Combined Arms (vehicles, squad AI, large arenas)
+### Campaign Shooters / Combined Arms (vehicles, squad AI, large arenas)
 
 - [Gunfire Reborn](https://store.steampowered.com/app/1217060/Gunfire_Reborn)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
