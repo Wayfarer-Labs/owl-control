@@ -1,36 +1,29 @@
-# Preferred Games
+# Usage Guide
 
-You may have heard that we are offering to buy games for people so long as they commit to getting us a significant amount of data from that game.
+❌ Avoid capturing voice chat of real people in any Co-Op/PvP games, especially if marked with `(no voice)`.<br>
+❌ Do not idle, bot, or capture cutscenes during recording. The recording will not count towards your data total.<br>
+❌ Avoid recording nudity or similar NSFW content.<br>
 
-The caveat with this is that we are choosing which games to buy to control the data mixture. We will only buy _preferred games_. While you can use the list below as reference, this refers to games that are:
+✅ Use external apps like Discord for voice<br>
+✅ Play games in first-person mode as much as possible<br>
+✅ Run games as Administrator if marked with `(admin)`<br>
+✅ Playing a single game repeatedly is fine. Try to do new things each time!<br>
+✅ Game mods are allowed!<br>
 
-- First-person
-- High-quality/detailed (Need not be AAA/new, i.e. Crysis 3)
-- Action-packed (doesn't need to be fighting, just lots of events happening beyond moving/looking around)
-
-If you would like a game that fits these criteria and are willing to collect data for it, let us know and we can get you a key!
-
-Note that not all games in the below list necessarily meet the above criteria, and that failing to meet this criteria does not make a game "bad data".
-
-Some games support both first- and third-person mode; where possible, please play games in first-person mode.
-
-Games marked as `(admin)` have been reported to require running OWL Control in administrator mode to record correctly. Please verify your recordings are not all-black when recording these games.
-
-# Usage Guidelines
-
-**Be careful with voice chat!** While OWL Control does not capture microphone input, it will capture other people's voice chat in games. Here's what to watch out for:
-
-- **Your own voice (✅):** Never recorded (microphone is not captured).
-- **NPC voices (✅):** Fine to record - we want to hear what they're saying.
-- **Other players in voice chat (❌):** Please avoid recording this. The model might learn their voices and it's a privacy risk. Instead, use Discord or another external voice chat solution so their conversations won't be recorded.
-
-**Replaying games is OK!** It's perfectly fine to replay games you've already played, but try to play a bit differently between playthroughs. This could mean different approaches, strategies, or playstyles. It's okay if you can't play _that_ differently - we're looking to cover as many of the ways you can play games as possible.
-
-**Mods are OK!** Feel free to use game modifications (mods) while recording. We're happy to collect data from modded playthroughs as well - it represents valid gameplay scenarios.
+> [!IMPORTANT]
+>
+> - We buy games from `Top-priority` for contributors who provide significant amounts of data.
+> - We don't capture your voice or any music playing in the background that isn't within the game.
+> - We don't capture any windows or inputs other than those sent to your own game.
+> - Split-screen and VR games are not supported.
 
 ## Top-Priority Games
 
+### First-person, High-quality/detailed, Active
 
+- [Fishing Planet](https://store.steampowered.com/app/380600/Fishing_Planet/)
+- [Thief Simulator](https://store.steampowered.com/app/704850/Thief_Simulator/)
+- [Sons of the Forest](https://store.steampowered.com/app/1326470/Sons_Of_The_Forest)
 - [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
 - [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
 - [PowerWash Simulator 2](https://store.steampowered.com/app/2968420/PowerWash_Simulator_2/)
@@ -38,7 +31,6 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 - [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
 - [House Flipper](https://store.steampowered.com/app/613100/House_Flipper/)
 - [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
-
 - [Vampire: The Masquerade® - Bloodlines 2](https://store.steampowered.com/app/532790/Vampire_The_Masquerade__Bloodlines_2/)
 - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
@@ -81,6 +73,9 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
+- [Outer Worlds 2](https://store.steampowered.com/app/1449110/The_Outer_Worlds_2/)
+- [Outer Worlds](https://store.steampowered.com/app/578650/The_Outer_Worlds/)
+- [RV There Yet](https://store.steampowered.com/app/3949040/RV_There_Yet/)
 - [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
 - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
 - [BeamNG.drive](https://store.steampowered.com/app/284160/BeamNGdrive)
@@ -99,6 +94,7 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Physics / Systems / Puzzles (cause‑and‑effect, spatial reasoning)
 
+- [Indiana Jones and the Great Circle](https://discord.com/channels/1368288528429088860/1412456753001533471/1432471683263889541)
 - [Hardspace: Shipbreaker](https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker)
 - [Keep Digging](https://store.steampowered.com/app/3585800/Keep_Digging)
 - [Peak](https://store.steampowered.com/app/3527290/PEAK) (no voice chat)
@@ -140,6 +136,8 @@ Games marked as `(admin)` have been reported to require running OWL Control in a
 
 ### Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
 
+- [Amnesia](https://store.steampowered.com/franchise/frictionalgames/list/37237)
+- [Soma](https://store.steampowered.com/app/282140/SOMA/)
 - [Bigfoot](https://store.steampowered.com/app/509980/BIGFOOT/)
 - [Content Warning](https://store.steampowered.com/app/2881650/Content_Warning/) (no voice chat)
 - [Cry of Fear](https://store.steampowered.com/app/223710/Cry_of_Fear)(free)
