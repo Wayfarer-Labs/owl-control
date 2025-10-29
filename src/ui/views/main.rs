@@ -1073,12 +1073,6 @@ fn render_recording_entry(
                                     .outer_margin(egui::Margin::symmetric(0, 0))
                                     .show(ui, |ui| {
                                         ui.set_width(ui.available_width());
-                                        ui.label(
-                                            egui::RichText::new("Validation errors:")
-                                                .size(font_size - 1.0)
-                                                .color(egui::Color32::from_rgb(255, 180, 180))
-                                                .strong(),
-                                        );
                                         for reason in error_reasons {
                                             ui.label(
                                                 egui::RichText::new(format!("• {}", reason))
