@@ -867,22 +867,40 @@ fn unified_recordings_view(
             if entries.is_empty() {
                 ui.label("No recordings yet");
             } else {
-                // Calculate row height: frame padding + content + spacing
-                let row_height = 4.0 + 4.0 + FONTSIZE + 4.0 + 4.0 + 4.0; // inner_margin top/bottom + text + spacing
-                let total_rows = entries.len();
-
-                // Use show_rows as the efficient version of show(), otherwise egui crashes out
-                // when we have too many entries, starts calling window redraws all the time and
-                // cpu usage explodes for no reason whenever upload tracker is open
+                // We have to use efficient .show_viewport() variation that renders selected rows otherwise
+                // egui crashes out when we have too many entries, starts calling window redraws all the time
+                // and cpu usage explodes for no reason whenever upload tracker is open
                 egui::ScrollArea::vertical()
                     .max_height(height)
                     .auto_shrink([false, true])
-                    .show_rows(ui, row_height, total_rows, |ui, row_range| {
-                        for row_idx in row_range {
-                            if let Some(entry) = entries.get(row_idx) {
-                                render_recording_entry(ui, entry, app_state, FONTSIZE);
-                                ui.add_space(4.0);
-                            }
+                    .show_viewport(ui, |ui, viewport| {
+                        let base_row_height = 4.0 + 4.0 + FONTSIZE + 4.0 + 4.0 + 4.0;
+                        // Extra rows to render above and below viewport, this is required so smoother
+                        // scrolling is allowed between particularly large entries (i.e. expanded invalid entires)
+                        let buffer_rows = 3;
+
+                        // Estimate which rows are visible with buffer
+                        let first_item = ((viewport.min.y / base_row_height).floor() as usize)
+                            .saturating_sub(buffer_rows)
+                            .max(0);
+                        let last_item =
+                            ((viewport.max.y / base_row_height).ceil() as usize + buffer_rows + 1)
+                                .min(entries.len());
+
+                        // Add spacing for items before visible range
+                        if first_item > 0 {
+                            ui.add_space(first_item as f32 * base_row_height);
+                        }
+
+                        // Render visible items plus buffer
+                        for entry in entries.iter().skip(first_item).take(last_item - first_item) {
+                            render_recording_entry(ui, entry, app_state, FONTSIZE);
+                            ui.add_space(4.0);
+                        }
+
+                        // Add spacing for items after visible range
+                        if last_item < entries.len() {
+                            ui.add_space((entries.len() - last_item) as f32 * base_row_height);
                         }
                     });
             }
