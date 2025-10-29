@@ -877,6 +877,9 @@ fn unified_recordings_view(
                         let base_row_height = 4.0 + 4.0 + FONTSIZE + 4.0 + 4.0 + 4.0;
                         // Extra rows to render above and below viewport, this is required so smoother
                         // scrolling is allowed between particularly large entries (i.e. expanded invalid entires)
+                        // there is a known bug where if two invalid entries with lots of errors are rendered consecutively
+                        // (7 errors, easy to repro by just recording a game, doing nothing for 3 secs and stopping)
+                        // scrolling between them is a little janky. Increasing scrollview height doesn't fix it.
                         let buffer_rows = 3;
 
                         // Estimate which rows are visible with buffer
@@ -1066,10 +1069,10 @@ fn render_recording_entry(
                             .default_open(false)
                             .show(ui, |ui| {
                                 egui::Frame::new()
-                                    .fill(egui::Color32::from_rgb(60, 30, 30))
                                     .inner_margin(egui::Margin::symmetric(8, 4))
-                                    .corner_radius(2.0)
+                                    .outer_margin(egui::Margin::symmetric(0, 0))
                                     .show(ui, |ui| {
+                                        ui.set_width(ui.available_width());
                                         ui.label(
                                             egui::RichText::new("Validation errors:")
                                                 .size(font_size - 1.0)
