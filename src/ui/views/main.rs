@@ -7,8 +7,8 @@ use crate::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
         RecordingBackend,
     },
+    record::LocalRecording,
     ui::{HotkeyRebindTarget, MainApp, util},
-    upload::LocalRecording,
 };
 
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
@@ -340,7 +340,7 @@ impl MainApp {
                     // Unified Recordings Section
                     let local_recordings = self.app_state.local_recordings.read().unwrap();
                     let invalid_count = local_recordings.iter()
-                        .filter(|r| matches!(r, crate::upload::LocalRecording::Invalid { .. }))
+                        .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
                         .count();
                     egui::CollapsingHeader::new(
                         if invalid_count > 0 {
@@ -660,7 +660,7 @@ fn upload_stats(
     let mut unuploaded_size: u64 = 0;
 
     for rec in local_recordings.iter() {
-        if let crate::upload::LocalRecording::Unuploaded { metadata, info } = rec {
+        if let LocalRecording::Unuploaded { metadata, info } = rec {
             unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
             unuploaded_count += 1;
             unuploaded_size += info.folder_size;
@@ -807,7 +807,7 @@ fn unified_recordings_view(
             // Delete All Invalid button (only show if there are invalid recordings)
             let invalid_count = local_recordings
                 .iter()
-                .filter(|r| matches!(r, crate::upload::LocalRecording::Invalid { .. }))
+                .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
                 .count();
 
             let button_height = 28.0;
@@ -1185,6 +1185,11 @@ fn render_recording_entry(
                             );
                         });
                     });
+            }
+            LocalRecording::Uploaded { .. } => {
+                // Uploaded recordings are not shown in the local recordings UI
+                // They're already displayed in the successful uploads section as we pull
+                // them from the api endpoint.
             }
         },
     }

@@ -4,6 +4,7 @@ use crate::{
         AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey, RecordingStatus, UiUpdate,
     },
     assets::{get_honk_0_bytes, get_honk_1_bytes},
+    record::LocalRecording,
     system::keycode::name_to_virtual_keycode,
     ui::notification::{NotificationType, show_notification},
     upload,
@@ -253,7 +254,7 @@ async fn main(
                             let recording_location = recording_location.clone();
                             async move {
                                 let local_recordings = tokio::task::spawn_blocking(move || {
-                                    upload::scan_local_recordings(&recording_location)
+                                    LocalRecording::scan_directory(&recording_location)
                                 }).await.unwrap_or_default();
 
                                 tracing::info!("Found {} local recordings", local_recordings.len());
@@ -272,14 +273,14 @@ async fn main(
                                 // Get current list of local recordings
                                 let local_recordings = tokio::task::spawn_blocking({
                                     let recording_location = recording_location.clone();
-                                    move || upload::scan_local_recordings(&recording_location)
+                                    move || LocalRecording::scan_directory(&recording_location)
                                 }).await.unwrap_or_default();
 
                                 // Filter only invalid recordings and collect paths to delete
                                 let invalid_folders_to_delete: Vec<_> = local_recordings.iter()
                                     .filter_map(|r| {
                                         match r {
-                                            upload::LocalRecording::Invalid { info, .. } => {
+                                            LocalRecording::Invalid { info, .. } => {
                                                 Some((info.folder_name.clone(), info.folder_path.clone()))
                                             }
                                             _ => None,
@@ -324,7 +325,7 @@ async fn main(
 
                                 // Refresh the local recordings list
                                 let local_recordings = tokio::task::spawn_blocking(move || {
-                                    upload::scan_local_recordings(&recording_location)
+                                    LocalRecording::scan_directory(&recording_location)
                                 }).await.unwrap_or_default();
 
                                 app_state
