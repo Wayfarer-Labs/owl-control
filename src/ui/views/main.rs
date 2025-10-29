@@ -952,99 +952,121 @@ fn render_recording_entry(
                     .inner_margin(4.0)
                     .corner_radius(4.0)
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            // Failure indicator
-                            ui.label(
-                                egui::RichText::new("❌")
-                                    .size(font_size)
-                                    .color(egui::Color32::from_rgb(255, 100, 100)),
-                            );
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
+                                // Failure indicator
+                                ui.label(
+                                    egui::RichText::new("❌")
+                                        .size(font_size)
+                                        .color(egui::Color32::from_rgb(255, 100, 100)),
+                                );
 
-                            // Folder name (clickable to open folder)
-                            if ui
-                                .add(
-                                    egui::Label::new(
-                                        egui::RichText::new(info.folder_name.as_str())
-                                            .size(font_size)
-                                            .color(egui::Color32::from_rgb(255, 200, 200))
-                                            .underline(),
-                                    )
-                                    .sense(egui::Sense::click()),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                .clicked()
-                            {
-                                app_state
-                                    .async_request_tx
-                                    .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
-                                        info.folder_path.clone(),
-                                    ))
-                                    .ok();
-                            }
-
-                            // Info icon with error tooltip
-                            tooltip(
-                                ui,
-                                &std::iter::once("Validation errors:".to_string())
-                                    .chain(error_reasons.iter().map(|reason| format!("• {reason}")))
-                                    .collect::<Vec<_>>()
-                                    .join("\n"),
-                                Some(egui::Color32::from_rgb(255, 150, 150)),
-                            );
-
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    // Timestamp if available
-                                    if let Some(timestamp) = info.timestamp {
-                                        let datetime =
-                                            chrono::DateTime::<chrono::Utc>::from(timestamp);
-                                        let local_time = datetime.with_timezone(&chrono::Local);
-                                        ui.label(
-                                            egui::RichText::new(
-                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                            )
-                                            .size(font_size)
-                                            .color(egui::Color32::from_rgb(200, 200, 200)),
-                                        );
-                                    }
-
-                                    // Delete button
-                                    if ui
-                                        .add_sized(
-                                            egui::vec2(60.0, 20.0),
-                                            egui::Button::new(
-                                                egui::RichText::new("Delete")
-                                                    .size(font_size)
-                                                    .color(egui::Color32::WHITE),
-                                            )
-                                            .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                // Folder name (clickable to open folder)
+                                if ui
+                                    .add(
+                                        egui::Label::new(
+                                            egui::RichText::new(info.folder_name.as_str())
+                                                .size(font_size)
+                                                .color(egui::Color32::from_rgb(255, 200, 200))
+                                                .underline(),
                                         )
-                                        .clicked()
-                                    {
-                                        if let Err(e) =
-                                            std::fs::remove_dir_all(info.folder_path.clone())
-                                        {
-                                            tracing::error!(
-                                            "Failed to delete invalid recording folder {}: {:?}",
-                                            info.folder_path.display(),
-                                            e
-                                        );
-                                        } else {
-                                            tracing::info!(
-                                                "Deleted invalid recording folder: {}",
-                                                info.folder_path.display()
+                                        .sense(egui::Sense::click()),
+                                    )
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                    .clicked()
+                                {
+                                    app_state
+                                        .async_request_tx
+                                        .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
+                                            info.folder_path.clone(),
+                                        ))
+                                        .ok();
+                                }
+
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        // Timestamp if available
+                                        if let Some(timestamp) = info.timestamp {
+                                            let datetime =
+                                                chrono::DateTime::<chrono::Utc>::from(timestamp);
+                                            let local_time = datetime.with_timezone(&chrono::Local);
+                                            ui.label(
+                                                egui::RichText::new(
+                                                    local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                                                )
+                                                .size(font_size)
+                                                .color(egui::Color32::from_rgb(200, 200, 200)),
                                             );
-                                            app_state
-                                            .async_request_tx
-                                            .blocking_send(
-                                                crate::app_state::AsyncRequest::LoadLocalRecordings,
-                                            )
-                                            .ok();
                                         }
-                                    }
-                                },
-                            );
+
+                                        // Delete button
+                                        if ui
+                                            .add_sized(
+                                                egui::vec2(60.0, 20.0),
+                                                egui::Button::new(
+                                                    egui::RichText::new("Delete")
+                                                        .size(font_size)
+                                                        .color(egui::Color32::WHITE),
+                                                )
+                                                .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                            )
+                                            .clicked()
+                                        {
+                                            if let Err(e) =
+                                                std::fs::remove_dir_all(info.folder_path.clone())
+                                            {
+                                                tracing::error!(
+                                                "Failed to delete invalid recording folder {}: {:?}",
+                                                info.folder_path.display(),
+                                                e
+                                            );
+                                            } else {
+                                                tracing::info!(
+                                                    "Deleted invalid recording folder: {}",
+                                                    info.folder_path.display()
+                                                );
+                                                app_state
+                                                .async_request_tx
+                                                .blocking_send(
+                                                    crate::app_state::AsyncRequest::LoadLocalRecordings,
+                                                )
+                                                .ok();
+                                            }
+                                        }
+                                    },
+                                );
+                            });
+
+                            // Collapsible error reasons section
+                            egui::CollapsingHeader::new(
+                                egui::RichText::new(format!("⚠ {} error{}", error_reasons.len(), if error_reasons.len() == 1 { "" } else { "s" }))
+                                    .size(font_size - 1.0)
+                                    .color(egui::Color32::from_rgb(255, 150, 150))
+                            )
+                            .id_salt(format!("error_reasons_{}", info.folder_name))
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                egui::Frame::new()
+                                    .fill(egui::Color32::from_rgb(60, 30, 30))
+                                    .inner_margin(egui::Margin::symmetric(8, 4))
+                                    .corner_radius(2.0)
+                                    .show(ui, |ui| {
+                                        ui.label(
+                                            egui::RichText::new("Validation errors:")
+                                                .size(font_size - 1.0)
+                                                .color(egui::Color32::from_rgb(255, 180, 180))
+                                                .strong(),
+                                        );
+                                        for reason in error_reasons {
+                                            ui.label(
+                                                egui::RichText::new(format!("• {}", reason))
+                                                    .size(font_size - 1.0)
+                                                    .color(egui::Color32::from_rgb(255, 200, 200)),
+                                            );
+                                        }
+                                    });
+                            });
                         });
                     });
             }
