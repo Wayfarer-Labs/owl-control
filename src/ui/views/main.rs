@@ -1151,7 +1151,8 @@ fn render_recording_entry(
             }
             LocalRecording::Uploaded { .. } => {
                 // Uploaded recordings are not shown in the local recordings UI
-                // They're already displayed in the successful uploads section
+                // They're already displayed in the successful uploads section as we pull
+                // them from the api endpoint.
             }
         },
     }
