@@ -12,6 +12,7 @@
 >
 > The following behaviors will lead to a ban:
 >
+> * Contributing if you are less than 18 years old.
 > * Falsifying recordings (intentional black screens, idle on purpose, giving no real input or effort).<br>
 > * Recording excessive nudity or similar NSFW content.<br>
 > * Recording bot play.<br>
