@@ -358,7 +358,6 @@ impl MainApp {
                         unified_recordings_view(
                             ui,
                             user_uploads.as_ref().map(|u| u.uploads.as_slice()),
-                            &local_recordings,
                             &self.app_state,
                         );
                     });
@@ -792,7 +791,6 @@ impl<'a> RecordingEntry<'a> {
 fn unified_recordings_view(
     ui: &mut egui::Ui,
     uploads: Option<&[UserUpload]>,
-    local_recordings: &[LocalRecording],
     app_state: &crate::app_state::AppState,
 ) {
     const FONTSIZE: f32 = 13.0;
@@ -805,6 +803,7 @@ fn unified_recordings_view(
         })
         .show(ui, |ui| {
             // Delete All Invalid button (only show if there are invalid recordings)
+            let local_recordings = app_state.local_recordings.read().unwrap();
             let invalid_count = local_recordings
                 .iter()
                 .filter(|r| matches!(r, LocalRecording::Invalid { .. }))

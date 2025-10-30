@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    time::{Instant, SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime},
 };
 
 use color_eyre::{Result, eyre::ContextCompat};
@@ -10,12 +10,11 @@ use input_capture::InputCapture;
 
 use crate::{
     config::EncoderSettings,
-    output_types::Metadata,
     record::{
         input_recorder::{InputEventStream, InputEventWriter},
         recorder::VideoRecorder,
     },
-    system::{hardware_id, hardware_specs},
+    system::hardware_specs,
 };
 
 pub(crate) struct Recording {
@@ -23,7 +22,6 @@ pub(crate) struct Recording {
     input_stream: InputEventStream,
 
     recording_location: PathBuf,
-    metadata_path: PathBuf,
     game_exe: String,
     game_resolution: (u32, u32),
     start_time: SystemTime,
@@ -49,7 +47,6 @@ impl Recording {
         let game_resolution = get_recording_base_resolution(hwnd)?;
         tracing::info!("Game resolution: {game_resolution:?}");
 
-        let metadata_path = recording_location.join(constants::filename::recording::METADATA);
         let video_path = recording_location.join(constants::filename::recording::VIDEO);
         let csv_path = recording_location.join(constants::filename::recording::INPUTS);
 
@@ -71,7 +68,6 @@ impl Recording {
             input_writer,
             input_stream,
             recording_location,
-            metadata_path,
             game_exe,
             game_resolution,
             start_time,
@@ -150,19 +146,6 @@ impl Recording {
         let window_name = self.get_window_name();
         let result = recorder.stop_recording().await;
         self.input_writer.stop(input_capture).await?;
-        let metadata = Self::final_metadata(
-            self.game_exe,
-            self.game_resolution,
-            self.start_instant,
-            self.start_time,
-            window_name,
-            adapter_infos,
-            recorder.id(),
-            result.as_ref().ok().cloned(),
-        )
-        .await?;
-        let metadata = serde_json::to_string_pretty(&metadata)?;
-        tokio::fs::write(&self.metadata_path, &metadata).await?;
 
         if let Err(e) = result {
             tracing::error!("Error while stopping recording, invalidating recording: {e}");
@@ -173,78 +156,21 @@ impl Recording {
             )
             .await?;
         } else {
-            // Validate the recording immediately after stopping to create .invalid file if needed
-            tracing::info!(
-                "Validating recording at {}",
-                self.recording_location.display()
-            );
-            let recording_location = self.recording_location.clone();
-            tokio::task::spawn_blocking(move || {
-                crate::validation::validate_folder(&recording_location)
-            })
-            .await
-            .ok();
+            super::local_recording::LocalRecording::write_metadata_and_validate(
+                self.recording_location,
+                self.game_exe,
+                self.game_resolution,
+                self.start_instant,
+                self.start_time,
+                window_name,
+                adapter_infos,
+                recorder.id(),
+                result.as_ref().ok().cloned(),
+            )
+            .await?;
         }
 
         Ok(())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    async fn final_metadata(
-        game_exe: String,
-        game_resolution: (u32, u32),
-        start_instant: Instant,
-        start_time: SystemTime,
-        window_name: Option<String>,
-        adapter_infos: &[wgpu::AdapterInfo],
-        recorder: &str,
-        recorder_extra: Option<serde_json::Value>,
-    ) -> Result<Metadata> {
-        let duration = start_instant.elapsed().as_secs_f64();
-
-        let start_timestamp = start_time.duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
-        let end_timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
-
-        let hardware_id = hardware_id::get()?;
-
-        let hardware_specs = match hardware_specs::get_hardware_specs(
-            adapter_infos
-                .iter()
-                .map(|a| hardware_specs::GpuSpecs::from_name(&a.name))
-                .collect(),
-        ) {
-            Ok(specs) => Some(specs),
-            Err(e) => {
-                tracing::warn!("Failed to get hardware specs: {}", e);
-                None
-            }
-        };
-
-        Ok(Metadata {
-            game_exe,
-            game_resolution: Some(game_resolution),
-            owl_control_version: Some(env!("CARGO_PKG_VERSION").to_string()),
-            owl_control_commit: Some(
-                git_version::git_version!(
-                    args = ["--abbrev=40", "--always", "--dirty=-modified"],
-                    fallback = "unknown"
-                )
-                .to_string(),
-            ),
-            session_id: uuid::Uuid::new_v4().to_string(),
-            hardware_id,
-            hardware_specs,
-            start_timestamp,
-            end_timestamp,
-            duration,
-            input_stats: None,
-            recorder: Some(recorder.to_string()),
-            recorder_extra,
-            window_name,
-        })
     }
 }
 

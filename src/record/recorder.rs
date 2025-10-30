@@ -18,7 +18,7 @@ use crate::{
     output_types::InputEventType,
     record::{
         input_recorder::InputEventStream, obs_embedded_recorder::ObsEmbeddedRecorder,
-        obs_socket_recorder::ObsSocketRecorder, recording::Recording,
+        obs_socket_recorder::ObsSocketRecorder, recording::Recording, LocalRecording,
     },
     ui::notification::{NotificationType, show_notification},
 };
@@ -120,7 +120,7 @@ impl Recorder {
 
         let recording_location = (self.recording_dir)();
 
-        std::fs::create_dir_all(&recording_location)
+        LocalRecording::create_at(&recording_location)
             .wrap_err("Failed to create directory for recording. Did you install OWL Control to a location where your account is allowed to write files?")?;
 
         let free_space_mb = get_free_space_in_mb(&recording_location);
