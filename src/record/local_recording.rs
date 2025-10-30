@@ -74,10 +74,15 @@ impl LocalRecording {
         // If a global store is set, update it with a new Unuploaded entry
         if let Some(store) = LOCAL_RECORDINGS_STORE.get() {
             let mut vec = store.write().unwrap();
-            vec.push(LocalRecording::Unuploaded {
-                info: info.clone(),
-                metadata: None,
-            });
+            // Insert at the front to maintain sorted order. This shouldn't actually matter since scan_directory is called
+            // every time recording .stop() occurs and that sorts the vec anyway, but it's just nicer this way I think.
+            vec.insert(
+                0,
+                LocalRecording::Unuploaded {
+                    info: info.clone(),
+                    metadata: None,
+                },
+            );
         }
 
         Ok(info)

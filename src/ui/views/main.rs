@@ -337,25 +337,40 @@ impl MainApp {
                     });
                     ui.add_space(8.0);
 
-                    // Unified Recordings Section
-                    let local_recordings = self.app_state.local_recordings.read().unwrap();
-                    let invalid_count = local_recordings.iter()
-                        .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
-                        .count();
+                    ui.separator();
+                    // Local and Uploaded Recordings Sections
+                    let invalid_count = {
+                        let local_recordings = self.app_state.local_recordings.read().unwrap();
+                        local_recordings
+                            .iter()
+                            .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
+                            .count()
+                    };
+
                     egui::CollapsingHeader::new(
                         if invalid_count > 0 {
-                            egui::RichText::new(format!("Upload Tracker ({invalid_count} invalid)"))
-                                .size(16.0)
+                            egui::RichText::new(format!(
+                                "Local Recordings ({invalid_count} invalid)"
+                            ))
+                            .size(16.0)
                         } else {
-                            egui::RichText::new("Upload Tracker").size(16.0)
-                        }
+                            egui::RichText::new("Local Recordings").size(16.0)
+                        },
                     )
                     .default_open(true)
                     .show(ui, |ui| {
                         ui.add_space(4.0);
+                        local_recordings_view(ui, &self.app_state);
+                    });
 
-                        // Unified view with both successful and invalid recordings
-                        unified_recordings_view(
+                    ui.separator();
+                    egui::CollapsingHeader::new(
+                        egui::RichText::new("Uploaded Stats").size(16.0),
+                    )
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        ui.add_space(4.0);
+                        uploaded_recordings_view(
                             ui,
                             user_uploads.as_ref().map(|u| u.uploads.as_slice()),
                             &self.app_state,
@@ -384,6 +399,7 @@ impl MainApp {
                         ));
                     }
 
+                    ui.separator();
                     // Unreliable Connection Setting
                     ui.add_space(5.0);
                     ui.horizontal(|ui| {
@@ -788,12 +804,12 @@ impl<'a> RecordingEntry<'a> {
     }
 }
 
-fn unified_recordings_view(
-    ui: &mut egui::Ui,
-    uploads: Option<&[UserUpload]>,
-    app_state: &crate::app_state::AppState,
-) {
+fn local_recordings_view(ui: &mut egui::Ui, app_state: &crate::app_state::AppState) {
     const FONTSIZE: f32 = 13.0;
+    const LIST_HEIGHT: f32 = 120.0;
+    let button_height = 28.0;
+    let button_gap = 8.0;
+
     egui::Frame::new()
         .inner_margin(egui::Margin {
             left: 4,
@@ -802,33 +818,11 @@ fn unified_recordings_view(
             bottom: 4,
         })
         .show(ui, |ui| {
-            // Delete All Invalid button (only show if there are invalid recordings)
             let local_recordings = app_state.local_recordings.read().unwrap();
             let invalid_count = local_recordings
                 .iter()
                 .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
                 .count();
-
-            let button_height = 28.0;
-            let button_gap = 8.0;
-
-            let height = 120.0;
-
-            // Show spinner if still loading
-            if uploads.is_none() {
-                ui.vertical_centered(|ui| {
-                    ui.add(egui::widgets::Spinner::new().size(
-                        height
-                            + if invalid_count > 0 {
-                                // Accommodate the button to match heights
-                                button_height + button_gap
-                            } else {
-                                0.0
-                            },
-                    ));
-                });
-                return;
-            }
 
             if invalid_count > 0 {
                 if ui
@@ -852,59 +846,97 @@ fn unified_recordings_view(
                 ui.add_space(button_gap);
             }
 
-            // Merge and sort recordings
-            let mut entries: Vec<RecordingEntry> = Vec::new();
-
-            if let Some(uploads) = uploads {
-                entries.extend(uploads.iter().map(RecordingEntry::Successful));
-            }
-            entries.extend(local_recordings.iter().map(RecordingEntry::Local));
-
-            // Sort by timestamp, most recent first
-            entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
+            // note sorting is unnecssary since local_recordings is already sorted, and sorting order is maintained by
+            // scan_directory calls after every recording .stop(), although it should technically be in order already.
+            let entries: Vec<RecordingEntry> =
+                local_recordings.iter().map(RecordingEntry::Local).collect();
 
             if entries.is_empty() {
-                ui.label("No recordings yet");
+                ui.label("No local recordings yet");
             } else {
-                // We have to use efficient .show_viewport() variation that renders selected rows otherwise
-                // egui crashes out when we have too many entries, starts calling window redraws all the time
-                // and cpu usage explodes for no reason whenever upload tracker is open
-                egui::ScrollArea::vertical()
-                    .max_height(height)
-                    .auto_shrink([false, true])
-                    .show_viewport(ui, |ui, viewport| {
-                        let base_row_height = 4.0 + 4.0 + FONTSIZE + 4.0 + 4.0 + 4.0;
-                        // Extra rows to render above and below viewport, this is required so smoother
-                        // scrolling is allowed between particularly large entries (i.e. expanded invalid entires)
-                        // there is a known bug where if two invalid entries with lots of errors are rendered consecutively
-                        // (7 errors, easy to repro by just recording a game, doing nothing for 3 secs and stopping)
-                        // scrolling between them is a little janky. Increasing scrollview height doesn't fix it.
-                        let buffer_rows = 3;
+                render_recording_entries(ui, &entries, app_state, FONTSIZE, LIST_HEIGHT);
+            }
+        });
+}
 
-                        // Estimate which rows are visible with buffer
-                        let first_item = ((viewport.min.y / base_row_height).floor() as usize)
-                            .saturating_sub(buffer_rows)
-                            .max(0);
-                        let last_item =
-                            ((viewport.max.y / base_row_height).ceil() as usize + buffer_rows + 1)
-                                .min(entries.len());
+fn uploaded_recordings_view(
+    ui: &mut egui::Ui,
+    uploads: Option<&[UserUpload]>,
+    app_state: &crate::app_state::AppState,
+) {
+    const FONTSIZE: f32 = 13.0;
+    const LIST_HEIGHT: f32 = 120.0;
 
-                        // Add spacing for items before visible range
-                        if first_item > 0 {
-                            ui.add_space(first_item as f32 * base_row_height);
-                        }
+    egui::Frame::new()
+        .inner_margin(egui::Margin {
+            left: 4,
+            right: 12,
+            top: 4,
+            bottom: 4,
+        })
+        .show(ui, |ui| match uploads {
+            None => {
+                ui.vertical_centered(|ui| {
+                    ui.add(egui::widgets::Spinner::new().size(LIST_HEIGHT));
+                });
+            }
+            Some(uploads) => {
+                let mut entries: Vec<RecordingEntry> =
+                    uploads.iter().map(RecordingEntry::Successful).collect();
 
-                        // Render visible items plus buffer
-                        for entry in entries.iter().skip(first_item).take(last_item - first_item) {
-                            render_recording_entry(ui, entry, app_state, FONTSIZE);
-                            ui.add_space(4.0);
-                        }
+                if entries.is_empty() {
+                    ui.label("No uploaded recordings yet");
+                } else {
+                    entries.sort_by_key(|entry| std::cmp::Reverse(entry.timestamp()));
+                    render_recording_entries(ui, &entries, app_state, FONTSIZE, LIST_HEIGHT);
+                }
+            }
+        });
+}
 
-                        // Add spacing for items after visible range
-                        if last_item < entries.len() {
-                            ui.add_space((entries.len() - last_item) as f32 * base_row_height);
-                        }
-                    });
+fn render_recording_entries(
+    ui: &mut egui::Ui,
+    entries: &[RecordingEntry],
+    app_state: &crate::app_state::AppState,
+    font_size: f32,
+    height: f32,
+) {
+    // We have to use efficient .show_viewport() variation that renders selected rows otherwise
+    // egui crashes out when we have too many entries, starts calling window redraws all the time
+    // and cpu usage explodes for no reason whenever upload tracker is open
+    egui::ScrollArea::vertical()
+        .max_height(height)
+        .auto_shrink([false, true])
+        .show_viewport(ui, |ui, viewport| {
+            let base_row_height = 4.0 + 4.0 + font_size + 4.0 + 4.0 + 4.0;
+            // Extra rows to render above and below viewport, this is required so smoother
+            // scrolling is allowed between particularly large entries (i.e. expanded invalid entires)
+            // there is a known bug where if two invalid entries with lots of errors are rendered consecutively
+            // (7 errors, easy to repro by just recording a game, doing nothing for 3 secs and stopping)
+            // scrolling between them is a little janky. Increasing scrollview height doesn't fix it.
+            let buffer_rows = 3;
+
+            // Estimate which rows are visible with buffer
+            let first_item = ((viewport.min.y / base_row_height).floor() as usize)
+                .saturating_sub(buffer_rows)
+                .max(0);
+            let last_item = ((viewport.max.y / base_row_height).ceil() as usize + buffer_rows + 1)
+                .min(entries.len());
+
+            // Add spacing for items before visible range
+            if first_item > 0 {
+                ui.add_space(first_item as f32 * base_row_height);
+            }
+
+            // Render visible items plus buffer
+            for entry in entries.iter().skip(first_item).take(last_item - first_item) {
+                render_recording_entry(ui, entry, app_state, font_size);
+                ui.add_space(4.0);
+            }
+
+            // Add spacing for items after visible range
+            if last_item < entries.len() {
+                ui.add_space((entries.len() - last_item) as f32 * base_row_height);
             }
         });
 }
