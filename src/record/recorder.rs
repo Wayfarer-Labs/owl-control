@@ -17,8 +17,9 @@ use crate::{
     config::{EncoderSettings, RecordingBackend},
     output_types::InputEventType,
     record::{
-        input_recorder::InputEventStream, obs_embedded_recorder::ObsEmbeddedRecorder,
-        obs_socket_recorder::ObsSocketRecorder, recording::Recording, LocalRecording,
+        LocalRecording, input_recorder::InputEventStream,
+        obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
+        recording::Recording,
     },
     ui::notification::{NotificationType, show_notification},
 };
