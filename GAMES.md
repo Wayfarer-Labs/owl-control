@@ -20,7 +20,7 @@
 
 ✅ Lowering resolution or setting framecap to 60 FPS<br>
 ✅ When possible, stop recording before entering menus, dialogue, or cutscenes.<br>
-✅ Stop recording to walk away from the computer or lose focus on the game.<br>
+✅ Stop recording to step away from the computer or turn focus away from the game.<br>
 ✅ Game mods are allowed.<br>
 ✅ Play with a PS5 or Xbox controller. Wire your gamepad into your computer for best results.<br>
 ✅ Use external apps like Discord for voice chat.<br>
