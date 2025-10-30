@@ -1,28 +1,46 @@
 # Usage Guide
 
-❌ Limit cutscene and UI recording. This data may throw the count off.<br>
-❌ Avoid recording nudity or similar NSFW content.<br>
-❌ Do not idle during recording. The recording will not count towards your data total.<br>
-❌ Do not capture voice chat of real people in any Co-Op/PvP games, especially if marked with `(no voice)`.<br>
-❌ Do not record bots.<br>
+## Follow these guidelines or your recordings won’t always count toward your payout.
 
+❌ Playing with less than a steady 60 frames per second.<br>
+❌ Recording cutscenes and menus. We need input data, not movies.<br>
+❌ Remaining idle during recording, standing still, camping, afk, etc.<br>
+❌ Capturing voice chat of real people in any Co-Op/PvP games, especially if marked with `(no voice)`.<br>
+❌ Recording control hardware other than keyboard, mouse, or gamepad<br>
+
+> [!WARNING]
+>
+> The following behaviors will lead to a ban:
+>
+> * Falsifying recordings (intentional black screens, idle on purpose, giving no real input or effort).<br>
+> * Recording excessive nudity or similar NSFW content.<br>
+> * Recording bot play.<br>
+> * Tampering with the software system.<br>
+
+✅ Lowering resolution or setting framecap to 60 FPS<br>
+✅ When possible, stop recording before entering menus, dialogue, or cutscenes.<br>
+✅ Stop recording to walk away from the computer or lose focus on the game.<br>
+✅ Game mods are allowed.<br>
+✅ Play with a PS5 or Xbox controller. Wire your gamepad into your computer for best results.<br>
 ✅ Use external apps like Discord for voice chat.<br>
-✅ Play games in first-person view as much as possible.<br>
-✅ Playing a single game repeatedly is fine. Try to do new things each time.<br>
-✅ Game mods are allowed!<br>
-✅ If you run into a problem recording, try running the game as Administrator if marked with `(admin)`.<br>
+✅ Play in first-person view as much as possible.<br>
+✅ Run the game as Administrator if the game is marked with `(admin)` and you run into a problem.<br>
+✅ Ask for help from @EXDYSA in the [Discord #owl-control channel](https://discord.gg/aP6dnucG)!<br>
+✅ Play a single game repeatedly. Try to do new things and have new experiences each time!<br>
 
 > [!IMPORTANT]
 >
+> - We highly recommend playing singleplayer games to maximize acceptance of your recordings.
 > - We buy games from `Top-priority` for contributors who provide significant amounts of data.
 > - We don't capture your voice or any music playing in the background that isn't within the game.
 > - We don't capture any windows or inputs other than those sent to your own game.
-> - Split-screen and VR games are not supported.
+> - Split-screen, steering wheels, consoles, and VR games are not supported.
 
 ## Top-Priority Games
 
 ### First-person, High-quality/detailed, Active
 
+#### - [Gym Manager](https://store.steampowered.com/app/2337460/Gym_Manager/)
 #### - [Fishing Planet](https://store.steampowered.com/app/380600/Fishing_Planet/)
 #### - [Thief Simulator](https://store.steampowered.com/app/704850/Thief_Simulator/)
 #### - [Sons of the Forest](https://store.steampowered.com/app/1326470/Sons_Of_The_Forest)
@@ -166,6 +184,7 @@
 
 ### Campaign Shooters / Combined Arms (vehicles, squad AI, large arenas)
 
+- [Battlefield 1](https://store.steampowered.com/app/1238840/Battlefield_1/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
 - [Gunfire Reborn](https://store.steampowered.com/app/1217060/Gunfire_Reborn)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
