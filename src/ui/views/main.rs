@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use crate::{
     api::{UserUpload, UserUploadStatistics},
@@ -16,6 +19,8 @@ use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
 #[derive(Default)]
 pub(crate) struct MainViewState {
     last_obs_check: Option<(std::time::Instant, bool)>,
+    /// Recording pending deletion confirmation (stores folder path and name)
+    pending_delete_recording: Option<(PathBuf, String)>,
 }
 
 impl MainApp {
@@ -360,6 +365,7 @@ impl MainApp {
                             user_uploads.as_ref().map(|u| u.uploads.as_slice()),
                             &local_recordings,
                             &self.app_state,
+                            &mut self.main_view_state.pending_delete_recording,
                         );
                     });
 
@@ -503,6 +509,13 @@ impl MainApp {
         .show(ctx, |ui| {
             encoder_settings_window(ui, &mut self.local_preferences.encoder);
         });
+
+        // Delete Confirmation Window
+        delete_recording_confirmation_window(
+            ctx,
+            &mut self.main_view_state.pending_delete_recording,
+            &self.app_state,
+        );
     }
 }
 
@@ -794,6 +807,7 @@ fn unified_recordings_view(
     uploads: Option<&[UserUpload]>,
     local_recordings: &[LocalRecording],
     app_state: &crate::app_state::AppState,
+    pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
     const FONTSIZE: f32 = 13.0;
     egui::Frame::new()
@@ -897,7 +911,13 @@ fn unified_recordings_view(
 
                         // Render visible items plus buffer
                         for entry in entries.iter().skip(first_item).take(last_item - first_item) {
-                            render_recording_entry(ui, entry, app_state, FONTSIZE);
+                            render_recording_entry(
+                                ui,
+                                entry,
+                                app_state,
+                                FONTSIZE,
+                                pending_delete_recording,
+                            );
                             ui.add_space(4.0);
                         }
 
@@ -915,6 +935,7 @@ fn render_recording_entry(
     entry: &RecordingEntry,
     app_state: &crate::app_state::AppState,
     font_size: f32,
+    pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
     match entry {
         RecordingEntry::Successful(upload) => {
@@ -1160,26 +1181,11 @@ fn render_recording_entry(
                                         )
                                         .clicked()
                                     {
-                                        if let Err(e) =
-                                            std::fs::remove_dir_all(info.folder_path.clone())
-                                        {
-                                            tracing::error!(
-                                            "Failed to delete unuploaded recording folder {}: {:?}",
-                                            info.folder_path.display(),
-                                            e
-                                        );
-                                        } else {
-                                            tracing::info!(
-                                                "Deleted unuploaded recording folder: {}",
-                                                info.folder_path.display()
-                                            );
-                                            app_state
-                                            .async_request_tx
-                                            .blocking_send(
-                                                crate::app_state::AsyncRequest::LoadLocalRecordings,
-                                            )
-                                            .ok();
-                                        }
+                                        // Show confirmation dialog
+                                        *pending_delete_recording = Some((
+                                            info.folder_path.clone(),
+                                            info.folder_name.clone(),
+                                        ));
                                     }
                                 },
                             );
@@ -1286,4 +1292,125 @@ fn dropdown_list(
         add_content(ui);
     })
     .response
+}
+
+fn delete_recording_confirmation_window(
+    ctx: &egui::Context,
+    pending_delete_recording: &mut Option<(PathBuf, String)>,
+    app_state: &crate::app_state::AppState,
+) {
+    if let Some((folder_path, folder_name)) = pending_delete_recording.clone() {
+        let mut keep_open = true;
+        egui::Window::new("Confirm Deletion")
+            .open(&mut keep_open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(8.0);
+
+                    ui.label(
+                        egui::RichText::new("⚠ Delete Unuploaded Recording")
+                            .size(18.0)
+                            .strong()
+                            .color(egui::Color32::from_rgb(255, 200, 100)),
+                    );
+
+                    ui.add_space(12.0);
+
+                    ui.label(egui::RichText::new(format!("Recording: {}", folder_name)).size(14.0));
+
+                    ui.add_space(8.0);
+
+                    ui.label(
+                        egui::RichText::new("This recording has not been uploaded yet.")
+                            .size(13.0)
+                            .color(egui::Color32::from_rgb(255, 255, 100)),
+                    );
+
+                    ui.label(
+                        egui::RichText::new(
+                            "You can still upload it by clicking the \"Upload Recordings\" button.",
+                        )
+                        .size(13.0),
+                    );
+
+                    ui.add_space(12.0);
+
+                    // Open folder button
+                    if ui
+                        .add_sized(
+                            egui::vec2(ui.available_width(), 32.0),
+                            egui::Button::new(
+                                egui::RichText::new("📁 Open Folder for Investigation").size(13.0),
+                            ),
+                        )
+                        .clicked()
+                    {
+                        app_state
+                            .async_request_tx
+                            .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
+                                folder_path.clone(),
+                            ))
+                            .ok();
+                    }
+
+                    ui.add_space(8.0);
+
+                    ui.horizontal(|ui| {
+                        // Cancel button
+                        if ui
+                            .add_sized(
+                                egui::vec2((ui.available_width() - 8.0) / 2.0, 32.0),
+                                egui::Button::new(egui::RichText::new("Cancel").size(13.0)),
+                            )
+                            .clicked()
+                        {
+                            *pending_delete_recording = None;
+                        }
+
+                        ui.add_space(8.0);
+
+                        // Really Delete button
+                        if ui
+                            .add_sized(
+                                egui::vec2(ui.available_width(), 32.0),
+                                egui::Button::new(
+                                    egui::RichText::new("Really Delete")
+                                        .size(13.0)
+                                        .color(egui::Color32::WHITE),
+                                )
+                                .fill(egui::Color32::from_rgb(180, 60, 60)),
+                            )
+                            .clicked()
+                        {
+                            if let Err(e) = std::fs::remove_dir_all(folder_path.clone()) {
+                                tracing::error!(
+                                    "Failed to delete unuploaded recording folder {}: {:?}",
+                                    folder_path.display(),
+                                    e
+                                );
+                            } else {
+                                tracing::info!(
+                                    "Deleted unuploaded recording folder: {}",
+                                    folder_path.display()
+                                );
+                                app_state
+                                    .async_request_tx
+                                    .blocking_send(
+                                        crate::app_state::AsyncRequest::LoadLocalRecordings,
+                                    )
+                                    .ok();
+                            }
+                            *pending_delete_recording = None;
+                        }
+                    });
+                });
+            });
+
+        if !keep_open {
+            *pending_delete_recording = None;
+        }
+    }
 }
