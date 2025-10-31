@@ -180,7 +180,9 @@ impl Recording {
             );
             let recording_location = self.recording_location.clone();
             tokio::task::spawn_blocking(move || {
-                crate::validation::validate_folder(&recording_location)
+                if let Err(e) = crate::validation::validate_folder(&recording_location) {
+                    tracing::error!("Error validating recording on stop: {e}");
+                }
             })
             .await
             .ok();
