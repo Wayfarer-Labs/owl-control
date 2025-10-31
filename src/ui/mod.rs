@@ -20,11 +20,13 @@ use winit::{
 };
 
 use crate::{
+    api::UserUploads,
     app_state::{
         AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey, UiUpdate,
     },
     assets,
     config::{Credentials, Preferences},
+    record::LocalRecording,
     system::keycode::virtual_keycode_to_name,
     upload,
 };
@@ -456,6 +458,9 @@ pub struct MainApp {
 
     main_view_state: views::main::MainViewState,
 
+    user_uploads: Option<UserUploads>,
+    local_recordings: Vec<LocalRecording>,
+
     tray_icon: tray_icon::TrayIconState,
 
     /// Whether the encoder settings window is open
@@ -514,6 +519,9 @@ impl MainApp {
 
             main_view_state: views::main::MainViewState::default(),
 
+            user_uploads: None,
+            local_recordings: vec![],
+
             tray_icon,
 
             encoder_settings_window_open: false,
@@ -557,8 +565,11 @@ impl MainApp {
             Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
                 self.newer_release_available = Some(release);
             }
-            Ok(UiUpdate::UpdateLocalRecordings(local_recordings)) => {
-                *self.app_state.local_recordings.write().unwrap() = local_recordings;
+            Ok(UiUpdate::UpdateUserUploads(uploads)) => {
+                self.user_uploads = Some(uploads);
+            }
+            Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
+                self.local_recordings = recordings;
             }
             Err(_) => {}
         };

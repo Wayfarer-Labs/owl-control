@@ -1,6 +1,5 @@
 use std::{
     path::{Path, PathBuf},
-    sync::{Arc, OnceLock, RwLock},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -11,10 +10,6 @@ use crate::{
     output_types::Metadata,
     system::{hardware_id, hardware_specs},
 };
-
-/// This looks kind of disgusting, but it's the best I could think of to hold reference to the app_state
-/// localrecordings vec and update it automatically whenever new localrecordings are created.
-static LOCAL_RECORDINGS_STORE: OnceLock<Arc<RwLock<Vec<LocalRecording>>>> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct LocalRecordingInfo {
@@ -42,11 +37,6 @@ pub enum LocalRecording {
 }
 
 impl LocalRecording {
-    /// Provide a global store where LocalRecording can push updates when creating folders.
-    pub fn set_store(store: Arc<RwLock<Vec<LocalRecording>>>) {
-        let _ = LOCAL_RECORDINGS_STORE.set(store);
-    }
-
     /// Creates the recording folder at the given path if it doesn't already exist.
     /// Returns basic info about the folder. Called at .start() of recording.
     pub fn create_at(path: &Path) -> Result<LocalRecordingInfo> {
@@ -70,20 +60,6 @@ impl LocalRecording {
             folder_path: path.to_path_buf(),
             timestamp,
         };
-
-        // If a global store is set, update it with a new Unuploaded entry
-        if let Some(store) = LOCAL_RECORDINGS_STORE.get() {
-            let mut vec = store.write().unwrap();
-            // Insert at the front to maintain sorted order. This shouldn't actually matter since scan_directory is called
-            // every time recording .stop() occurs and that sorts the vec anyway, but it's just nicer this way I think.
-            vec.insert(
-                0,
-                LocalRecording::Unuploaded {
-                    info: info.clone(),
-                    metadata: None,
-                },
-            );
-        }
 
         Ok(info)
     }

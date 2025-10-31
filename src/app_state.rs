@@ -13,8 +13,6 @@ pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
-    pub user_uploads: RwLock<Option<UserUploads>>,
-    pub local_recordings: Arc<RwLock<Vec<LocalRecording>>>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
@@ -32,8 +30,6 @@ impl AppState {
         let this = Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
-            user_uploads: RwLock::new(None),
-            local_recordings: Arc::new(RwLock::new(Vec::new())),
             async_request_tx,
             ui_update_tx,
             adapter_infos,
@@ -41,9 +37,6 @@ impl AppState {
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
         };
-
-        // Allow LocalRecording to update the shared store when folders are created
-        LocalRecording::set_store(this.local_recordings.clone());
 
         this
     }
@@ -118,6 +111,7 @@ pub enum UiUpdate {
     UploadFailed(String),
     UpdateTrayIconRecording(bool),
     UpdateNewerReleaseAvailable(GitHubRelease),
+    UpdateUserUploads(UserUploads),
     UpdateLocalRecordings(Vec<LocalRecording>),
 }
 
