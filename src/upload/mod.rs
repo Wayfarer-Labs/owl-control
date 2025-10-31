@@ -10,18 +10,18 @@ use tokio::{io::AsyncReadExt, sync::mpsc};
 
 use crate::{
     api::{ApiClient, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
-    app_state::{self, AppState, AsyncRequest},
+    app_state::{self, AppState, AsyncRequest, UiUpdate, UiUpdateUnreliable},
     record::LocalRecording,
     validation::{ValidationResult, validate_folder},
 };
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 pub struct FileProgress {
     pub current_file: String,
     pub files_remaining: u64,
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 pub struct ProgressData {
     pub bytes_uploaded: u64,
     pub total_bytes: u64,
@@ -44,6 +44,7 @@ pub async fn start(
     recording_location: PathBuf,
 ) {
     let tx = app_state.ui_update_tx.clone();
+    let unreliable_tx = app_state.ui_update_unreliable_tx.clone();
     let cancel_flag = app_state.upload_cancel_flag.clone();
 
     // Reset cancel flag at start of upload
@@ -58,11 +59,12 @@ pub async fn start(
         )
     };
 
-    tx.send(app_state::UiUpdate::UpdateUploadProgress(Some(
-        ProgressData::default(),
-    )))
-    .await
-    .ok();
+    app_state
+        .ui_update_unreliable_tx
+        .send(UiUpdateUnreliable::UpdateUploadProgress(Some(
+            ProgressData::default(),
+        )))
+        .ok();
 
     if let Err(e) = run(
         &recording_location,
@@ -70,15 +72,13 @@ pub async fn start(
         api_token,
         unreliable_connection,
         delete_uploaded,
-        tx.clone(),
+        unreliable_tx.clone(),
         app_state.async_request_tx.clone(),
         cancel_flag,
     )
     .await
     {
-        tx.send(app_state::UiUpdate::UploadFailed(e.to_string()))
-            .await
-            .ok();
+        tx.send(UiUpdate::UploadFailed(e.to_string())).ok();
     }
 
     app_state
@@ -92,8 +92,8 @@ pub async fn start(
         .await
         .ok();
 
-    tx.send(app_state::UiUpdate::UpdateUploadProgress(None))
-        .await
+    unreliable_tx
+        .send(UiUpdateUnreliable::UpdateUploadProgress(None))
         .ok();
 }
 
@@ -105,7 +105,7 @@ async fn run(
     api_token: String,
     unreliable_connection: bool,
     delete_uploaded: bool,
-    tx: app_state::UiUpdateSender,
+    unreliable_tx: app_state::UiUpdateUnreliableSender,
     async_req_tx: mpsc::Sender<AsyncRequest>,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
 ) -> eyre::Result<FinalStats> {
@@ -143,7 +143,7 @@ async fn run(
             api_client.clone(),
             &api_token,
             unreliable_connection,
-            tx.clone(),
+            unreliable_tx.clone(),
             cancel_flag.clone(),
             file_progress,
         )
@@ -241,7 +241,7 @@ async fn upload_folder(
     api_client: Arc<ApiClient>,
     api_token: &str,
     unreliable_connection: bool,
-    tx: app_state::UiUpdateSender,
+    unreliable_tx: app_state::UiUpdateUnreliableSender,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     file_progress: FileProgress,
 ) -> eyre::Result<RecordingStats> {
@@ -281,7 +281,7 @@ async fn upload_folder(
             .to_string_lossy()
             .as_ref(),
         validation.metadata.duration,
-        tx,
+        unreliable_tx,
         cancel_flag,
         file_progress,
     )
@@ -311,7 +311,7 @@ async fn upload_tar(
     video_filename: &str,
     control_filename: &str,
     video_duration_seconds: f64,
-    tx: app_state::UiUpdateSender,
+    unreliable_tx: app_state::UiUpdateUnreliableSender,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     file_progress: FileProgress,
 ) -> eyre::Result<String> {
@@ -319,11 +319,11 @@ async fn upload_tar(
         .map(|m| m.len())
         .context("failed to get file size")?;
 
-    tx.send(app_state::UiUpdate::UpdateUploadProgress(Some(
-        ProgressData::default(),
-    )))
-    .await
-    .ok();
+    unreliable_tx
+        .send(UiUpdateUnreliable::UpdateUploadProgress(Some(
+            ProgressData::default(),
+        )))
+        .ok();
 
     let upload_session = api_client
         .init_multipart_upload(
@@ -405,7 +405,7 @@ async fn upload_tar(
         let client = reqwest::Client::new();
 
         let progress_sender = Arc::new(Mutex::new(ProgressSender::new(
-            tx.clone(),
+            unreliable_tx.clone(),
             file_size,
             file_progress,
         )));
@@ -579,7 +579,7 @@ async fn upload_single_chunk(
 }
 
 struct ProgressSender {
-    tx: app_state::UiUpdateSender,
+    tx: app_state::UiUpdateUnreliableSender,
     bytes_uploaded: u64,
     last_update_time: std::time::Instant,
     file_size: u64,
@@ -587,7 +587,11 @@ struct ProgressSender {
     file_progress: FileProgress,
 }
 impl ProgressSender {
-    pub fn new(tx: app_state::UiUpdateSender, file_size: u64, file_progress: FileProgress) -> Self {
+    pub fn new(
+        tx: app_state::UiUpdateUnreliableSender,
+        file_size: u64,
+        file_progress: FileProgress,
+    ) -> Self {
         Self {
             tx,
             bytes_uploaded: 0,
@@ -633,7 +637,7 @@ impl ProgressSender {
             file_progress: self.file_progress.clone(),
         };
         self.tx
-            .try_send(app_state::UiUpdate::UpdateUploadProgress(Some(data)))
+            .send(UiUpdateUnreliable::UpdateUploadProgress(Some(data)))
             .ok();
     }
 }

@@ -90,11 +90,14 @@ fn main() -> Result<()> {
         .collect::<Vec<_>>();
     tracing::info!("Available adapters: {adapter_infos:?}");
 
-    let (async_request_tx, async_request_rx) = tokio::sync::mpsc::channel(16);
-    let (ui_update_tx, ui_update_rx) = app_state::UiUpdateSender::build(16);
+    let (async_request_tx, async_request_rx) = tokio::sync::mpsc::channel(200);
+    let (ui_update_tx, ui_update_rx) = app_state::UiUpdateSender::build();
+    // A broadcast channel is used as older entries will be dropped if the channel is full.
+    let (ui_update_unreliable_tx, ui_update_unreliable_rx) = tokio::sync::broadcast::channel(200);
     let app_state = Arc::new(app_state::AppState::new(
         async_request_tx,
         ui_update_tx,
+        ui_update_unreliable_tx,
         adapter_infos,
     ));
 
@@ -129,7 +132,7 @@ fn main() -> Result<()> {
             };
             app_state
                 .ui_update_tx
-                .blocking_send(app_state::UiUpdate::ForceUpdate)
+                .send(app_state::UiUpdate::ForceUpdate)
                 .ok();
             tracing::info!("Tokio thread shut down complete");
         }
@@ -139,6 +142,7 @@ fn main() -> Result<()> {
         wgpu_instance,
         app_state,
         ui_update_rx,
+        ui_update_unreliable_rx,
         stopped_tx,
         stopped_rx,
     )?;

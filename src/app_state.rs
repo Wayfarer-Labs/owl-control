@@ -5,7 +5,7 @@ use std::{
 
 use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames};
 use egui_wgpu::wgpu;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 
 use crate::{api::UserUploads, config::Config, record::LocalRecording, upload::ProgressData};
 
@@ -17,6 +17,7 @@ pub struct AppState {
     pub local_recordings: RwLock<Vec<LocalRecording>>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
+    pub ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
     pub upload_cancel_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
@@ -27,6 +28,7 @@ impl AppState {
     pub fn new(
         async_request_tx: mpsc::Sender<AsyncRequest>,
         ui_update_tx: UiUpdateSender,
+        ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
         adapter_infos: Vec<wgpu::AdapterInfo>,
     ) -> Self {
         Self {
@@ -36,6 +38,7 @@ impl AppState {
             local_recordings: RwLock::new(Vec::new()),
             async_request_tx,
             ui_update_tx,
+            ui_update_unreliable_tx,
             adapter_infos,
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
@@ -109,22 +112,30 @@ pub enum UiUpdate {
     ForceUpdate,
     UpdateAvailableVideoEncoders(Vec<VideoEncoderType>),
     UpdateUserId(Result<String, String>),
-    UpdateUploadProgress(Option<ProgressData>),
     UploadFailed(String),
     UpdateTrayIconRecording(bool),
     UpdateNewerReleaseAvailable(GitHubRelease),
     UpdateLocalRecordings(Vec<LocalRecording>),
 }
 
+/// A message sent to the UI thread, usually in response to some action taken in another thread
+/// but is not important enough to warrant a force update, or to be queued up.
+#[derive(Clone, PartialEq)]
+pub enum UiUpdateUnreliable {
+    UpdateUploadProgress(Option<ProgressData>),
+}
+
+pub type UiUpdateUnreliableSender = broadcast::Sender<UiUpdateUnreliable>;
+
 /// A sender for [`UiUpdate`] messages. Will automatically repaint the UI after sending a message.
 #[derive(Clone)]
 pub struct UiUpdateSender {
-    tx: mpsc::Sender<UiUpdate>,
+    tx: mpsc::UnboundedSender<UiUpdate>,
     pub ctx: OnceLock<egui::Context>,
 }
 impl UiUpdateSender {
-    pub fn build(buffer: usize) -> (Self, tokio::sync::mpsc::Receiver<UiUpdate>) {
-        let (tx, rx) = tokio::sync::mpsc::channel(buffer);
+    pub fn build() -> (Self, tokio::sync::mpsc::UnboundedReceiver<UiUpdate>) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         (
             Self {
                 tx,
@@ -134,25 +145,8 @@ impl UiUpdateSender {
         )
     }
 
-    pub fn try_send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::TrySendError<UiUpdate>> {
-        // if the UI is not focused the ctx never repaints so the message queue is never flushed. so if uploading
-        // is occuring we have to force the app to repaint periodically, and pop messages from the message queue
-        if let Some(ctx) = self.ctx.get() {
-            ctx.request_repaint_after(Duration::from_millis(10))
-        }
-        self.tx.try_send(cmd)
-    }
-
-    pub fn blocking_send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::SendError<UiUpdate>> {
-        let res = self.tx.blocking_send(cmd);
-        if let Some(ctx) = self.ctx.get() {
-            ctx.request_repaint_after(Duration::from_millis(10))
-        }
-        res
-    }
-
-    pub async fn send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::SendError<UiUpdate>> {
-        let res = self.tx.send(cmd).await;
+    pub fn send(&self, cmd: UiUpdate) -> Result<(), mpsc::error::SendError<UiUpdate>> {
+        let res = self.tx.send(cmd);
         if let Some(ctx) = self.ctx.get() {
             ctx.request_repaint_after(Duration::from_millis(10))
         }
