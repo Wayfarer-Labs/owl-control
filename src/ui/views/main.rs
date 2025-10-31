@@ -355,6 +355,7 @@ impl MainApp {
                         // Unified view with both successful and invalid recordings
                         unified_recordings_view(
                             ui,
+                            &mut self.virtual_list,
                             &self.local_recordings,
                             self.user_uploads.as_ref().map(|u| u.uploads.as_slice()),
                             &self.app_state,
@@ -790,6 +791,7 @@ impl<'a> RecordingEntry<'a> {
 
 fn unified_recordings_view(
     ui: &mut egui::Ui,
+    virtual_list: &mut Option<egui_virtual_list::VirtualList>,
     local_recordings: &[LocalRecording],
     uploads: Option<&[UserUpload]>,
     app_state: &crate::app_state::AppState,
@@ -864,58 +866,21 @@ fn unified_recordings_view(
                 return;
             }
 
+            let virtual_list = virtual_list.get_or_insert_default();
+
             // We have to use efficient .show_viewport() variation that renders selected rows otherwise
             // egui crashes out when we have too many entries, starts calling window redraws all the time
             // and cpu usage explodes for no reason whenever upload tracker is open
             egui::ScrollArea::vertical()
                 .max_height(height)
                 .auto_shrink([false, true])
-                .show_viewport(ui, |ui, viewport| {
-                    ui.set_height(
-                        all_entries
-                            .iter()
-                            .map(|entry| estimate_recording_entry_height(entry, FONTSIZE))
-                            .sum::<f32>(),
-                    );
-
-                    let (first_height, first_item) = {
-                        let mut skipped_height = 0.0;
-                        let mut first_item = 0usize;
-                        for entry in &all_entries {
-                            let height = estimate_recording_entry_height(entry, FONTSIZE);
-                            if skipped_height + height > viewport.min.y {
-                                break;
-                            }
-                            skipped_height += height;
-                            first_item += 1;
-                        }
-                        (skipped_height, first_item)
-                    };
-
-                    let last_item = {
-                        let mut last_item = first_item;
-                        let mut rendered_height = first_height;
-                        for entry in &all_entries[first_item..] {
-                            let height = estimate_recording_entry_height(entry, FONTSIZE);
-                            if rendered_height + height > viewport.max.y {
-                                break;
-                            }
-                            rendered_height += height;
-                            last_item += 1;
-                        }
-                        last_item
-                    };
-
-                    for entry in &all_entries[first_item..last_item] {
-                        render_recording_entry(ui, entry, app_state, FONTSIZE);
-                        ui.add_space(4.0);
-                    }
+                .show(ui, |ui| {
+                    virtual_list.ui_custom_layout(ui, all_entries.len(), |ui, index| {
+                        render_recording_entry(ui, &all_entries[index], app_state, FONTSIZE);
+                        1
+                    });
                 });
         });
-}
-
-fn estimate_recording_entry_height(entry: &RecordingEntry, font_size: f32) -> f32 {
-    120.0
 }
 
 fn render_recording_entry(

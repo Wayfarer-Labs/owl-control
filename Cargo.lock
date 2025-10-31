@@ -1520,6 +1520,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_virtual_list"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b81f88c8461c55ffba77f9f5ae8b97ed8b55fbef93bb8dd64a619a6632228138"
+dependencies = [
+ "egui",
+ "web-time",
+]
+
+[[package]]
 name = "egui_window_glfw_passthrough"
 version = "0.9.0"
 source = "git+https://github.com/Wayfarer-Labs/egui_overlay.git?branch=master#5ea1c91b4baac4b0fb808bc94486c881dc413a86"
@@ -4303,6 +4313,7 @@ dependencies = [
  "egui_extras",
  "egui_overlay",
  "egui_render_three_d",
+ "egui_virtual_list",
  "egui_window_glfw_passthrough",
  "embed-manifest",
  "futures",
