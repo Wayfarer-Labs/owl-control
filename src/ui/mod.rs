@@ -20,12 +20,14 @@ use winit::{
 };
 
 use crate::{
+    api::UserUploads,
     app_state::{
         AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey, UiUpdate,
         UiUpdateUnreliable,
     },
     assets,
     config::{Credentials, Preferences},
+    record::LocalRecording,
     system::keycode::virtual_keycode_to_name,
     upload,
 };
@@ -465,6 +467,10 @@ pub struct MainApp {
 
     main_view_state: views::main::MainViewState,
 
+    user_uploads: Option<UserUploads>,
+    local_recordings: Vec<LocalRecording>,
+    virtual_list: Option<egui_virtual_list::VirtualList>,
+
     tray_icon: tray_icon::TrayIconState,
 
     /// Whether the encoder settings window is open
@@ -525,6 +531,10 @@ impl MainApp {
 
             main_view_state: views::main::MainViewState::default(),
 
+            user_uploads: None,
+            local_recordings: vec![],
+            virtual_list: None,
+
             tray_icon,
 
             encoder_settings_window_open: false,
@@ -565,8 +575,17 @@ impl MainApp {
             Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
                 self.newer_release_available = Some(release);
             }
-            Ok(UiUpdate::UpdateLocalRecordings(local_recordings)) => {
-                *self.app_state.local_recordings.write().unwrap() = local_recordings;
+            Ok(UiUpdate::UpdateUserUploads(uploads)) => {
+                self.user_uploads = Some(uploads);
+                // Reset virtual list so it can be re-created
+                // with the new uploads
+                self.virtual_list = None;
+            }
+            Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
+                self.local_recordings = recordings;
+                // Reset virtual list so it can be re-created
+                // with the new recordings
+                self.virtual_list = None;
             }
             Err(_) => {}
         };

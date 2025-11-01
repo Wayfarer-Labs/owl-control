@@ -13,8 +13,6 @@ pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
     pub config: RwLock<Config>,
-    pub user_uploads: RwLock<Option<UserUploads>>,
-    pub local_recordings: RwLock<Vec<LocalRecording>>,
     pub async_request_tx: mpsc::Sender<AsyncRequest>,
     pub ui_update_tx: UiUpdateSender,
     pub ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
@@ -34,8 +32,6 @@ impl AppState {
         Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
-            user_uploads: RwLock::new(None),
-            local_recordings: RwLock::new(Vec::new()),
             async_request_tx,
             ui_update_tx,
             ui_update_unreliable_tx,
@@ -115,6 +111,7 @@ pub enum UiUpdate {
     UploadFailed(String),
     UpdateTrayIconRecording(bool),
     UpdateNewerReleaseAvailable(GitHubRelease),
+    UpdateUserUploads(UserUploads),
     UpdateLocalRecordings(Vec<LocalRecording>),
 }
 
