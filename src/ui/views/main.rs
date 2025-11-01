@@ -1,4 +1,4 @@
-use std::{
+﻿use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -305,6 +305,39 @@ impl MainApp {
                                     None
                                 )
                             });
+                        });
+                    });
+
+                    // Recordings folder selection
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.add_sized(
+                                    egui::vec2(50.0, SETTINGS_TEXT_HEIGHT),
+                                    egui::Button::new("Browse"),
+                                )
+                                .clicked() {
+                                    let start_dir = if self.local_preferences.recording_location.exists() {
+                                        Some(self.local_preferences.recording_location.clone())
+                                    } else {
+                                        None
+                                    };
+
+                                    let picked = match start_dir {
+                                        Some(dir) => rfd::FileDialog::new().set_directory(dir).pick_folder(),
+                                        None => rfd::FileDialog::new().pick_folder(),
+                                    };
+                                    if let Some(path) = picked {
+                                        self.local_preferences.recording_location = path;
+                                    }
+                                }
+
+                            // Display the full path below
+                            let mut display = dunce::canonicalize(&self.local_preferences.recording_location)
+                                .unwrap_or_else(|_| self.local_preferences.recording_location.clone())
+                                .to_string_lossy()
+                                .to_string();
+                            ui.add_sized(egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT), egui::TextEdit::singleline(&mut display));
                         });
                     });
                 });
