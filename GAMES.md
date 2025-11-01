@@ -1,41 +1,36 @@
 # Usage Guide
 
-## Follow these guidelines or your recordings won’t always count toward your payout.
+Follow these guidelines. You must be 18 or older!
 
-❌ Playing with less than a steady 60 frames per second.<br>
-❌ Recording cutscenes and menus. We need input data, not movies.<br>
-❌ Remaining idle during recording, standing still, camping, afk, etc.<br>
-❌ Capturing voice chat of real people in any Co-Op/PvP games, especially if marked with `(no voice)`.<br>
-❌ Recording control hardware other than keyboard, mouse, or gamepad<br>
+❌ Cutscenes or menus. We need input data, not movies.<br>
+❌ Idling during recording. No standing still, camping, afk, etc.<br>
+❌ Play or voice chat of real people not recording with our software in any Co-Op/PvP games.<br>
+❌ Controls other than keyboard, mouse and gamepad.<br><br>
+
+✅ First-person view.<br>
+✅ Steady 60 FPS (aka frames per second/framerate) or more. Lower resolution or cap framerate if necessary.<br>
+✅ Stop recording in menus, cutscenes, and when not playing.<br>
+✅ Repeat playthroughs. Do new things each time!<br>
+✅ XBOX and PS5 controllers. PS5 controllers should be be wired to the computer.<br>
+✅ Game mods.<br>
+✅ Use Discord or other voice chat.<br>
+✅ Playing music in the background.<br>
+
+> [!IMPORTANT]
+>
+> - Singleplayer game recordings give best results.
+> - We buy games from `Top-priority` for veteran contributors.
+> - We don't capture your microphone or anything outside the active game.
 
 > [!WARNING]
 >
 > The following behaviors will lead to a ban:
 >
-> * Contributing if you are less than 18 years old.
-> * Falsifying recordings (intentional black screens, idle on purpose, giving no real input or effort).<br>
-> * Recording excessive nudity or similar NSFW content.<br>
-> * Recording bot play.<br>
-> * Tampering with the software system.<br>
+> * Falsifying recordings or repeatedly violating guidelines.<br>
+> * Recording games with a focus on nudity and NSFW content.<br>
+> * Tampering with our software system.<br>
 
-✅ Lowering resolution or setting framecap to 60 FPS<br>
-✅ When possible, stop recording before entering menus, dialogue, or cutscenes.<br>
-✅ Stop recording to step away from the computer or turn focus away from the game.<br>
-✅ Game mods are allowed.<br>
-✅ Play with a PS5 or Xbox controller. Wire your gamepad into your computer for best results.<br>
-✅ Use external apps like Discord for voice chat.<br>
-✅ Play in first-person view as much as possible.<br>
-✅ Run the game as Administrator if the game is marked with `(admin)` and you run into a problem.<br>
-✅ Ask for help from @EXDYSA in the [Discord #owl-control channel](https://discord.gg/aP6dnucG)!<br>
-✅ Play a single game repeatedly. Try to do new things and have new experiences each time!<br>
-
-> [!IMPORTANT]
->
-> - We highly recommend playing singleplayer games to maximize acceptance of your recordings.
-> - We buy games from `Top-priority` for contributors who provide significant amounts of data.
-> - We don't capture your voice or any music playing in the background that isn't within the game.
-> - We don't capture any windows or inputs other than those sent to your own game.
-> - Split-screen, steering wheels, consoles, and VR games are not supported.
+Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnucG)!<br>
 
 ## Top-Priority Games
 
@@ -197,6 +192,8 @@
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
+
+
 
 # Unwanted games
 
