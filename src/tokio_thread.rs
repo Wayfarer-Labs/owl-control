@@ -75,7 +75,7 @@ async fn main(
     .await?;
     app_state
         .ui_update_tx
-        .try_send(UiUpdate::UpdateAvailableVideoEncoders(
+        .send(UiUpdate::UpdateAvailableVideoEncoders(
             recorder.available_video_encoders().to_vec(),
         ))
         .ok();
@@ -124,7 +124,7 @@ async fn main(
                 r.expect("stopped signal handler was closed early");
                 // might seem redundant but sometimes there's an unreproducible bug where if the MainApp isn't
                 // performing repaints it won't receive the shut down signal until user interacts with the window
-                app_state.ui_update_tx.try_send(UiUpdate::ForceUpdate).ok();
+                app_state.ui_update_tx.send(UiUpdate::ForceUpdate).ok();
                 break;
             },
             e = input_rx.recv() => {
@@ -186,7 +186,7 @@ async fn main(
                         valid_api_key_and_user_id = response.as_ref().ok().map(|s| (api_key.clone(), s.clone()));
                         app_state
                             .ui_update_tx
-                            .try_send(UiUpdate::UpdateUserId(response.map_err(|e| e.to_string())))
+                            .send(UiUpdate::UpdateUserId(response.map_err(|e| e.to_string())))
                             .ok();
 
                         if valid_api_key_and_user_id.is_some() {
@@ -239,7 +239,7 @@ async fn main(
                                             }
                                         };
                                         tracing::info!(stats=?stats.statistics, "Loaded upload stats");
-                                        app_state.ui_update_tx.try_send(UiUpdate::UpdateUserUploads(stats)).ok();
+                                        app_state.ui_update_tx.send(UiUpdate::UpdateUserUploads(stats)).ok();
                                     }
                                 });
                             }
@@ -260,7 +260,7 @@ async fn main(
                                 tracing::info!("Found {} local recordings", local_recordings.len());
                                 app_state
                                     .ui_update_tx
-                                    .try_send(UiUpdate::UpdateLocalRecordings(local_recordings))
+                                    .send(UiUpdate::UpdateLocalRecordings(local_recordings))
                                     .ok();
                             }
                         });
@@ -330,7 +330,7 @@ async fn main(
 
                                 app_state
                                     .ui_update_tx
-                                    .try_send(UiUpdate::UpdateLocalRecordings(local_recordings))
+                                    .send(UiUpdate::UpdateLocalRecordings(local_recordings))
                                     .ok();
                             }
                         });
@@ -442,7 +442,7 @@ fn notify_of_recording_state_change(
 ) {
     app_state
         .ui_update_tx
-        .try_send(UiUpdate::UpdateTrayIconRecording(is_recording))
+        .send(UiUpdate::UpdateTrayIconRecording(is_recording))
         .ok();
     if should_play_sound {
         let source = Decoder::new_mp3(Cursor::new(if is_recording {
@@ -571,7 +571,7 @@ async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {
 
         app_state
             .ui_update_tx
-            .try_send(UiUpdate::UpdateNewerReleaseAvailable(GitHubRelease {
+            .send(UiUpdate::UpdateNewerReleaseAvailable(GitHubRelease {
                 name: latest_valid_release.name,
                 release_notes_url: latest_valid_release.html_url,
                 download_url,

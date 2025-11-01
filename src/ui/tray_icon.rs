@@ -85,7 +85,7 @@ impl TrayIconState {
                     window.set_minimized(false);
                     window.focus_window();
 
-                    ui_update_tx.blocking_send(UiUpdate::ForceUpdate).ok();
+                    ui_update_tx.send(UiUpdate::ForceUpdate).ok();
                 }
                 _ => {}
             })

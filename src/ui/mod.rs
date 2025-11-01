@@ -23,6 +23,7 @@ use crate::{
     api::UserUploads,
     app_state::{
         AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey, UiUpdate,
+        UiUpdateUnreliable,
     },
     assets,
     config::{Credentials, Preferences},
@@ -52,7 +53,8 @@ const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 820);
 pub fn start(
     wgpu_instance: wgpu::Instance,
     app_state: Arc<AppState>,
-    ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+    ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+    ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
     stopped_tx: tokio::sync::broadcast::Sender<()>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
@@ -80,6 +82,7 @@ pub fn start(
         stopped_rx,
         stopped_tx,
         ui_update_rx,
+        ui_update_unreliable_rx,
         tray_icon,
     )?;
 
@@ -178,13 +181,15 @@ struct App {
 }
 
 impl App {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         wgpu_instance: wgpu::Instance,
         app_state: Arc<AppState>,
         visible: Arc<AtomicBool>,
         stopped_rx: tokio::sync::broadcast::Receiver<()>,
         stopped_tx: tokio::sync::broadcast::Sender<()>,
-        ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+        ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+        ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
         tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
         let main_app = MainApp::new(
@@ -193,6 +198,7 @@ impl App {
             stopped_rx,
             stopped_tx,
             ui_update_rx,
+            ui_update_unreliable_rx,
             tray_icon,
         )?;
 
@@ -425,7 +431,10 @@ pub struct MainApp {
     app_state: Arc<AppState>,
     frame: u64,
     /// Receives commands from various tx in other threads to perform some UI update
-    ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+    ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+    /// Receives commands from various tx in other threads to perform some UI update
+    /// that don't need to be processed immediately.
+    ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
 
     /// Available video encoders, updated from tokio thread via mpsc channel
     available_video_encoders: Vec<VideoEncoderType>,
@@ -473,7 +482,8 @@ impl MainApp {
         visible: Arc<AtomicBool>,
         stopped_rx: tokio::sync::broadcast::Receiver<()>,
         stopped_tx: tokio::sync::broadcast::Sender<()>,
-        ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+        ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+        ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
         tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
         let (local_credentials, local_preferences) = {
@@ -495,6 +505,7 @@ impl MainApp {
             app_state,
             frame: 0,
             ui_update_rx,
+            ui_update_unreliable_rx,
 
             login_api_key: local_credentials.api_key.clone(),
             is_authenticating_login_api_key: false,
@@ -547,9 +558,6 @@ impl MainApp {
             Ok(UiUpdate::UpdateAvailableVideoEncoders(encoders)) => {
                 self.available_video_encoders = encoders;
             }
-            Ok(UiUpdate::UpdateUploadProgress(progress_data)) => {
-                self.current_upload_progress = progress_data;
-            }
             Ok(UiUpdate::UpdateUserId(uid)) => {
                 let was_successful = uid.is_ok();
                 self.authenticated_user_id = Some(uid);
@@ -581,6 +589,19 @@ impl MainApp {
             }
             Err(_) => {}
         };
+
+        match self.ui_update_unreliable_rx.try_recv() {
+            Ok(UiUpdateUnreliable::UpdateUploadProgress(progress_data)) => {
+                self.current_upload_progress = progress_data;
+            }
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {
+                tracing::warn!("UiUpdateUnreliable channel lagged, dropping message");
+            }
+            Err(
+                tokio::sync::broadcast::error::TryRecvError::Empty
+                | tokio::sync::broadcast::error::TryRecvError::Closed,
+            ) => {}
+        }
 
         if self.stopped_rx.try_recv().is_ok() {
             tracing::info!("MainApp received stop signal");
