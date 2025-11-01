@@ -140,6 +140,7 @@
 
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
+- [Atomic Heart](https://store.steampowered.com/app/668580/Atomic_Heart/)
 - [Painkiller](https://store.steampowered.com/app/2300120/Painkiller/)
 - [DOOM 2016](https://store.steampowered.com/app/379720/DOOM/)
 - [DOOM Eternal](https://store.steampowered.com/app/782330/DOOM_Eternal/)
