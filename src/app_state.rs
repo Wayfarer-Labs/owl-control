@@ -29,7 +29,7 @@ impl AppState {
         ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
         adapter_infos: Vec<wgpu::AdapterInfo>,
     ) -> Self {
-        let this = Self {
+        Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
             async_request_tx,
@@ -39,9 +39,7 @@ impl AppState {
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
-        };
-
-        this
+        }
     }
 }
 

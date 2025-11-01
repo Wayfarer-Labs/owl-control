@@ -873,7 +873,7 @@ fn unified_recordings_view(
                 .map(RecordingEntry::Successful)
                 .chain(local_recordings.iter().map(RecordingEntry::Local))
                 .collect::<Vec<_>>();
-            all_entries.sort_by(|a, b| b.timestamp().cmp(&a.timestamp()));
+            all_entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
 
             if all_entries.is_empty() {
                 ui.label("No recordings yet");
@@ -890,7 +890,13 @@ fn unified_recordings_view(
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
                     virtual_list.ui_custom_layout(ui, all_entries.len(), |ui, index| {
-                        render_recording_entry(ui, &all_entries[index], app_state, FONTSIZE, pending_delete_recording);
+                        render_recording_entry(
+                            ui,
+                            &all_entries[index],
+                            app_state,
+                            FONTSIZE,
+                            pending_delete_recording,
+                        );
                         1
                     });
                 });
