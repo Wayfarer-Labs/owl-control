@@ -32,14 +32,12 @@ use crate::{record::Recorder, system::raw_input_debouncer::EventDebouncer};
 
 pub fn run(
     app_state: Arc<AppState>,
-    recording_location: PathBuf,
     log_path: PathBuf,
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
     tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
-        recording_location,
         log_path,
         async_request_rx,
         stopped_rx,
@@ -48,7 +46,6 @@ pub fn run(
 
 async fn main(
     app_state: Arc<AppState>,
-    recording_location: PathBuf,
     log_path: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
@@ -59,9 +56,16 @@ async fn main(
 
     let mut recorder = Recorder::new(
         Box::new({
-            let recording_location = recording_location.clone();
+            let app_state = app_state.clone();
             move || {
-                recording_location.join(
+                let base = app_state
+                    .config
+                    .read()
+                    .unwrap()
+                    .preferences
+                    .recording_location
+                    .clone();
+                base.join(
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap()
@@ -195,14 +199,31 @@ async fn main(
                         }
                     }
                     AsyncRequest::UploadData => {
-                        tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
+                        let recording_location = {
+                            app_state
+                                .config
+                                .read()
+                                .unwrap()
+                                .preferences
+                                .recording_location
+                                .clone()
+                        };
+                        tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location));
                     }
                     AsyncRequest::CancelUpload => {
                         app_state.upload_cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
                         tracing::info!("Upload cancellation requested");
                     }
                     AsyncRequest::OpenDataDump => {
-                        // Create directory if it doesn't exist
+                        let recording_location = {
+                            app_state
+                                .config
+                                .read()
+                                .unwrap()
+                                .preferences
+                                .recording_location
+                                .clone()
+                        };
                         if !recording_location.exists() {
                             let _ = std::fs::create_dir_all(&recording_location);
                         }
@@ -251,7 +272,15 @@ async fn main(
                     AsyncRequest::LoadLocalRecordings => {
                         tokio::spawn({
                             let app_state = app_state.clone();
-                            let recording_location = recording_location.clone();
+                            let recording_location = {
+                                app_state
+                                    .config
+                                    .read()
+                                    .unwrap()
+                                    .preferences
+                                    .recording_location
+                                    .clone()
+                            };
                             async move {
                                 let local_recordings = tokio::task::spawn_blocking(move || {
                                     LocalRecording::scan_directory(&recording_location)
@@ -268,7 +297,15 @@ async fn main(
                     AsyncRequest::DeleteAllInvalidRecordings => {
                         tokio::spawn({
                             let app_state = app_state.clone();
-                            let recording_location = recording_location.clone();
+                            let recording_location = {
+                                app_state
+                                    .config
+                                    .read()
+                                    .unwrap()
+                                    .preferences
+                                    .recording_location
+                                    .clone()
+                            };
                             async move {
                                 // Get current list of local recordings
                                 let local_recordings = tokio::task::spawn_blocking({

@@ -27,6 +27,8 @@ pub struct Preferences {
     pub recording_backend: RecordingBackend,
     #[serde(default)]
     pub encoder: EncoderSettings,
+    #[serde(default = "default_recording_location")]
+    pub recording_location: std::path::PathBuf,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -41,6 +43,7 @@ impl Default for Preferences {
             honk: Default::default(),
             recording_backend: Default::default(),
             encoder: Default::default(),
+            recording_location: default_recording_location(),
         }
     }
 }
@@ -101,6 +104,10 @@ fn default_stop_key() -> String {
 }
 fn default_opacity() -> u8 {
     85
+}
+
+fn default_recording_location() -> std::path::PathBuf {
+    std::path::PathBuf::from("./data_dump/games")
 }
 
 // For some reason, previous electron configs saved hasConsented as a string instead of a boolean? So now we need a custom deserializer

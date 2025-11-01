@@ -16,9 +16,6 @@ mod upload;
 mod util;
 mod validation;
 
-use std::path::PathBuf;
-
-use clap::Parser;
 use color_eyre::Result;
 use egui_wgpu::wgpu;
 use tracing_subscriber::{Layer, layer::SubscriberExt as _, util::SubscriberInitExt as _};
@@ -28,13 +25,6 @@ use std::sync::Arc;
 use crate::system::ensure_single_instance::ensure_single_instance;
 
 fn main() -> Result<()> {
-    #[derive(Parser, Debug)]
-    #[command(version, about)]
-    struct Args {
-        #[arg(long, default_value = "./data_dump/games")]
-        recording_location: PathBuf,
-    }
-
     // Set up logging, including to file
     let log_path = config::get_persistent_dir()?.join("owl-control-debug.log");
     let log_file = std::fs::OpenOptions::new()
@@ -75,8 +65,6 @@ fn main() -> Result<()> {
         git_version::git_version!()
     );
 
-    let Args { recording_location } = Args::parse();
-
     color_eyre::install()?;
 
     // Ensure only one instance is running
@@ -108,13 +96,8 @@ fn main() -> Result<()> {
         let stopped_tx = stopped_tx.clone();
         let stopped_rx = stopped_rx.resubscribe();
         move || {
-            let result = tokio_thread::run(
-                app_state.clone(),
-                recording_location,
-                log_path,
-                async_request_rx,
-                stopped_rx,
-            );
+            let result =
+                tokio_thread::run(app_state.clone(), log_path, async_request_rx, stopped_rx);
 
             if let Err(e) = result {
                 tracing::error!("Error in tokio thread: {e}");
