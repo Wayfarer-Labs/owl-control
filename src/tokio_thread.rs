@@ -239,7 +239,7 @@ async fn main(
                                             }
                                         };
                                         tracing::info!(stats=?stats.statistics, "Loaded upload stats");
-                                        *app_state.user_uploads.write().unwrap() = Some(stats);
+                                        app_state.ui_update_tx.send(UiUpdate::UpdateUserUploads(stats)).ok();
                                     }
                                 });
                             }

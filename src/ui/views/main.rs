@@ -330,21 +330,19 @@ impl MainApp {
                     ui.separator();
                     ui.add_space(10.0);
 
-                    let user_uploads = self.app_state.user_uploads.read().unwrap().clone();
                     ui.horizontal(|ui| {
                         upload_stats(
                             ui,
-                            user_uploads
+                            self.user_uploads
                                 .as_ref()
                                 .map(|u| (&u.statistics, u.uploads.as_slice())),
-                            &self.app_state.local_recordings.read().unwrap(),
+                            &self.local_recordings,
                         );
                     });
                     ui.add_space(8.0);
 
                     // Unified Recordings Section
-                    let local_recordings = self.app_state.local_recordings.read().unwrap();
-                    let invalid_count = local_recordings.iter()
+                    let invalid_count = self.local_recordings.iter()
                         .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
                         .count();
                     egui::CollapsingHeader::new(
@@ -362,8 +360,9 @@ impl MainApp {
                         // Unified view with both successful and invalid recordings
                         unified_recordings_view(
                             ui,
-                            user_uploads.as_ref().map(|u| u.uploads.as_slice()),
-                            &local_recordings,
+                            &mut self.virtual_list,
+                            &self.local_recordings,
+                            self.user_uploads.as_ref().map(|u| u.uploads.as_slice()),
                             &self.app_state,
                             &mut self.main_view_state.pending_delete_recording,
                         );
@@ -784,6 +783,7 @@ fn upload_stats(
     ui.add_space(10.0);
 }
 
+#[derive(Debug)]
 enum RecordingEntry<'a> {
     Successful(&'a UserUpload),
     Local(&'a LocalRecording),
@@ -804,8 +804,9 @@ impl<'a> RecordingEntry<'a> {
 
 fn unified_recordings_view(
     ui: &mut egui::Ui,
-    uploads: Option<&[UserUpload]>,
+    virtual_list: &mut Option<egui_virtual_list::VirtualList>,
     local_recordings: &[LocalRecording],
+    uploads: Option<&[UserUpload]>,
     app_state: &crate::app_state::AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
@@ -830,7 +831,7 @@ fn unified_recordings_view(
             let height = 120.0;
 
             // Show spinner if still loading
-            if uploads.is_none() {
+            let Some(uploads) = uploads else {
                 ui.vertical_centered(|ui| {
                     ui.add(egui::widgets::Spinner::new().size(
                         height
@@ -843,7 +844,7 @@ fn unified_recordings_view(
                     ));
                 });
                 return;
-            }
+            };
 
             if invalid_count > 0 {
                 if ui
@@ -867,66 +868,38 @@ fn unified_recordings_view(
                 ui.add_space(button_gap);
             }
 
-            // Merge and sort recordings
-            let mut entries: Vec<RecordingEntry> = Vec::new();
+            let mut all_entries = uploads
+                .iter()
+                .map(RecordingEntry::Successful)
+                .chain(local_recordings.iter().map(RecordingEntry::Local))
+                .collect::<Vec<_>>();
+            all_entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
 
-            if let Some(uploads) = uploads {
-                entries.extend(uploads.iter().map(RecordingEntry::Successful));
-            }
-            entries.extend(local_recordings.iter().map(RecordingEntry::Local));
-
-            // Sort by timestamp, most recent first
-            entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
-
-            if entries.is_empty() {
+            if all_entries.is_empty() {
                 ui.label("No recordings yet");
-            } else {
-                // We have to use efficient .show_viewport() variation that renders selected rows otherwise
-                // egui crashes out when we have too many entries, starts calling window redraws all the time
-                // and cpu usage explodes for no reason whenever upload tracker is open
-                egui::ScrollArea::vertical()
-                    .max_height(height)
-                    .auto_shrink([false, true])
-                    .show_viewport(ui, |ui, viewport| {
-                        let base_row_height = 4.0 + 4.0 + FONTSIZE + 4.0 + 4.0 + 4.0;
-                        // Extra rows to render above and below viewport, this is required so smoother
-                        // scrolling is allowed between particularly large entries (i.e. expanded invalid entires)
-                        // there is a known bug where if two invalid entries with lots of errors are rendered consecutively
-                        // (7 errors, easy to repro by just recording a game, doing nothing for 3 secs and stopping)
-                        // scrolling between them is a little janky. Increasing scrollview height doesn't fix it.
-                        let buffer_rows = 3;
-
-                        // Estimate which rows are visible with buffer
-                        let first_item = ((viewport.min.y / base_row_height).floor() as usize)
-                            .saturating_sub(buffer_rows)
-                            .max(0);
-                        let last_item =
-                            ((viewport.max.y / base_row_height).ceil() as usize + buffer_rows + 1)
-                                .min(entries.len());
-
-                        // Add spacing for items before visible range
-                        if first_item > 0 {
-                            ui.add_space(first_item as f32 * base_row_height);
-                        }
-
-                        // Render visible items plus buffer
-                        for entry in entries.iter().skip(first_item).take(last_item - first_item) {
-                            render_recording_entry(
-                                ui,
-                                entry,
-                                app_state,
-                                FONTSIZE,
-                                pending_delete_recording,
-                            );
-                            ui.add_space(4.0);
-                        }
-
-                        // Add spacing for items after visible range
-                        if last_item < entries.len() {
-                            ui.add_space((entries.len() - last_item) as f32 * base_row_height);
-                        }
-                    });
+                return;
             }
+
+            let virtual_list = virtual_list.get_or_insert_default();
+
+            // We have to use efficient .show_viewport() variation that renders selected rows otherwise
+            // egui crashes out when we have too many entries, starts calling window redraws all the time
+            // and cpu usage explodes for no reason whenever upload tracker is open
+            egui::ScrollArea::vertical()
+                .max_height(height)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    virtual_list.ui_custom_layout(ui, all_entries.len(), |ui, index| {
+                        render_recording_entry(
+                            ui,
+                            &all_entries[index],
+                            app_state,
+                            FONTSIZE,
+                            pending_delete_recording,
+                        );
+                        1
+                    });
+                });
         });
 }
 
