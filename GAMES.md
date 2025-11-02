@@ -36,7 +36,6 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 
 ### First-person, High-quality/detailed, Active
 
-#### - [Firewatch](https://store.steampowered.com/app/383870/Firewatch/)
 #### - [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
 #### - [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
 #### - [Close to the Sun](https://store.steampowered.com/app/968870/Close_to_the_Sun/)
@@ -44,10 +43,12 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 #### - [Conundrum](https://store.steampowered.com/app/1744140/Conundrum/)
 #### - [Dear Esther](https://store.steampowered.com/app/203810/Dear_Esther_Landmark_Edition/)
 #### - [Everyone's Gone to the Rapture](https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/)
+#### - [Firewatch](https://store.steampowered.com/app/383870/Firewatch/)
 #### - [Fishing Planet](https://store.steampowered.com/app/380600/Fishing_Planet/)
 #### - [Gone Home](https://store.steampowered.com/app/232430/Gone_Home/)
 #### - [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
 #### - [Gym Manager](https://store.steampowered.com/app/2337460/Gym_Manager/)
+#### - [Hardspace: Shipbreaker](https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker)
 #### - [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
 #### - [House Flipper](https://store.steampowered.com/app/613100/House_Flipper/)
 #### - [Jazzpunk](https://store.steampowered.com/app/250260/Jazzpunk_Directors_Cut)
@@ -97,6 +98,8 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Euro Truck Simulator 2](https://store.steampowered.com/app/227300/Euro_Truck_Simulator_2)
 - [Fallout 4](https://store.steampowered.com/app/377160/Fallout_4/)
 - [Fallout: New Vegas](https://store.steampowered.com/app/22380/Fallout_New_Vegas/)
+- [Forza Horizon 5](https://store.steampowered.com/app/1551360/Forza_Horizon_5/)
+- [Forza Motorsport](https://store.steampowered.com/app/2440510/Forza_Motorsport/)
 - [Internet Cafe Simulator 2025](https://store.steampowered.com/app/3326290/Internet_Cafe_Simulator_2025)
 - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
 - [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
@@ -114,7 +117,6 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Half‑Life 2: Episode Two](https://store.steampowered.com/app/420/HalfLife_2_Episode_Two/)
 - [Half‑Life 2](https://store.steampowered.com/app/220/HalfLife_2/)
 - [Half‑Life](https://store.steampowered.com/app/70/HalfLife/)
-- [Hardspace: Shipbreaker](https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker)
 - [Indiana Jones and the Great Circle](https://discord.com/channels/1368288528429088860/1412456753001533471/1432471683263889541)
 - [Keep Digging](https://store.steampowered.com/app/3585800/Keep_Digging)
 - [Peak](https://store.steampowered.com/app/3527290/PEAK) (no voice chat)
