@@ -307,50 +307,23 @@ impl MainApp {
                             });
                         });
                     });
-
-                    // Recordings folder selection
-                    ui.separator();
-                    ui.horizontal(|ui| {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.add_sized(
-                                    egui::vec2(50.0, SETTINGS_TEXT_HEIGHT),
-                                    egui::Button::new("Browse"),
-                                )
-                                .clicked() {
-                                    let start_dir = if self.local_preferences.recording_location.exists() {
-                                        Some(self.local_preferences.recording_location.clone())
-                                    } else {
-                                        None
-                                    };
-
-                                    let picked = match start_dir {
-                                        Some(dir) => rfd::FileDialog::new().set_directory(dir).pick_folder(),
-                                        None => rfd::FileDialog::new().pick_folder(),
-                                    };
-                                    if let Some(path) = picked {
-                                        self.local_preferences.recording_location = path;
-                                    }
-                                }
-
-                            // Display the full path below
-                            let mut display = dunce::canonicalize(&self.local_preferences.recording_location)
-                                .unwrap_or_else(|_| self.local_preferences.recording_location.clone())
-                                .to_string_lossy()
-                                .to_string();
-                            ui.add_sized(egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT), egui::TextEdit::singleline(&mut display));
-                        });
-                    });
                 });
 
                 ui.add_space(10.0);
 
                 // Upload Manager Section
                 ui.group(|ui| {
+                    // Display the full path below
+                    let mut full_rec_loc = dunce::canonicalize(&self.local_preferences.recording_location)
+                        .unwrap_or_else(|_| self.local_preferences.recording_location.clone())
+                        .to_string_lossy()
+                        .to_string();
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            // Open the folder
                             if ui
-                                .button(egui::RichText::new("Open Recordings Folder").size(12.0))
+                                .button(egui::RichText::new("Open").size(12.0))
                                 .clicked()
                             {
                                 self.app_state
@@ -358,6 +331,39 @@ impl MainApp {
                                     .blocking_send(AsyncRequest::OpenDataDump)
                                     .ok();
                             }
+
+                            // Popups to select the new recording location
+                            if ui
+                                .button(egui::RichText::new("Move").size(12.0))
+                                .clicked()
+                            {
+                                let start_dir = if self.local_preferences.recording_location.exists() {
+                                    Some(full_rec_loc.clone())
+                                } else {
+                                    None
+                                };
+
+                                let picked = match start_dir {
+                                    Some(dir) => rfd::FileDialog::new().set_directory(dir).pick_folder(),
+                                    None => rfd::FileDialog::new().pick_folder(),
+                                };
+                                if let Some(path) = picked {
+                                    self.local_preferences.recording_location = path;
+                                }
+                            }
+                        });
+                    });
+                    // Textedit that displays the recording location (textedit has nicer properties than a label for some reason, like stretching to fill the available width)
+                    ui.horizontal(|ui| {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            egui::ScrollArea::horizontal()
+                                .id_salt("recording_location_scroll")
+                                .show(ui, |ui| {
+                                    ui.add_sized(
+                                        egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+                                        egui::TextEdit::singleline(&mut full_rec_loc)
+                                    ).on_hover_text("This is the folder where your recordings are stored. Use the 'Move' button to change the location.");
+                                });
                         });
                     });
                     ui.separator();
