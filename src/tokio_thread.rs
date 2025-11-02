@@ -372,6 +372,101 @@ async fn main(
                             }
                         });
                     }
+                    AsyncRequest::MoveRecordingsFolder { from, to } => {
+                        tokio::spawn({
+                            let app_state = app_state.clone();
+                            async move {
+                                tracing::info!("Moving recordings from {} to {}", from.display(), to.display());
+
+                                // Move files in a blocking task
+                                let result = tokio::task::spawn_blocking(move || {
+                                    // Ensure the destination directory exists
+                                    if let Err(e) = std::fs::create_dir_all(&to) {
+                                        tracing::error!("Failed to create destination directory {}: {:?}", to.display(), e);
+                                        return Err(format!("Failed to create destination directory: {}", e));
+                                    }
+
+                                    // Read all entries in the source directory
+                                    let entries = match std::fs::read_dir(&from) {
+                                        Ok(entries) => entries,
+                                        Err(e) => {
+                                            tracing::error!("Failed to read source directory {}: {:?}", from.display(), e);
+                                            return Err(format!("Failed to read source directory: {}", e));
+                                        }
+                                    };
+
+                                    let mut moved_count = 0;
+                                    let mut errors = Vec::new();
+
+                                    for entry in entries {
+                                        let entry = match entry {
+                                            Ok(entry) => entry,
+                                            Err(e) => {
+                                                tracing::error!("Failed to read directory entry: {:?}", e);
+                                                continue;
+                                            }
+                                        };
+
+                                        let source_path = entry.path();
+                                        let file_name = match source_path.file_name() {
+                                            Some(name) => name,
+                                            None => continue,
+                                        };
+
+                                        let dest_path = to.join(file_name);
+
+                                        // Move the file or directory
+                                        if let Err(e) = std::fs::rename(&source_path, &dest_path) {
+                                            tracing::error!("Failed to move {} to {}: {:?}", source_path.display(), dest_path.display(), e);
+                                            errors.push(file_name.to_string_lossy().to_string());
+                                        } else {
+                                            moved_count += 1;
+                                        }
+                                    }
+
+                                    if errors.is_empty() {
+                                        tracing::info!("Successfully moved {} recordings", moved_count);
+                                        Ok(moved_count)
+                                    } else {
+                                        tracing::warn!("Moved {} recordings, but failed to move {} items: {:?}", moved_count, errors.len(), errors);
+                                        Err(format!("Failed to move {} items", errors.len()))
+                                    }
+                                }).await;
+
+                                match result {
+                                    Ok(Ok(count)) => {
+                                        tracing::info!("Move operation completed: {} items moved", count);
+                                    }
+                                    Ok(Err(e)) => {
+                                        tracing::error!("Move operation completed with errors: {}", e);
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Move operation task failed: {:?}", e);
+                                    }
+                                }
+
+                                // Refresh the local recordings list
+                                let recording_location = {
+                                    app_state
+                                        .config
+                                        .read()
+                                        .unwrap()
+                                        .preferences
+                                        .recording_location
+                                        .clone()
+                                };
+
+                                let local_recordings = tokio::task::spawn_blocking(move || {
+                                    LocalRecording::scan_directory(&recording_location)
+                                }).await.unwrap_or_default();
+
+                                app_state
+                                    .ui_update_tx
+                                    .send(UiUpdate::UpdateLocalRecordings(local_recordings))
+                                    .ok();
+                            }
+                        });
+                    }
                 }
             },
             _ = perform_checks.tick() => {
