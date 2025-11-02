@@ -20,11 +20,14 @@ use winit::{
 };
 
 use crate::{
+    api::UserUploads,
     app_state::{
         AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey, UiUpdate,
+        UiUpdateUnreliable,
     },
     assets,
     config::{Credentials, Preferences},
+    record::LocalRecording,
     system::keycode::virtual_keycode_to_name,
     upload,
 };
@@ -50,7 +53,8 @@ const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 820);
 pub fn start(
     wgpu_instance: wgpu::Instance,
     app_state: Arc<AppState>,
-    ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+    ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+    ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
     stopped_tx: tokio::sync::broadcast::Sender<()>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
@@ -78,6 +82,7 @@ pub fn start(
         stopped_rx,
         stopped_tx,
         ui_update_rx,
+        ui_update_unreliable_rx,
         tray_icon,
     )?;
 
@@ -176,13 +181,15 @@ struct App {
 }
 
 impl App {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         wgpu_instance: wgpu::Instance,
         app_state: Arc<AppState>,
         visible: Arc<AtomicBool>,
         stopped_rx: tokio::sync::broadcast::Receiver<()>,
         stopped_tx: tokio::sync::broadcast::Sender<()>,
-        ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+        ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+        ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
         tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
         let main_app = MainApp::new(
@@ -191,6 +198,7 @@ impl App {
             stopped_rx,
             stopped_tx,
             ui_update_rx,
+            ui_update_unreliable_rx,
             tray_icon,
         )?;
 
@@ -423,7 +431,10 @@ pub struct MainApp {
     app_state: Arc<AppState>,
     frame: u64,
     /// Receives commands from various tx in other threads to perform some UI update
-    ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+    ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+    /// Receives commands from various tx in other threads to perform some UI update
+    /// that don't need to be processed immediately.
+    ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
 
     /// Available video encoders, updated from tokio thread via mpsc channel
     available_video_encoders: Vec<VideoEncoderType>,
@@ -456,6 +467,10 @@ pub struct MainApp {
 
     main_view_state: views::main::MainViewState,
 
+    user_uploads: Option<UserUploads>,
+    local_recordings: Vec<LocalRecording>,
+    virtual_list: Option<egui_virtual_list::VirtualList>,
+
     tray_icon: tray_icon::TrayIconState,
 
     /// Whether the encoder settings window is open
@@ -467,7 +482,8 @@ impl MainApp {
         visible: Arc<AtomicBool>,
         stopped_rx: tokio::sync::broadcast::Receiver<()>,
         stopped_tx: tokio::sync::broadcast::Sender<()>,
-        ui_update_rx: tokio::sync::mpsc::Receiver<UiUpdate>,
+        ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+        ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
         tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
         let (local_credentials, local_preferences) = {
@@ -489,6 +505,7 @@ impl MainApp {
             app_state,
             frame: 0,
             ui_update_rx,
+            ui_update_unreliable_rx,
 
             login_api_key: local_credentials.api_key.clone(),
             is_authenticating_login_api_key: false,
@@ -514,6 +531,10 @@ impl MainApp {
 
             main_view_state: views::main::MainViewState::default(),
 
+            user_uploads: None,
+            local_recordings: vec![],
+            virtual_list: None,
+
             tray_icon,
 
             encoder_settings_window_open: false,
@@ -537,9 +558,6 @@ impl MainApp {
             Ok(UiUpdate::UpdateAvailableVideoEncoders(encoders)) => {
                 self.available_video_encoders = encoders;
             }
-            Ok(UiUpdate::UpdateUploadProgress(progress_data)) => {
-                self.current_upload_progress = progress_data;
-            }
             Ok(UiUpdate::UpdateUserId(uid)) => {
                 let was_successful = uid.is_ok();
                 self.authenticated_user_id = Some(uid);
@@ -557,11 +575,33 @@ impl MainApp {
             Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
                 self.newer_release_available = Some(release);
             }
-            Ok(UiUpdate::UpdateLocalRecordings(local_recordings)) => {
-                *self.app_state.local_recordings.write().unwrap() = local_recordings;
+            Ok(UiUpdate::UpdateUserUploads(uploads)) => {
+                self.user_uploads = Some(uploads);
+                // Reset virtual list so it can be re-created
+                // with the new uploads
+                self.virtual_list = None;
+            }
+            Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
+                self.local_recordings = recordings;
+                // Reset virtual list so it can be re-created
+                // with the new recordings
+                self.virtual_list = None;
             }
             Err(_) => {}
         };
+
+        match self.ui_update_unreliable_rx.try_recv() {
+            Ok(UiUpdateUnreliable::UpdateUploadProgress(progress_data)) => {
+                self.current_upload_progress = progress_data;
+            }
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {
+                tracing::warn!("UiUpdateUnreliable channel lagged, dropping message");
+            }
+            Err(
+                tokio::sync::broadcast::error::TryRecvError::Empty
+                | tokio::sync::broadcast::error::TryRecvError::Closed,
+            ) => {}
+        }
 
         if self.stopped_rx.try_recv().is_ok() {
             tracing::info!("MainApp received stop signal");

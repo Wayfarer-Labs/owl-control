@@ -571,7 +571,7 @@ checksum = "56ed6191a7e78c36abdb16ab65341eefd73d64d303fffccdbb00d51e4205967b"
 
 [[package]]
 name = "bump-version"
-version = "1.1.1"
+version = "1.2.1-beta1"
 dependencies = [
  "clap",
  "color-eyre",
@@ -1517,6 +1517,16 @@ dependencies = [
  "egui_render_glow",
  "raw-window-handle 0.6.2",
  "three-d",
+]
+
+[[package]]
+name = "egui_virtual_list"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b81f88c8461c55ffba77f9f5ae8b97ed8b55fbef93bb8dd64a619a6632228138"
+dependencies = [
+ "egui",
+ "web-time",
 ]
 
 [[package]]
@@ -4286,7 +4296,7 @@ dependencies = [
 
 [[package]]
 name = "owl-control"
-version = "1.1.1"
+version = "1.2.1-beta1"
 dependencies = [
  "async-trait",
  "catppuccin-egui",
@@ -4303,6 +4313,7 @@ dependencies = [
  "egui_extras",
  "egui_overlay",
  "egui_render_three_d",
+ "egui_virtual_list",
  "egui_window_glfw_passthrough",
  "embed-manifest",
  "futures",
