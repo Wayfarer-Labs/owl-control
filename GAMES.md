@@ -128,14 +128,15 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 
 ### Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
 
-- [PAYDAY 3](https://store.steampowered.com/app/1272080/PAYDAY_3/)
-- [PAYDAY 2](https://store.steampowered.com/app/218620/PAYDAY_2/)
+
 - [BioShock Infinite](https://store.steampowered.com/app/8870/BioShock_Infinite/)
 - [BioShock](https://store.steampowered.com/app/7670/BioShock/)
 - [Deus Ex: Human Revolution](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/)
 - [Deus Ex: Mankind Divided](https://store.steampowered.com/app/337000/Deus_Ex_Mankind_Divided/)
 - [Escape From Tarkov](https://store.steampowered.com/app/3932890/Escape_from_Tarkov)
 - [F.E.A.R.](https://store.steampowered.com/app/21090/FEAR/)
+- [PAYDAY 2](https://store.steampowered.com/app/218620/PAYDAY_2/)
+- [PAYDAY 3](https://store.steampowered.com/app/1272080/PAYDAY_3/)
 - [Shadows of Doubt](https://store.steampowered.com/app/986130/Shadows_of_Doubt)
 
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
