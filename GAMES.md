@@ -36,6 +36,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 
 ### First-person, High-quality/detailed, Active
 
+#### - [Firewatch](https://store.steampowered.com/app/383870/Firewatch/)
 #### - [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
 #### - [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
 #### - [Close to the Sun](https://store.steampowered.com/app/968870/Close_to_the_Sun/)
