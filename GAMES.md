@@ -85,6 +85,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Dying Light](https://store.steampowered.com/app/239140/Dying_Light/)
 - [Ghostrunner 2](https://store.steampowered.com/app/2144740/Ghostrunner_2)
 - [Ghostrunner](https://store.steampowered.com/app/1139900/Ghostrunner/)
+- [I Am Your Beast](https://store.steampowered.com/app/1876590/I_Am_Your_Beast/)
 - [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
 - [Mirror's Edge](https://store.steampowered.com/app/17410/Mirrors_Edge/)
 - [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT)
@@ -142,6 +143,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
 - [Atomic Heart](https://store.steampowered.com/app/668580/Atomic_Heart/)
+- [Avatar: Frontiers of Pandora](https://store.steampowered.com/app/2840770/Avatar_Frontiers_of_Pandora/)
 - [Borderlands 4](https://store.steampowered.com/app/1285190/Borderlands_4)
 - [Crysis 2](https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/)
 - [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/) (admin)
@@ -184,7 +186,9 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [R.E.P.O](https://store.steampowered.com/app/3241660/REPO)
 - [Resident Evil 7: Biohazard](https://store.steampowered.com/app/418370/RESIDENT_EVIL_7_biohazard/)
 - [Resident Evil Village](https://store.steampowered.com/app/1196590/Resident_Evil_Village/)
+- [SCP 5K](https://store.steampowered.com/app/872670/SCP_5K/)
 - [Soma](https://store.steampowered.com/app/282140/SOMA/)
+- [Trepang2](https://store.steampowered.com/app/1164940/Trepang2/)
 
 ### Campaign Shooters / Combined Arms (vehicles, squad AI, large arenas)
 
@@ -199,7 +203,6 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
-
 
 
 # Unwanted games
