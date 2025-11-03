@@ -486,57 +486,47 @@ async fn upload_tar(
         upload_session.game_control_id
     );
 
-    // Set up auto-pause for upload (saves progress on drop)
-    struct PauseUploadOnDrop {
+    // Auto-abort guard: on unexpected drop, abort the upload and clean up.
+    struct AbortUploadOnDrop {
         api_client: Arc<ApiClient>,
         api_token: String,
         progress_state: Option<UploadProgressState>,
         progress_file_path: PathBuf,
-        should_abort: bool,
     }
-    impl PauseUploadOnDrop {
+    impl AbortUploadOnDrop {
         pub fn disarm(&mut self) {
             self.progress_state = None;
         }
-
-        #[allow(dead_code)]
-        pub fn abort(&mut self) {
-            self.should_abort = true;
-        }
     }
-    impl Drop for PauseUploadOnDrop {
+    impl Drop for AbortUploadOnDrop {
         fn drop(&mut self) {
             if let Some(state) = self.progress_state.take() {
-                if self.should_abort {
-                    tracing::info!("Aborting upload of {} (explicit abort)", state.upload_id);
-                    let api_client = self.api_client.clone();
-                    let api_token = self.api_token.clone();
-                    let upload_id = state.upload_id.clone();
-                    let progress_file_path = self.progress_file_path.clone();
-                    let tar_path = state.tar_path.clone();
+                tracing::info!(
+                    "Aborting upload of {} (guard drop / unexpected failure)",
+                    state.upload_id
+                );
+                let api_client = self.api_client.clone();
+                let api_token = self.api_token.clone();
+                let upload_id = state.upload_id.clone();
+                let progress_file_path = self.progress_file_path.clone();
+                let tar_path = state.tar_path.clone();
 
-                    tokio::spawn(async move {
-                        api_client
-                            .abort_multipart_upload(&api_token, &upload_id)
-                            .await
-                            .ok();
+                tokio::spawn(async move {
+                    api_client
+                        .abort_multipart_upload(&api_token, &upload_id)
+                        .await
+                        .ok();
 
-                        // Clean up progress file and tar file
-                        std::fs::remove_file(&progress_file_path).ok();
-                        std::fs::remove_file(&tar_path).ok();
-                    });
-                } else {
-                    tracing::info!("Pausing upload of {} (saving progress)", state.upload_id);
-                    if let Err(e) = state.save_to_file(&self.progress_file_path) {
-                        tracing::error!("Failed to save upload progress: {:?}", e);
-                    }
-                }
+                    // Clean up progress file and tar file
+                    std::fs::remove_file(&progress_file_path).ok();
+                    std::fs::remove_file(&tar_path).ok();
+                });
             }
         }
     }
 
     let progress_file_path = recording_path.join(constants::filename::recording::UPLOAD_PROGRESS);
-    let mut pause_upload_on_drop = PauseUploadOnDrop {
+    let mut abort_upload_on_drop = AbortUploadOnDrop {
         api_client: api_client.clone(),
         api_token: api_token.to_string(),
         progress_state: Some(UploadProgressState {
@@ -549,7 +539,6 @@ async fn upload_tar(
             expires_at: upload_session.expires_at,
         }),
         progress_file_path: progress_file_path.clone(),
-        should_abort: false,
     };
 
     {
@@ -587,8 +576,16 @@ async fn upload_tar(
         }));
 
         for chunk_number in start_chunk..=upload_session.total_chunks {
-            // Check if upload has been cancelled
+            // Check if upload has been cancelled (user-initiated pause)
             if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                // Ensure the latest progress is saved for resume
+                if let Some(state) = abort_upload_on_drop.progress_state.as_ref() {
+                    if let Err(e) = state.save_to_file(&progress_file_path) {
+                        tracing::error!("Failed to save upload progress on pause: {:?}", e);
+                    }
+                }
+                // Disarm auto-abort to keep server/session state for resume
+                abort_upload_on_drop.disarm();
                 eyre::bail!("Upload cancelled by user");
             }
 
@@ -656,7 +653,7 @@ async fn upload_tar(
                         chunk_etags.push(CompleteMultipartUploadChunk { chunk_number, etag });
 
                         // Update progress state with new chunk
-                        if let Some(ref mut state) = pause_upload_on_drop.progress_state {
+                        if let Some(ref mut state) = abort_upload_on_drop.progress_state {
                             state.chunk_etags = chunk_etags.clone();
                             // Save progress to file
                             if let Err(e) = state.save_to_file(&progress_file_path) {
@@ -704,7 +701,7 @@ async fn upload_tar(
         .await
         .context("failed to complete multipart upload")?;
 
-    pause_upload_on_drop.disarm();
+    abort_upload_on_drop.disarm();
 
     // Clean up progress file on successful completion
     std::fs::remove_file(&progress_file_path).ok();
