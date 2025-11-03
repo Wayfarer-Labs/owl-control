@@ -56,6 +56,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 #### - [Layers of Fear](https://store.steampowered.com/app/391720/Layers_of_Fear/)
 #### - [Madison](https://store.steampowered.com/app/1670870/MADiSON/)
 #### - [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
+#### - [Neon White](https://store.steampowered.com/app/1533420/Neon_White/)
 #### - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
 #### - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 #### - [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
@@ -127,7 +128,6 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Teardown](https://store.steampowered.com/app/1167630/Teardown)
 
 ### Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
-
 
 - [BioShock Infinite](https://store.steampowered.com/app/8870/BioShock_Infinite/)
 - [BioShock](https://store.steampowered.com/app/7670/BioShock/)
