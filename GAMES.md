@@ -89,8 +89,11 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [I Am Your Beast](https://store.steampowered.com/app/1876590/I_Am_Your_Beast/)
 - [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
 - [Mirror's Edge](https://store.steampowered.com/app/17410/Mirrors_Edge/)
+- [Severed Steel](https://store.steampowered.com/app/1227690/Severed_Steel/)
+- [Shady Knight](https://store.steampowered.com/app/1155650/Shady_Knight/)
 - [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT)
 - [Titanfall 2](https://store.steampowered.com/app/1237970/Titanfall_2/)
+- [White Knuckle](https://store.steampowered.com/app/3195790/White_Knuckle/)
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
