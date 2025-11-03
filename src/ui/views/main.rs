@@ -1,4 +1,4 @@
-use std::{
+﻿use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -21,6 +21,10 @@ pub(crate) struct MainViewState {
     last_obs_check: Option<(std::time::Instant, bool)>,
     /// Recording pending deletion confirmation (stores folder path and name)
     pending_delete_recording: Option<(PathBuf, String)>,
+    /// Date filter for uploaded files (start date)
+    filter_start_date: Option<chrono::NaiveDate>,
+    /// Date filter for uploaded files (end date)
+    filter_end_date: Option<chrono::NaiveDate>,
 }
 
 impl MainApp {
@@ -341,6 +345,26 @@ impl MainApp {
                     });
                     ui.add_space(8.0);
 
+                    // Date filter UI
+                    ui.horizontal(|ui| {
+                        ui.label("Filter uploaded files:");
+
+                        // From date picker
+                        ui.label("From:");
+                        optional_date_picker(ui, &mut self.main_view_state.filter_start_date, "filter_start_date");
+
+                        // To date picker
+                        ui.label("To:");
+                        optional_date_picker(ui, &mut self.main_view_state.filter_end_date, "filter_end_date");
+
+                        // Clear filter button
+                        if ui.button("Clear").clicked() {
+                            self.main_view_state.filter_start_date = None;
+                            self.main_view_state.filter_end_date = None;
+                        }
+                    });
+                    ui.add_space(4.0);
+
                     // Unified Recordings Section
                     let invalid_count = self.local_recordings.iter()
                         .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
@@ -365,6 +389,8 @@ impl MainApp {
                             self.user_uploads.as_ref().map(|u| u.uploads.as_slice()),
                             &self.app_state,
                             &mut self.main_view_state.pending_delete_recording,
+                            self.main_view_state.filter_start_date,
+                            self.main_view_state.filter_end_date,
                         );
                     });
 
@@ -809,6 +835,8 @@ fn unified_recordings_view(
     uploads: Option<&[UserUpload]>,
     app_state: &crate::app_state::AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
+    filter_start_date: Option<chrono::NaiveDate>,
+    filter_end_date: Option<chrono::NaiveDate>,
 ) {
     const FONTSIZE: f32 = 13.0;
     egui::Frame::new()
@@ -868,9 +896,23 @@ fn unified_recordings_view(
                 ui.add_space(button_gap);
             }
 
-            let mut all_entries = uploads
+            // Filter uploads by date range (only filter Successful entries, not Local)
+            let filtered_uploads: Vec<&UserUpload> = uploads
                 .iter()
-                .map(RecordingEntry::Successful)
+                .filter(|upload| {
+                    let upload_date = upload.created_at.date_naive();
+
+                    // Check if upload is within date range
+                    let after_start = filter_start_date.map_or(true, |start| upload_date >= start);
+                    let before_end = filter_end_date.map_or(true, |end| upload_date <= end);
+
+                    after_start && before_end
+                })
+                .collect();
+
+            let mut all_entries = filtered_uploads
+                .iter()
+                .map(|upload| RecordingEntry::Successful(upload))
                 .chain(local_recordings.iter().map(RecordingEntry::Local))
                 .collect::<Vec<_>>();
             all_entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
@@ -1384,6 +1426,25 @@ fn delete_recording_confirmation_window(
 
         if !keep_open {
             *pending_delete_recording = None;
+        }
+    }
+}
+
+/// Wrapper for DatePickerButton that handles Option<NaiveDate>
+fn optional_date_picker(ui: &mut egui::Ui, date: &mut Option<chrono::NaiveDate>, id: &str) {
+    // Initialize with today's date if None
+    let mut temp_date = date.unwrap_or_else(|| chrono::Local::now().date_naive());
+
+    let response = ui.add(egui_extras::DatePickerButton::new(&mut temp_date).id_salt(id));
+
+    if response.changed() {
+        *date = Some(temp_date);
+    }
+
+    // Show "X" button to clear the date if it's set
+    if date.is_some() {
+        if ui.small_button("✖").on_hover_text("Clear date").clicked() {
+            *date = None;
         }
     }
 }
