@@ -30,7 +30,7 @@ fn main() {
     {
         output.push_str(&format!("- {}\n", game.name));
     }
-    output.push_str("\n");
+    output.push('\n');
 
     output.push_str("## Unsupported games\n\n");
     for game in unsupported_games.games.iter().filter(|game| {

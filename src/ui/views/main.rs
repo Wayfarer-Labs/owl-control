@@ -425,8 +425,7 @@ impl MainApp {
                             self.user_uploads.as_ref().map(|u| u.uploads.as_slice()),
                             &self.app_state,
                             &mut self.main_view_state.pending_delete_recording,
-                            self.main_view_state.filter_start_date,
-                            self.main_view_state.filter_end_date,
+                            (self.main_view_state.filter_start_date, self.main_view_state.filter_end_date),
                         );
                     });
 
@@ -879,8 +878,7 @@ fn unified_recordings_view(
     uploads: Option<&[UserUpload]>,
     app_state: &crate::app_state::AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
-    filter_start_date: Option<chrono::NaiveDate>,
-    filter_end_date: Option<chrono::NaiveDate>,
+    (filter_start_date, filter_end_date): (Option<chrono::NaiveDate>, Option<chrono::NaiveDate>),
 ) {
     const FONTSIZE: f32 = 13.0;
     egui::Frame::new()
@@ -947,8 +945,8 @@ fn unified_recordings_view(
                     let upload_date = upload.created_at.date_naive();
 
                     // Check if upload is within date range
-                    let after_start = filter_start_date.map_or(true, |start| upload_date >= start);
-                    let before_end = filter_end_date.map_or(true, |end| upload_date <= end);
+                    let after_start = filter_start_date.is_none_or(|start| upload_date >= start);
+                    let before_end = filter_end_date.is_none_or(|end| upload_date <= end);
 
                     after_start && before_end
                 })
@@ -1591,9 +1589,7 @@ fn optional_date_picker(ui: &mut egui::Ui, date: &mut Option<chrono::NaiveDate>,
     }
 
     // Show "X" button to clear the date if it's set
-    if date.is_some() {
-        if ui.small_button("✖").on_hover_text("Clear date").clicked() {
-            *date = None;
-        }
+    if date.is_some() && ui.small_button("✖").on_hover_text("Clear date").clicked() {
+        *date = None;
     }
 }
