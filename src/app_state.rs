@@ -116,7 +116,10 @@ pub enum UiUpdate {
     UpdateNewerReleaseAvailable(GitHubRelease),
     UpdateUserUploads(UserUploads),
     UpdateLocalRecordings(Vec<LocalRecording>),
-    FolderPickerResult { old_path: PathBuf, new_path: PathBuf },
+    FolderPickerResult {
+        old_path: PathBuf,
+        new_path: PathBuf,
+    },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
