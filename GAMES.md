@@ -123,6 +123,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Half‑Life 2: Episode Two](https://store.steampowered.com/app/420/HalfLife_2_Episode_Two/)
 - [Half‑Life 2](https://store.steampowered.com/app/220/HalfLife_2/)
 - [Half‑Life](https://store.steampowered.com/app/70/HalfLife/)
+- [Half Sword](https://store.steampowered.com/app/2397300/Half_Sword/)
 - [Indiana Jones and the Great Circle](https://discord.com/channels/1368288528429088860/1412456753001533471/1432471683263889541)
 - [Keep Digging](https://store.steampowered.com/app/3585800/Keep_Digging)
 - [Peak](https://store.steampowered.com/app/3527290/PEAK) (no voice chat)
@@ -203,13 +204,17 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Battlefield 4](https://store.steampowered.com/app/1238860/Battlefield_4/)
 - [Call of Duty 4: Modern Warfare](https://store.steampowered.com/app/7940/Call_of_Duty_4_Modern_Warfare/)
 - [Call of Duty: Modern Warfare (2019)](https://store.steampowered.com/app/2000950/Call_of_Duty_Modern_Warfare/)
+- [Chivalry 2](https://store.steampowered.com/app/1824220/Chivalry_2/)
+- [Chivalry](https://store.steampowered.com/app/219640/Chivalry_Medieval_Warfare)
+- [ELDERBORN](https://store.steampowered.com/app/727850/ELDERBORN/)
 - [Gunfire Reborn](https://store.steampowered.com/app/1217060/Gunfire_Reborn)
 - [Halo 2 Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo 3 (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
+- [MORDHAU](https://store.steampowered.com/app/629760/MORDHAU/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
-
+- [Warhammer: Vermintide 2](https://store.steampowered.com/app/552500/Warhammer_Vermintide_2/)
 
 # Unwanted games
 
