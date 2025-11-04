@@ -551,66 +551,77 @@ impl MainApp {
         event: &WindowEvent,
         ctx: &egui::Context,
     ) {
-        match self.ui_update_rx.try_recv() {
-            Ok(UiUpdate::ForceUpdate) => {
-                ctx.request_repaint();
-            }
-            Ok(UiUpdate::UpdateAvailableVideoEncoders(encoders)) => {
-                self.available_video_encoders = encoders;
-            }
-            Ok(UiUpdate::UpdateUserId(uid)) => {
-                let was_successful = uid.is_ok();
-                self.authenticated_user_id = Some(uid);
-                self.is_authenticating_login_api_key = false;
-                if was_successful && !self.local_credentials.has_consented {
-                    self.go_to_consent();
+        loop {
+            match self.ui_update_rx.try_recv() {
+                Ok(UiUpdate::ForceUpdate) => {
+                    ctx.request_repaint();
                 }
-            }
-            Ok(UiUpdate::UploadFailed(error)) => {
-                self.last_upload_error = Some(error);
-            }
-            Ok(UiUpdate::UpdateTrayIconRecording(recording)) => {
-                self.tray_icon.set_icon_recording(recording);
-            }
-            Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
-                self.newer_release_available = Some(release);
-            }
-            Ok(UiUpdate::UpdateUserUploads(uploads)) => {
-                self.user_uploads = Some(uploads);
-                // Reset virtual list so it can be re-created
-                // with the new uploads
-                self.virtual_list = None;
-            }
-            Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
-                self.local_recordings = recordings;
-                // Reset virtual list so it can be re-created
-                // with the new recordings
-                self.virtual_list = None;
-            }
-            Ok(UiUpdate::FolderPickerResult { old_path, new_path }) => {
-                // Check if there are any recordings in the old location
-                if !self.local_recordings.is_empty() && old_path.exists() && old_path != new_path {
-                    // Show confirmation dialog to ask about moving files
-                    self.main_view_state.pending_move_location = Some((old_path, new_path));
-                } else {
-                    // No recordings to move, just update the location
-                    self.local_preferences.recording_location = new_path;
+                Ok(UiUpdate::UpdateAvailableVideoEncoders(encoders)) => {
+                    self.available_video_encoders = encoders;
                 }
-            }
-            Err(_) => {}
-        };
+                Ok(UiUpdate::UpdateUserId(uid)) => {
+                    let was_successful = uid.is_ok();
+                    self.authenticated_user_id = Some(uid);
+                    self.is_authenticating_login_api_key = false;
+                    if was_successful && !self.local_credentials.has_consented {
+                        self.go_to_consent();
+                    }
+                }
+                Ok(UiUpdate::UploadFailed(error)) => {
+                    self.last_upload_error = Some(error);
+                }
+                Ok(UiUpdate::UpdateTrayIconRecording(recording)) => {
+                    self.tray_icon.set_icon_recording(recording);
+                }
+                Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
+                    self.newer_release_available = Some(release);
+                }
+                Ok(UiUpdate::UpdateUserUploads(uploads)) => {
+                    self.user_uploads = Some(uploads);
+                    // Reset virtual list so it can be re-created
+                    // with the new uploads
+                    self.virtual_list = None;
+                }
+                Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
+                    self.local_recordings = recordings;
+                    // Reset virtual list so it can be re-created
+                    // with the new recordings
+                    self.virtual_list = None;
+                }
+                Ok(UiUpdate::FolderPickerResult { old_path, new_path }) => {
+                    // Check if there are any recordings in the old location
+                    if !self.local_recordings.is_empty()
+                        && old_path.exists()
+                        && old_path != new_path
+                    {
+                        // Show confirmation dialog to ask about moving files
+                        self.main_view_state.pending_move_location = Some((old_path, new_path));
+                    } else {
+                        // No recordings to move, just update the location
+                        self.local_preferences.recording_location = new_path;
+                    }
+                }
+                Err(_) => {
+                    break;
+                }
+            };
+        }
 
-        match self.ui_update_unreliable_rx.try_recv() {
-            Ok(UiUpdateUnreliable::UpdateUploadProgress(progress_data)) => {
-                self.current_upload_progress = progress_data;
+        loop {
+            match self.ui_update_unreliable_rx.try_recv() {
+                Ok(UiUpdateUnreliable::UpdateUploadProgress(progress_data)) => {
+                    self.current_upload_progress = progress_data;
+                }
+                Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {
+                    tracing::warn!("UiUpdateUnreliable channel lagged, dropping message");
+                }
+                Err(
+                    tokio::sync::broadcast::error::TryRecvError::Empty
+                    | tokio::sync::broadcast::error::TryRecvError::Closed,
+                ) => {
+                    break;
+                }
             }
-            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {
-                tracing::warn!("UiUpdateUnreliable channel lagged, dropping message");
-            }
-            Err(
-                tokio::sync::broadcast::error::TryRecvError::Empty
-                | tokio::sync::broadcast::error::TryRecvError::Closed,
-            ) => {}
         }
 
         if self.stopped_rx.try_recv().is_ok() {

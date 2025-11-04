@@ -354,6 +354,9 @@ async fn main(
                 }
             },
             _ = perform_checks.tick() => {
+                // Periodically force the UI to rerender so that it will process events, even if not visible
+                app_state.ui_update_tx.send(UiUpdate::ForceUpdate).ok();
+
                 // Flush pending input events to disk
                 if let Err(e) = recorder.flush_input_events().await {
                     tracing::error!(e=?e, "Failed to flush input events");
