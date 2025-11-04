@@ -381,26 +381,6 @@ impl MainApp {
                     });
                     ui.add_space(8.0);
 
-                    // Date filter UI
-                    ui.horizontal(|ui| {
-                        ui.label("Filter uploaded files:");
-
-                        // From date picker
-                        ui.label("From:");
-                        optional_date_picker(ui, &mut self.main_view_state.filter_start_date, "filter_start_date");
-
-                        // To date picker
-                        ui.label("To:");
-                        optional_date_picker(ui, &mut self.main_view_state.filter_end_date, "filter_end_date");
-
-                        // Clear filter button
-                        if ui.button("Clear").clicked() {
-                            self.main_view_state.filter_start_date = None;
-                            self.main_view_state.filter_end_date = None;
-                        }
-                    });
-                    ui.add_space(4.0);
-
                     // Unified Recordings Section
                     let invalid_count = self.local_recordings.iter()
                         .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
@@ -415,9 +395,6 @@ impl MainApp {
                     )
                     .default_open(true)
                     .show(ui, |ui| {
-                        ui.add_space(4.0);
-
-                        // Unified view with both successful and invalid recordings
                         unified_recordings_view(
                             ui,
                             &mut self.virtual_list,
@@ -425,7 +402,7 @@ impl MainApp {
                             self.user_uploads.as_ref().map(|u| u.uploads.as_slice()),
                             &self.app_state,
                             &mut self.main_view_state.pending_delete_recording,
-                            (self.main_view_state.filter_start_date, self.main_view_state.filter_end_date),
+                            (&mut self.main_view_state.filter_start_date, &mut self.main_view_state.filter_end_date),
                         );
                     });
 
@@ -878,7 +855,10 @@ fn unified_recordings_view(
     uploads: Option<&[UserUpload]>,
     app_state: &crate::app_state::AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
-    (filter_start_date, filter_end_date): (Option<chrono::NaiveDate>, Option<chrono::NaiveDate>),
+    (filter_start_date, filter_end_date): (
+        &mut Option<chrono::NaiveDate>,
+        &mut Option<chrono::NaiveDate>,
+    ),
 ) {
     const FONTSIZE: f32 = 13.0;
     egui::Frame::new()
@@ -937,6 +917,24 @@ fn unified_recordings_view(
                 }
                 ui.add_space(button_gap);
             }
+
+            // Date filter UI
+            ui.horizontal(|ui| {
+                // From date picker
+                ui.label("From:");
+                optional_date_picker(ui, filter_start_date, "filter_start_date");
+
+                // To date picker
+                ui.label("To:");
+                optional_date_picker(ui, filter_end_date, "filter_end_date");
+
+                // Clear filter button
+                if ui.button("Clear").clicked() {
+                    *filter_start_date = None;
+                    *filter_end_date = None;
+                }
+            });
+            ui.add_space(4.0);
 
             // Filter uploads by date range (only filter Successful entries, not Local)
             let filtered_uploads: Vec<&UserUpload> = uploads

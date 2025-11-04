@@ -44,11 +44,11 @@ pub mod notification;
 
 /// Optimized to show everything in the layout at 1x scaling.
 ///
-/// Update this whenever you add or remove content. Assume that everything that a normal useer
+/// Update this whenever you add or remove content. Assume that everything that a normal user
 /// might see should be covered by this size (e.g. no temporary notices, but yes "delete invalid" button)
 ///
 /// Try to keep this below ~840px ((1080/1.25 = 864) - 24px taskbar)).
-const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 820);
+const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 825);
 
 pub fn start(
     wgpu_instance: wgpu::Instance,
