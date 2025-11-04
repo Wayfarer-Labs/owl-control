@@ -103,6 +103,7 @@ reqwest = { version = "0.12.23", features = ["json", "stream"] }
 tar = "0.4.44"
 opener = { version = "0.8", features = ["reveal"] }
 sha256 = "1.6.0"
+rfd = "0.14"
 
 [build-dependencies]
 embed-manifest = "1.3.1"
