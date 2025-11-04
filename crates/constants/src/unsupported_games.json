@@ -186,11 +186,6 @@
     "reason": "NotAGame"
   },
   {
-    "name": "Shell",
-    "binaries": ["sh"],
-    "reason": "NotAGame"
-  },
-  {
     "name": "Windows Terminal",
     "binaries": ["wt", "windowsterminal"],
     "reason": "NotAGame"

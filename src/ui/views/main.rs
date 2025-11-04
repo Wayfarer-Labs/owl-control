@@ -18,9 +18,11 @@ use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
 
 #[derive(Default)]
 pub(crate) struct MainViewState {
-    last_obs_check: Option<(std::time::Instant, bool)>,
+    pub(crate) last_obs_check: Option<(std::time::Instant, bool)>,
     /// Recording pending deletion confirmation (stores folder path and name)
-    pending_delete_recording: Option<(PathBuf, String)>,
+    pub(crate) pending_delete_recording: Option<(PathBuf, String)>,
+    /// Pending recording location move (stores old path and new path)
+    pub(crate) pending_move_location: Option<(PathBuf, PathBuf)>,
     /// Date filter for uploaded files (start date)
     filter_start_date: Option<chrono::NaiveDate>,
     /// Date filter for uploaded files (end date)
@@ -317,11 +319,15 @@ impl MainApp {
 
                 // Upload Manager Section
                 ui.group(|ui| {
+                    // Display the full path below
+                    let full_rec_loc = dunce::canonicalize(&self.local_preferences.recording_location)
+                        .unwrap_or_else(|_| self.local_preferences.recording_location.clone());
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            // Open the folder
                             if ui
-                                .button(egui::RichText::new("Open Recordings Folder").size(12.0))
+                                .button(egui::RichText::new("Open").size(12.0))
                                 .clicked()
                             {
                                 self.app_state
@@ -329,6 +335,36 @@ impl MainApp {
                                     .blocking_send(AsyncRequest::OpenDataDump)
                                     .ok();
                             }
+
+                            // Popups to select the new recording location
+                            if ui
+                                .button(egui::RichText::new("Move").size(12.0))
+                                .clicked()
+                            {
+                                self.app_state
+                                    .async_request_tx
+                                    .blocking_send(AsyncRequest::PickRecordingFolder {
+                                        current_location: full_rec_loc.clone(),
+                                    })
+                                    .ok();
+                            }
+                        });
+                    });
+                    // Textedit that displays the recording location (textedit has nicer properties than a label for some reason, like stretching to fill the available width)
+                    ui.horizontal(|ui| {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            egui::ScrollArea::horizontal()
+                                .id_salt("recording_location_scroll")
+                                .show(ui, |ui| {
+                                    ui.add_sized(
+                                        egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+                                        egui::TextEdit::singleline(
+                                            // egui has custom behaviour for &mut &str, so we need to convert our
+                                            // Cow<str> to a &str, and then take a mutable reference to it.
+                                            &mut &*full_rec_loc.to_string_lossy()
+                                        )
+                                    ).on_hover_text("This is the folder where your recordings are stored. Use the 'Move' button to change the location.");
+                                });
                         });
                     });
                     ui.separator();
@@ -539,6 +575,14 @@ impl MainApp {
         delete_recording_confirmation_window(
             ctx,
             &mut self.main_view_state.pending_delete_recording,
+            &self.app_state,
+        );
+
+        // Move Location Confirmation Window
+        move_location_confirmation_window(
+            ctx,
+            &mut self.main_view_state.pending_move_location,
+            &mut self.local_preferences.recording_location,
             &self.app_state,
         );
     }
@@ -1316,32 +1360,19 @@ fn delete_recording_confirmation_window(
 ) {
     if let Some((folder_path, folder_name)) = pending_delete_recording.clone() {
         let mut keep_open = true;
-        egui::Window::new("Confirm Deletion")
+        egui::Window::new("Confirm Deletion of Unuploaded Recording")
             .open(&mut keep_open)
             .collapsible(false)
             .resizable(false)
             .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
-                    ui.add_space(8.0);
-
                     ui.label(
-                        egui::RichText::new("⚠ Delete Unuploaded Recording")
-                            .size(18.0)
-                            .strong()
-                            .color(egui::Color32::from_rgb(255, 200, 100)),
-                    );
-
-                    ui.add_space(12.0);
-
-                    ui.label(egui::RichText::new(format!("Recording: {}", folder_name)).size(14.0));
-
-                    ui.add_space(8.0);
-
-                    ui.label(
-                        egui::RichText::new("This recording has not been uploaded yet.")
-                            .size(13.0)
-                            .color(egui::Color32::from_rgb(255, 255, 100)),
+                        egui::RichText::new(format!(
+                            "The recording \"{folder_name}\" has not been uploaded yet."
+                        ))
+                        .size(13.0)
+                        .color(egui::Color32::from_rgb(255, 255, 100)),
                     );
 
                     ui.label(
@@ -1358,8 +1389,11 @@ fn delete_recording_confirmation_window(
                         .add_sized(
                             egui::vec2(ui.available_width(), 32.0),
                             egui::Button::new(
-                                egui::RichText::new("📁 Open Folder for Investigation").size(13.0),
-                            ),
+                                egui::RichText::new("📁 Open Folder for Investigation")
+                                    .size(13.0)
+                                    .color(egui::Color32::WHITE),
+                            )
+                            .fill(egui::Color32::from_rgb(100, 150, 255)),
                         )
                         .clicked()
                     {
@@ -1371,21 +1405,19 @@ fn delete_recording_confirmation_window(
                             .ok();
                     }
 
-                    ui.add_space(8.0);
+                    ui.add_space(4.0);
 
                     ui.horizontal(|ui| {
                         // Cancel button
                         if ui
                             .add_sized(
-                                egui::vec2((ui.available_width() - 8.0) / 2.0, 32.0),
+                                egui::vec2(ui.available_width() / 2.0, 32.0),
                                 egui::Button::new(egui::RichText::new("Cancel").size(13.0)),
                             )
                             .clicked()
                         {
                             *pending_delete_recording = None;
                         }
-
-                        ui.add_space(8.0);
 
                         // Really Delete button
                         if ui
@@ -1427,6 +1459,123 @@ fn delete_recording_confirmation_window(
         if !keep_open {
             *pending_delete_recording = None;
         }
+    }
+}
+
+fn move_location_confirmation_window(
+    ctx: &egui::Context,
+    pending_move_location: &mut Option<(PathBuf, PathBuf)>,
+    recording_location: &mut PathBuf,
+    app_state: &crate::app_state::AppState,
+) {
+    let Some((old_path, new_path)) = pending_move_location.clone() else {
+        return;
+    };
+
+    let mut keep_open = true;
+    egui::Window::new("Move Recording Location")
+        .open(&mut keep_open)
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.label(
+                    egui::RichText::new(
+                        "Would you like to move your existing recordings to the new location?",
+                    )
+                    .size(14.0),
+                );
+
+                ui.add_space(8.0);
+
+                ui.label(
+                    egui::RichText::new("From:")
+                        .size(12.0)
+                        .color(egui::Color32::from_rgb(200, 200, 200)),
+                );
+                ui.label(
+                    egui::RichText::new(old_path.to_string_lossy())
+                        .size(12.0)
+                        .color(egui::Color32::WHITE),
+                );
+
+                ui.add_space(4.0);
+
+                ui.label(
+                    egui::RichText::new("To:")
+                        .size(12.0)
+                        .color(egui::Color32::from_rgb(200, 200, 200)),
+                );
+                ui.label(
+                    egui::RichText::new(new_path.to_string_lossy())
+                        .size(12.0)
+                        .color(egui::Color32::WHITE),
+                );
+
+                ui.add_space(12.0);
+
+                let intra_spacing = 4.0;
+
+                ui.horizontal(|ui| {
+                    // Don't Move button - just change the location without moving files
+                    if ui
+                        .add_sized(
+                            egui::vec2(ui.available_width() / 2.0, 32.0),
+                            egui::Button::new(egui::RichText::new("Don't Move Files").size(13.0)),
+                        )
+                        .on_hover_text(
+                            "Only update the recording location without moving existing files",
+                        )
+                        .clicked()
+                    {
+                        *recording_location = new_path.clone();
+                        *pending_move_location = None;
+                    }
+
+                    // Move Files button
+                    if ui
+                        .add_sized(
+                            egui::vec2(ui.available_width(), 32.0),
+                            egui::Button::new(
+                                egui::RichText::new("Move Files")
+                                    .size(13.0)
+                                    .color(egui::Color32::WHITE),
+                            )
+                            .fill(egui::Color32::from_rgb(100, 150, 255)),
+                        )
+                        .on_hover_text("Move all existing recordings to the new location")
+                        .clicked()
+                    {
+                        *recording_location = new_path.clone();
+                        app_state
+                            .async_request_tx
+                            .blocking_send(AsyncRequest::MoveRecordingsFolder {
+                                from: old_path.clone(),
+                                to: new_path.clone(),
+                            })
+                            .ok();
+                        *pending_move_location = None;
+                    }
+                });
+
+                ui.add_space(intra_spacing);
+
+                // Cancel button
+                if ui
+                    .add_sized(
+                        egui::vec2(ui.available_width(), 28.0),
+                        egui::Button::new(egui::RichText::new("Cancel").size(12.0)),
+                    )
+                    .clicked()
+                {
+                    *pending_move_location = None;
+                }
+            });
+        });
+
+    if !keep_open {
+        *pending_move_location = None;
     }
 }
 

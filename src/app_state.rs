@@ -1,4 +1,5 @@
 use std::{
+    path::PathBuf,
     sync::{Arc, OnceLock, RwLock, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -99,7 +100,9 @@ pub enum AsyncRequest {
     LoadUploadStats,
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,
-    OpenFolder(std::path::PathBuf),
+    OpenFolder(PathBuf),
+    MoveRecordingsFolder { from: PathBuf, to: PathBuf },
+    PickRecordingFolder { current_location: PathBuf },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
@@ -113,6 +116,7 @@ pub enum UiUpdate {
     UpdateNewerReleaseAvailable(GitHubRelease),
     UpdateUserUploads(UserUploads),
     UpdateLocalRecordings(Vec<LocalRecording>),
+    FolderPickerResult { old_path: PathBuf, new_path: PathBuf },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread

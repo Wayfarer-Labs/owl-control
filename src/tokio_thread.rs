@@ -32,14 +32,12 @@ use crate::{record::Recorder, system::raw_input_debouncer::EventDebouncer};
 
 pub fn run(
     app_state: Arc<AppState>,
-    recording_location: PathBuf,
     log_path: PathBuf,
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
     tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
-        recording_location,
         log_path,
         async_request_rx,
         stopped_rx,
@@ -48,7 +46,6 @@ pub fn run(
 
 async fn main(
     app_state: Arc<AppState>,
-    recording_location: PathBuf,
     log_path: PathBuf,
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
@@ -59,9 +56,16 @@ async fn main(
 
     let mut recorder = Recorder::new(
         Box::new({
-            let recording_location = recording_location.clone();
+            let app_state = app_state.clone();
             move || {
-                recording_location.join(
+                let base = app_state
+                    .config
+                    .read()
+                    .unwrap()
+                    .preferences
+                    .recording_location
+                    .clone();
+                base.join(
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap()
@@ -178,6 +182,15 @@ async fn main(
             },
             e = async_request_rx.recv() => {
                 let e = e.expect("async request reader was closed early");
+                let recording_location = {
+                    app_state
+                        .config
+                        .read()
+                        .unwrap()
+                        .preferences
+                        .recording_location
+                        .clone()
+                };
                 match e {
                     AsyncRequest::ValidateApiKey { api_key } => {
                         let response = api_client.validate_api_key(&api_key).await;
@@ -202,12 +215,11 @@ async fn main(
                         tracing::info!("Upload cancellation requested");
                     }
                     AsyncRequest::OpenDataDump => {
-                        // Create directory if it doesn't exist
                         if !recording_location.exists() {
                             let _ = std::fs::create_dir_all(&recording_location);
                         }
                         let absolute_path = std::fs::canonicalize(&recording_location)
-                            .unwrap_or(recording_location.clone());
+                            .unwrap_or(recording_location);
                         opener::open(&absolute_path).ok();
                     }
                     AsyncRequest::OpenLog => {
@@ -251,7 +263,6 @@ async fn main(
                     AsyncRequest::LoadLocalRecordings => {
                         tokio::spawn({
                             let app_state = app_state.clone();
-                            let recording_location = recording_location.clone();
                             async move {
                                 let local_recordings = tokio::task::spawn_blocking(move || {
                                     LocalRecording::scan_directory(&recording_location)
@@ -268,7 +279,6 @@ async fn main(
                     AsyncRequest::DeleteAllInvalidRecordings => {
                         tokio::spawn({
                             let app_state = app_state.clone();
-                            let recording_location = recording_location.clone();
                             async move {
                                 // Get current list of local recordings
                                 let local_recordings = tokio::task::spawn_blocking({
@@ -335,9 +345,18 @@ async fn main(
                             }
                         });
                     }
+                    AsyncRequest::MoveRecordingsFolder { from, to } => {
+                        tokio::spawn(move_recordings_folder(app_state.clone(), from, to));
+                    }
+                    AsyncRequest::PickRecordingFolder { current_location } => {
+                        tokio::spawn(pick_recording_folder(app_state.clone(), current_location));
+                    }
                 }
             },
             _ = perform_checks.tick() => {
+                // Periodically force the UI to rerender so that it will process events, even if not visible
+                app_state.ui_update_tx.send(UiUpdate::ForceUpdate).ok();
+
                 // Flush pending input events to disk
                 if let Err(e) = recorder.flush_input_events().await {
                     tracing::error!(e=?e, "Failed to flush input events");
@@ -475,6 +494,130 @@ fn wait_for_ctrl_c() -> oneshot::Receiver<()> {
 
 fn is_window_focused(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
+}
+
+async fn pick_recording_folder(app_state: Arc<AppState>, current_location: PathBuf) {
+    let mut dialog = rfd::AsyncFileDialog::new();
+    if current_location.exists() {
+        dialog = dialog.set_directory(&current_location);
+    };
+
+    if let Some(picked) = dialog.pick_folder().await {
+        // Send the result back to the UI
+        app_state
+            .ui_update_tx
+            .send(UiUpdate::FolderPickerResult {
+                old_path: current_location,
+                new_path: picked.path().into(),
+            })
+            .ok();
+    }
+}
+
+async fn move_recordings_folder(app_state: Arc<AppState>, from: PathBuf, to: PathBuf) {
+    // Check if the directories are the same
+    if from == to {
+        tracing::info!("Source and destination are the same, skipping move operation");
+        return;
+    }
+
+    tracing::info!(
+        "Moving recordings from {} to {}",
+        from.display(),
+        to.display()
+    );
+
+    // Ensure the destination directory exists
+    if let Err(e) = tokio::fs::create_dir_all(&to).await {
+        tracing::error!(
+            "Failed to create destination directory {}: {:?}",
+            to.display(),
+            e
+        );
+        tracing::error!(
+            "Move operation failed: Failed to create destination directory: {}",
+            e
+        );
+        return;
+    }
+
+    // Read all entries in the source directory
+    let mut entries = match tokio::fs::read_dir(&from).await {
+        Ok(entries) => entries,
+        Err(e) => {
+            tracing::error!(
+                "Failed to read source directory {}: {:?}",
+                from.display(),
+                e
+            );
+            tracing::error!(
+                "Move operation failed: Failed to read source directory: {}",
+                e
+            );
+            return;
+        }
+    };
+
+    let mut moved_count = 0;
+    let mut errors = Vec::new();
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let source_path = entry.path();
+        let file_name = match source_path.file_name() {
+            Some(name) => name,
+            None => continue,
+        };
+
+        let dest_path = to.join(file_name);
+
+        // Move the file or directory
+        if let Err(e) = tokio::fs::rename(&source_path, &dest_path).await {
+            tracing::error!(
+                "Failed to move {} to {}: {:?}",
+                source_path.display(),
+                dest_path.display(),
+                e
+            );
+            errors.push(file_name.to_string_lossy().to_string());
+        } else {
+            moved_count += 1;
+        }
+    }
+
+    if errors.is_empty() {
+        tracing::info!("Successfully moved {} recordings", moved_count);
+        tracing::info!("Move operation completed: {} items moved", moved_count);
+    } else {
+        tracing::warn!(
+            "Moved {} recordings, but failed to move {} items: {:?}",
+            moved_count,
+            errors.len(),
+            errors
+        );
+        tracing::error!(
+            "Move operation completed with errors: Failed to move {} items",
+            errors.len()
+        );
+    }
+
+    // Refresh the local recordings list
+    let recording_location = app_state
+        .config
+        .read()
+        .unwrap()
+        .preferences
+        .recording_location
+        .clone();
+
+    let local_recordings =
+        tokio::task::spawn_blocking(move || LocalRecording::scan_directory(&recording_location))
+            .await
+            .unwrap_or_default();
+
+    app_state
+        .ui_update_tx
+        .send(UiUpdate::UpdateLocalRecordings(local_recordings))
+        .ok();
 }
 
 async fn startup_requests(app_state: Arc<AppState>) {
