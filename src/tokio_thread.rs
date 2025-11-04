@@ -497,21 +497,18 @@ fn is_window_focused(hwnd: HWND) -> bool {
 }
 
 async fn pick_recording_folder(app_state: Arc<AppState>, current_location: PathBuf) {
-    let dialog = if current_location.exists() {
-        rfd::AsyncFileDialog::new().set_directory(&current_location)
-    } else {
-        rfd::AsyncFileDialog::new()
+    let mut dialog = rfd::AsyncFileDialog::new();
+    if current_location.exists() {
+        dialog = dialog.set_directory(&current_location);
     };
 
     if let Some(picked) = dialog.pick_folder().await {
-        let new_path = picked.path().to_path_buf();
-
         // Send the result back to the UI
         app_state
             .ui_update_tx
-            .send(crate::app_state::UiUpdate::FolderPickerResult {
+            .send(UiUpdate::FolderPickerResult {
                 old_path: current_location,
-                new_path,
+                new_path: picked.path().into(),
             })
             .ok();
     }

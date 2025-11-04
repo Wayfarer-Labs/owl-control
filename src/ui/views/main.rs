@@ -318,9 +318,6 @@ impl MainApp {
                     // Display the full path below
                     let full_rec_loc = dunce::canonicalize(&self.local_preferences.recording_location)
                         .unwrap_or_else(|_| self.local_preferences.recording_location.clone());
-                    let mut full_rec_loc_str = full_rec_loc
-                        .to_string_lossy()
-                        .to_string();
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -357,7 +354,11 @@ impl MainApp {
                                 .show(ui, |ui| {
                                     ui.add_sized(
                                         egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-                                        egui::TextEdit::singleline(&mut full_rec_loc_str)
+                                        egui::TextEdit::singleline(
+                                            // egui has custom behaviour for &mut &str, so we need to convert our
+                                            // Cow<str> to a &str, and then take a mutable reference to it.
+                                            &mut &*full_rec_loc.to_string_lossy()
+                                        )
                                     ).on_hover_text("This is the folder where your recordings are stored. Use the 'Move' button to change the location.");
                                 });
                         });
@@ -1317,32 +1318,19 @@ fn delete_recording_confirmation_window(
 ) {
     if let Some((folder_path, folder_name)) = pending_delete_recording.clone() {
         let mut keep_open = true;
-        egui::Window::new("Confirm Deletion")
+        egui::Window::new("Confirm Deletion of Unuploaded Recording")
             .open(&mut keep_open)
             .collapsible(false)
             .resizable(false)
             .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
-                    ui.add_space(8.0);
-
                     ui.label(
-                        egui::RichText::new("⚠ Delete Unuploaded Recording")
-                            .size(18.0)
-                            .strong()
-                            .color(egui::Color32::from_rgb(255, 200, 100)),
-                    );
-
-                    ui.add_space(12.0);
-
-                    ui.label(egui::RichText::new(format!("Recording: {}", folder_name)).size(14.0));
-
-                    ui.add_space(8.0);
-
-                    ui.label(
-                        egui::RichText::new("This recording has not been uploaded yet.")
-                            .size(13.0)
-                            .color(egui::Color32::from_rgb(255, 255, 100)),
+                        egui::RichText::new(format!(
+                            "The recording \"{folder_name}\" has not been uploaded yet."
+                        ))
+                        .size(13.0)
+                        .color(egui::Color32::from_rgb(255, 255, 100)),
                     );
 
                     ui.label(
@@ -1359,8 +1347,11 @@ fn delete_recording_confirmation_window(
                         .add_sized(
                             egui::vec2(ui.available_width(), 32.0),
                             egui::Button::new(
-                                egui::RichText::new("📁 Open Folder for Investigation").size(13.0),
-                            ),
+                                egui::RichText::new("📁 Open Folder for Investigation")
+                                    .size(13.0)
+                                    .color(egui::Color32::WHITE),
+                            )
+                            .fill(egui::Color32::from_rgb(100, 150, 255)),
                         )
                         .clicked()
                     {
@@ -1372,21 +1363,19 @@ fn delete_recording_confirmation_window(
                             .ok();
                     }
 
-                    ui.add_space(8.0);
+                    ui.add_space(4.0);
 
                     ui.horizontal(|ui| {
                         // Cancel button
                         if ui
                             .add_sized(
-                                egui::vec2((ui.available_width() - 8.0) / 2.0, 32.0),
+                                egui::vec2(ui.available_width() / 2.0, 32.0),
                                 egui::Button::new(egui::RichText::new("Cancel").size(13.0)),
                             )
                             .clicked()
                         {
                             *pending_delete_recording = None;
                         }
-
-                        ui.add_space(8.0);
 
                         // Really Delete button
                         if ui
@@ -1449,17 +1438,6 @@ fn move_location_confirmation_window(
         .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
         .show(ctx, |ui| {
             ui.vertical(|ui| {
-                ui.add_space(8.0);
-
-                ui.label(
-                    egui::RichText::new("📁 Move Recording Location")
-                        .size(18.0)
-                        .strong()
-                        .color(egui::Color32::from_rgb(100, 150, 255)),
-                );
-
-                ui.add_space(12.0);
-
                 ui.label(
                     egui::RichText::new(
                         "Would you like to move your existing recordings to the new location?",
@@ -1470,24 +1448,38 @@ fn move_location_confirmation_window(
                 ui.add_space(8.0);
 
                 ui.label(
-                    egui::RichText::new(format!("From: {}", old_path.display()))
+                    egui::RichText::new("From:")
                         .size(12.0)
                         .color(egui::Color32::from_rgb(200, 200, 200)),
                 );
+                ui.label(
+                    egui::RichText::new(old_path.to_string_lossy())
+                        .size(12.0)
+                        .color(egui::Color32::WHITE),
+                );
+
+                ui.add_space(4.0);
 
                 ui.label(
-                    egui::RichText::new(format!("To: {}", new_path.display()))
+                    egui::RichText::new("To:")
                         .size(12.0)
                         .color(egui::Color32::from_rgb(200, 200, 200)),
+                );
+                ui.label(
+                    egui::RichText::new(new_path.to_string_lossy())
+                        .size(12.0)
+                        .color(egui::Color32::WHITE),
                 );
 
                 ui.add_space(12.0);
+
+                let intra_spacing = 4.0;
 
                 ui.horizontal(|ui| {
                     // Don't Move button - just change the location without moving files
                     if ui
                         .add_sized(
-                            egui::vec2((ui.available_width() - 8.0) / 2.0, 32.0),
+                            egui::vec2(ui.available_width() / 2.0, 32.0),
                             egui::Button::new(egui::RichText::new("Don't Move Files").size(13.0)),
                         )
                         .on_hover_text(
@@ -1498,8 +1490,6 @@ fn move_location_confirmation_window(
                         *recording_location = new_path.clone();
                         *pending_move_location = None;
                     }
-
-                    ui.add_space(8.0);
 
                     // Move Files button
                     if ui
@@ -1527,7 +1517,7 @@ fn move_location_confirmation_window(
                     }
                 });
 
-                ui.add_space(8.0);
+                ui.add_space(intra_spacing);
 
                 // Cancel button
                 if ui
