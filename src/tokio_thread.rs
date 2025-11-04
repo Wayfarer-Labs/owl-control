@@ -182,6 +182,15 @@ async fn main(
             },
             e = async_request_rx.recv() => {
                 let e = e.expect("async request reader was closed early");
+                let recording_location = {
+                    app_state
+                        .config
+                        .read()
+                        .unwrap()
+                        .preferences
+                        .recording_location
+                        .clone()
+                };
                 match e {
                     AsyncRequest::ValidateApiKey { api_key } => {
                         let response = api_client.validate_api_key(&api_key).await;
@@ -199,36 +208,18 @@ async fn main(
                         }
                     }
                     AsyncRequest::UploadData => {
-                        let recording_location = {
-                            app_state
-                                .config
-                                .read()
-                                .unwrap()
-                                .preferences
-                                .recording_location
-                                .clone()
-                        };
-                        tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location));
+                        tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
                     }
                     AsyncRequest::CancelUpload => {
                         app_state.upload_cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
                         tracing::info!("Upload cancellation requested");
                     }
                     AsyncRequest::OpenDataDump => {
-                        let recording_location = {
-                            app_state
-                                .config
-                                .read()
-                                .unwrap()
-                                .preferences
-                                .recording_location
-                                .clone()
-                        };
                         if !recording_location.exists() {
                             let _ = std::fs::create_dir_all(&recording_location);
                         }
                         let absolute_path = std::fs::canonicalize(&recording_location)
-                            .unwrap_or(recording_location.clone());
+                            .unwrap_or(recording_location);
                         opener::open(&absolute_path).ok();
                     }
                     AsyncRequest::OpenLog => {
@@ -272,15 +263,6 @@ async fn main(
                     AsyncRequest::LoadLocalRecordings => {
                         tokio::spawn({
                             let app_state = app_state.clone();
-                            let recording_location = {
-                                app_state
-                                    .config
-                                    .read()
-                                    .unwrap()
-                                    .preferences
-                                    .recording_location
-                                    .clone()
-                            };
                             async move {
                                 let local_recordings = tokio::task::spawn_blocking(move || {
                                     LocalRecording::scan_directory(&recording_location)
@@ -297,15 +279,6 @@ async fn main(
                     AsyncRequest::DeleteAllInvalidRecordings => {
                         tokio::spawn({
                             let app_state = app_state.clone();
-                            let recording_location = {
-                                app_state
-                                    .config
-                                    .read()
-                                    .unwrap()
-                                    .preferences
-                                    .recording_location
-                                    .clone()
-                            };
                             async move {
                                 // Get current list of local recordings
                                 let local_recordings = tokio::task::spawn_blocking({
@@ -373,99 +346,10 @@ async fn main(
                         });
                     }
                     AsyncRequest::MoveRecordingsFolder { from, to } => {
-                        tokio::spawn({
-                            let app_state = app_state.clone();
-                            async move {
-                                tracing::info!("Moving recordings from {} to {}", from.display(), to.display());
-
-                                // Move files in a blocking task
-                                let result = tokio::task::spawn_blocking(move || {
-                                    // Ensure the destination directory exists
-                                    if let Err(e) = std::fs::create_dir_all(&to) {
-                                        tracing::error!("Failed to create destination directory {}: {:?}", to.display(), e);
-                                        return Err(format!("Failed to create destination directory: {}", e));
-                                    }
-
-                                    // Read all entries in the source directory
-                                    let entries = match std::fs::read_dir(&from) {
-                                        Ok(entries) => entries,
-                                        Err(e) => {
-                                            tracing::error!("Failed to read source directory {}: {:?}", from.display(), e);
-                                            return Err(format!("Failed to read source directory: {}", e));
-                                        }
-                                    };
-
-                                    let mut moved_count = 0;
-                                    let mut errors = Vec::new();
-
-                                    for entry in entries {
-                                        let entry = match entry {
-                                            Ok(entry) => entry,
-                                            Err(e) => {
-                                                tracing::error!("Failed to read directory entry: {:?}", e);
-                                                continue;
-                                            }
-                                        };
-
-                                        let source_path = entry.path();
-                                        let file_name = match source_path.file_name() {
-                                            Some(name) => name,
-                                            None => continue,
-                                        };
-
-                                        let dest_path = to.join(file_name);
-
-                                        // Move the file or directory
-                                        if let Err(e) = std::fs::rename(&source_path, &dest_path) {
-                                            tracing::error!("Failed to move {} to {}: {:?}", source_path.display(), dest_path.display(), e);
-                                            errors.push(file_name.to_string_lossy().to_string());
-                                        } else {
-                                            moved_count += 1;
-                                        }
-                                    }
-
-                                    if errors.is_empty() {
-                                        tracing::info!("Successfully moved {} recordings", moved_count);
-                                        Ok(moved_count)
-                                    } else {
-                                        tracing::warn!("Moved {} recordings, but failed to move {} items: {:?}", moved_count, errors.len(), errors);
-                                        Err(format!("Failed to move {} items", errors.len()))
-                                    }
-                                }).await;
-
-                                match result {
-                                    Ok(Ok(count)) => {
-                                        tracing::info!("Move operation completed: {} items moved", count);
-                                    }
-                                    Ok(Err(e)) => {
-                                        tracing::error!("Move operation completed with errors: {}", e);
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Move operation task failed: {:?}", e);
-                                    }
-                                }
-
-                                // Refresh the local recordings list
-                                let recording_location = {
-                                    app_state
-                                        .config
-                                        .read()
-                                        .unwrap()
-                                        .preferences
-                                        .recording_location
-                                        .clone()
-                                };
-
-                                let local_recordings = tokio::task::spawn_blocking(move || {
-                                    LocalRecording::scan_directory(&recording_location)
-                                }).await.unwrap_or_default();
-
-                                app_state
-                                    .ui_update_tx
-                                    .send(UiUpdate::UpdateLocalRecordings(local_recordings))
-                                    .ok();
-                            }
-                        });
+                        tokio::spawn(move_recordings_folder(app_state.clone(), from, to));
+                    }
+                    AsyncRequest::PickRecordingFolder { current_location } => {
+                        tokio::spawn(pick_recording_folder(app_state.clone(), current_location));
                     }
                 }
             },
@@ -607,6 +491,133 @@ fn wait_for_ctrl_c() -> oneshot::Receiver<()> {
 
 fn is_window_focused(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
+}
+
+async fn pick_recording_folder(app_state: Arc<AppState>, current_location: PathBuf) {
+    let dialog = if current_location.exists() {
+        rfd::AsyncFileDialog::new().set_directory(&current_location)
+    } else {
+        rfd::AsyncFileDialog::new()
+    };
+
+    if let Some(picked) = dialog.pick_folder().await {
+        let new_path = picked.path().to_path_buf();
+
+        // Send the result back to the UI
+        app_state
+            .ui_update_tx
+            .send(crate::app_state::UiUpdate::FolderPickerResult {
+                old_path: current_location,
+                new_path,
+            })
+            .ok();
+    }
+}
+
+async fn move_recordings_folder(app_state: Arc<AppState>, from: PathBuf, to: PathBuf) {
+    // Check if the directories are the same
+    if from == to {
+        tracing::info!("Source and destination are the same, skipping move operation");
+        return;
+    }
+
+    tracing::info!(
+        "Moving recordings from {} to {}",
+        from.display(),
+        to.display()
+    );
+
+    // Ensure the destination directory exists
+    if let Err(e) = tokio::fs::create_dir_all(&to).await {
+        tracing::error!(
+            "Failed to create destination directory {}: {:?}",
+            to.display(),
+            e
+        );
+        tracing::error!(
+            "Move operation failed: Failed to create destination directory: {}",
+            e
+        );
+        return;
+    }
+
+    // Read all entries in the source directory
+    let mut entries = match tokio::fs::read_dir(&from).await {
+        Ok(entries) => entries,
+        Err(e) => {
+            tracing::error!(
+                "Failed to read source directory {}: {:?}",
+                from.display(),
+                e
+            );
+            tracing::error!(
+                "Move operation failed: Failed to read source directory: {}",
+                e
+            );
+            return;
+        }
+    };
+
+    let mut moved_count = 0;
+    let mut errors = Vec::new();
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let source_path = entry.path();
+        let file_name = match source_path.file_name() {
+            Some(name) => name,
+            None => continue,
+        };
+
+        let dest_path = to.join(file_name);
+
+        // Move the file or directory
+        if let Err(e) = tokio::fs::rename(&source_path, &dest_path).await {
+            tracing::error!(
+                "Failed to move {} to {}: {:?}",
+                source_path.display(),
+                dest_path.display(),
+                e
+            );
+            errors.push(file_name.to_string_lossy().to_string());
+        } else {
+            moved_count += 1;
+        }
+    }
+
+    if errors.is_empty() {
+        tracing::info!("Successfully moved {} recordings", moved_count);
+        tracing::info!("Move operation completed: {} items moved", moved_count);
+    } else {
+        tracing::warn!(
+            "Moved {} recordings, but failed to move {} items: {:?}",
+            moved_count,
+            errors.len(),
+            errors
+        );
+        tracing::error!(
+            "Move operation completed with errors: Failed to move {} items",
+            errors.len()
+        );
+    }
+
+    // Refresh the local recordings list
+    let recording_location = app_state
+        .config
+        .read()
+        .unwrap()
+        .preferences
+        .recording_location
+        .clone();
+
+    let local_recordings =
+        tokio::task::spawn_blocking(move || LocalRecording::scan_directory(&recording_location))
+            .await
+            .unwrap_or_default();
+
+    app_state
+        .ui_update_tx
+        .send(UiUpdate::UpdateLocalRecordings(local_recordings))
+        .ok();
 }
 
 async fn startup_requests(app_state: Arc<AppState>) {

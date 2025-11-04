@@ -587,6 +587,16 @@ impl MainApp {
                 // with the new recordings
                 self.virtual_list = None;
             }
+            Ok(UiUpdate::FolderPickerResult { old_path, new_path }) => {
+                // Check if there are any recordings in the old location
+                if !self.local_recordings.is_empty() && old_path.exists() && old_path != new_path {
+                    // Show confirmation dialog to ask about moving files
+                    self.main_view_state.pending_move_location = Some((old_path, new_path));
+                } else {
+                    // No recordings to move, just update the location
+                    self.local_preferences.recording_location = new_path;
+                }
+            }
             Err(_) => {}
         };
 
