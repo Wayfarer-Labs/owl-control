@@ -129,7 +129,11 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
         let pressed_buttons: std::collections::HashSet<u16> = button_events
             .iter()
             .filter_map(|event| {
-                if let InputEventType::GamepadButton { button, pressed } = event.event
+                if let InputEventType::GamepadButton {
+                    button,
+                    pressed,
+                    id: _,
+                } = event.event
                     && pressed
                 {
                     Some(button)
@@ -145,7 +149,11 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
         if !pressed_buttons.is_empty() {
             let mut button_counts: HashMap<u16, u64> = HashMap::new();
             for event in &button_events {
-                if let InputEventType::GamepadButton { button, pressed } = event.event
+                if let InputEventType::GamepadButton {
+                    button,
+                    pressed,
+                    id: _,
+                } = event.event
                     && pressed
                 {
                     *button_counts.entry(button).or_insert(0) += 1;

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
@@ -196,6 +197,7 @@ impl LocalRecording {
         start_time: SystemTime,
         window_name: Option<String>,
         adapter_infos: &[wgpu::AdapterInfo],
+        gamepads: HashMap<input_capture::GamepadId, input_capture::GamepadMetadata>,
         recorder_id: &str,
         recorder_extra: Option<serde_json::Value>,
     ) -> Result<()> {
@@ -240,6 +242,10 @@ impl LocalRecording {
             session_id: uuid::Uuid::new_v4().to_string(),
             hardware_id,
             hardware_specs,
+            gamepads: gamepads
+                .into_iter()
+                .map(|(id, metadata)| (id, metadata.into()))
+                .collect(),
             start_timestamp,
             end_timestamp,
             duration,
