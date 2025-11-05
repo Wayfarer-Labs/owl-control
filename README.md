@@ -41,7 +41,7 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 ## Usage
 
 - We accept recordings of [these games](./GAMES.md) in PvE modes only.
-- Hit F5 to switch recording on and off. Please only trigger this within a game you want to record.
+- Hit `F5` key to switch recording on and off. Please only trigger this within a game you want to record.
   - A small overlay on a screen corner shows that the app is open and recording.
   - Position, keys, and goose-flavored notifications can be customized.
   - If your game runs slowly while recording, lower settings in `Video Encoder`, or lower the game detail or resolution.
@@ -60,8 +60,10 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 > - You must be 18 years old, or older.
 > - You must play a game on [the games list](./GAMES.md)
 > - You must only play PvE or Co-op PvE (ie: gameplay against in-game, non-human opponents). We do not allow PvP recordings.
+> - You must upload least 20 hours of footage.
 > - You must record active and human play. No camping, bots, idling, etc.
 > - You must use [Wise](https://wise.com/) ($10 an hour) or [Fiverr](https://www.fiverr.com/) ($5 an hour). We do not use other payment providers. If you need help setting up ask [our Discord community](https://discord.gg/ZgCWTGYf4E).
+>
 
 ## Troubleshooting
 
@@ -73,15 +75,6 @@ Software known to interfere with OWL Control:
 > [!NOTE]
 >
 > You may get an `.invalid` recording that is marked as Too Long, is longer than 10 minutes, or larger than 150-200MB. If this happens, Please [speak to us on our discord](https://discord.gg/ZgCWTGYf4E) or [open an issue on GitHub](https://github.com/Wayfarer-Labs/owl-control/issues).
-
-## Keybindings
-
-|      Key/Action      | Function                        |
-| :------------------: | :------------------------------ |
-|        **F5**        | 🔄 Toggle recording on/off      |
-| **System Tray Icon** | ⚙️ Access settings and controls |
-
-**Note**: The recording toggle hotkey can be customized in the application settings. You can also enable a separate stop hotkey if desired.
 
 ## Contributing to AI Research
 
