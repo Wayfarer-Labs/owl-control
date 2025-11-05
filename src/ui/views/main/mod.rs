@@ -7,7 +7,7 @@ use crate::{
     app_state::{AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey},
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
-        RecordingBackend,
+        Preferences, RecordingBackend,
     },
     ui::{util, views::App},
 };
@@ -33,44 +33,6 @@ const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
 
 impl App {
     pub fn main_view(&mut self, ctx: &egui::Context) {
-        fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
-            ui.allocate_ui_with_layout(
-                egui::vec2(SETTINGS_TEXT_WIDTH, SETTINGS_TEXT_HEIGHT),
-                egui::Layout {
-                    main_dir: egui::Direction::LeftToRight,
-                    main_wrap: false,
-                    main_align: egui::Align::RIGHT,
-                    main_justify: true,
-                    cross_align: egui::Align::Center,
-                    cross_justify: true,
-                },
-                |ui| ui.add(widget),
-            )
-            .inner
-        }
-
-        fn add_settings_ui<R>(
-            ui: &mut egui::Ui,
-            add_contents: impl FnOnce(&mut egui::Ui) -> R,
-        ) -> egui::InnerResponse<R> {
-            ui.allocate_ui_with_layout(
-                egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-                egui::Layout {
-                    main_dir: egui::Direction::LeftToRight,
-                    main_wrap: false,
-                    main_align: egui::Align::LEFT,
-                    main_justify: true,
-                    cross_align: egui::Align::Center,
-                    cross_justify: true,
-                },
-                add_contents,
-            )
-        }
-
-        fn add_settings_widget(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
-            add_settings_ui(ui, |ui| ui.add(widget)).inner
-        }
-
         if self.main_view_state.last_obs_check.is_none()
             || self
                 .main_view_state
@@ -84,7 +46,6 @@ impl App {
             // Show new release warning if available
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
-
                 ui.add_space(8.0);
             }
 
@@ -96,222 +57,30 @@ impl App {
                     .is_some_and(|(_, is_obs_running)| is_obs_running)
             {
                 obs_running_warning(ui);
-
                 ui.add_space(8.0);
             }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 // Account Section
                 ui.group(|ui| {
-                    ui.label(egui::RichText::new("Account").size(18.0).strong());
-                    ui.separator();
-
-                    ui.vertical(|ui| {
-                        ui.label("User ID:");
-                        ui.horizontal(|ui| {
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    if ui
-                                        .add_sized(
-                                            egui::vec2(0.0, SETTINGS_TEXT_HEIGHT),
-                                            egui::Button::new("Log out"),
-                                        )
-                                        .clicked()
-                                    {
-                                        self.go_to_login();
-                                    }
-
-                                    let user_id = self
-                                        .authenticated_user_id
-                                        .clone()
-                                        .unwrap_or_else(|| Ok("Authenticating...".to_string()))
-                                        .unwrap_or_else(|e| format!("Error: {e}"));
-                                    ui.add_sized(
-                                        egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-                                        egui::TextEdit::singleline(&mut user_id.as_str()),
-                                    );
-                                },
-                            );
-                        });
-                    });
+                    account_section(ui, self);
                 });
                 ui.add_space(10.0);
 
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            egui::RichText::new("Keyboard Shortcuts")
-                                .size(18.0)
-                                .strong(),
-                        );
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            util::tooltip(
-                                ui,
-                                concat!(
-                                    "Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.",
-                                    "\n\n",
-                                    "Recordings will automatically stop every 10 minutes to split them into smaller files. This is intentional behaviour to prevent data loss and make uploads more manageable. The recording will resume automatically after stopping, so you don't need to do anything."
-                                ),
-                                None
-                            );
-                        });
-                    });
-                    ui.separator();
-
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new(if self.local_preferences.stop_hotkey_enabled {
-                            "Start Recording:"
-                        } else {
-                            "Toggle Recording:"
-                        }));
-                        let button_text = if self.app_state.listening_for_new_hotkey.read().unwrap().listening_hotkey_target()
-                            == Some(HotkeyRebindTarget::Start)
-                        {
-                            "Press any key...".to_string()
-                        } else {
-                            self.local_preferences.start_recording_key.clone()
-                        };
-
-                        if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                            *self.app_state.listening_for_new_hotkey.write().unwrap() = ListeningForNewHotkey::Listening { target: HotkeyRebindTarget::Start };
-                        }
-                    });
-
-                    let stop_hotkey_enabled = self.local_preferences.stop_hotkey_enabled;
-                    if stop_hotkey_enabled {
-                        ui.horizontal(|ui| {
-                            add_settings_text(ui, egui::Label::new("Stop Recording:"));
-                            let button_text =
-                                if self.app_state.listening_for_new_hotkey.read().unwrap().listening_hotkey_target()
-                                    == Some(HotkeyRebindTarget::Stop)
-                                {
-                                    "Press any key...".to_string()
-                                } else {
-                                    self.local_preferences.stop_recording_key.clone()
-                                };
-
-                            if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
-                                *self.app_state.listening_for_new_hotkey.write().unwrap() = ListeningForNewHotkey::Listening { target: HotkeyRebindTarget::Stop };
-                            }
-                        });
-                    }
-
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Stop Hotkey:"));
-                        add_settings_widget(
-                            ui,
-                            egui::Checkbox::new(
-                                &mut self.local_preferences.stop_hotkey_enabled,
-                                match stop_hotkey_enabled {
-                                    true => "Enabled",
-                                    false => "Disabled",
-                                },
-                            ),
-                        );
-                    });
+                    keyboard_shortcuts_section(ui, &self.app_state, &mut self.local_preferences);
                 });
                 ui.add_space(10.0);
 
                 // Overlay Settings Section
                 ui.group(|ui| {
-                    ui.label(
-                        egui::RichText::new("Recorder Customization")
-                            .size(18.0)
-                            .strong(),
+                    overlay_settings_section(
+                        ui,
+                        &mut self.local_preferences,
+                        &self.available_video_encoders,
+                        &mut self.encoder_settings_window_open,
                     );
-                    ui.separator();
-
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Overlay Location:"));
-                        add_settings_ui(ui, |ui| {
-                            egui::ComboBox::from_id_salt("overlay_location")
-                                .selected_text(self.local_preferences.overlay_location.to_string())
-                                .show_ui(ui, |ui| {
-                                    for location in crate::config::OverlayLocation::ALL {
-                                        ui.selectable_value(
-                                            &mut self.local_preferences.overlay_location,
-                                            location,
-                                            location.to_string(),
-                                        );
-                                    }
-                                });
-                        });
-                    });
-
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Overlay Opacity:"));
-                        let mut stored_opacity = self.local_preferences.overlay_opacity;
-
-                        let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
-
-                        let r = ui
-                            .scope(|ui| {
-                                // one day egui will make sliders respect their width properly
-                                ui.spacing_mut().slider_width = ui.available_width() - 50.0;
-                                add_settings_widget(
-                                    ui,
-                                    egui::Slider::new(&mut egui_opacity, 0.0..=100.0)
-                                        .suffix("%")
-                                        .integer(),
-                                )
-                            })
-                            .inner;
-                        if r.changed() {
-                            stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
-                            self.local_preferences.overlay_opacity = stored_opacity;
-                        }
-                    });
-
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Recording Audio Cue:"));
-                        let honk = self.local_preferences.honk;
-                        add_settings_widget(
-                            ui,
-                            egui::Checkbox::new(
-                                &mut self.local_preferences.honk,
-                                match honk {
-                                    true => "Honk.",
-                                    false => "Honk?",
-                                },
-                            ),
-                        );
-                    });
-
-                    ui.horizontal(|ui| {
-                        add_settings_text(ui, egui::Label::new("Video Encoder:"));
-                        add_settings_ui(ui, |ui| {
-                            let encoder_name = self.local_preferences.encoder.encoder.to_string();
-                            egui::ComboBox::from_id_salt("video_encoder")
-                                .selected_text(&encoder_name)
-                                .width(150.0)
-                                .show_ui(ui, |ui| {
-                                    for encoder in &self.available_video_encoders {
-                                        ui.selectable_value(
-                                            &mut self.local_preferences.encoder.encoder,
-                                            *encoder,
-                                            encoder.to_string(),
-                                        );
-                                    }
-                                });
-
-                            ui.horizontal(|ui| {
-                                if ui.button("⚙ Settings").clicked() {
-                                    self.encoder_settings_window_open = true;
-                                }
-
-                                util::tooltip(
-                                    ui,
-                                    concat!(
-                                        "Consider turning on VSync and/or switching encoders and/or using a different preset if your recordings suffer from dropped frames.\n\n",
-                                        "NVENC is known to drop frames when the GPU is under heavy load or does not have enough VRAM. Turning on the in-game frame limiter will help reduce dropped frames."
-                                    ),
-                                    None
-                                )
-                            });
-                        });
-                    });
                 });
 
                 ui.add_space(10.0);
@@ -358,16 +127,11 @@ impl App {
         });
 
         // Encoder Settings Window
-        egui::Window::new(format!(
-            "{} Settings",
-            self.local_preferences.encoder.encoder
-        ))
-        .open(&mut self.encoder_settings_window_open)
-        .collapsible(false)
-        .resizable(false)
-        .show(ctx, |ui| {
-            encoder_settings_window(ui, &mut self.local_preferences.encoder);
-        });
+        encoder_settings_window(
+            ctx,
+            &mut self.encoder_settings_window_open,
+            &mut self.local_preferences.encoder,
+        );
 
         // Delete Confirmation Window
         delete_recording_confirmation_window(
@@ -384,6 +148,272 @@ impl App {
             &self.app_state,
         );
     }
+}
+
+fn account_section(ui: &mut egui::Ui, app: &mut App) {
+    ui.label(egui::RichText::new("Account").size(18.0).strong());
+    ui.separator();
+
+    ui.vertical(|ui| {
+        ui.label("User ID:");
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui
+                    .add_sized(
+                        egui::vec2(0.0, SETTINGS_TEXT_HEIGHT),
+                        egui::Button::new("Log out"),
+                    )
+                    .clicked()
+                {
+                    app.go_to_login();
+                }
+
+                let user_id = app
+                    .authenticated_user_id
+                    .clone()
+                    .unwrap_or_else(|| Ok("Authenticating...".to_string()))
+                    .unwrap_or_else(|e| format!("Error: {e}"));
+                ui.add_sized(
+                    egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+                    egui::TextEdit::singleline(&mut user_id.as_str()),
+                );
+            });
+        });
+    });
+}
+
+fn keyboard_shortcuts_section(
+    ui: &mut egui::Ui,
+    app_state: &AppState,
+    local_preferences: &mut Preferences,
+) {
+    ui.horizontal(|ui| {
+        ui.label(
+            egui::RichText::new("Keyboard Shortcuts")
+                .size(18.0)
+                .strong(),
+        );
+
+        let tooltip = concat!(
+            "Tip: You can set separate hotkeys for starting and stopping recording. ",
+            "By default, the start key will toggle recording.",
+            "\n\n",
+            "Recordings will automatically stop every 10 minutes to split them into smaller files. ",
+            "This is intentional behaviour to prevent data loss and make uploads more manageable. ",
+            "The recording will resume automatically after stopping, so you don't need to do anything."
+        );
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            util::tooltip(ui, tooltip, None);
+        });
+    });
+    ui.separator();
+
+    ui.horizontal(|ui| {
+        add_settings_text(
+            ui,
+            egui::Label::new(if local_preferences.stop_hotkey_enabled {
+                "Start Recording:"
+            } else {
+                "Toggle Recording:"
+            }),
+        );
+        let button_text = if app_state
+            .listening_for_new_hotkey
+            .read()
+            .unwrap()
+            .listening_hotkey_target()
+            == Some(HotkeyRebindTarget::Start)
+        {
+            "Press any key...".to_string()
+        } else {
+            local_preferences.start_recording_key.clone()
+        };
+
+        if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
+            *app_state.listening_for_new_hotkey.write().unwrap() =
+                ListeningForNewHotkey::Listening {
+                    target: HotkeyRebindTarget::Start,
+                };
+        }
+    });
+
+    let stop_hotkey_enabled = local_preferences.stop_hotkey_enabled;
+    if stop_hotkey_enabled {
+        ui.horizontal(|ui| {
+            add_settings_text(ui, egui::Label::new("Stop Recording:"));
+            let listening_hotkey_target = app_state
+                .listening_for_new_hotkey
+                .read()
+                .unwrap()
+                .listening_hotkey_target();
+            let button_text = if listening_hotkey_target == Some(HotkeyRebindTarget::Stop) {
+                "Press any key...".to_string()
+            } else {
+                local_preferences.stop_recording_key.clone()
+            };
+
+            if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
+                *app_state.listening_for_new_hotkey.write().unwrap() =
+                    ListeningForNewHotkey::Listening {
+                        target: HotkeyRebindTarget::Stop,
+                    };
+            }
+        });
+    }
+
+    ui.horizontal(|ui| {
+        add_settings_text(ui, egui::Label::new("Stop Hotkey:"));
+        add_settings_widget(
+            ui,
+            egui::Checkbox::new(
+                &mut local_preferences.stop_hotkey_enabled,
+                match stop_hotkey_enabled {
+                    true => "Enabled",
+                    false => "Disabled",
+                },
+            ),
+        );
+    });
+}
+
+fn overlay_settings_section(
+    ui: &mut egui::Ui,
+    local_preferences: &mut Preferences,
+    available_video_encoders: &[VideoEncoderType],
+    encoder_settings_window_open: &mut bool,
+) {
+    ui.label(
+        egui::RichText::new("Recorder Customization")
+            .size(18.0)
+            .strong(),
+    );
+    ui.separator();
+
+    ui.horizontal(|ui| {
+        add_settings_text(ui, egui::Label::new("Overlay Location:"));
+        add_settings_ui(ui, |ui| {
+            egui::ComboBox::from_id_salt("overlay_location")
+                .selected_text(local_preferences.overlay_location.to_string())
+                .show_ui(ui, |ui| {
+                    for location in crate::config::OverlayLocation::ALL {
+                        ui.selectable_value(
+                            &mut local_preferences.overlay_location,
+                            location,
+                            location.to_string(),
+                        );
+                    }
+                });
+        });
+    });
+
+    ui.horizontal(|ui| {
+        add_settings_text(ui, egui::Label::new("Overlay Opacity:"));
+        let mut stored_opacity = local_preferences.overlay_opacity;
+        let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
+
+        let r = ui
+            .scope(|ui| {
+                // one day egui will make sliders respect their width properly
+                ui.spacing_mut().slider_width = ui.available_width() - 50.0;
+                add_settings_widget(
+                    ui,
+                    egui::Slider::new(&mut egui_opacity, 0.0..=100.0)
+                        .suffix("%")
+                        .integer(),
+                )
+            })
+            .inner;
+        if r.changed() {
+            stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
+            local_preferences.overlay_opacity = stored_opacity;
+        }
+    });
+
+    ui.horizontal(|ui| {
+        add_settings_text(ui, egui::Label::new("Recording Audio Cue:"));
+        let honk = local_preferences.honk;
+        add_settings_widget(
+            ui,
+            egui::Checkbox::new(
+                &mut local_preferences.honk,
+                match honk {
+                    true => "Honk.",
+                    false => "Honk?",
+                },
+            ),
+        );
+    });
+
+    ui.horizontal(|ui| {
+        add_settings_text(ui, egui::Label::new("Video Encoder:"));
+        add_settings_ui(ui, |ui| {
+            let encoder_name = local_preferences.encoder.encoder.to_string();
+            egui::ComboBox::from_id_salt("video_encoder")
+                .selected_text(&encoder_name)
+                .width(150.0)
+                .show_ui(ui, |ui| {
+                    for encoder in available_video_encoders {
+                        ui.selectable_value(
+                            &mut local_preferences.encoder.encoder,
+                            *encoder,
+                            encoder.to_string(),
+                        );
+                    }
+                });
+
+            ui.horizontal(|ui| {
+                if ui.button("⚙ Settings").clicked() {
+                    *encoder_settings_window_open = true;
+                }
+
+                let tooltip = concat!(
+                    "Consider turning on VSync and/or switching encoders and/or using a different preset if your recordings suffer from dropped frames.\n\n",
+                    "NVENC is known to drop frames when the GPU is under heavy load or does not have enough VRAM. ",
+                    "Turning on the in-game frame limiter will help reduce dropped frames."
+                );
+
+                util::tooltip(ui, tooltip, None)
+            });
+        });
+    });
+}
+
+fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+    ui.allocate_ui_with_layout(
+        egui::vec2(SETTINGS_TEXT_WIDTH, SETTINGS_TEXT_HEIGHT),
+        egui::Layout {
+            main_dir: egui::Direction::LeftToRight,
+            main_wrap: false,
+            main_align: egui::Align::RIGHT,
+            main_justify: true,
+            cross_align: egui::Align::Center,
+            cross_justify: true,
+        },
+        |ui| ui.add(widget),
+    )
+    .inner
+}
+
+fn add_settings_ui<R>(
+    ui: &mut egui::Ui,
+    add_contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> egui::InnerResponse<R> {
+    ui.allocate_ui_with_layout(
+        egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+        egui::Layout {
+            main_dir: egui::Direction::LeftToRight,
+            main_wrap: false,
+            main_align: egui::Align::LEFT,
+            main_justify: true,
+            cross_align: egui::Align::Center,
+            cross_justify: true,
+        },
+        add_contents,
+    )
+}
+
+fn add_settings_widget(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+    add_settings_ui(ui, |ui| ui.add(widget)).inner
 }
 
 fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
@@ -524,13 +554,21 @@ fn obs_running_warning(ui: &mut egui::Ui) {
         });
 }
 
-fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSettings) {
-    match encoder_settings.encoder {
-        VideoEncoderType::X264 => encoder_settings_x264(ui, &mut encoder_settings.x264),
-        VideoEncoderType::NvEnc => encoder_settings_nvenc(ui, &mut encoder_settings.nvenc),
-        VideoEncoderType::Amf => encoder_settings_amf(ui, &mut encoder_settings.amf),
-        VideoEncoderType::Qsv => encoder_settings_qsv(ui, &mut encoder_settings.qsv),
-    }
+fn encoder_settings_window(
+    ctx: &egui::Context,
+    encoder_settings_window_open: &mut bool,
+    encoder_settings: &mut EncoderSettings,
+) {
+    egui::Window::new(format!("{} Settings", encoder_settings.encoder))
+        .open(encoder_settings_window_open)
+        .collapsible(false)
+        .resizable(false)
+        .show(ctx, |ui| match encoder_settings.encoder {
+            VideoEncoderType::X264 => encoder_settings_x264(ui, &mut encoder_settings.x264),
+            VideoEncoderType::NvEnc => encoder_settings_nvenc(ui, &mut encoder_settings.nvenc),
+            VideoEncoderType::Amf => encoder_settings_amf(ui, &mut encoder_settings.amf),
+            VideoEncoderType::Qsv => encoder_settings_qsv(ui, &mut encoder_settings.qsv),
+        });
 }
 
 const PRESET_TOOLTIP: &str = "Please keep this as high as possible for best quality; only reduce it if you're experiencing performance issues.";
