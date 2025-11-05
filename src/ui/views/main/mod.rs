@@ -14,8 +14,8 @@ use crate::{
 
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
 
-mod recordings;
-pub use recordings::Recordings;
+mod upload_manager;
+pub use upload_manager::Recordings;
 
 #[derive(Default)]
 pub(crate) struct MainViewState {
@@ -30,11 +30,11 @@ pub(crate) struct MainViewState {
     recordings_virtual_list: egui_virtual_list::VirtualList,
 }
 
+const SETTINGS_TEXT_WIDTH: f32 = 150.0;
+const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
+
 impl MainApp {
     pub fn main_view(&mut self, ctx: &egui::Context) {
-        const SETTINGS_TEXT_WIDTH: f32 = 150.0;
-        const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
-
         fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
             ui.allocate_ui_with_layout(
                 egui::vec2(SETTINGS_TEXT_WIDTH, SETTINGS_TEXT_HEIGHT),
@@ -320,212 +320,17 @@ impl MainApp {
 
                 // Upload Manager Section
                 ui.group(|ui| {
-                    // Compute the unified recordings list.
-                    let now = chrono::Utc::now();
-                    let start_date = self.main_view_state.recordings.earliest_timestamp().unwrap_or(now).date_naive();
-                    let end_date = self.main_view_state.recordings.latest_timestamp().unwrap_or(now).date_naive();
-
-                    // Display the full path below
-                    let full_rec_loc = dunce::canonicalize(&self.local_preferences.recording_location)
-                        .unwrap_or_else(|_| self.local_preferences.recording_location.clone());
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            // Open the folder
-                            if ui
-                                .button(egui::RichText::new("Open").size(12.0))
-                                .clicked()
-                            {
-                                self.app_state
-                                    .async_request_tx
-                                    .blocking_send(AsyncRequest::OpenDataDump)
-                                    .ok();
-                            }
-
-                            // Popups to select the new recording location
-                            if ui
-                                .button(egui::RichText::new("Move").size(12.0))
-                                .clicked()
-                            {
-                                self.app_state
-                                    .async_request_tx
-                                    .blocking_send(AsyncRequest::PickRecordingFolder {
-                                        current_location: full_rec_loc.clone(),
-                                    })
-                                    .ok();
-                            }
-                        });
-                    });
-                    // Textedit that displays the recording location (textedit has nicer properties than a label for some reason, like stretching to fill the available width)
-                    ui.horizontal(|ui| {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            egui::ScrollArea::horizontal()
-                                .id_salt("recording_location_scroll")
-                                .show(ui, |ui| {
-                                    ui.add_sized(
-                                        egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-                                        egui::TextEdit::singleline(
-                                            // egui has custom behaviour for &mut &str, so we need to convert our
-                                            // Cow<str> to a &str, and then take a mutable reference to it.
-                                            &mut &*full_rec_loc.to_string_lossy()
-                                        )
-                                    ).on_hover_text("This is the folder where your recordings are stored. Use the 'Move' button to change the location.");
-                                });
-                        });
-                    });
-                    ui.horizontal(|ui| {
-                        let filter_start = self.main_view_state.recordings.filter_start_date();
-                        let filter_end = self.main_view_state.recordings.filter_end_date();
-
-                        // From date picker
-                        ui.label("Viewing recordings from");
-                        if let Some(new_start) = optional_date_picker(ui, filter_start, start_date, "filter_start_date") {
-                            self.main_view_state.recordings.set_filter_start_date(Some(new_start));
-                        }
-
-                        // To date picker
-                        ui.label("to");
-                        if let Some(new_end) = optional_date_picker(ui, filter_end, end_date, "filter_end_date") {
-                            self.main_view_state.recordings.set_filter_end_date(Some(new_end));
-                        }
-
-                        // Clear filter button
-                        if (filter_start.is_some() || filter_end.is_some()) && ui.button("Reset").clicked() {
-                            self.main_view_state.recordings.set_filter_dates(None, None);
-                        }
-                    });
-                    ui.separator();
-                    ui.add_space(10.0);
-
-                    ui.horizontal(|ui| {
-                        recordings::upload_stats_view(
-                            ui,
-                            &self.main_view_state.recordings,
-                        );
-                    });
-                    ui.add_space(8.0);
-
-                    // Unified Recordings Section
-                    egui::CollapsingHeader::new(
-                        egui::RichText::new(&{
-                            let invalid_count = self.main_view_state.recordings.invalid_count_filtered();
-                            if invalid_count > 0 {
-                                format!("Upload Tracker ({invalid_count} invalid)")
-                            } else {
-                                "Upload Tracker".to_string()
-                            }
-                        }).size(16.0)
-                    )
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        recordings::recordings_view(
-                            ui,
-                            &mut self.main_view_state.recordings,
-                            &mut self.main_view_state.recordings_virtual_list,
-                            &self.app_state,
-                            &mut self.main_view_state.pending_delete_recording,
-                        );
-                    });
-
-                    // Progress Bar
-                    let is_uploading = self.current_upload_progress.is_some();
-                    if let Some(progress) = &self.current_upload_progress {
-                        ui.add_space(10.0);
-
-                        // Display current file and files remaining
-                        ui.label(format!("Uploading: {} ({} files remaining)", progress.file_progress.current_file, progress.file_progress.files_remaining));
-
-                        ui.label(format!(
-                            "Current upload: {:.2}% ({}/{})",
-                            progress.percent,
-                            util::format_bytes(progress.bytes_uploaded),
-                            util::format_bytes(progress.total_bytes),
-                        ));
-                        ui.add(egui::ProgressBar::new(progress.percent as f32 / 100.0));
-                        ui.label(format!(
-                            "Speed: {:.1} MB/s • ETA: {}",
-                            progress.speed_mbps,
-                            util::format_seconds(progress.eta_seconds as u64),
-                        ));
-                    }
-
-                    // Unreliable Connection Setting
-                    ui.add_space(5.0);
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Checkbox::new(
-                            &mut self.local_preferences.unreliable_connection,
-                            "Optimize for unreliable connections",
-                        ));
-                        util::tooltip(ui, concat!(
-                            "Enable this if you have a slow or unstable internet connection. ",
-                            "This will use smaller file chunks to improve upload success rates."
-                        ), None);
-                    });
-
-                    // Delete Uploaded Recordings Setting
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Checkbox::new(
-                            &mut self.local_preferences.delete_uploaded_files,
-                            "Delete recordings after successful upload",
-                        ));
-                        util::tooltip(ui, concat!(
-                            "Automatically delete local recordings after they have been successfully uploaded. ",
-                            "Invalid uploads, as well as existing uploads, will not be deleted."
-                        ), None);
-                    });
-
-                    // Upload Button
-                    ui.add_space(5.0);
-                    if is_uploading {
-                        // Show Cancel button when uploading
-                        ui.add_enabled_ui(!self.app_state.upload_cancel_flag.load(std::sync::atomic::Ordering::Relaxed), |ui| {
-                            if ui
-                                .add_sized(
-                                    egui::vec2(ui.available_width(), 32.0),
-                                    egui::Button::new(
-                                        egui::RichText::new("Cancel Upload")
-                                            .size(12.0)
-                                            .color(egui::Color32::WHITE),
-                                    )
-                                    .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                ).on_hover_text("Cancel the current upload. This upload will be restarted the next time you click the Upload button.")
-                                .clicked()
-                            {
-                                self.app_state
-                                    .async_request_tx
-                                    .blocking_send(AsyncRequest::CancelUpload)
-                                    .ok();
-                            }
-                        });
-                    } else {
-                        // Show Upload button when not uploading
-                        ui.add_enabled_ui(self.newer_release_available.is_none(), |ui| {
-                            if ui
-                                .add_sized(
-                                    egui::vec2(ui.available_width(), 32.0),
-                                    egui::Button::new(
-                                        egui::RichText::new("Upload Recordings")
-                                            .size(12.0),
-                                    ),
-                                )
-                                .clicked()
-                            {
-                                self.last_upload_error = None;
-                                self.app_state
-                                    .async_request_tx
-                                    .blocking_send(AsyncRequest::UploadData)
-                                    .ok();
-                            }
-                            if let Some(error) = &self.last_upload_error {
-                                ui.label(
-                                    egui::RichText::new(error)
-                                        .size(12.0)
-                                        .color(egui::Color32::from_rgb(255, 0, 0)),
-                                );
-                            }
-                        });
-                    }
-
+                    upload_manager::view(
+                        ui,
+                        &mut self.main_view_state.recordings,
+                        &mut self.local_preferences,
+                        &self.app_state,
+                        &mut self.main_view_state.recordings_virtual_list,
+                        &mut self.main_view_state.pending_delete_recording,
+                        self.current_upload_progress.as_ref(),
+                        &mut self.last_upload_error,
+                        self.newer_release_available.is_some(),
+                    );
                 });
 
                 // Logo
@@ -995,22 +800,5 @@ fn move_location_confirmation_window(
 
     if !keep_open {
         *pending_move_location = None;
-    }
-}
-
-/// Wrapper for DatePickerButton that handles Option<NaiveDate>
-fn optional_date_picker(
-    ui: &mut egui::Ui,
-    date: Option<chrono::NaiveDate>,
-    default: chrono::NaiveDate,
-    id: &str,
-) -> Option<chrono::NaiveDate> {
-    // Initialize with today's date if None
-    let mut temp_date = date.unwrap_or(default);
-    let response = ui.add(egui_extras::DatePickerButton::new(&mut temp_date).id_salt(id));
-    if response.changed() {
-        Some(temp_date)
-    } else {
-        None
     }
 }
