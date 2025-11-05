@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use color_eyre::Result;
@@ -10,6 +10,7 @@ mod kbm_capture;
 use kbm_capture::KbmCapture;
 
 mod gamepad_capture;
+pub use gamepad_capture::{ActiveGamepad, GamepadId, GamepadMetadata};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Event {
@@ -23,11 +24,19 @@ pub enum Event {
     /// Keyboard key press or release
     KeyPress { key: u16, press_state: PressState },
     /// Gamepad button press or release
-    GamepadButtonPress { key: u16, press_state: PressState },
+    GamepadButtonPress {
+        key: u16,
+        press_state: PressState,
+        id: GamepadId,
+    },
     /// Gamepad button value change (e.g. analogue buttons like triggers)
-    GamepadButtonChange { key: u16, value: f32 },
+    GamepadButtonChange { key: u16, value: f32, id: GamepadId },
     /// Gamepad axis value change
-    GamepadAxisChange { axis: u16, value: f32 },
+    GamepadAxisChange {
+        axis: u16,
+        value: f32,
+        id: GamepadId,
+    },
 }
 impl Event {
     pub fn key_press_keycode(&self) -> Option<u16> {
@@ -50,15 +59,15 @@ pub enum PressState {
 pub struct ActiveInput {
     pub keyboard: HashSet<u16>,
     pub mouse: HashSet<u16>,
-    pub gamepad_digital: HashSet<u16>,
-    pub gamepad_analog: HashMap<u16, f32>,
+    pub gamepads: HashMap<GamepadId, ActiveGamepad>,
 }
 
 pub struct InputCapture {
     _raw_input_thread: std::thread::JoinHandle<()>,
     _gamepad_threads: gamepad_capture::GamepadThreads,
     active_keys: Arc<Mutex<kbm_capture::ActiveKeys>>,
-    active_gamepad: Arc<Mutex<gamepad_capture::ActiveGamepad>>,
+    active_gamepad: Arc<Mutex<gamepad_capture::ActiveGamepads>>,
+    gamepads: Arc<RwLock<HashMap<GamepadId, GamepadMetadata>>>,
 }
 impl InputCapture {
     pub fn new() -> Result<(Self, mpsc::Receiver<Event>)> {
@@ -82,8 +91,10 @@ impl InputCapture {
             }
         });
 
-        let active_gamepad = Arc::new(Mutex::new(gamepad_capture::ActiveGamepad::default()));
-        let _gamepad_threads = gamepad_capture::initialize_thread(input_tx, active_gamepad.clone());
+        let active_gamepad = Arc::new(Mutex::new(gamepad_capture::ActiveGamepads::default()));
+        let gamepads = Arc::new(RwLock::new(HashMap::new()));
+        let _gamepad_threads =
+            gamepad_capture::initialize_thread(input_tx, active_gamepad.clone(), gamepads.clone());
 
         Ok((
             Self {
@@ -91,6 +102,7 @@ impl InputCapture {
                 _gamepad_threads,
                 active_keys,
                 active_gamepad,
+                gamepads,
             },
             input_rx,
         ))
@@ -102,8 +114,11 @@ impl InputCapture {
         ActiveInput {
             keyboard: active_keys.keyboard.clone(),
             mouse: active_keys.mouse.clone(),
-            gamepad_digital: active_gamepad.gamepad_digital.clone(),
-            gamepad_analog: active_gamepad.gamepad_analog.clone(),
+            gamepads: active_gamepad.devices.clone(),
         }
+    }
+
+    pub fn gamepads(&self) -> HashMap<GamepadId, GamepadMetadata> {
+        self.gamepads.read().unwrap().clone()
     }
 }

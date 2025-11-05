@@ -11,6 +11,7 @@ pub struct GamepadOutputStats {
     gamepad_button_diversity: f64,
     gamepad_total_events: u64,
     gamepad_axis_activity: f64,
+    gamepad_axis_movement: f64,
     gamepad_max_axis_movement: f64,
 }
 impl From<GamepadStats> for GamepadOutputStats {
@@ -21,6 +22,7 @@ impl From<GamepadStats> for GamepadOutputStats {
             gamepad_button_diversity: stats.button_diversity,
             gamepad_total_events: stats.total_button_events,
             gamepad_axis_activity: stats.axis_activity,
+            gamepad_axis_movement: stats.axis_movement,
             gamepad_max_axis_movement: stats.max_axis_movement,
         }
     }
@@ -30,27 +32,17 @@ pub(super) fn validate(input: &super::ValidationInput) -> (GamepadOutputStats, V
     let mut invalid_reasons = vec![];
     let stats = get_stats(input);
 
-    if stats.total_gamepad_events < 20 {
+    // Only invalidate if BOTH button and axis activity are too low
+    // This allows axis-only runs and button-only runs to be valid
+    if stats.button_apm < 2.0 && stats.axis_movement < 0.01 {
         invalid_reasons.push(format!(
-            "Too few gamepad events: {}",
-            stats.total_gamepad_events
-        ));
-    }
-    if stats.button_apm < 5.0 {
-        invalid_reasons.push(format!(
-            "Gamepad button actions per minute too low: {}",
-            stats.button_apm
-        ));
-    }
-    if stats.axis_activity < 0.01 {
-        invalid_reasons.push(format!(
-            "Gamepad axis activity too low: {}",
-            stats.axis_activity
+            "Gamepad activity too low: button APM {} and axis movement {}",
+            stats.button_apm, stats.axis_movement
         ));
     }
     if stats.max_axis_movement > 2.0 {
         invalid_reasons.push(format!(
-            "Gamepad axis movement too large: {}",
+            "Gamepad axis movement too high: {}",
             stats.max_axis_movement
         ));
     }
@@ -64,8 +56,8 @@ struct GamepadStats {
     pub button_diversity: f64,
     pub total_button_events: u64,
     pub axis_activity: f64,
+    pub axis_movement: f64,
     pub max_axis_movement: f64,
-    pub total_gamepad_events: u64,
 }
 fn get_stats(input: &super::ValidationInput) -> GamepadStats {
     // Filter for gamepad events only
@@ -87,6 +79,7 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
     let mut diversity = 0.0;
     let mut total_button_events = 0;
     let mut axis_activity = 0.0;
+    let mut axis_movement = 0.0;
     let mut max_axis_movement = 0.0;
 
     // Separate different types of gamepad events
@@ -129,7 +122,11 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
         let pressed_buttons: std::collections::HashSet<u16> = button_events
             .iter()
             .filter_map(|event| {
-                if let InputEventType::GamepadButton { button, pressed } = event.event
+                if let InputEventType::GamepadButton {
+                    button,
+                    pressed,
+                    id: _,
+                } = event.event
                     && pressed
                 {
                     Some(button)
@@ -145,7 +142,11 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
         if !pressed_buttons.is_empty() {
             let mut button_counts: HashMap<u16, u64> = HashMap::new();
             for event in &button_events {
-                if let InputEventType::GamepadButton { button, pressed } = event.event
+                if let InputEventType::GamepadButton {
+                    button,
+                    pressed,
+                    id: _,
+                } = event.event
                     && pressed
                 {
                     *button_counts.entry(button).or_insert(0) += 1;
@@ -188,7 +189,7 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
             .collect();
 
         if !axis_values.is_empty() {
-            // Calculate axis movement statistics
+            // Calculate old axis activity metric (mean of absolute values) for compatibility
             axis_activity =
                 axis_values.iter().map(|&val| val.abs()).sum::<f64>() / axis_values.len() as f64;
 
@@ -196,6 +197,12 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
                 .iter()
                 .map(|&val| val.abs())
                 .fold(0.0_f64, |acc, val| acc.max(val));
+
+            // Calculate new axis movement metric (average absolute change between consecutive values)
+            if axis_values.len() > 1 {
+                let total_change: f64 = axis_values.windows(2).map(|w| (w[1] - w[0]).abs()).sum();
+                axis_movement = total_change / (axis_values.len() - 1) as f64;
+            }
         }
     }
 
@@ -211,7 +218,7 @@ fn get_stats(input: &super::ValidationInput) -> GamepadStats {
         button_diversity: diversity,
         total_button_events,
         axis_activity,
+        axis_movement,
         max_axis_movement,
-        total_gamepad_events: gamepad_events.len() as u64,
     }
 }

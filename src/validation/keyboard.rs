@@ -25,16 +25,16 @@ pub(super) fn validate(input: &super::ValidationInput) -> (KeyboardOutputStats, 
     let mut invalid_reasons = vec![];
     let stats = get_stats(input);
 
-    if stats.wasd_apm < 10.0 {
+    if stats.wasd_apm < 5.0 {
         invalid_reasons.push(format!(
             "WASD actions per minute too low: {}",
             stats.wasd_apm
         ));
     }
-    if stats.total_keyboard_events < 50 {
+    if stats.apm < 5.0 {
         invalid_reasons.push(format!(
-            "Too few keyboard events: {}",
-            stats.total_keyboard_events
+            "Keyboard actions per minute too low: {}",
+            stats.apm
         ));
     }
 
@@ -46,6 +46,7 @@ struct KeyboardStats {
     pub unique_keys: u64,
     pub button_diversity: f64,
     pub total_keyboard_events: u64,
+    pub apm: f64,
 }
 fn get_stats(input: &super::ValidationInput) -> KeyboardStats {
     // Get WASD keycodes
@@ -136,5 +137,10 @@ fn get_stats(input: &super::ValidationInput) -> KeyboardStats {
         unique_keys,
         button_diversity: diversity,
         total_keyboard_events: keyboard_events.len() as u64,
+        apm: if input.duration_minutes > 0.0 {
+            keyboard_events.len() as f64 / input.duration_minutes
+        } else {
+            0.0
+        },
     }
 }

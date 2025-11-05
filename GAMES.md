@@ -2,6 +2,7 @@
 
 Follow these guidelines. You must be 18 or older!
 
+❌ PvP modes.<br>
 ❌ Cutscenes or menus. We need input data, not movies.<br>
 ❌ Idling during recording. No standing still, camping, afk, etc.<br>
 ❌ Play or voice chat of real people not recording with our software in any Co-Op/PvP games.<br>
@@ -26,27 +27,33 @@ Follow these guidelines. You must be 18 or older!
 >
 > The following behaviors will lead to a ban:
 >
+> * Recording PvP modes.
 > * Falsifying recordings or repeatedly violating guidelines.<br>
 > * Recording games with a focus on nudity and NSFW content.<br>
 > * Tampering with our software system.<br>
 
-Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnucG)!<br>
+Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGYf4E)!<br>
 
 ## Top-Priority Games
 
 ### First-person, High-quality/detailed, Active
 
+#### - [A Story About My Uncle](https://store.steampowered.com/app/278360/A_Story_About_My_Uncle/)
 #### - [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
 #### - [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
+#### - [Car Mechanic Simulator 2021](https://store.steampowered.com/app/1190000/Car_Mechanic_Simulator_2021/)
 #### - [Close to the Sun](https://store.steampowered.com/app/968870/Close_to_the_Sun/)
 #### - [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
 #### - [Conundrum](https://store.steampowered.com/app/1744140/Conundrum/)
 #### - [Dear Esther](https://store.steampowered.com/app/203810/Dear_Esther_Landmark_Edition/)
 #### - [Everyone's Gone to the Rapture](https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/)
+#### - [The Exit 8](https://store.steampowered.com/app/2653790/The_Exit_8/)
+#### - [Firewatch](https://store.steampowered.com/app/383870/Firewatch/)
 #### - [Fishing Planet](https://store.steampowered.com/app/380600/Fishing_Planet/)
 #### - [Gone Home](https://store.steampowered.com/app/232430/Gone_Home/)
 #### - [Grunn](https://store.steampowered.com/app/2720950/Grunn/)
 #### - [Gym Manager](https://store.steampowered.com/app/2337460/Gym_Manager/)
+#### - [Hardspace: Shipbreaker](https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker)
 #### - [House Flipper 2](https://store.steampowered.com/app/1190970/House_Flipper_2/)
 #### - [House Flipper](https://store.steampowered.com/app/613100/House_Flipper/)
 #### - [Jazzpunk](https://store.steampowered.com/app/250260/Jazzpunk_Directors_Cut)
@@ -54,12 +61,16 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 #### - [Layers of Fear](https://store.steampowered.com/app/391720/Layers_of_Fear/)
 #### - [Madison](https://store.steampowered.com/app/1670870/MADiSON/)
 #### - [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
+#### - [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
+#### - [Mirror's Edge](https://store.steampowered.com/app/17410/Mirrors_Edge/)
+#### - [Neon White](https://store.steampowered.com/app/1533420/Neon_White/)
 #### - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
 #### - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 #### - [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
 #### - [PowerWash Simulator 2](https://store.steampowered.com/app/2968420/PowerWash_Simulator_2/)
 #### - [PowerWash Simulator](https://store.steampowered.com/app/1290000/PowerWash_Simulator/)
-#### - [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/) (admin)
+#### - [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/)
+#### - [Slime Rancher 2](https://store.steampowered.com/app/1657630/Slime_Rancher_2/)
 #### - [Sons of the Forest](https://store.steampowered.com/app/1326470/Sons_Of_The_Forest)
 #### - [The Stanley Parable: Ultra Deluxe](https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/)
 #### - [Superliminal](https://store.steampowered.com/app/1049410/Superliminal/)
@@ -78,17 +89,20 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 
 ### Movement / Parkour (continuous control, momentum, traversal)
 
+- [BPM: Bullets Per Minute](https://store.steampowered.com/app/1286350/BPM_BULLETS_PER_MINUTE/)
 - [Dying Light 2](https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human/)
 - [Dying Light](https://store.steampowered.com/app/239140/Dying_Light/)
 - [Ghostrunner 2](https://store.steampowered.com/app/2144740/Ghostrunner_2)
 - [Ghostrunner](https://store.steampowered.com/app/1139900/Ghostrunner/)
-- [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
-- [Mirror's Edge](https://store.steampowered.com/app/17410/Mirrors_Edge/)
+- [I Am Your Beast](https://store.steampowered.com/app/1876590/I_Am_Your_Beast/)
+- [Severed Steel](https://store.steampowered.com/app/1227690/Severed_Steel/)
+- [Shady Knight](https://store.steampowered.com/app/1155650/Shady_Knight/)
 - [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT)
-- [Titanfall 2](https://store.steampowered.com/app/1237970/Titanfall_2/)
+- [White Knuckle](https://store.steampowered.com/app/3195790/White_Knuckle/)
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
+- [Avowed](https://store.steampowered.com/app/2457220/Avowed/)
 - [BeamNG.drive](https://store.steampowered.com/app/284160/BeamNGdrive)
 - [Cyberpunk 2077](https://store.steampowered.com/app/1091500/Cyberpunk_2077/)
 - [The Elder Scrolls IV: Oblivion Remastered](https://store.steampowered.com/app/2623190/The_Elder_Scrolls_IV_Oblivion_Remastered/)
@@ -96,7 +110,10 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Euro Truck Simulator 2](https://store.steampowered.com/app/227300/Euro_Truck_Simulator_2)
 - [Fallout 4](https://store.steampowered.com/app/377160/Fallout_4/)
 - [Fallout: New Vegas](https://store.steampowered.com/app/22380/Fallout_New_Vegas/)
+- [Forza Horizon 5](https://store.steampowered.com/app/1551360/Forza_Horizon_5/)
+- [Forza Motorsport](https://store.steampowered.com/app/2440510/Forza_Motorsport/)
 - [Internet Cafe Simulator 2025](https://store.steampowered.com/app/3326290/Internet_Cafe_Simulator_2025)
+- [Internet Cafe Simulator](https://store.steampowered.com/app/1136160/Internet_Cafe_Simulator/)
 - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
 - [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
 - [Liftoff FPV Drone Racing](https://store.steampowered.com/app/410340/Liftoff_FPV_Drone_Racing)
@@ -113,7 +130,6 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Half‑Life 2: Episode Two](https://store.steampowered.com/app/420/HalfLife_2_Episode_Two/)
 - [Half‑Life 2](https://store.steampowered.com/app/220/HalfLife_2/)
 - [Half‑Life](https://store.steampowered.com/app/70/HalfLife/)
-- [Hardspace: Shipbreaker](https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker)
 - [Indiana Jones and the Great Circle](https://discord.com/channels/1368288528429088860/1412456753001533471/1432471683263889541)
 - [Keep Digging](https://store.steampowered.com/app/3585800/Keep_Digging)
 - [Peak](https://store.steampowered.com/app/3527290/PEAK) (no voice chat)
@@ -129,25 +145,33 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [BioShock](https://store.steampowered.com/app/7670/BioShock/)
 - [Deus Ex: Human Revolution](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/)
 - [Deus Ex: Mankind Divided](https://store.steampowered.com/app/337000/Deus_Ex_Mankind_Divided/)
-- [Escape From Tarkov](https://store.steampowered.com/app/3932890/Escape_from_Tarkov)
+- [Dishonored 2](https://store.steampowered.com/app/403640/Dishonored_2/)
+- [Dishonored](https://store.steampowered.com/app/205100/Dishonored/)
 - [F.E.A.R.](https://store.steampowered.com/app/21090/FEAR/)
+- [PAYDAY 2](https://store.steampowered.com/app/218620/PAYDAY_2/)
+- [PAYDAY 3](https://store.steampowered.com/app/1272080/PAYDAY_3/)
 - [Shadows of Doubt](https://store.steampowered.com/app/986130/Shadows_of_Doubt)
 
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
+- [ARK: Survival Ascended](https://store.steampowered.com/app/2399830/ARK_Survival_Ascended/)
 - [Atomic Heart](https://store.steampowered.com/app/668580/Atomic_Heart/)
+- [Avatar: Frontiers of Pandora](https://store.steampowered.com/app/2840770/Avatar_Frontiers_of_Pandora/)
 - [Borderlands 4](https://store.steampowered.com/app/1285190/Borderlands_4)
 - [Crysis 2](https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/)
-- [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/) (admin)
+- [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/)
 - [Crysis](https://store.steampowered.com/app/17300/Crysis/)
 - [DOOM 2016](https://store.steampowered.com/app/379720/DOOM/)
 - [DOOM Eternal](https://store.steampowered.com/app/782330/DOOM_Eternal/)
+- [Ghostwire: Tokyo](https://store.steampowered.com/app/1475810/Ghostwire_Tokyo/)
 - [High on Life](https://store.steampowered.com/app/1583230/High_On_Life)
+- [METAL EDEN](https://store.steampowered.com/app/990380/METAL_EDEN/)
 - [Metro 2033 Redux](https://store.steampowered.com/app/286690/Metro_2033_Redux/)
 - [Metro Exodus](https://store.steampowered.com/app/412020/Metro_Exodus/)
 - [Metro: Last Light Redux](https://store.steampowered.com/app/287390/Metro_Last_Light_Redux/)
 - [Painkiller](https://store.steampowered.com/app/2300120/Painkiller/)
-- [Rust](https://store.steampowered.com/app/252490/Rust)
+- [PIGFACE](https://store.steampowered.com/app/3341650/PIGFACE/)
+- [Project Silverfish](https://store.steampowered.com/app/2941710/Project_Silverfish/)
 - [S.T.A.L.K.E.R.: Call of Pripyat](https://store.steampowered.com/app/41700/STALKER_Call_of_Pripyat/)
 - [S.T.A.L.K.E.R.: Shadow of Chernobyl](https://store.steampowered.com/app/4500/STALKER_Shadow_of_Chernobyl/)
 
@@ -156,8 +180,10 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Alien: Isolation](https://store.steampowered.com/app/214490/Alien_Isolation/)
 - [Amnesia: The Dark Descent](https://store.steampowered.com/app/57300/Amnesia_The_Dark_Descent/)
 - [Amnesia](https://store.steampowered.com/franchise/frictionalgames/list/37237)
+- [Back 4 Blood](https://store.steampowered.com/app/924970/Back_4_Blood/)
 - [The Beast Inside](https://store.steampowered.com/app/792300/The_Beast_Inside/)
 - [Bigfoot](https://store.steampowered.com/app/509980/BIGFOOT/)
+- [Blood: Fresh Supply](https://store.steampowered.com/app/1010750/Blood_Fresh_Supply/)
 - [Condemned: Criminal Origins](https://store.steampowered.com/app/4720/Condemned_Criminal_Origins/)
 - [Content Warning](https://store.steampowered.com/app/2881650/Content_Warning/) (no voice chat)
 - [Cry of Fear](https://store.steampowered.com/app/223710/Cry_of_Fear)(free)
@@ -177,7 +203,9 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [R.E.P.O](https://store.steampowered.com/app/3241660/REPO)
 - [Resident Evil 7: Biohazard](https://store.steampowered.com/app/418370/RESIDENT_EVIL_7_biohazard/)
 - [Resident Evil Village](https://store.steampowered.com/app/1196590/Resident_Evil_Village/)
+- [SCP 5K](https://store.steampowered.com/app/872670/SCP_5K/)
 - [Soma](https://store.steampowered.com/app/282140/SOMA/)
+- [Trepang2](https://store.steampowered.com/app/1164940/Trepang2/)
 
 ### Campaign Shooters / Combined Arms (vehicles, squad AI, large arenas)
 
@@ -185,15 +213,16 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 - [Battlefield 3](https://store.steampowered.com/app/1238820/Battlefield_3/)
 - [Battlefield 4](https://store.steampowered.com/app/1238860/Battlefield_4/)
 - [Call of Duty 4: Modern Warfare](https://store.steampowered.com/app/7940/Call_of_Duty_4_Modern_Warfare/)
-- [Call of Duty: Modern Warfare (2019)](https://store.steampowered.com/app/2000950/Call_of_Duty_Modern_Warfare/) (admin)
+- [Call of Duty: Modern Warfare (2019)](https://store.steampowered.com/app/2000950/Call_of_Duty_Modern_Warfare/)
+- [ELDERBORN](https://store.steampowered.com/app/727850/ELDERBORN/)
 - [Gunfire Reborn](https://store.steampowered.com/app/1217060/Gunfire_Reborn)
 - [Halo 2 Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo 3 (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
+- [MORDHAU](https://store.steampowered.com/app/629760/MORDHAU/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
-
-
+- [Warhammer: Vermintide 2](https://store.steampowered.com/app/552500/Warhammer_Vermintide_2/)
 
 # Unwanted games
 
@@ -205,11 +234,15 @@ Please do not submit data for these games.
 
 ## Sufficient data captured
 
+- Fortnite
+- DayZ
+- Finals
 - Minecraft
 - Valorant
 - Counter-Strike: Source
 - Counter-Strike 2
 - Overwatch 2
+- Arena Breakout: Infinite
 - Team Fortress 2
 - Apex Legends
 - Rainbow Six Siege
@@ -220,8 +253,10 @@ Please do not submit data for these games.
 - GTA: San Andreas
 - GTA IV
 - GTA V
+- GTA V Enhanced
 - Subnautica
 - Far Cry
+- Far Cry: New Dawn
 - Far Cry 2
 - Far Cry 3
 - Far Cry 4

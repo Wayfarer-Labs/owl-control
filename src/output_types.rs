@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use input_capture::GamepadId;
 use serde::{Deserialize, Serialize};
 
 use crate::{system::hardware_specs, validation::InputStats};
@@ -20,6 +21,8 @@ pub struct Metadata {
     pub session_id: String,
     pub hardware_id: String,
     pub hardware_specs: Option<hardware_specs::HardwareSpecs>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub gamepads: HashMap<GamepadId, GamepadMetadata>,
     pub start_timestamp: f64,
     pub end_timestamp: f64,
     pub duration: f64,
@@ -77,15 +80,15 @@ impl std::fmt::Display for InputEventReadError {
 /// - event_args (see callback args) [list[any]]
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputEventType {
-    /// Start
+    /// START: very beginning of recording
     Start { inputs: input_capture::ActiveInput },
-    /// End
+    /// END: very end of recording
     End { inputs: input_capture::ActiveInput },
-    /// VIDEO_START
+    /// VIDEO_START: beginning of video recording (e.g. if the video were to be played at this point, it would line up with the event stream)
     VideoStart,
-    /// VIDEO_END
+    /// VIDEO_END: end of video recording
     VideoEnd,
-    /// HOOK_START
+    /// HOOK_START: when the application was successfully hooked (e.g. when the recording is non-black)
     HookStart,
     /// UNFOCUS
     #[deprecated(since = "1.1.0", note = "Removed; don't use")]
@@ -102,12 +105,24 @@ pub enum InputEventType {
     /// KEYBOARD: [keycode : int, key_down : bool] (key down = true, key up = false)
     Keyboard { key: u16, pressed: bool },
     /// GAMEPAD_BUTTON: [button_idx : int, key_down : bool]
-    GamepadButton { button: u16, pressed: bool },
+    GamepadButton {
+        button: u16,
+        pressed: bool,
+        id: Option<GamepadId>,
+    },
     /// GAMEPAD_BUTTON_VALUE: [button_idx : int, value : float]
-    GamepadButtonValue { button: u16, value: f32 },
+    GamepadButtonValue {
+        button: u16,
+        value: f32,
+        id: Option<GamepadId>,
+    },
     /// GAMEPAD_AXIS: [axis_idx : int, value : float]
-    GamepadAxis { axis: u16, value: f32 },
-    /// UNKNOWN: [unknown : any] - used for backwards compatibility, not ever outputted
+    GamepadAxis {
+        axis: u16,
+        value: f32,
+        id: Option<GamepadId>,
+    },
+    /// UNKNOWN: [unknown : any] - used for backwards compatibility, never outputted
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -161,9 +176,31 @@ impl InputEventType {
             InputEventType::MouseButton { button, pressed } => json!([button, pressed]),
             InputEventType::Scroll { amount } => json!([amount]),
             InputEventType::Keyboard { key, pressed } => json!([key, pressed]),
-            InputEventType::GamepadButton { button, pressed } => json!([button, pressed]),
-            InputEventType::GamepadButtonValue { button, value } => json!([button, value]),
-            InputEventType::GamepadAxis { axis, value } => json!([axis, value]),
+            InputEventType::GamepadButton {
+                button,
+                pressed,
+                id,
+            } => {
+                if let Some(id) = *id {
+                    json!([button, pressed, id])
+                } else {
+                    json!([button, pressed])
+                }
+            }
+            InputEventType::GamepadButtonValue { button, value, id } => {
+                if let Some(id) = *id {
+                    json!([button, value, id])
+                } else {
+                    json!([button, value])
+                }
+            }
+            InputEventType::GamepadAxis { axis, value, id } => {
+                if let Some(id) = *id {
+                    json!([axis, value, id])
+                } else {
+                    json!([axis, value])
+                }
+            }
             InputEventType::Unknown => json!([]),
         }
     }
@@ -183,16 +220,27 @@ impl InputEventType {
                 key,
                 pressed: press_state == PressState::Pressed,
             }),
-            Event::GamepadButtonPress { key, press_state } => Ok(InputEventType::GamepadButton {
+            Event::GamepadButtonPress {
+                key,
+                press_state,
+                id,
+            } => Ok(InputEventType::GamepadButton {
                 button: key,
                 pressed: press_state == PressState::Pressed,
+                id: Some(id),
             }),
-            Event::GamepadButtonChange { key, value } => {
-                Ok(InputEventType::GamepadButtonValue { button: key, value })
+            Event::GamepadButtonChange { key, value, id } => {
+                Ok(InputEventType::GamepadButtonValue {
+                    button: key,
+                    value,
+                    id: Some(id),
+                })
             }
-            Event::GamepadAxisChange { axis, value } => {
-                Ok(InputEventType::GamepadAxis { axis, value })
-            }
+            Event::GamepadAxisChange { axis, value, id } => Ok(InputEventType::GamepadAxis {
+                axis,
+                value,
+                id: Some(id),
+            }),
         }
     }
 
@@ -211,6 +259,19 @@ impl InputEventType {
                     error: e,
                 }
             })
+        }
+
+        fn parse_pair_with_optional_third<
+            T1: serde::de::DeserializeOwned,
+            T2: serde::de::DeserializeOwned,
+            T3: serde::de::DeserializeOwned,
+        >(
+            id: &str,
+            json_args: serde_json::Value,
+        ) -> Result<(T1, T2, Option<T3>), InputEventReadError> {
+            parse_args::<(T1, T2, T3)>(id, json_args.clone())
+                .map(|t| (t.0, t.1, Some(t.2)))
+                .or_else(|_| parse_args::<(T1, T2)>(id, json_args).map(|t| (t.0, t.1, None)))
         }
 
         #[allow(deprecated)]
@@ -258,24 +319,30 @@ impl InputEventType {
                 })
             }
             "GAMEPAD_BUTTON" => {
-                let args: (u16, bool) = parse_args(id, json_args)?;
+                let args: (u16, bool, Option<GamepadId>) =
+                    parse_pair_with_optional_third(id, json_args)?;
                 Ok(InputEventType::GamepadButton {
                     button: args.0,
                     pressed: args.1,
+                    id: args.2,
                 })
             }
             "GAMEPAD_BUTTON_VALUE" => {
-                let args: (u16, f32) = parse_args(id, json_args)?;
+                let args: (u16, f32, Option<GamepadId>) =
+                    parse_pair_with_optional_third(id, json_args)?;
                 Ok(InputEventType::GamepadButtonValue {
                     button: args.0,
                     value: args.1,
+                    id: args.2,
                 })
             }
             "GAMEPAD_AXIS" => {
-                let args: (u16, f32) = parse_args(id, json_args)?;
+                let args: (u16, f32, Option<GamepadId>) =
+                    parse_pair_with_optional_third(id, json_args)?;
                 Ok(InputEventType::GamepadAxis {
                     axis: args.0,
                     value: args.1,
+                    id: args.2,
                 })
             }
             other => {
@@ -287,19 +354,82 @@ impl InputEventType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct GamepadInputs {
+    pub digital: HashSet<u16>,
+    pub analog: HashMap<u16, f32>,
+    pub axis: HashMap<u16, f32>,
+}
+impl From<input_capture::ActiveGamepad> for GamepadInputs {
+    fn from(gamepad: input_capture::ActiveGamepad) -> Self {
+        Self {
+            digital: gamepad.digital,
+            analog: gamepad.analog,
+            axis: gamepad.axis,
+        }
+    }
+}
+impl From<GamepadInputs> for input_capture::ActiveGamepad {
+    fn from(inputs: GamepadInputs) -> Self {
+        Self {
+            digital: inputs.digital,
+            analog: inputs.analog,
+            axis: inputs.axis,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct GamepadMetadata {
+    pub name: String,
+    pub vendor_id: Option<u16>,
+    pub product_id: Option<u16>,
+}
+impl From<input_capture::GamepadMetadata> for GamepadMetadata {
+    fn from(metadata: input_capture::GamepadMetadata) -> Self {
+        Self {
+            name: metadata.name,
+            vendor_id: metadata.vendor_id,
+            product_id: metadata.product_id,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Inputs {
     pub keyboard: HashSet<u16>,
     pub mouse: HashSet<u16>,
-    pub gamepad_digital: HashSet<u16>,
-    pub gamepad_analog: HashMap<u16, f32>,
+    #[serde(default, skip_serializing)]
+    #[deprecated]
+    gamepad_digital: HashSet<u16>,
+    #[serde(default, skip_serializing)]
+    #[deprecated]
+    gamepad_analog: HashMap<u16, f32>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub gamepads: HashMap<GamepadId, GamepadInputs>,
 }
 impl From<input_capture::ActiveInput> for Inputs {
     fn from(inputs: input_capture::ActiveInput) -> Self {
+        #[allow(deprecated)]
         Self {
             keyboard: inputs.keyboard,
             mouse: inputs.mouse,
-            gamepad_digital: inputs.gamepad_digital,
-            gamepad_analog: inputs.gamepad_analog,
+            gamepad_digital: inputs
+                .gamepads
+                .values()
+                .flat_map(|gamepad| gamepad.digital.iter())
+                .copied()
+                .collect(),
+            gamepad_analog: inputs
+                .gamepads
+                .values()
+                .flat_map(|gamepad| gamepad.analog.iter())
+                .map(|(key, value)| (*key, *value))
+                .collect(),
+            gamepads: inputs
+                .gamepads
+                .into_iter()
+                .map(|(id, gamepad)| (id, gamepad.into()))
+                .collect(),
         }
     }
 }
@@ -308,8 +438,11 @@ impl From<Inputs> for input_capture::ActiveInput {
         Self {
             keyboard: event.keyboard,
             mouse: event.mouse,
-            gamepad_digital: event.gamepad_digital,
-            gamepad_analog: event.gamepad_analog,
+            gamepads: event
+                .gamepads
+                .into_iter()
+                .map(|(id, gamepad)| (id, gamepad.into()))
+                .collect(),
         }
     }
 }

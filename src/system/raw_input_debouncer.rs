@@ -1,18 +1,19 @@
 use std::{
     collections::{HashMap, HashSet},
+    hash::Hash,
     time::Duration,
 };
 
 use constants::FPS;
-use input_capture::{Event, PressState};
+use input_capture::{Event, GamepadId, PressState};
 
 #[derive(Default)]
 pub(crate) struct EventDebouncer {
-    keyboard: KeyDebouncer,
-    mouse_key: KeyDebouncer,
-    gamepad_button: KeyDebouncer,
-    gamepad_button_value: AnalogDebouncer,
-    gamepad_axis: AnalogDebouncer,
+    keyboard: KeyDebouncer<u16>,
+    mouse_key: KeyDebouncer<u16>,
+    gamepad_button: KeyDebouncer<(GamepadId, u16)>,
+    gamepad_button_value: AnalogDebouncer<(GamepadId, u16)>,
+    gamepad_axis: AnalogDebouncer<(GamepadId, u16)>,
 }
 
 impl EventDebouncer {
@@ -25,28 +26,39 @@ impl EventDebouncer {
         match e {
             Event::MousePress { key, press_state } => self.mouse_key.debounce(key, press_state),
             Event::KeyPress { key, press_state } => self.keyboard.debounce(key, press_state),
-            Event::GamepadButtonPress { key, press_state } => {
-                self.gamepad_button.debounce(key, press_state)
+            Event::GamepadButtonPress {
+                key,
+                press_state,
+                id,
+            } => self.gamepad_button.debounce((id, key), press_state),
+            Event::GamepadButtonChange { key, id, .. } => {
+                self.gamepad_button_value.debounce((id, key))
             }
-            Event::GamepadButtonChange { key, .. } => self.gamepad_button_value.debounce(key),
-            Event::GamepadAxisChange { axis: key, .. } => self.gamepad_axis.debounce(key),
+            Event::GamepadAxisChange { axis: key, id, .. } => self.gamepad_axis.debounce((id, key)),
             Event::MouseMove(_) | Event::MouseScroll { .. } => true,
         }
     }
 }
 
-#[derive(Default)]
-struct KeyDebouncer {
-    pressed_keys: HashSet<u16>,
+struct KeyDebouncer<K: Eq + Hash> {
+    pressed_keys: HashSet<K>,
 }
-impl KeyDebouncer {
+
+impl<K: Eq + Hash> Default for KeyDebouncer<K> {
+    fn default() -> Self {
+        Self {
+            pressed_keys: Default::default(),
+        }
+    }
+}
+impl<K: Eq + Hash> KeyDebouncer<K> {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Returns true if the key event should be processed, or false if it should be ignored.
-    pub(crate) fn debounce(&mut self, key: u16, press_state: PressState) -> bool {
+    pub(crate) fn debounce(&mut self, key: K, press_state: PressState) -> bool {
         match press_state {
             PressState::Pressed => self.pressed_keys.insert(key),
             PressState::Released => {
@@ -57,13 +69,19 @@ impl KeyDebouncer {
     }
 }
 
-#[derive(Default)]
-struct AnalogDebouncer {
-    last_change: HashMap<u16, std::time::Instant>,
+struct AnalogDebouncer<K: Eq + Hash> {
+    last_change: HashMap<K, std::time::Instant>,
 }
-impl AnalogDebouncer {
+impl<K: Eq + Hash> Default for AnalogDebouncer<K> {
+    fn default() -> Self {
+        Self {
+            last_change: Default::default(),
+        }
+    }
+}
+impl<K: Eq + Hash> AnalogDebouncer<K> {
     /// Returns whether or not a sufficient amount of time has passed since the last change.
-    pub(crate) fn debounce(&mut self, key: u16) -> bool {
+    pub(crate) fn debounce(&mut self, key: K) -> bool {
         const MAX_ANALOGUE_SAMPLING_MICROSECONDS: u64 = (1_000_000.0 / (FPS as f32 * 2.0)) as u64;
 
         let now = std::time::Instant::now();

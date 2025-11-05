@@ -1,8 +1,10 @@
-use crate::{app_state::AsyncRequest, ui::MainApp};
+use egui::{Align, Button, CentralPanel, Color32, RichText, TextEdit, vec2};
 
-impl MainApp {
+use crate::{app_state::AsyncRequest, ui::views::App};
+
+impl App {
     pub fn login_view(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ctx, |ui| {
             // Center the content vertically and horizontally
             ui.vertical_centered(|ui| {
                 // Extremely ugly bodge. I assume there's a way to do this correctly, but I can't find it at a glance.
@@ -17,19 +19,19 @@ impl MainApp {
 
                     // Main heading with better styling
                     ui.heading(
-                        egui::RichText::new("Welcome to OWL Control")
+                        RichText::new("Welcome to OWL Control")
                             .size(28.0)
                             .strong()
-                            .color(egui::Color32::from_rgb(220, 220, 220)),
+                            .color(Color32::from_rgb(220, 220, 220)),
                     );
 
                     ui.add_space(8.0);
 
                     // Subtitle
                     ui.label(
-                        egui::RichText::new("Please enter your API key to continue")
+                        RichText::new("Please enter your API key to continue")
                             .size(16.0)
-                            .color(egui::Color32::from_rgb(180, 180, 180)),
+                            .color(Color32::from_rgb(180, 180, 180)),
                     );
 
                     ui.add_space(20.0);
@@ -37,35 +39,35 @@ impl MainApp {
                     // API Key input section
                     ui.vertical_centered(|ui| {
                         // Styled text input
-                        let text_edit = egui::TextEdit::singleline(&mut self.login_api_key)
+                        let text_edit = TextEdit::singleline(&mut self.login_api_key)
                             .desired_width(ui.available_width())
-                            .vertical_align(egui::Align::Center)
+                            .vertical_align(Align::Center)
                             .hint_text("sk_...");
 
-                        ui.add_sized(egui::vec2(ui.available_width(), 40.0), text_edit);
+                        ui.add_sized(vec2(ui.available_width(), 40.0), text_edit);
 
                         ui.add_space(10.0);
 
                         // Help text
                         ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
+                            ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                             ui.label(
-                                egui::RichText::new("Don't have an API key? Please sign up at ")
+                                RichText::new("Don't have an API key? Please sign up at ")
                                     .size(12.0)
-                                    .color(egui::Color32::from_rgb(140, 140, 140)),
+                                    .color(Color32::from_rgb(140, 140, 140)),
                             );
                             ui.hyperlink_to(
-                                egui::RichText::new("our website.").size(12.0),
-                                "https://wayfarerlabs.ai/handler/sign-in",
+                                RichText::new("our website.").size(12.0),
+                                "https://wayfarerlabs.ai/handler/sign-up?after_auth_return_to=%2Fhandler%2Fsign-in",
                             );
                         });
                         ui.add_space(10.0);
 
                         if let Some(Err(err)) = &self.authenticated_user_id {
                             ui.label(
-                                egui::RichText::new(err)
+                                RichText::new(err)
                                     .size(12.0)
-                                    .color(egui::Color32::from_rgb(255, 0, 0)),
+                                    .color(Color32::from_rgb(255, 0, 0)),
                             );
                             ui.add_space(10.0);
                         }
@@ -73,9 +75,9 @@ impl MainApp {
                         // Submit button
                         ui.add_enabled_ui(!self.is_authenticating_login_api_key, |ui| {
                             let submit_button = ui.add_sized(
-                                egui::vec2(120.0, 36.0),
-                                egui::Button::new(
-                                    egui::RichText::new(if self.is_authenticating_login_api_key {
+                                vec2(120.0, 36.0),
+                                Button::new(
+                                    RichText::new(if self.is_authenticating_login_api_key {
                                         "Validating..."
                                     } else {
                                         "Continue"

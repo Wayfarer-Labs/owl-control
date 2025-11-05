@@ -219,7 +219,7 @@ async fn run(
 
         // delete the uploaded recording directory if the preference is enabled
         if delete_uploaded {
-            if let Err(e) = std::fs::remove_dir_all(path) {
+            if let Err(e) = tokio::fs::remove_dir_all(path).await {
                 tracing::error!(
                     "Failed to delete uploaded directory {}: {:?}",
                     path.display(),
