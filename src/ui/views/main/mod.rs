@@ -149,7 +149,7 @@ impl MainApp {
                                 .strong(),
                         );
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            tooltip(
+                            util::tooltip(
                                 ui,
                                 concat!(
                                     "Tip: You can set separate hotkeys for starting and stopping recording. By default, the start key will toggle recording.",
@@ -303,7 +303,7 @@ impl MainApp {
                                     self.encoder_settings_window_open = true;
                                 }
 
-                                tooltip(
+                                util::tooltip(
                                     ui,
                                     concat!(
                                         "Consider turning on VSync and/or switching encoders and/or using a different preset if your recordings suffer from dropped frames.\n\n",
@@ -456,7 +456,7 @@ impl MainApp {
                             &mut self.local_preferences.unreliable_connection,
                             "Optimize for unreliable connections",
                         ));
-                        tooltip(ui, concat!(
+                        util::tooltip(ui, concat!(
                             "Enable this if you have a slow or unstable internet connection. ",
                             "This will use smaller file chunks to improve upload success rates."
                         ), None);
@@ -468,7 +468,7 @@ impl MainApp {
                             &mut self.local_preferences.delete_uploaded_files,
                             "Delete recordings after successful upload",
                         ));
-                        tooltip(ui, concat!(
+                        util::tooltip(ui, concat!(
                             "Automatically delete local recordings after they have been successfully uploaded. ",
                             "Invalid uploads, as well as existing uploads, will not be deleted."
                         ), None);
@@ -736,30 +736,30 @@ fn encoder_settings_window(ui: &mut egui::Ui, encoder_settings: &mut EncoderSett
 const PRESET_TOOLTIP: &str = "Please keep this as high as possible for best quality; only reduce it if you're experiencing performance issues.";
 
 fn encoder_settings_x264(ui: &mut egui::Ui, x264_settings: &mut ObsX264Settings) {
-    dropdown_list(
+    util::dropdown_list(
         ui,
         "Preset:",
         constants::encoding::X264_PRESETS,
         &mut x264_settings.preset,
         |ui| {
-            tooltip(ui, PRESET_TOOLTIP, None);
+            util::tooltip(ui, PRESET_TOOLTIP, None);
         },
     );
 }
 
 fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSettings) {
-    dropdown_list(
+    util::dropdown_list(
         ui,
         "Preset:",
         constants::encoding::NVENC_PRESETS,
         &mut nvenc_settings.preset2,
         |ui| {
-            tooltip(ui, PRESET_TOOLTIP, None);
+            util::tooltip(ui, PRESET_TOOLTIP, None);
         },
     );
 
     ui.add_space(5.0);
-    dropdown_list(
+    util::dropdown_list(
         ui,
         "Tune:",
         constants::encoding::NVENC_TUNE_OPTIONS,
@@ -769,7 +769,7 @@ fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSet
 }
 
 fn encoder_settings_qsv(ui: &mut egui::Ui, qsv_settings: &mut ObsQsvSettings) {
-    dropdown_list(
+    util::dropdown_list(
         ui,
         "Target Usage:",
         constants::encoding::QSV_TARGET_USAGES,
@@ -779,42 +779,13 @@ fn encoder_settings_qsv(ui: &mut egui::Ui, qsv_settings: &mut ObsQsvSettings) {
 }
 
 fn encoder_settings_amf(ui: &mut egui::Ui, amf_settings: &mut ObsAmfSettings) {
-    dropdown_list(
+    util::dropdown_list(
         ui,
         "Preset:",
         constants::encoding::AMF_PRESETS,
         &mut amf_settings.preset,
         |_| {},
     );
-}
-
-fn tooltip(ui: &mut egui::Ui, text: &str, error_override: Option<egui::Color32>) {
-    ui.add(egui::Label::new(egui::RichText::new("ℹ").color(
-        error_override.unwrap_or(egui::Color32::from_rgb(128, 128, 128)),
-    )))
-    .on_hover_cursor(egui::CursorIcon::Help)
-    .on_hover_text(text);
-}
-
-fn dropdown_list(
-    ui: &mut egui::Ui,
-    label: &str,
-    options: &[&str],
-    selected: &mut String,
-    add_content: impl FnOnce(&mut egui::Ui),
-) -> egui::Response {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        egui::ComboBox::from_id_salt(label)
-            .selected_text(selected.as_str())
-            .show_ui(ui, |ui| {
-                for option in options {
-                    ui.selectable_value(selected, option.to_string(), *option);
-                }
-            });
-        add_content(ui);
-    })
-    .response
 }
 
 fn delete_recording_confirmation_window(

@@ -29,3 +29,32 @@ pub fn format_seconds(total_seconds: u64) -> String {
 pub fn format_datetime(dt: chrono::DateTime<chrono::Local>) -> String {
     dt.format("%Y-%m-%d %H:%M:%S").to_string()
 }
+
+pub fn dropdown_list(
+    ui: &mut egui::Ui,
+    label: &str,
+    options: &[&str],
+    selected: &mut String,
+    add_content: impl FnOnce(&mut egui::Ui),
+) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        egui::ComboBox::from_id_salt(label)
+            .selected_text(selected.as_str())
+            .show_ui(ui, |ui| {
+                for option in options {
+                    ui.selectable_value(selected, option.to_string(), *option);
+                }
+            });
+        add_content(ui);
+    })
+    .response
+}
+
+pub fn tooltip(ui: &mut egui::Ui, text: &str, error_override: Option<egui::Color32>) {
+    ui.add(egui::Label::new(egui::RichText::new("ℹ").color(
+        error_override.unwrap_or(egui::Color32::from_rgb(128, 128, 128)),
+    )))
+    .on_hover_cursor(egui::CursorIcon::Help)
+    .on_hover_text(text);
+}
