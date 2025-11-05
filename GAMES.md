@@ -32,7 +32,7 @@ Follow these guidelines. You must be 18 or older!
 > * Recording games with a focus on nudity and NSFW content.<br>
 > * Tampering with our software system.<br>
 
-Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnucG)!<br>
+Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGYf4E)!<br>
 
 ## Top-Priority Games
 
