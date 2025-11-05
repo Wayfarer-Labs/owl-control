@@ -23,6 +23,7 @@ pub struct LocalRecordingInfo {
 pub enum LocalRecording {
     Invalid {
         info: LocalRecordingInfo,
+        metadata: Option<Box<Metadata>>,
         error_reasons: Vec<String>,
     },
     Unuploaded {
@@ -120,19 +121,7 @@ impl LocalRecording {
             timestamp,
         };
 
-        if invalid_file_path.is_file() {
-            // Read the error reasons from the .invalid file
-            let error_reasons = std::fs::read_to_string(&invalid_file_path)
-                .unwrap_or_else(|_| "Unknown error".to_string())
-                .lines()
-                .map(|s| s.to_string())
-                .collect();
-
-            Some(LocalRecording::Invalid {
-                info,
-                error_reasons,
-            })
-        } else if uploaded_file_path.is_file() {
+        if uploaded_file_path.is_file() {
             // Read the game_control_id from the .uploaded file
             let game_control_id = std::fs::read_to_string(&uploaded_file_path)
                 .unwrap_or_else(|_| "unknown".to_string())
@@ -145,14 +134,27 @@ impl LocalRecording {
             })
         } else {
             // Not uploaded yet (and not invalid)
-            let metadata: Option<Metadata> = std::fs::read_to_string(metadata_path)
+            let metadata: Option<Box<Metadata>> = std::fs::read_to_string(metadata_path)
                 .ok()
-                .and_then(|s| serde_json::from_str(&s).ok());
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .map(Box::new);
 
-            Some(LocalRecording::Unuploaded {
-                info,
-                metadata: metadata.map(Box::new),
-            })
+            if invalid_file_path.is_file() {
+                // Read the error reasons from the .invalid file
+                let error_reasons = std::fs::read_to_string(&invalid_file_path)
+                    .unwrap_or_else(|_| "Unknown error".to_string())
+                    .lines()
+                    .map(|s| s.to_string())
+                    .collect();
+
+                Some(LocalRecording::Invalid {
+                    info,
+                    metadata,
+                    error_reasons,
+                })
+            } else {
+                Some(LocalRecording::Unuploaded { info, metadata })
+            }
         }
     }
 
