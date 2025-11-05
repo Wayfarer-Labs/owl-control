@@ -1,3 +1,7 @@
+use egui::{
+    Align, Button, CentralPanel, Frame, Layout, Margin, RichText, ScrollArea, TopBottomPanel, vec2,
+};
+
 use crate::ui::views::{App, HEADING_TEXT_SIZE, SUBHEADING_TEXT_SIZE};
 
 impl App {
@@ -5,36 +9,34 @@ impl App {
         let padding = 8;
         let button_font_size = 14.0;
 
-        egui::TopBottomPanel::top("consent_panel_top").show(ctx, |ui| {
-            egui::Frame::new()
-                .inner_margin(egui::Margin::same(padding))
+        TopBottomPanel::top("consent_panel_top").show(ctx, |ui| {
+            Frame::new()
+                .inner_margin(Margin::same(padding))
                 .show(ui, |ui| {
                     ui.heading(
-                        egui::RichText::new("Informed Consent & Terms of Service")
+                        RichText::new("Informed Consent & Terms of Service")
                             .size(HEADING_TEXT_SIZE)
                             .strong(),
                     );
                     ui.label(
-                        egui::RichText::new("Please read the following information carefully.")
+                        RichText::new("Please read the following information carefully.")
                             .size(SUBHEADING_TEXT_SIZE),
                     );
                 });
         });
 
-        egui::TopBottomPanel::bottom("consent_panel_bottom").show(ctx, |ui| {
-            egui::Frame::new()
-                .inner_margin(egui::Margin::same(padding))
+        TopBottomPanel::bottom("consent_panel_bottom").show(ctx, |ui| {
+            Frame::new()
+                .inner_margin(Margin::same(padding))
                 .show(ui, |ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.horizontal(|ui| {
-                            ui.spacing_mut().button_padding = egui::vec2(8.0, 2.0);
+                            ui.spacing_mut().button_padding = vec2(8.0, 2.0);
                             if ui
                                 .add_enabled(
                                     self.has_scrolled_to_bottom_of_consent,
-                                    egui::Button::new(
-                                        egui::RichText::new("Accept")
-                                            .size(button_font_size)
-                                            .strong(),
+                                    Button::new(
+                                        RichText::new("Accept").size(button_font_size).strong(),
                                     ),
                                 )
                                 .clicked()
@@ -42,11 +44,7 @@ impl App {
                                 self.go_to_main();
                             }
                             if ui
-                                .button(
-                                    egui::RichText::new("Cancel")
-                                        .size(button_font_size)
-                                        .strong(),
-                                )
+                                .button(RichText::new("Cancel").size(button_font_size).strong())
                                 .clicked()
                             {
                                 self.go_to_login();
@@ -56,11 +54,11 @@ impl App {
                 });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::Frame::new()
-                .inner_margin(egui::Margin::same(padding))
+        CentralPanel::default().show(ctx, |ui| {
+            Frame::new()
+                .inner_margin(Margin::same(padding))
                 .show(ui, |ui| {
-                    let output = egui::ScrollArea::vertical().show(ui, |ui| {
+                    let output = ScrollArea::vertical().show(ui, |ui| {
                         egui_commonmark::commonmark_str!(
                             ui,
                             &mut self.md_cache,

@@ -1,3 +1,9 @@
+use egui::{
+    Align, Button, Checkbox, CollapsingHeader, Color32, CursorIcon, Frame, Label, Layout, Margin,
+    ProgressBar, Response, RichText, ScrollArea, Sense, TextEdit, TextWrapMode, Ui, vec2,
+    widgets::Spinner,
+};
+
 use crate::{
     api::UserUpload,
     app_state::{AppState, AsyncRequest},
@@ -237,7 +243,7 @@ impl Recording<'_> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn view(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     upload_manager: &mut UploadManager,
     local_preferences: &mut Preferences,
     app_state: &AppState,
@@ -255,10 +261,10 @@ pub fn view(
     let full_rec_loc = dunce::canonicalize(&local_preferences.recording_location)
         .unwrap_or_else(|_| local_preferences.recording_location.clone());
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Upload Manager").size(18.0).strong());
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.label(RichText::new("Upload Manager").size(18.0).strong());
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             // Open the folder
-            if ui.button(egui::RichText::new("Open").size(12.0)).clicked() {
+            if ui.button(RichText::new("Open").size(12.0)).clicked() {
                 app_state
                     .async_request_tx
                     .blocking_send(AsyncRequest::OpenDataDump)
@@ -266,7 +272,7 @@ pub fn view(
             }
 
             // Popups to select the new recording location
-            if ui.button(egui::RichText::new("Move").size(12.0)).clicked() {
+            if ui.button(RichText::new("Move").size(12.0)).clicked() {
                 app_state
                     .async_request_tx
                     .blocking_send(AsyncRequest::PickRecordingFolder {
@@ -278,8 +284,8 @@ pub fn view(
     });
     // Textedit that displays the recording location (textedit has nicer properties than a label for some reason, like stretching to fill the available width)
     ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            egui::ScrollArea::horizontal()
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ScrollArea::horizontal()
                 .id_salt("recording_location_scroll")
                 .show(ui, |ui| {
                     let hover_text = concat!(
@@ -287,8 +293,8 @@ pub fn view(
                         "Use the 'Move' button to change the location."
                     );
                     ui.add_sized(
-                        egui::vec2(ui.available_width(), super::SETTINGS_TEXT_HEIGHT),
-                        egui::TextEdit::singleline(
+                        vec2(ui.available_width(), super::SETTINGS_TEXT_HEIGHT),
+                        TextEdit::singleline(
                             // egui has custom behaviour for &mut &str, so we need to convert our
                             // Cow<str> to a &str, and then take a mutable reference to it.
                             &mut &*full_rec_loc.to_string_lossy(),
@@ -330,8 +336,8 @@ pub fn view(
     ui.add_space(8.0);
 
     // Unified Recordings Section
-    egui::CollapsingHeader::new(
-        egui::RichText::new(&{
+    CollapsingHeader::new(
+        RichText::new(&{
             let invalid_count = recordings.invalid_count_filtered();
             if invalid_count > 0 {
                 format!("Upload Tracker ({invalid_count} invalid)")
@@ -368,7 +374,7 @@ pub fn view(
             util::format_bytes(progress.bytes_uploaded),
             util::format_bytes(progress.total_bytes),
         ));
-        ui.add(egui::ProgressBar::new(progress.percent as f32 / 100.0));
+        ui.add(ProgressBar::new(progress.percent as f32 / 100.0));
         ui.label(format!(
             "Speed: {:.1} MB/s • ETA: {}",
             progress.speed_mbps,
@@ -379,7 +385,7 @@ pub fn view(
     // Unreliable Connection Setting
     ui.add_space(5.0);
     ui.horizontal(|ui| {
-        ui.add(egui::Checkbox::new(
+        ui.add(Checkbox::new(
             &mut local_preferences.unreliable_connection,
             "Optimize for unreliable connections",
         ));
@@ -395,7 +401,7 @@ pub fn view(
 
     // Delete Uploaded Recordings Setting
     ui.horizontal(|ui| {
-        ui.add(egui::Checkbox::new(
+        ui.add(Checkbox::new(
             &mut local_preferences.delete_uploaded_files,
             "Delete recordings after successful upload",
         ));
@@ -416,13 +422,13 @@ pub fn view(
             |ui| {
                 let response = ui
                     .add_sized(
-                        egui::vec2(ui.available_width(), 32.0),
-                        egui::Button::new(
-                            egui::RichText::new("Cancel Upload")
+                        vec2(ui.available_width(), 32.0),
+                        Button::new(
+                            RichText::new("Cancel Upload")
                                 .size(12.0)
-                                .color(egui::Color32::WHITE),
+                                .color(Color32::WHITE),
                         )
-                        .fill(egui::Color32::from_rgb(180, 60, 60)),
+                        .fill(Color32::from_rgb(180, 60, 60)),
                     )
                     .on_hover_text(concat!(
                         "Cancel the current upload. ",
@@ -441,8 +447,8 @@ pub fn view(
         ui.add_enabled_ui(!is_newer_release_available, |ui| {
             if ui
                 .add_sized(
-                    egui::vec2(ui.available_width(), 32.0),
-                    egui::Button::new(egui::RichText::new("Upload Recordings").size(12.0)),
+                    vec2(ui.available_width(), 32.0),
+                    Button::new(RichText::new("Upload Recordings").size(12.0)),
                 )
                 .clicked()
             {
@@ -454,16 +460,16 @@ pub fn view(
             }
             if let Some(error) = &upload_manager.last_upload_error {
                 ui.label(
-                    egui::RichText::new(error)
+                    RichText::new(error)
                         .size(12.0)
-                        .color(egui::Color32::from_rgb(255, 0, 0)),
+                        .color(Color32::from_rgb(255, 0, 0)),
                 );
             }
         });
     }
 }
 
-fn upload_stats_view(ui: &mut egui::Ui, recordings: &Recordings) {
+fn upload_stats_view(ui: &mut Ui, recordings: &Recordings) {
     let cell_count = 5;
     let available_width = ui.available_width() - (cell_count as f32 * 10.0);
     let cell_width = available_width / cell_count as f32;
@@ -501,28 +507,28 @@ fn upload_stats_view(ui: &mut egui::Ui, recordings: &Recordings) {
         }
     }
 
-    fn create_upload_cell(ui: &mut egui::Ui, icon: &str, title: &str, value: &str) {
+    fn create_upload_cell(ui: &mut Ui, icon: &str, title: &str, value: &str) {
         // Icon
-        ui.label(egui::RichText::new(icon).size(28.0));
+        ui.label(RichText::new(icon).size(28.0));
         ui.add_space(8.0);
         // Title
-        ui.label(egui::RichText::new(title).size(12.0).strong());
+        ui.label(RichText::new(title).size(12.0).strong());
         ui.add_space(4.0);
         // Value
         ui.add(
-            egui::Label::new(
-                egui::RichText::new(value)
+            Label::new(
+                RichText::new(value)
                     .size(10.0)
-                    .color(egui::Color32::from_rgb(128, 128, 128)),
+                    .color(Color32::from_rgb(128, 128, 128)),
             )
-            .wrap_mode(egui::TextWrapMode::Extend),
+            .wrap_mode(TextWrapMode::Extend),
         );
     }
 
     // Cell 1: Total Uploaded
     ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
+        vec2(cell_width, ui.available_height()),
+        Layout::top_down(Align::Center),
         |ui| {
             create_upload_cell(
                 ui,
@@ -539,8 +545,8 @@ fn upload_stats_view(ui: &mut egui::Ui, recordings: &Recordings) {
 
     // Cell 2: Files Uploaded
     ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
+        vec2(cell_width, ui.available_height()),
+        Layout::top_down(Align::Center),
         |ui| {
             create_upload_cell(
                 ui,
@@ -557,8 +563,8 @@ fn upload_stats_view(ui: &mut egui::Ui, recordings: &Recordings) {
 
     // Cell 3: Volume Uploaded
     ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
+        vec2(cell_width, ui.available_height()),
+        Layout::top_down(Align::Center),
         |ui| {
             create_upload_cell(
                 ui,
@@ -575,8 +581,8 @@ fn upload_stats_view(ui: &mut egui::Ui, recordings: &Recordings) {
 
     // Cell 4: Pending Uploads
     ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
+        vec2(cell_width, ui.available_height()),
+        Layout::top_down(Align::Center),
         |ui| {
             create_upload_cell(
                 ui,
@@ -594,8 +600,8 @@ fn upload_stats_view(ui: &mut egui::Ui, recordings: &Recordings) {
 
     // Cell 5: Last Upload
     ui.allocate_ui_with_layout(
-        egui::vec2(cell_width, ui.available_height()),
-        egui::Layout::top_down(egui::Align::Center),
+        vec2(cell_width, ui.available_height()),
+        Layout::top_down(Align::Center),
         |ui| {
             create_upload_cell(
                 ui,
@@ -617,15 +623,15 @@ fn upload_stats_view(ui: &mut egui::Ui, recordings: &Recordings) {
 }
 
 fn recordings_view(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     recordings: &mut Recordings,
     recordings_virtual_list: &mut egui_virtual_list::VirtualList,
     app_state: &AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
     const FONTSIZE: f32 = 13.0;
-    egui::Frame::new()
-        .inner_margin(egui::Margin {
+    Frame::new()
+        .inner_margin(Margin {
             left: 4,
             right: 12,
             top: 4,
@@ -638,7 +644,7 @@ fn recordings_view(
             // Show spinner if still loading
             if !recordings.any_available() {
                 ui.vertical_centered(|ui| {
-                    ui.add(egui::widgets::Spinner::new().size(height));
+                    ui.add(Spinner::new().size(height));
                 });
                 return;
             };
@@ -648,13 +654,13 @@ fn recordings_view(
             if any_invalid
                 && ui
                     .add_sized(
-                        egui::vec2(ui.available_width(), button_height),
-                        egui::Button::new(
-                            egui::RichText::new("Delete Invalid Recordings")
+                        vec2(ui.available_width(), button_height),
+                        Button::new(
+                            RichText::new("Delete Invalid Recordings")
                                 .size(FONTSIZE)
-                                .color(egui::Color32::WHITE),
+                                .color(Color32::WHITE),
                         )
-                        .fill(egui::Color32::from_rgb(180, 60, 60)),
+                        .fill(Color32::from_rgb(180, 60, 60)),
                     )
                     .clicked()
             {
@@ -665,7 +671,7 @@ fn recordings_view(
                     .ok();
             }
 
-            egui::ScrollArea::vertical()
+            ScrollArea::vertical()
                 .max_height(height - if any_invalid { button_height } else { 0.0 })
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
@@ -697,51 +703,45 @@ fn recordings_view(
 }
 
 fn render_recording_entry(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     entry: Recording,
     app_state: &AppState,
     font_size: f32,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
-    fn datetime<Tz: chrono::TimeZone>(
-        ui: &mut egui::Ui,
-        datetime: chrono::DateTime<Tz>,
-        font_size: f32,
-    ) {
+    fn datetime<Tz: chrono::TimeZone>(ui: &mut Ui, datetime: chrono::DateTime<Tz>, font_size: f32) {
         let local_time = datetime.with_timezone(&chrono::Local);
-        ui.label(
-            egui::RichText::new(local_time.format("%Y-%m-%d %H:%M:%S").to_string()).size(font_size),
-        );
+        ui.label(RichText::new(local_time.format("%Y-%m-%d %H:%M:%S").to_string()).size(font_size));
     }
 
-    fn filesize(ui: &mut egui::Ui, filesize_mb: f64, font_size: f32) {
-        ui.label(egui::RichText::new(format!("{filesize_mb:.2} MB")).size(font_size));
+    fn filesize(ui: &mut Ui, filesize_mb: f64, font_size: f32) {
+        ui.label(RichText::new(format!("{filesize_mb:.2} MB")).size(font_size));
     }
 
-    fn duration(ui: &mut egui::Ui, duration: f64, font_size: f32) {
-        ui.label(egui::RichText::new(util::format_seconds(duration as u64)).size(font_size));
+    fn duration(ui: &mut Ui, duration: f64, font_size: f32) {
+        ui.label(RichText::new(util::format_seconds(duration as u64)).size(font_size));
     }
 
     fn local_recording_link(
-        ui: &mut egui::Ui,
+        ui: &mut Ui,
         info: &LocalRecordingInfo,
         metadata: Option<&Metadata>,
         async_request_tx: &tokio::sync::mpsc::Sender<AsyncRequest>,
         font_size: f32,
-        color: egui::Color32,
+        color: Color32,
     ) {
         ui.vertical(|ui| {
             if ui
                 .add(
-                    egui::Label::new(
-                        egui::RichText::new(info.folder_name.as_str())
+                    Label::new(
+                        RichText::new(info.folder_name.as_str())
                             .size(font_size)
                             .color(color)
                             .underline(),
                     )
-                    .sense(egui::Sense::click()),
+                    .sense(Sense::click()),
                 )
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .on_hover_cursor(CursorIcon::PointingHand)
                 .clicked()
             {
                 async_request_tx
@@ -751,7 +751,7 @@ fn render_recording_entry(
 
             if let Some(metadata) = metadata {
                 ui.label(
-                    egui::RichText::new(&metadata.game_exe)
+                    RichText::new(&metadata.game_exe)
                         .size((font_size * 0.8).floor())
                         .color(color.gamma_multiply(0.8)),
                 );
@@ -759,20 +759,20 @@ fn render_recording_entry(
         });
     }
 
-    fn delete_button(ui: &mut egui::Ui, font_size: f32) -> egui::Response {
+    fn delete_button(ui: &mut Ui, font_size: f32) -> Response {
         ui.add_sized(
-            egui::vec2(60.0, 20.0),
-            egui::Button::new(
-                egui::RichText::new("Delete")
+            vec2(60.0, 20.0),
+            Button::new(
+                RichText::new("Delete")
                     .size(font_size)
-                    .color(egui::Color32::WHITE),
+                    .color(Color32::WHITE),
             )
-            .fill(egui::Color32::from_rgb(180, 60, 60)),
+            .fill(Color32::from_rgb(180, 60, 60)),
         )
     }
 
-    fn frame(ui: &mut egui::Ui, color: egui::Color32, add_contents: impl FnOnce(&mut egui::Ui)) {
-        egui::Frame::new()
+    fn frame(ui: &mut Ui, color: Color32, add_contents: impl FnOnce(&mut Ui)) {
+        Frame::new()
             .fill(color)
             .inner_margin(4.0)
             .corner_radius(4.0)
@@ -786,15 +786,15 @@ fn render_recording_entry(
                 ui.horizontal(|ui| {
                     // Success indicator
                     ui.label(
-                        egui::RichText::new("✔")
+                        RichText::new("✔")
                             .size(font_size)
-                            .color(egui::Color32::from_rgb(100, 255, 100)),
+                            .color(Color32::from_rgb(100, 255, 100)),
                     );
 
                     // Filename
-                    ui.label(egui::RichText::new(upload.id.as_str()).size(font_size));
+                    ui.label(RichText::new(upload.id.as_str()).size(font_size));
 
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         datetime(ui, upload.created_at, font_size);
                         filesize(ui, upload.file_size_mb, font_size);
 
@@ -813,14 +813,14 @@ fn render_recording_entry(
                 error_reasons,
             } => {
                 // Invalid upload entry
-                frame(ui, egui::Color32::from_rgb(80, 40, 40), |ui| {
+                frame(ui, Color32::from_rgb(80, 40, 40), |ui| {
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
                             // Failure indicator
                             ui.label(
-                                egui::RichText::new("❌")
+                                RichText::new("❌")
                                     .size(font_size)
-                                    .color(egui::Color32::from_rgb(255, 100, 100)),
+                                    .color(Color32::from_rgb(255, 100, 100)),
                             );
 
                             // Folder name (clickable to open folder)
@@ -830,66 +830,59 @@ fn render_recording_entry(
                                 metadata.as_deref(),
                                 &app_state.async_request_tx,
                                 font_size,
-                                egui::Color32::from_rgb(255, 200, 200),
+                                Color32::from_rgb(255, 200, 200),
                             );
 
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    // Timestamp if available
-                                    if let Some(ts) = info.timestamp {
-                                        datetime(
-                                            ui,
-                                            chrono::DateTime::<chrono::Utc>::from(ts),
-                                            font_size,
-                                        );
-                                    }
-
-                                    if delete_button(ui, font_size).clicked() {
-                                        app_state
-                                            .async_request_tx
-                                            .blocking_send(AsyncRequest::DeleteRecording(
-                                                info.folder_path.clone(),
-                                            ))
-                                            .ok();
-                                    }
-
-                                    filesize(
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                // Timestamp if available
+                                if let Some(ts) = info.timestamp {
+                                    datetime(
                                         ui,
-                                        info.folder_size as f64 / 1024.0 / 1024.0,
+                                        chrono::DateTime::<chrono::Utc>::from(ts),
                                         font_size,
                                     );
+                                }
 
-                                    if let Some(md) = metadata.as_deref() {
-                                        duration(ui, md.duration, font_size);
-                                    }
-                                },
-                            );
+                                if delete_button(ui, font_size).clicked() {
+                                    app_state
+                                        .async_request_tx
+                                        .blocking_send(AsyncRequest::DeleteRecording(
+                                            info.folder_path.clone(),
+                                        ))
+                                        .ok();
+                                }
+
+                                filesize(ui, info.folder_size as f64 / 1024.0 / 1024.0, font_size);
+
+                                if let Some(md) = metadata.as_deref() {
+                                    duration(ui, md.duration, font_size);
+                                }
+                            });
                         });
 
                         // Collapsible error reasons section
-                        egui::CollapsingHeader::new(
-                            egui::RichText::new(format!(
+                        CollapsingHeader::new(
+                            RichText::new(format!(
                                 "⚠ {} error{}",
                                 error_reasons.len(),
                                 if error_reasons.len() == 1 { "" } else { "s" }
                             ))
                             .size(font_size - 1.0)
-                            .color(egui::Color32::from_rgb(255, 150, 150)),
+                            .color(Color32::from_rgb(255, 150, 150)),
                         )
                         .id_salt(format!("error_reasons_{}", info.folder_name))
                         .default_open(false)
                         .show(ui, |ui| {
-                            egui::Frame::new()
-                                .inner_margin(egui::Margin::symmetric(8, 4))
-                                .outer_margin(egui::Margin::symmetric(0, 0))
+                            Frame::new()
+                                .inner_margin(Margin::symmetric(8, 4))
+                                .outer_margin(Margin::symmetric(0, 0))
                                 .show(ui, |ui| {
                                     ui.set_width(ui.available_width());
                                     for reason in error_reasons {
                                         ui.label(
-                                            egui::RichText::new(format!("• {}", reason))
+                                            RichText::new(format!("• {}", reason))
                                                 .size(font_size - 1.0)
-                                                .color(egui::Color32::from_rgb(255, 200, 200)),
+                                                .color(Color32::from_rgb(255, 200, 200)),
                                         );
                                     }
                                 });
@@ -899,13 +892,13 @@ fn render_recording_entry(
             }
             LocalRecording::Unuploaded { info, metadata } => {
                 // Unuploaded entry
-                frame(ui, egui::Color32::from_rgb(90, 80, 40), |ui| {
+                frame(ui, Color32::from_rgb(90, 80, 40), |ui| {
                     ui.horizontal(|ui| {
                         // Pending indicator
                         ui.label(
-                            egui::RichText::new("⏳")
+                            RichText::new("⏳")
                                 .size(font_size)
-                                .color(egui::Color32::from_rgb(255, 255, 100)),
+                                .color(Color32::from_rgb(255, 255, 100)),
                         );
 
                         // Folder name (clickable to open folder)
@@ -915,18 +908,18 @@ fn render_recording_entry(
                             metadata.as_deref(),
                             &app_state.async_request_tx,
                             font_size,
-                            egui::Color32::from_rgb(255, 255, 150),
+                            Color32::from_rgb(255, 255, 150),
                         );
 
                         // "Pending upload" label
                         ui.label(
-                            egui::RichText::new("(pending upload)")
+                            RichText::new("(pending upload)")
                                 .size(font_size - 1.0)
-                                .color(egui::Color32::from_rgb(200, 180, 100))
+                                .color(Color32::from_rgb(200, 180, 100))
                                 .italics(),
                         );
 
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             // Timestamp if available
                             if let Some(timestamp) = info.timestamp {
                                 datetime(
@@ -962,7 +955,7 @@ fn render_recording_entry(
 
 /// Wrapper for DatePickerButton that handles Option<NaiveDate>
 fn optional_date_picker(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     date: Option<chrono::NaiveDate>,
     default: chrono::NaiveDate,
     id: &str,

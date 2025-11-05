@@ -13,6 +13,11 @@ use crate::{
 };
 
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
+use egui::{
+    Align, Align2, Button, CentralPanel, Checkbox, Color32, ComboBox, Context, Direction, Frame,
+    InnerResponse, Label, Layout, Margin, Response, RichText, ScrollArea, Slider, TextEdit, Ui,
+    Vec2, Widget, Window, vec2,
+};
 
 mod upload_manager;
 
@@ -32,7 +37,7 @@ const SETTINGS_TEXT_WIDTH: f32 = 150.0;
 const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
 
 impl App {
-    pub fn main_view(&mut self, ctx: &egui::Context) {
+    pub fn main_view(&mut self, ctx: &Context) {
         if self.main_view_state.last_obs_check.is_none()
             || self
                 .main_view_state
@@ -42,7 +47,7 @@ impl App {
             self.main_view_state.last_obs_check = Some((Instant::now(), is_obs_running()));
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ctx, |ui| {
             // Show new release warning if available
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
@@ -60,7 +65,7 @@ impl App {
                 ui.add_space(8.0);
             }
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            ScrollArea::vertical().show(ui, |ui| {
                 // Account Section
                 ui.group(|ui| {
                     account_section(ui, self);
@@ -100,7 +105,7 @@ impl App {
                 // Logo
                 ui.separator();
                 ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                         if ui.button("FAQ").clicked() {
                             opener::open_browser(format!(
                                 "https://github.com/{GH_ORG}/{GH_REPO}/blob/main/GAMES.md"
@@ -114,11 +119,11 @@ impl App {
                                 .ok();
                         }
                     });
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.hyperlink_to(
-                            egui::RichText::new("Wayfarer Labs")
+                            RichText::new("Wayfarer Labs")
                                 .italics()
-                                .color(egui::Color32::LIGHT_BLUE),
+                                .color(Color32::LIGHT_BLUE),
                             "https://wayfarerlabs.ai/",
                         );
                     });
@@ -150,19 +155,16 @@ impl App {
     }
 }
 
-fn account_section(ui: &mut egui::Ui, app: &mut App) {
-    ui.label(egui::RichText::new("Account").size(18.0).strong());
+fn account_section(ui: &mut Ui, app: &mut App) {
+    ui.label(RichText::new("Account").size(18.0).strong());
     ui.separator();
 
     ui.vertical(|ui| {
         ui.label("User ID:");
         ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui
-                    .add_sized(
-                        egui::vec2(0.0, SETTINGS_TEXT_HEIGHT),
-                        egui::Button::new("Log out"),
-                    )
+                    .add_sized(vec2(0.0, SETTINGS_TEXT_HEIGHT), Button::new("Log out"))
                     .clicked()
                 {
                     app.go_to_login();
@@ -174,8 +176,8 @@ fn account_section(ui: &mut egui::Ui, app: &mut App) {
                     .unwrap_or_else(|| Ok("Authenticating...".to_string()))
                     .unwrap_or_else(|e| format!("Error: {e}"));
                 ui.add_sized(
-                    egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-                    egui::TextEdit::singleline(&mut user_id.as_str()),
+                    vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+                    TextEdit::singleline(&mut user_id.as_str()),
                 );
             });
         });
@@ -183,13 +185,13 @@ fn account_section(ui: &mut egui::Ui, app: &mut App) {
 }
 
 fn keyboard_shortcuts_section(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     app_state: &AppState,
     local_preferences: &mut Preferences,
 ) {
     ui.horizontal(|ui| {
         ui.label(
-            egui::RichText::new("Keyboard Shortcuts")
+            RichText::new("Keyboard Shortcuts")
                 .size(18.0)
                 .strong(),
         );
@@ -202,7 +204,7 @@ fn keyboard_shortcuts_section(
             "This is intentional behaviour to prevent data loss and make uploads more manageable. ",
             "The recording will resume automatically after stopping, so you don't need to do anything."
         );
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             util::tooltip(ui, tooltip, None);
         });
     });
@@ -211,7 +213,7 @@ fn keyboard_shortcuts_section(
     ui.horizontal(|ui| {
         add_settings_text(
             ui,
-            egui::Label::new(if local_preferences.stop_hotkey_enabled {
+            Label::new(if local_preferences.stop_hotkey_enabled {
                 "Start Recording:"
             } else {
                 "Toggle Recording:"
@@ -229,7 +231,7 @@ fn keyboard_shortcuts_section(
             local_preferences.start_recording_key.clone()
         };
 
-        if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
+        if add_settings_widget(ui, Button::new(button_text)).clicked() {
             *app_state.listening_for_new_hotkey.write().unwrap() =
                 ListeningForNewHotkey::Listening {
                     target: HotkeyRebindTarget::Start,
@@ -240,7 +242,7 @@ fn keyboard_shortcuts_section(
     let stop_hotkey_enabled = local_preferences.stop_hotkey_enabled;
     if stop_hotkey_enabled {
         ui.horizontal(|ui| {
-            add_settings_text(ui, egui::Label::new("Stop Recording:"));
+            add_settings_text(ui, Label::new("Stop Recording:"));
             let listening_hotkey_target = app_state
                 .listening_for_new_hotkey
                 .read()
@@ -252,7 +254,7 @@ fn keyboard_shortcuts_section(
                 local_preferences.stop_recording_key.clone()
             };
 
-            if add_settings_widget(ui, egui::Button::new(button_text)).clicked() {
+            if add_settings_widget(ui, Button::new(button_text)).clicked() {
                 *app_state.listening_for_new_hotkey.write().unwrap() =
                     ListeningForNewHotkey::Listening {
                         target: HotkeyRebindTarget::Stop,
@@ -262,10 +264,10 @@ fn keyboard_shortcuts_section(
     }
 
     ui.horizontal(|ui| {
-        add_settings_text(ui, egui::Label::new("Stop Hotkey:"));
+        add_settings_text(ui, Label::new("Stop Hotkey:"));
         add_settings_widget(
             ui,
-            egui::Checkbox::new(
+            Checkbox::new(
                 &mut local_preferences.stop_hotkey_enabled,
                 match stop_hotkey_enabled {
                     true => "Enabled",
@@ -277,22 +279,18 @@ fn keyboard_shortcuts_section(
 }
 
 fn overlay_settings_section(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     local_preferences: &mut Preferences,
     available_video_encoders: &[VideoEncoderType],
     encoder_settings_window_open: &mut bool,
 ) {
-    ui.label(
-        egui::RichText::new("Recorder Customization")
-            .size(18.0)
-            .strong(),
-    );
+    ui.label(RichText::new("Recorder Customization").size(18.0).strong());
     ui.separator();
 
     ui.horizontal(|ui| {
-        add_settings_text(ui, egui::Label::new("Overlay Location:"));
+        add_settings_text(ui, Label::new("Overlay Location:"));
         add_settings_ui(ui, |ui| {
-            egui::ComboBox::from_id_salt("overlay_location")
+            ComboBox::from_id_salt("overlay_location")
                 .selected_text(local_preferences.overlay_location.to_string())
                 .show_ui(ui, |ui| {
                     for location in crate::config::OverlayLocation::ALL {
@@ -307,7 +305,7 @@ fn overlay_settings_section(
     });
 
     ui.horizontal(|ui| {
-        add_settings_text(ui, egui::Label::new("Overlay Opacity:"));
+        add_settings_text(ui, Label::new("Overlay Opacity:"));
         let mut stored_opacity = local_preferences.overlay_opacity;
         let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
 
@@ -317,7 +315,7 @@ fn overlay_settings_section(
                 ui.spacing_mut().slider_width = ui.available_width() - 50.0;
                 add_settings_widget(
                     ui,
-                    egui::Slider::new(&mut egui_opacity, 0.0..=100.0)
+                    Slider::new(&mut egui_opacity, 0.0..=100.0)
                         .suffix("%")
                         .integer(),
                 )
@@ -330,11 +328,11 @@ fn overlay_settings_section(
     });
 
     ui.horizontal(|ui| {
-        add_settings_text(ui, egui::Label::new("Recording Audio Cue:"));
+        add_settings_text(ui, Label::new("Recording Audio Cue:"));
         let honk = local_preferences.honk;
         add_settings_widget(
             ui,
-            egui::Checkbox::new(
+            Checkbox::new(
                 &mut local_preferences.honk,
                 match honk {
                     true => "Honk.",
@@ -345,10 +343,10 @@ fn overlay_settings_section(
     });
 
     ui.horizontal(|ui| {
-        add_settings_text(ui, egui::Label::new("Video Encoder:"));
+        add_settings_text(ui, Label::new("Video Encoder:"));
         add_settings_ui(ui, |ui| {
             let encoder_name = local_preferences.encoder.encoder.to_string();
-            egui::ComboBox::from_id_salt("video_encoder")
+            ComboBox::from_id_salt("video_encoder")
                 .selected_text(&encoder_name)
                 .width(150.0)
                 .show_ui(ui, |ui| {
@@ -378,15 +376,15 @@ fn overlay_settings_section(
     });
 }
 
-fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+fn add_settings_text(ui: &mut Ui, widget: impl Widget) -> Response {
     ui.allocate_ui_with_layout(
-        egui::vec2(SETTINGS_TEXT_WIDTH, SETTINGS_TEXT_HEIGHT),
-        egui::Layout {
-            main_dir: egui::Direction::LeftToRight,
+        vec2(SETTINGS_TEXT_WIDTH, SETTINGS_TEXT_HEIGHT),
+        Layout {
+            main_dir: Direction::LeftToRight,
             main_wrap: false,
-            main_align: egui::Align::RIGHT,
+            main_align: Align::RIGHT,
             main_justify: true,
-            cross_align: egui::Align::Center,
+            cross_align: Align::Center,
             cross_justify: true,
         },
         |ui| ui.add(widget),
@@ -394,58 +392,48 @@ fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Resp
     .inner
 }
 
-fn add_settings_ui<R>(
-    ui: &mut egui::Ui,
-    add_contents: impl FnOnce(&mut egui::Ui) -> R,
-) -> egui::InnerResponse<R> {
+fn add_settings_ui<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
     ui.allocate_ui_with_layout(
-        egui::vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
-        egui::Layout {
-            main_dir: egui::Direction::LeftToRight,
+        vec2(ui.available_width(), SETTINGS_TEXT_HEIGHT),
+        Layout {
+            main_dir: Direction::LeftToRight,
             main_wrap: false,
-            main_align: egui::Align::LEFT,
+            main_align: Align::LEFT,
             main_justify: true,
-            cross_align: egui::Align::Center,
+            cross_align: Align::Center,
             cross_justify: true,
         },
         add_contents,
     )
 }
 
-fn add_settings_widget(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
+fn add_settings_widget(ui: &mut Ui, widget: impl Widget) -> Response {
     add_settings_ui(ui, |ui| ui.add(widget)).inner
 }
 
-fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
-    egui::Frame::default()
-        .fill(egui::Color32::DARK_GREEN)
-        .inner_margin(egui::Margin::same(15))
+fn newer_release_available(ui: &mut Ui, release: &GitHubRelease) {
+    Frame::default()
+        .fill(Color32::DARK_GREEN)
+        .inner_margin(Margin::same(15))
         .show(ui, |ui| {
             ui.vertical_centered(|ui| {
-                ui.label(
-                    egui::RichText::new("New Release Available!")
-                        .size(20.0)
-                        .strong(),
-                );
+                ui.label(RichText::new("New Release Available!").size(20.0).strong());
 
                 // Release name
-                ui.label(egui::RichText::new(&release.name).size(18.0).strong());
+                ui.label(RichText::new(&release.name).size(18.0).strong());
 
                 // Release date if available
                 if let Some(date) = &release.release_date {
                     ui.label(
-                        egui::RichText::new(format!("Released: {}", date.format("%B %d, %Y")))
-                            .size(14.0),
+                        RichText::new(format!("Released: {}", date.format("%B %d, %Y"))).size(14.0),
                     );
                 }
 
                 ui.add_space(8.0);
 
                 ui.label(
-                    egui::RichText::new(
-                        "Recording and uploading will be blocked until you update.",
-                    )
-                    .size(14.0),
+                    RichText::new("Recording and uploading will be blocked until you update.")
+                        .size(14.0),
                 );
 
                 ui.add_space(8.0);
@@ -456,14 +444,14 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
                 // Release notes button
                 if ui
                     .add_sized(
-                        egui::vec2(button_width, button_height),
-                        egui::Button::new(
-                            egui::RichText::new("Release Notes")
+                        vec2(button_width, button_height),
+                        Button::new(
+                            RichText::new("Release Notes")
                                 .size(14.0)
                                 .strong()
-                                .color(egui::Color32::WHITE),
+                                .color(Color32::WHITE),
                         )
-                        .fill(egui::Color32::from_rgb(0x1D, 0x6D, 0xA7)),
+                        .fill(Color32::from_rgb(0x1D, 0x6D, 0xA7)),
                     )
                     .clicked()
                 {
@@ -478,14 +466,14 @@ fn newer_release_available(ui: &mut egui::Ui, release: &GitHubRelease) {
                 // Download button
                 if ui
                     .add_sized(
-                        egui::vec2(button_width, button_height),
-                        egui::Button::new(
-                            egui::RichText::new("Download Now")
+                        vec2(button_width, button_height),
+                        Button::new(
+                            RichText::new("Download Now")
                                 .size(14.0)
                                 .strong()
-                                .color(egui::Color32::WHITE),
+                                .color(Color32::WHITE),
                         )
-                        .fill(egui::Color32::from_rgb(0x28, 0xA7, 0x1D)), // Green button
+                        .fill(Color32::from_rgb(0x28, 0xA7, 0x1D)), // Green button
                     )
                     .clicked()
                 {
@@ -527,39 +515,39 @@ fn is_obs_running() -> bool {
     is_obs_running
 }
 
-fn obs_running_warning(ui: &mut egui::Ui) {
-    egui::Frame::default()
-        .fill(egui::Color32::from_rgb(220, 53, 69))
-        .inner_margin(egui::Margin::same(15))
+fn obs_running_warning(ui: &mut Ui) {
+    Frame::default()
+        .fill(Color32::from_rgb(220, 53, 69))
+        .inner_margin(Margin::same(15))
         .show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.label(
-                    egui::RichText::new("OBS Studio Detected!")
+                    RichText::new("OBS Studio Detected!")
                         .size(20.0)
                         .strong()
-                        .color(egui::Color32::WHITE),
+                        .color(Color32::WHITE),
                 );
 
                 ui.add_space(8.0);
 
                 ui.label(
-                    egui::RichText::new(
+                    RichText::new(
                         "OBS Studio is currently running and may conflict with OWL Control. \
                          Please close OBS Studio before using OWL Control for the best experience.",
                     )
                     .size(14.0)
-                    .color(egui::Color32::WHITE),
+                    .color(Color32::WHITE),
                 );
             });
         });
 }
 
 fn encoder_settings_window(
-    ctx: &egui::Context,
+    ctx: &Context,
     encoder_settings_window_open: &mut bool,
     encoder_settings: &mut EncoderSettings,
 ) {
-    egui::Window::new(format!("{} Settings", encoder_settings.encoder))
+    Window::new(format!("{} Settings", encoder_settings.encoder))
         .open(encoder_settings_window_open)
         .collapsible(false)
         .resizable(false)
@@ -573,7 +561,7 @@ fn encoder_settings_window(
 
 const PRESET_TOOLTIP: &str = "Please keep this as high as possible for best quality; only reduce it if you're experiencing performance issues.";
 
-fn encoder_settings_x264(ui: &mut egui::Ui, x264_settings: &mut ObsX264Settings) {
+fn encoder_settings_x264(ui: &mut Ui, x264_settings: &mut ObsX264Settings) {
     util::dropdown_list(
         ui,
         "Preset:",
@@ -585,7 +573,7 @@ fn encoder_settings_x264(ui: &mut egui::Ui, x264_settings: &mut ObsX264Settings)
     );
 }
 
-fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSettings) {
+fn encoder_settings_nvenc(ui: &mut Ui, nvenc_settings: &mut FfmpegNvencSettings) {
     util::dropdown_list(
         ui,
         "Preset:",
@@ -606,7 +594,7 @@ fn encoder_settings_nvenc(ui: &mut egui::Ui, nvenc_settings: &mut FfmpegNvencSet
     );
 }
 
-fn encoder_settings_qsv(ui: &mut egui::Ui, qsv_settings: &mut ObsQsvSettings) {
+fn encoder_settings_qsv(ui: &mut Ui, qsv_settings: &mut ObsQsvSettings) {
     util::dropdown_list(
         ui,
         "Target Usage:",
@@ -616,7 +604,7 @@ fn encoder_settings_qsv(ui: &mut egui::Ui, qsv_settings: &mut ObsQsvSettings) {
     );
 }
 
-fn encoder_settings_amf(ui: &mut egui::Ui, amf_settings: &mut ObsAmfSettings) {
+fn encoder_settings_amf(ui: &mut Ui, amf_settings: &mut ObsAmfSettings) {
     util::dropdown_list(
         ui,
         "Preset:",
@@ -627,29 +615,29 @@ fn encoder_settings_amf(ui: &mut egui::Ui, amf_settings: &mut ObsAmfSettings) {
 }
 
 fn delete_recording_confirmation_window(
-    ctx: &egui::Context,
+    ctx: &Context,
     pending_delete_recording: &mut Option<(PathBuf, String)>,
     app_state: &AppState,
 ) {
     if let Some((folder_path, folder_name)) = pending_delete_recording.clone() {
         let mut keep_open = true;
-        egui::Window::new("Confirm Deletion of Unuploaded Recording")
+        Window::new("Confirm Deletion of Unuploaded Recording")
             .open(&mut keep_open)
             .collapsible(false)
             .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.label(
-                        egui::RichText::new(format!(
+                        RichText::new(format!(
                             "The recording \"{folder_name}\" has not been uploaded yet."
                         ))
                         .size(13.0)
-                        .color(egui::Color32::from_rgb(255, 255, 100)),
+                        .color(Color32::from_rgb(255, 255, 100)),
                     );
 
                     ui.label(
-                        egui::RichText::new(
+                        RichText::new(
                             "You can still upload it by clicking the \"Upload Recordings\" button.",
                         )
                         .size(13.0),
@@ -660,13 +648,13 @@ fn delete_recording_confirmation_window(
                     // Open folder button
                     if ui
                         .add_sized(
-                            egui::vec2(ui.available_width(), 32.0),
-                            egui::Button::new(
-                                egui::RichText::new("📁 Open Folder for Investigation")
+                            vec2(ui.available_width(), 32.0),
+                            Button::new(
+                                RichText::new("📁 Open Folder for Investigation")
                                     .size(13.0)
-                                    .color(egui::Color32::WHITE),
+                                    .color(Color32::WHITE),
                             )
-                            .fill(egui::Color32::from_rgb(100, 150, 255)),
+                            .fill(Color32::from_rgb(100, 150, 255)),
                         )
                         .clicked()
                     {
@@ -682,8 +670,8 @@ fn delete_recording_confirmation_window(
                         // Cancel button
                         if ui
                             .add_sized(
-                                egui::vec2(ui.available_width() / 2.0, 32.0),
-                                egui::Button::new(egui::RichText::new("Cancel").size(13.0)),
+                                vec2(ui.available_width() / 2.0, 32.0),
+                                Button::new(RichText::new("Cancel").size(13.0)),
                             )
                             .clicked()
                         {
@@ -693,13 +681,13 @@ fn delete_recording_confirmation_window(
                         // Really Delete button
                         if ui
                             .add_sized(
-                                egui::vec2(ui.available_width(), 32.0),
-                                egui::Button::new(
-                                    egui::RichText::new("Really Delete")
+                                vec2(ui.available_width(), 32.0),
+                                Button::new(
+                                    RichText::new("Really Delete")
                                         .size(13.0)
-                                        .color(egui::Color32::WHITE),
+                                        .color(Color32::WHITE),
                                 )
-                                .fill(egui::Color32::from_rgb(180, 60, 60)),
+                                .fill(Color32::from_rgb(180, 60, 60)),
                             )
                             .clicked()
                         {
@@ -720,7 +708,7 @@ fn delete_recording_confirmation_window(
 }
 
 fn move_location_confirmation_window(
-    ctx: &egui::Context,
+    ctx: &Context,
     pending_move_location: &mut Option<(PathBuf, PathBuf)>,
     recording_location: &mut PathBuf,
     app_state: &AppState,
@@ -730,15 +718,15 @@ fn move_location_confirmation_window(
     };
 
     let mut keep_open = true;
-    egui::Window::new("Move Recording Location")
+    Window::new("Move Recording Location")
         .open(&mut keep_open)
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
         .show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.label(
-                    egui::RichText::new(
+                    RichText::new(
                         "Would you like to move your existing recordings to the new location?",
                     )
                     .size(14.0),
@@ -747,27 +735,27 @@ fn move_location_confirmation_window(
                 ui.add_space(8.0);
 
                 ui.label(
-                    egui::RichText::new("From:")
+                    RichText::new("From:")
                         .size(12.0)
-                        .color(egui::Color32::from_rgb(200, 200, 200)),
+                        .color(Color32::from_rgb(200, 200, 200)),
                 );
                 ui.label(
-                    egui::RichText::new(old_path.to_string_lossy())
+                    RichText::new(old_path.to_string_lossy())
                         .size(12.0)
-                        .color(egui::Color32::WHITE),
+                        .color(Color32::WHITE),
                 );
 
                 ui.add_space(4.0);
 
                 ui.label(
-                    egui::RichText::new("To:")
+                    RichText::new("To:")
                         .size(12.0)
-                        .color(egui::Color32::from_rgb(200, 200, 200)),
+                        .color(Color32::from_rgb(200, 200, 200)),
                 );
                 ui.label(
-                    egui::RichText::new(new_path.to_string_lossy())
+                    RichText::new(new_path.to_string_lossy())
                         .size(12.0)
-                        .color(egui::Color32::WHITE),
+                        .color(Color32::WHITE),
                 );
 
                 ui.add_space(12.0);
@@ -778,8 +766,8 @@ fn move_location_confirmation_window(
                     // Don't Move button - just change the location without moving files
                     if ui
                         .add_sized(
-                            egui::vec2(ui.available_width() / 2.0, 32.0),
-                            egui::Button::new(egui::RichText::new("Don't Move Files").size(13.0)),
+                            vec2(ui.available_width() / 2.0, 32.0),
+                            Button::new(RichText::new("Don't Move Files").size(13.0)),
                         )
                         .on_hover_text(
                             "Only update the recording location without moving existing files",
@@ -793,13 +781,11 @@ fn move_location_confirmation_window(
                     // Move Files button
                     if ui
                         .add_sized(
-                            egui::vec2(ui.available_width(), 32.0),
-                            egui::Button::new(
-                                egui::RichText::new("Move Files")
-                                    .size(13.0)
-                                    .color(egui::Color32::WHITE),
+                            vec2(ui.available_width(), 32.0),
+                            Button::new(
+                                RichText::new("Move Files").size(13.0).color(Color32::WHITE),
                             )
-                            .fill(egui::Color32::from_rgb(100, 150, 255)),
+                            .fill(Color32::from_rgb(100, 150, 255)),
                         )
                         .on_hover_text("Move all existing recordings to the new location")
                         .clicked()
@@ -821,8 +807,8 @@ fn move_location_confirmation_window(
                 // Cancel button
                 if ui
                     .add_sized(
-                        egui::vec2(ui.available_width(), 28.0),
-                        egui::Button::new(egui::RichText::new("Cancel").size(12.0)),
+                        vec2(ui.available_width(), 28.0),
+                        Button::new(RichText::new("Cancel").size(12.0)),
                     )
                     .clicked()
                 {
