@@ -1,9 +1,12 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, atomic::Ordering},
     time::{Duration, Instant},
 };
 
-use egui::{Align2, Color32, Stroke, TextFormat, Vec2, text::LayoutJob};
+use egui::{
+    Align2, Color32, Context, FontFamily, FontId, Image, Margin, RichText, Stroke, TextFormat,
+    Vec2, WidgetText, Window, containers::Frame, text::LayoutJob,
+};
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
 use windows::Win32::{
@@ -63,7 +66,7 @@ impl OverlayApp {
 impl OverlayApp {
     fn first_frame_init(
         &mut self,
-        egui_context: &egui::Context,
+        egui_context: &Context,
         glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
         curr_location: OverlayLocation,
         curr_opacity: u8,
@@ -136,7 +139,7 @@ impl OverlayApp {
 impl EguiOverlay for OverlayApp {
     fn gui_run(
         &mut self,
-        egui_context: &egui::Context,
+        egui_context: &Context,
         _default_gfx_backend: &mut DefaultGfxBackend,
         glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
     ) {
@@ -172,13 +175,13 @@ impl EguiOverlay for OverlayApp {
             self.overlay_location = curr_location;
             update_overlay_position_based_on_location(&mut glfw_backend.window, curr_location);
         }
-        let frame = egui::containers::Frame {
+        let frame = Frame {
             fill: Color32::from_black_alpha(self.overlay_opacity), // Transparent background
             stroke: Stroke::NONE,                                  // No border
             corner_radius: 0.0.into(),                             // No rounded corners
             shadow: Default::default(),                            // Default shadow settings
-            inner_margin: egui::Margin::same(8),                   // Inner padding
-            outer_margin: egui::Margin::ZERO,                      // No outer margin
+            inner_margin: Margin::same(8),                         // Inner padding
+            outer_margin: Margin::ZERO,                            // No outer margin
         };
 
         // only repaint the window every 500ms or when the recording state changes
@@ -196,7 +199,7 @@ impl EguiOverlay for OverlayApp {
             OverlayLocation::BottomLeft => (Align2::LEFT_BOTTOM, Vec2 { x: 10.0, y: -10.0 }),
             OverlayLocation::BottomRight => (Align2::RIGHT_BOTTOM, Vec2 { x: -10.0, y: -10.0 }),
         };
-        egui::Window::new("recording overlay")
+        Window::new("recording overlay")
             .title_bar(false) // No title bar
             .resizable(false) // Non-resizable
             .scroll([false, false]) // Non-scrollable (both x and y)
@@ -207,72 +210,67 @@ impl EguiOverlay for OverlayApp {
             .show(egui_context, |ui| {
                 ui.horizontal(|ui| {
                     ui.add(
-                        egui::Image::from_bytes("bytes://", get_owl_bytes())
+                        Image::from_bytes("bytes://", get_owl_bytes())
                             .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
                             .tint(Color32::from_white_alpha(self.overlay_opacity)),
                     );
 
-                    let font_id = egui::FontId::new(12.0, egui::FontFamily::Proportional);
+                    let font_id = FontId::new(12.0, FontFamily::Proportional);
                     let color = Color32::from_white_alpha(self.overlay_opacity);
-                    let recording_text: egui::WidgetText = if self
-                        .app_state
-                        .is_out_of_date
-                        .load(std::sync::atomic::Ordering::Relaxed)
-                    {
-                        egui::RichText::new("Out of date; will not record. Please update!")
-                            .font(font_id)
-                            .color(color)
-                            .into()
-                    } else {
-                        match &self.rec_status {
-                            RecordingStatus::Stopped => egui::RichText::new("Stopped")
+                    let recording_text: WidgetText =
+                        if self.app_state.is_out_of_date.load(Ordering::Relaxed) {
+                            RichText::new("Out of date; will not record. Please update!")
                                 .font(font_id)
                                 .color(color)
-                                .into(),
-                            RecordingStatus::Recording {
-                                start_time,
-                                game_exe,
-                            } => {
-                                let mut job = LayoutJob::default();
-                                job.append(
-                                    "Recording ",
-                                    0.0,
-                                    TextFormat {
-                                        font_id: font_id.clone(),
-                                        color,
-                                        ..Default::default()
-                                    },
-                                );
-                                job.append(
+                                .into()
+                        } else {
+                            match &self.rec_status {
+                                RecordingStatus::Stopped => {
+                                    RichText::new("Stopped").font(font_id).color(color).into()
+                                }
+                                RecordingStatus::Recording {
+                                    start_time,
                                     game_exe,
-                                    0.0,
-                                    TextFormat {
-                                        font_id: font_id.clone(),
-                                        italics: true,
-                                        color,
-                                        ..Default::default()
-                                    },
-                                );
-                                job.append(
-                                    &format!(
-                                        " ({})",
-                                        util::format_seconds(start_time.elapsed().as_secs())
-                                    ),
-                                    0.0,
-                                    TextFormat {
-                                        font_id,
-                                        color,
-                                        ..Default::default()
-                                    },
-                                );
-                                job.into()
+                                } => {
+                                    let mut job = LayoutJob::default();
+                                    job.append(
+                                        "Recording ",
+                                        0.0,
+                                        TextFormat {
+                                            font_id: font_id.clone(),
+                                            color,
+                                            ..Default::default()
+                                        },
+                                    );
+                                    job.append(
+                                        game_exe,
+                                        0.0,
+                                        TextFormat {
+                                            font_id: font_id.clone(),
+                                            italics: true,
+                                            color,
+                                            ..Default::default()
+                                        },
+                                    );
+                                    job.append(
+                                        &format!(
+                                            " ({})",
+                                            util::format_seconds(start_time.elapsed().as_secs())
+                                        ),
+                                        0.0,
+                                        TextFormat {
+                                            font_id,
+                                            color,
+                                            ..Default::default()
+                                        },
+                                    );
+                                    job.into()
+                                }
+                                RecordingStatus::Paused => {
+                                    RichText::new("Paused").font(font_id).color(color).into()
+                                }
                             }
-                            RecordingStatus::Paused => egui::RichText::new("Paused")
-                                .font(font_id)
-                                .color(color)
-                                .into(),
-                        }
-                    };
+                        };
                     ui.label(recording_text);
                 });
             });
