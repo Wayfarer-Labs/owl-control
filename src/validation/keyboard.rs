@@ -25,7 +25,7 @@ pub(super) fn validate(input: &super::ValidationInput) -> (KeyboardOutputStats, 
     let mut invalid_reasons = vec![];
     let stats = get_stats(input);
 
-    if stats.wasd_apm < 10.0 {
+    if stats.wasd_apm < 5.0 {
         invalid_reasons.push(format!(
             "WASD actions per minute too low: {}",
             stats.wasd_apm

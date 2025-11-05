@@ -5,12 +5,13 @@
 
 use crate::{
     api::{UserUpload, UserUploadStatistics},
-    app_state::{AsyncRequest, GitHubRelease, ListeningForNewHotkey},
+    app_state::{AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey},
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
         RecordingBackend,
     },
-    record::LocalRecording,
+    output_types::Metadata,
+    record::{LocalRecording, LocalRecordingInfo},
     ui::{HotkeyRebindTarget, MainApp, util},
 };
 
@@ -850,10 +851,10 @@ impl<'a> RecordingEntry<'a> {
 
 fn unified_recordings_view(
     ui: &mut egui::Ui,
-    virtual_list: &mut Option<egui_virtual_list::VirtualList>,
+    virtual_list: &mut egui_virtual_list::VirtualList,
     local_recordings: &[LocalRecording],
     uploads: Option<&[UserUpload]>,
-    app_state: &crate::app_state::AppState,
+    app_state: &AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
     (filter_start_date, filter_end_date): (
         &mut Option<chrono::NaiveDate>,
@@ -912,7 +913,7 @@ fn unified_recordings_view(
                     // Send async request to delete all invalid recordings
                     app_state
                         .async_request_tx
-                        .blocking_send(crate::app_state::AsyncRequest::DeleteAllInvalidRecordings)
+                        .blocking_send(AsyncRequest::DeleteAllInvalidRecordings)
                         .ok();
                 }
                 ui.add_space(button_gap);
@@ -962,11 +963,6 @@ fn unified_recordings_view(
                 return;
             }
 
-            let virtual_list = virtual_list.get_or_insert_default();
-
-            // We have to use efficient .show_viewport() variation that renders selected rows otherwise
-            // egui crashes out when we have too many entries, starts calling window redraws all the time
-            // and cpu usage explodes for no reason whenever upload tracker is open
             egui::ScrollArea::vertical()
                 .max_height(height)
                 .auto_shrink([false, true])
@@ -988,264 +984,257 @@ fn unified_recordings_view(
 fn render_recording_entry(
     ui: &mut egui::Ui,
     entry: &RecordingEntry,
-    app_state: &crate::app_state::AppState,
+    app_state: &AppState,
     font_size: f32,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
+    fn datetime<Tz: chrono::TimeZone>(
+        ui: &mut egui::Ui,
+        datetime: chrono::DateTime<Tz>,
+        font_size: f32,
+    ) {
+        let local_time = datetime.with_timezone(&chrono::Local);
+        ui.label(
+            egui::RichText::new(local_time.format("%Y-%m-%d %H:%M:%S").to_string()).size(font_size),
+        );
+    }
+
+    fn filesize(ui: &mut egui::Ui, filesize_mb: f64, font_size: f32) {
+        ui.label(egui::RichText::new(format!("{filesize_mb:.2} MB")).size(font_size));
+    }
+
+    fn duration(ui: &mut egui::Ui, duration: f64, font_size: f32) {
+        ui.label(egui::RichText::new(util::format_seconds(duration as u64)).size(font_size));
+    }
+
+    fn local_recording_link(
+        ui: &mut egui::Ui,
+        info: &LocalRecordingInfo,
+        metadata: Option<&Metadata>,
+        async_request_tx: &tokio::sync::mpsc::Sender<AsyncRequest>,
+        font_size: f32,
+        color: egui::Color32,
+    ) {
+        ui.vertical(|ui| {
+            if ui
+                .add(
+                    egui::Label::new(
+                        egui::RichText::new(info.folder_name.as_str())
+                            .size(font_size)
+                            .color(color)
+                            .underline(),
+                    )
+                    .sense(egui::Sense::click()),
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked()
+            {
+                async_request_tx
+                    .blocking_send(AsyncRequest::OpenFolder(info.folder_path.clone()))
+                    .ok();
+            }
+
+            if let Some(metadata) = metadata {
+                ui.label(
+                    egui::RichText::new(&metadata.game_exe)
+                        .size((font_size * 0.8).floor())
+                        .color(color.gamma_multiply(0.8)),
+                );
+            }
+        });
+    }
+
+    fn delete_button(ui: &mut egui::Ui, font_size: f32) -> egui::Response {
+        ui.add_sized(
+            egui::vec2(60.0, 20.0),
+            egui::Button::new(
+                egui::RichText::new("Delete")
+                    .size(font_size)
+                    .color(egui::Color32::WHITE),
+            )
+            .fill(egui::Color32::from_rgb(180, 60, 60)),
+        )
+    }
+
+    fn frame(ui: &mut egui::Ui, color: egui::Color32, add_contents: impl FnOnce(&mut egui::Ui)) {
+        egui::Frame::new()
+            .fill(color)
+            .inner_margin(4.0)
+            .corner_radius(4.0)
+            .show(ui, add_contents);
+    }
+
     match entry {
         RecordingEntry::Successful(upload) => {
             // Successful upload entry
-            egui::Frame::new()
-                .fill(ui.visuals().faint_bg_color)
-                .inner_margin(4.0)
-                .corner_radius(4.0)
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        // Success indicator
-                        ui.label(
-                            egui::RichText::new("✔")
-                                .size(font_size)
-                                .color(egui::Color32::from_rgb(100, 255, 100)),
-                        );
+            frame(ui, ui.visuals().faint_bg_color, |ui| {
+                ui.horizontal(|ui| {
+                    // Success indicator
+                    ui.label(
+                        egui::RichText::new("✔")
+                            .size(font_size)
+                            .color(egui::Color32::from_rgb(100, 255, 100)),
+                    );
 
-                        // Filename
-                        ui.label(egui::RichText::new(upload.id.as_str()).size(font_size));
+                    // Filename
+                    ui.label(egui::RichText::new(upload.id.as_str()).size(font_size));
 
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            // Timestamp
-                            let local_time = upload.created_at.with_timezone(&chrono::Local);
-                            ui.label(
-                                egui::RichText::new(
-                                    local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                )
-                                .size(font_size),
-                            );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        datetime(ui, upload.created_at, font_size);
+                        filesize(ui, upload.file_size_mb, font_size);
 
-                            // File size
-                            ui.label(
-                                egui::RichText::new(format!("{:.2} MB", upload.file_size_mb))
-                                    .size(font_size),
-                            );
-
-                            // Duration if available
-                            if let Some(duration) = upload.video_duration_seconds {
-                                ui.label(
-                                    egui::RichText::new(format!("{:.1}s", duration))
-                                        .size(font_size),
-                                );
-                            }
-                        });
+                        // Duration if available
+                        if let Some(dur) = upload.video_duration_seconds {
+                            duration(ui, dur, font_size);
+                        }
                     });
                 });
+            });
         }
         RecordingEntry::Local(recording) => match recording {
             LocalRecording::Invalid {
                 info,
+                metadata,
                 error_reasons,
             } => {
                 // Invalid upload entry
-                egui::Frame::new()
-                    .fill(egui::Color32::from_rgb(80, 40, 40))
-                    .inner_margin(4.0)
-                    .corner_radius(4.0)
-                    .show(ui, |ui| {
-                        ui.vertical(|ui| {
-                            ui.horizontal(|ui| {
-                                // Failure indicator
-                                ui.label(
-                                    egui::RichText::new("❌")
-                                        .size(font_size)
-                                        .color(egui::Color32::from_rgb(255, 100, 100)),
-                                );
-
-                                // Folder name (clickable to open folder)
-                                if ui
-                                    .add(
-                                        egui::Label::new(
-                                            egui::RichText::new(info.folder_name.as_str())
-                                                .size(font_size)
-                                                .color(egui::Color32::from_rgb(255, 200, 200))
-                                                .underline(),
-                                        )
-                                        .sense(egui::Sense::click()),
-                                    )
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .clicked()
-                                {
-                                    app_state
-                                        .async_request_tx
-                                        .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
-                                            info.folder_path.clone(),
-                                        ))
-                                        .ok();
-                                }
-
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        // Timestamp if available
-                                        if let Some(timestamp) = info.timestamp {
-                                            let datetime =
-                                                chrono::DateTime::<chrono::Utc>::from(timestamp);
-                                            let local_time = datetime.with_timezone(&chrono::Local);
-                                            ui.label(
-                                                egui::RichText::new(
-                                                    local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                                )
-                                                .size(font_size)
-                                                .color(egui::Color32::from_rgb(200, 200, 200)),
-                                            );
-                                        }
-
-                                        // Delete button
-                                        if ui
-                                            .add_sized(
-                                                egui::vec2(60.0, 20.0),
-                                                egui::Button::new(
-                                                    egui::RichText::new("Delete")
-                                                        .size(font_size)
-                                                        .color(egui::Color32::WHITE),
-                                                )
-                                                .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                            )
-                                            .clicked()
-                                        {
-                                            if let Err(e) =
-                                                std::fs::remove_dir_all(info.folder_path.clone())
-                                            {
-                                                tracing::error!(
-                                                "Failed to delete invalid recording folder {}: {:?}",
-                                                info.folder_path.display(),
-                                                e
-                                            );
-                                            } else {
-                                                tracing::info!(
-                                                    "Deleted invalid recording folder: {}",
-                                                    info.folder_path.display()
-                                                );
-                                                app_state
-                                                .async_request_tx
-                                                .blocking_send(
-                                                    crate::app_state::AsyncRequest::LoadLocalRecordings,
-                                                )
-                                                .ok();
-                                            }
-                                        }
-                                    },
-                                );
-                            });
-
-                            // Collapsible error reasons section
-                            egui::CollapsingHeader::new(
-                                egui::RichText::new(format!("⚠ {} error{}", error_reasons.len(), if error_reasons.len() == 1 { "" } else { "s" }))
-                                    .size(font_size - 1.0)
-                                    .color(egui::Color32::from_rgb(255, 150, 150))
-                            )
-                            .id_salt(format!("error_reasons_{}", info.folder_name))
-                            .default_open(false)
-                            .show(ui, |ui| {
-                                egui::Frame::new()
-                                    .inner_margin(egui::Margin::symmetric(8, 4))
-                                    .outer_margin(egui::Margin::symmetric(0, 0))
-                                    .show(ui, |ui| {
-                                        ui.set_width(ui.available_width());
-                                        for reason in error_reasons {
-                                            ui.label(
-                                                egui::RichText::new(format!("• {}", reason))
-                                                    .size(font_size - 1.0)
-                                                    .color(egui::Color32::from_rgb(255, 200, 200)),
-                                            );
-                                        }
-                                    });
-                            });
-                        });
-                    });
-            }
-            LocalRecording::Unuploaded { info, metadata: _ } => {
-                // Unuploaded entry
-                egui::Frame::new()
-                    .fill(egui::Color32::from_rgb(90, 80, 40))
-                    .inner_margin(4.0)
-                    .corner_radius(4.0)
-                    .show(ui, |ui| {
+                frame(ui, egui::Color32::from_rgb(80, 40, 40), |ui| {
+                    ui.vertical(|ui| {
                         ui.horizontal(|ui| {
-                            // Pending indicator
+                            // Failure indicator
                             ui.label(
-                                egui::RichText::new("⏳")
+                                egui::RichText::new("❌")
                                     .size(font_size)
-                                    .color(egui::Color32::from_rgb(255, 255, 100)),
+                                    .color(egui::Color32::from_rgb(255, 100, 100)),
                             );
 
                             // Folder name (clickable to open folder)
-                            if ui
-                                .add(
-                                    egui::Label::new(
-                                        egui::RichText::new(info.folder_name.as_str())
-                                            .size(font_size)
-                                            .color(egui::Color32::from_rgb(255, 255, 150))
-                                            .underline(),
-                                    )
-                                    .sense(egui::Sense::click()),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                .clicked()
-                            {
-                                app_state
-                                    .async_request_tx
-                                    .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
-                                        info.folder_path.clone(),
-                                    ))
-                                    .ok();
-                            }
-
-                            // "Pending upload" label
-                            ui.label(
-                                egui::RichText::new("(pending upload)")
-                                    .size(font_size - 1.0)
-                                    .color(egui::Color32::from_rgb(200, 180, 100))
-                                    .italics(),
+                            local_recording_link(
+                                ui,
+                                info,
+                                metadata.as_deref(),
+                                &app_state.async_request_tx,
+                                font_size,
+                                egui::Color32::from_rgb(255, 200, 200),
                             );
 
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
                                     // Timestamp if available
-                                    if let Some(timestamp) = info.timestamp {
-                                        let datetime =
-                                            chrono::DateTime::<chrono::Utc>::from(timestamp);
-                                        let local_time = datetime.with_timezone(&chrono::Local);
-                                        ui.label(
-                                            egui::RichText::new(
-                                                local_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                                            )
-                                            .size(font_size)
-                                            .color(egui::Color32::from_rgb(200, 200, 200)),
+                                    if let Some(ts) = info.timestamp {
+                                        datetime(
+                                            ui,
+                                            chrono::DateTime::<chrono::Utc>::from(ts),
+                                            font_size,
                                         );
                                     }
 
-                                    // Delete button
-                                    if ui
-                                        .add_sized(
-                                            egui::vec2(60.0, 20.0),
-                                            egui::Button::new(
-                                                egui::RichText::new("Delete")
-                                                    .size(font_size)
-                                                    .color(egui::Color32::WHITE),
-                                            )
-                                            .fill(egui::Color32::from_rgb(180, 60, 60)),
-                                        )
-                                        .clicked()
-                                    {
-                                        // Show confirmation dialog
-                                        *pending_delete_recording = Some((
-                                            info.folder_path.clone(),
-                                            info.folder_name.clone(),
-                                        ));
+                                    if delete_button(ui, font_size).clicked() {
+                                        app_state
+                                            .async_request_tx
+                                            .blocking_send(AsyncRequest::DeleteRecording(
+                                                info.folder_path.clone(),
+                                            ))
+                                            .ok();
+                                    }
+
+                                    filesize(
+                                        ui,
+                                        info.folder_size as f64 / 1024.0 / 1024.0,
+                                        font_size,
+                                    );
+
+                                    if let Some(md) = metadata.as_deref() {
+                                        duration(ui, md.duration, font_size);
                                     }
                                 },
                             );
                         });
+
+                        // Collapsible error reasons section
+                        egui::CollapsingHeader::new(
+                            egui::RichText::new(format!(
+                                "⚠ {} error{}",
+                                error_reasons.len(),
+                                if error_reasons.len() == 1 { "" } else { "s" }
+                            ))
+                            .size(font_size - 1.0)
+                            .color(egui::Color32::from_rgb(255, 150, 150)),
+                        )
+                        .id_salt(format!("error_reasons_{}", info.folder_name))
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            egui::Frame::new()
+                                .inner_margin(egui::Margin::symmetric(8, 4))
+                                .outer_margin(egui::Margin::symmetric(0, 0))
+                                .show(ui, |ui| {
+                                    ui.set_width(ui.available_width());
+                                    for reason in error_reasons {
+                                        ui.label(
+                                            egui::RichText::new(format!("• {}", reason))
+                                                .size(font_size - 1.0)
+                                                .color(egui::Color32::from_rgb(255, 200, 200)),
+                                        );
+                                    }
+                                });
+                        });
                     });
+                });
+            }
+            LocalRecording::Unuploaded { info, metadata } => {
+                // Unuploaded entry
+                frame(ui, egui::Color32::from_rgb(90, 80, 40), |ui| {
+                    ui.horizontal(|ui| {
+                        // Pending indicator
+                        ui.label(
+                            egui::RichText::new("⏳")
+                                .size(font_size)
+                                .color(egui::Color32::from_rgb(255, 255, 100)),
+                        );
+
+                        // Folder name (clickable to open folder)
+                        local_recording_link(
+                            ui,
+                            info,
+                            metadata.as_deref(),
+                            &app_state.async_request_tx,
+                            font_size,
+                            egui::Color32::from_rgb(255, 255, 150),
+                        );
+
+                        // "Pending upload" label
+                        ui.label(
+                            egui::RichText::new("(pending upload)")
+                                .size(font_size - 1.0)
+                                .color(egui::Color32::from_rgb(200, 180, 100))
+                                .italics(),
+                        );
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            // Timestamp if available
+                            if let Some(timestamp) = info.timestamp {
+                                datetime(
+                                    ui,
+                                    chrono::DateTime::<chrono::Utc>::from(timestamp),
+                                    font_size,
+                                );
+                            }
+
+                            if delete_button(ui, font_size).clicked() {
+                                // Show confirmation dialog
+                                *pending_delete_recording =
+                                    Some((info.folder_path.clone(), info.folder_name.clone()));
+                            }
+
+                            filesize(ui, info.folder_size as f64 / 1024.0 / 1024.0, font_size);
+
+                            if let Some(md) = metadata.as_deref() {
+                                duration(ui, md.duration, font_size);
+                            }
+                        });
+                    });
+                });
             }
             LocalRecording::Uploaded { .. } => {
                 // Uploaded recordings are not shown in the local recordings UI
@@ -1352,7 +1341,7 @@ fn dropdown_list(
 fn delete_recording_confirmation_window(
     ctx: &egui::Context,
     pending_delete_recording: &mut Option<(PathBuf, String)>,
-    app_state: &crate::app_state::AppState,
+    app_state: &AppState,
 ) {
     if let Some((folder_path, folder_name)) = pending_delete_recording.clone() {
         let mut keep_open = true;
@@ -1395,9 +1384,7 @@ fn delete_recording_confirmation_window(
                     {
                         app_state
                             .async_request_tx
-                            .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
-                                folder_path.clone(),
-                            ))
+                            .blocking_send(AsyncRequest::OpenFolder(folder_path.clone()))
                             .ok();
                     }
 
@@ -1428,24 +1415,10 @@ fn delete_recording_confirmation_window(
                             )
                             .clicked()
                         {
-                            if let Err(e) = std::fs::remove_dir_all(folder_path.clone()) {
-                                tracing::error!(
-                                    "Failed to delete unuploaded recording folder {}: {:?}",
-                                    folder_path.display(),
-                                    e
-                                );
-                            } else {
-                                tracing::info!(
-                                    "Deleted unuploaded recording folder: {}",
-                                    folder_path.display()
-                                );
-                                app_state
-                                    .async_request_tx
-                                    .blocking_send(
-                                        crate::app_state::AsyncRequest::LoadLocalRecordings,
-                                    )
-                                    .ok();
-                            }
+                            app_state
+                                .async_request_tx
+                                .blocking_send(AsyncRequest::DeleteRecording(folder_path.clone()))
+                                .ok();
                             *pending_delete_recording = None;
                         }
                     });
@@ -1462,7 +1435,7 @@ fn move_location_confirmation_window(
     ctx: &egui::Context,
     pending_move_location: &mut Option<(PathBuf, PathBuf)>,
     recording_location: &mut PathBuf,
-    app_state: &crate::app_state::AppState,
+    app_state: &AppState,
 ) {
     let Some((old_path, new_path)) = pending_move_location.clone() else {
         return;

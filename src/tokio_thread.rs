@@ -307,25 +307,22 @@ async fn main(
                                 tracing::info!("Deleting {} invalid recordings", total_count);
 
                                 // Delete all invalid recording folders
-                                let errors = tokio::task::spawn_blocking(move || {
-                                    let mut errors = Vec::new();
-                                    for (folder_name, folder_path) in invalid_folders_to_delete.iter() {
-                                        if let Err(e) = std::fs::remove_dir_all(folder_path) {
-                                            tracing::error!(
-                                                "Failed to delete invalid recording folder {}: {:?}",
-                                                folder_path.display(),
-                                                e
-                                            );
-                                            errors.push(folder_name.clone());
-                                        } else {
-                                            tracing::info!(
-                                                "Deleted invalid recording folder: {}",
-                                                folder_path.display()
-                                            );
-                                        }
+                                let mut errors = vec![];
+                                for (folder_name, folder_path) in invalid_folders_to_delete.iter() {
+                                    if let Err(e) = tokio::fs::remove_dir_all(folder_path).await {
+                                        tracing::error!(
+                                            "Failed to delete invalid recording folder {}: {:?}",
+                                            folder_path.display(),
+                                            e
+                                        );
+                                        errors.push(folder_name.clone());
+                                    } else {
+                                        tracing::info!(
+                                            "Deleted invalid recording folder: {}",
+                                            folder_path.display()
+                                        );
                                     }
-                                    errors
-                                }).await.unwrap_or_default();
+                                }
 
                                 if errors.is_empty() {
                                     tracing::info!("Successfully deleted all {} invalid recordings", total_count);
@@ -333,17 +330,19 @@ async fn main(
                                     tracing::warn!("Failed to delete {} recordings: {:?}", errors.len(), errors);
                                 }
 
-                                // Refresh the local recordings list
-                                let local_recordings = tokio::task::spawn_blocking(move || {
-                                    LocalRecording::scan_directory(&recording_location)
-                                }).await.unwrap_or_default();
 
-                                app_state
-                                    .ui_update_tx
-                                    .send(UiUpdate::UpdateLocalRecordings(local_recordings))
-                                    .ok();
+                                app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
                             }
                         });
+                    }
+                    AsyncRequest::DeleteRecording(path) => {
+                        if let Err(e) = tokio::fs::remove_dir_all(&path).await {
+                            tracing::error!(e=?e, "Failed to delete recording folder {}: {:?}", path.display(), e);
+                        } else {
+                            tracing::info!("Deleted recording folder: {}", path.display());
+                        }
+
+                        app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
                     }
                     AsyncRequest::MoveRecordingsFolder { from, to } => {
                         tokio::spawn(move_recordings_folder(app_state.clone(), from, to));

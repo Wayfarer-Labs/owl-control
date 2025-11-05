@@ -43,10 +43,76 @@ pub const AXIS_RIGHTZ: u16 = 6;
 pub const AXIS_DPADX: u16 = 7;
 pub const AXIS_DPADY: u16 = 8;
 
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GamepadId {
+    XInput(usize),
+    WGI(usize),
+}
+impl std::fmt::Display for GamepadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GamepadId::XInput(id) => write!(f, "XInput:{}", id),
+            GamepadId::WGI(id) => write!(f, "WGI:{}", id),
+        }
+    }
+}
+impl std::str::FromStr for GamepadId {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(id) = s.strip_prefix("XInput:") {
+            return Ok(GamepadId::XInput(id.parse::<usize>().unwrap()));
+        }
+        if let Some(id) = s.strip_prefix("WGI:") {
+            return Ok(GamepadId::WGI(id.parse::<usize>().unwrap()));
+        }
+        Err(format!("Invalid gamepad id: {s}"))
+    }
+}
+impl serde::Serialize for GamepadId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for GamepadId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ActiveGamepad {
-    pub gamepad_digital: HashSet<u16>,
-    pub gamepad_analog: HashMap<u16, f32>,
+    pub digital: HashSet<u16>,
+    pub analog: HashMap<u16, f32>,
+    pub axis: HashMap<u16, f32>,
+}
+
+#[derive(Default)]
+pub struct ActiveGamepads {
+    pub devices: HashMap<GamepadId, ActiveGamepad>,
+}
+impl ActiveGamepads {
+    pub fn get_or_insert(&mut self, id: GamepadId) -> &mut ActiveGamepad {
+        self.devices.entry(id).or_insert_with(|| ActiveGamepad {
+            digital: HashSet::new(),
+            analog: HashMap::new(),
+            axis: HashMap::new(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GamepadMetadata {
+    pub name: String,
+    pub vendor_id: Option<u16>,
+    pub product_id: Option<u16>,
 }
 
 pub struct GamepadThreads {
@@ -56,7 +122,8 @@ pub struct GamepadThreads {
 
 pub fn initialize_thread(
     input_tx: mpsc::Sender<Event>,
-    active_gamepad: Arc<Mutex<ActiveGamepad>>,
+    active_gamepads: Arc<Mutex<ActiveGamepads>>,
+    gamepads: Arc<RwLock<HashMap<GamepadId, GamepadMetadata>>>,
 ) -> GamepadThreads {
     let already_captured_by_xinput = Arc::new(RwLock::new(HashSet::new()));
 
@@ -72,21 +139,34 @@ pub fn initialize_thread(
     // xinput
     let _xinput_thread = std::thread::spawn({
         let already_captured_by_xinput = already_captured_by_xinput.clone();
+        let gamepads = gamepads.clone();
         let input_tx = input_tx.clone();
-        let active_gamepad = active_gamepad.clone();
+        let active_gamepads = active_gamepads.clone();
         move || {
             let mut gilrs = gilrs_xinput::Gilrs::new().unwrap();
 
             // Examine new events
             while let Some(gilrs_xinput::Event { id, event, .. }) = gilrs.next_event_blocking(None)
             {
-                let name = gilrs.gamepad(id).name().to_string();
-                already_captured_by_xinput.write().unwrap().insert(name);
+                let gamepad = gilrs.gamepad(id);
+                gamepads.write().unwrap().insert(
+                    GamepadId::XInput(id.into()),
+                    GamepadMetadata {
+                        name: gamepad.name().to_string(),
+                        vendor_id: gamepad.vendor_id(),
+                        product_id: gamepad.product_id(),
+                    },
+                );
 
-                let Some(event) = map_event_xinput(event) else {
+                already_captured_by_xinput
+                    .write()
+                    .unwrap()
+                    .insert(gamepad.name().to_string());
+
+                let Some(event) = map_event_xinput(GamepadId::XInput(id.into()), event) else {
                     continue;
                 };
-                update_active_gamepad(&mut active_gamepad.lock().unwrap(), event);
+                update_active_gamepad(&mut active_gamepads.lock().unwrap(), event);
                 if input_tx.blocking_send(event).is_err() {
                     tracing::warn!("Gamepad input tx closed, stopping gamepad capture");
                     break;
@@ -103,15 +183,27 @@ pub fn initialize_thread(
 
             // Examine new events
             while let Some(gilrs_wgi::Event { id, event, .. }) = gilrs.next_event_blocking(None) {
-                let name = gilrs.gamepad(id).name().to_string();
-                if already_captured_by_xinput.read().unwrap().contains(&name) {
+                let gamepad = gilrs.gamepad(id);
+                gamepads.write().unwrap().insert(
+                    GamepadId::WGI(id.into()),
+                    GamepadMetadata {
+                        name: gamepad.name().to_string(),
+                        vendor_id: gamepad.vendor_id(),
+                        product_id: gamepad.product_id(),
+                    },
+                );
+                if already_captured_by_xinput
+                    .read()
+                    .unwrap()
+                    .contains(&gamepad.name().to_string())
+                {
                     continue;
                 }
 
-                let Some(event) = map_event_wgi(event) else {
+                let Some(event) = map_event_wgi(GamepadId::WGI(id.into()), event) else {
                     continue;
                 };
-                update_active_gamepad(&mut active_gamepad.lock().unwrap(), event);
+                update_active_gamepad(&mut active_gamepads.lock().unwrap(), event);
                 if input_tx.blocking_send(event).is_err() {
                     tracing::warn!("Gamepad input tx closed, stopping gamepad capture");
                     break;
@@ -120,15 +212,26 @@ pub fn initialize_thread(
         }
     });
 
-    fn update_active_gamepad(active_gamepad: &mut ActiveGamepad, event: Event) {
+    fn update_active_gamepad(active_gamepads: &mut ActiveGamepads, event: Event) {
         match event {
-            Event::GamepadButtonPress { key, press_state } => {
+            Event::GamepadButtonPress {
+                key,
+                press_state,
+                id,
+            } => {
+                let active_gamepad = active_gamepads.get_or_insert(id);
                 if press_state == PressState::Pressed {
-                    active_gamepad.gamepad_digital.insert(key);
+                    active_gamepad.digital.insert(key);
+                } else {
+                    active_gamepad.digital.remove(&key);
+                    active_gamepad.analog.remove(&key);
                 }
             }
-            Event::GamepadButtonChange { key, value } => {
-                active_gamepad.gamepad_analog.insert(key, value);
+            Event::GamepadButtonChange { key, value, id } => {
+                active_gamepads.get_or_insert(id).analog.insert(key, value);
+            }
+            Event::GamepadAxisChange { axis, value, id } => {
+                active_gamepads.get_or_insert(id).axis.insert(axis, value);
             }
             _ => {}
         }
@@ -142,22 +245,26 @@ pub fn initialize_thread(
 
 macro_rules! generate_map_functions {
     ($gilrs:ident, $map_event:ident, $map_button:ident, $map_axis:ident) => {
-        fn $map_event(event: $gilrs::EventType) -> Option<Event> {
+        fn $map_event(gamepad_id: GamepadId, event: $gilrs::EventType) -> Option<Event> {
             use $gilrs::EventType;
             match event {
                 EventType::ButtonPressed(button, _) => Some(Event::GamepadButtonPress {
+                    id: gamepad_id,
                     key: $map_button(button),
                     press_state: PressState::Pressed,
                 }),
                 EventType::ButtonReleased(button, _) => Some(Event::GamepadButtonPress {
+                    id: gamepad_id,
                     key: $map_button(button),
                     press_state: PressState::Released,
                 }),
                 EventType::ButtonChanged(button, value, _) => Some(Event::GamepadButtonChange {
+                    id: gamepad_id,
                     key: $map_button(button),
                     value,
                 }),
                 EventType::AxisChanged(axis, value, _) => Some(Event::GamepadAxisChange {
+                    id: gamepad_id,
                     axis: $map_axis(axis),
                     value,
                 }),

@@ -17,6 +17,8 @@ use crate::{
     system::hardware_specs,
 };
 
+use super::local_recording::LocalRecording;
+
 pub(crate) struct Recording {
     input_writer: InputEventWriter,
     input_stream: InputEventStream,
@@ -156,7 +158,8 @@ impl Recording {
             )
             .await?;
         } else {
-            super::local_recording::LocalRecording::write_metadata_and_validate(
+            let gamepads = input_capture.gamepads();
+            LocalRecording::write_metadata_and_validate(
                 self.recording_location,
                 self.game_exe,
                 self.game_resolution,
@@ -164,6 +167,7 @@ impl Recording {
                 self.start_time,
                 window_name,
                 adapter_infos,
+                gamepads,
                 recorder.id(),
                 result.as_ref().ok().cloned(),
             )
