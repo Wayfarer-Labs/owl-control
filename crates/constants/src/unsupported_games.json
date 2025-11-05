@@ -8,6 +8,13 @@
     "reason": "EnoughData"
   },
   {
+    "name": "Rust",
+    "binaries": [
+      "rust"
+    ],
+    "reason": "EnoughData"
+  },
+  {
     "name": "DayZ",
     "binaries": [
       "dayz_x64"

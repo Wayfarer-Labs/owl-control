@@ -56,7 +56,7 @@ impl MainApp {
                             );
                             ui.hyperlink_to(
                                 egui::RichText::new("our website.").size(12.0),
-                                "https://wayfarerlabs.ai/handler/sign-in",
+                                "https://wayfarerlabs.ai/handler/sign-up?after_auth_return_to=%2Fhandler%2Fsign-in",
                             );
                         });
                         ui.add_space(10.0);
