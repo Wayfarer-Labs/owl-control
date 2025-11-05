@@ -2,7 +2,7 @@
 
 Follow these guidelines. You must be 18 or older!
 
-❌ PvP modes<br>
+❌ PvP modes.<br>
 ❌ Cutscenes or menus. We need input data, not movies.<br>
 ❌ Idling during recording. No standing still, camping, afk, etc.<br>
 ❌ Play or voice chat of real people not recording with our software in any Co-Op/PvP games.<br>
@@ -89,6 +89,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 
 ### Movement / Parkour (continuous control, momentum, traversal)
 
+- [BPM: Bullets Per Minute](https://store.steampowered.com/app/1286350/BPM_BULLETS_PER_MINUTE/)
 - [Dying Light 2](https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human/)
 - [Dying Light](https://store.steampowered.com/app/239140/Dying_Light/)
 - [Ghostrunner 2](https://store.steampowered.com/app/2144740/Ghostrunner_2)
@@ -101,6 +102,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
+- [Avowed](https://store.steampowered.com/app/2457220/Avowed/)
 - [BeamNG.drive](https://store.steampowered.com/app/284160/BeamNGdrive)
 - [Cyberpunk 2077](https://store.steampowered.com/app/1091500/Cyberpunk_2077/)
 - [The Elder Scrolls IV: Oblivion Remastered](https://store.steampowered.com/app/2623190/The_Elder_Scrolls_IV_Oblivion_Remastered/)
@@ -111,6 +113,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Forza Horizon 5](https://store.steampowered.com/app/1551360/Forza_Horizon_5/)
 - [Forza Motorsport](https://store.steampowered.com/app/2440510/Forza_Motorsport/)
 - [Internet Cafe Simulator 2025](https://store.steampowered.com/app/3326290/Internet_Cafe_Simulator_2025)
+- [Internet Cafe Simulator](https://store.steampowered.com/app/1136160/Internet_Cafe_Simulator/)
 - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
 - [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
 - [Liftoff FPV Drone Racing](https://store.steampowered.com/app/410340/Liftoff_FPV_Drone_Racing)
