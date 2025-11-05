@@ -16,6 +16,7 @@ windows = { workspace = true, features = [
     "Win32_System_Com",
 ] }
 color-eyre.workspace = true
+serde.workspace = true
 tokio.workspace = true
 
 # See gamepad_capture.rs for more details as to why we import gilrs twice. We use a git dependency
