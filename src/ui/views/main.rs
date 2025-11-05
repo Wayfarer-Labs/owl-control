@@ -5,12 +5,13 @@
 
 use crate::{
     api::{UserUpload, UserUploadStatistics},
-    app_state::{AsyncRequest, GitHubRelease, ListeningForNewHotkey},
+    app_state::{AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey},
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
         RecordingBackend,
     },
-    record::LocalRecording,
+    output_types::Metadata,
+    record::{LocalRecording, LocalRecordingInfo},
     ui::{HotkeyRebindTarget, MainApp, util},
 };
 
@@ -851,7 +852,7 @@ fn unified_recordings_view(
     virtual_list: &mut Option<egui_virtual_list::VirtualList>,
     local_recordings: &[LocalRecording],
     uploads: Option<&[UserUpload]>,
-    app_state: &crate::app_state::AppState,
+    app_state: &AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
     const FONTSIZE: f32 = 13.0;
@@ -906,7 +907,7 @@ fn unified_recordings_view(
                     // Send async request to delete all invalid recordings
                     app_state
                         .async_request_tx
-                        .blocking_send(crate::app_state::AsyncRequest::DeleteAllInvalidRecordings)
+                        .blocking_send(AsyncRequest::DeleteAllInvalidRecordings)
                         .ok();
                 }
                 ui.add_space(button_gap);
@@ -1314,7 +1315,7 @@ fn dropdown_list(
 fn delete_recording_confirmation_window(
     ctx: &egui::Context,
     pending_delete_recording: &mut Option<(PathBuf, String)>,
-    app_state: &crate::app_state::AppState,
+    app_state: &AppState,
 ) {
     if let Some((folder_path, folder_name)) = pending_delete_recording.clone() {
         let mut keep_open = true;
@@ -1357,9 +1358,7 @@ fn delete_recording_confirmation_window(
                     {
                         app_state
                             .async_request_tx
-                            .blocking_send(crate::app_state::AsyncRequest::OpenFolder(
-                                folder_path.clone(),
-                            ))
+                            .blocking_send(AsyncRequest::OpenFolder(folder_path.clone()))
                             .ok();
                     }
 
@@ -1390,24 +1389,10 @@ fn delete_recording_confirmation_window(
                             )
                             .clicked()
                         {
-                            if let Err(e) = std::fs::remove_dir_all(folder_path.clone()) {
-                                tracing::error!(
-                                    "Failed to delete unuploaded recording folder {}: {:?}",
-                                    folder_path.display(),
-                                    e
-                                );
-                            } else {
-                                tracing::info!(
-                                    "Deleted unuploaded recording folder: {}",
-                                    folder_path.display()
-                                );
-                                app_state
-                                    .async_request_tx
-                                    .blocking_send(
-                                        crate::app_state::AsyncRequest::LoadLocalRecordings,
-                                    )
-                                    .ok();
-                            }
+                            app_state
+                                .async_request_tx
+                                .blocking_send(AsyncRequest::DeleteRecording(folder_path.clone()))
+                                .ok();
                             *pending_delete_recording = None;
                         }
                     });
@@ -1424,7 +1409,7 @@ fn move_location_confirmation_window(
     ctx: &egui::Context,
     pending_move_location: &mut Option<(PathBuf, PathBuf)>,
     recording_location: &mut PathBuf,
-    app_state: &crate::app_state::AppState,
+    app_state: &AppState,
 ) {
     let Some((old_path, new_path)) = pending_move_location.clone() else {
         return;
