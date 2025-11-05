@@ -30,6 +30,24 @@ pub(crate) struct MainViewState {
     filter_end_date: Option<chrono::NaiveDate>,
 }
 
+#[derive(Debug, Copy, Clone)]
+enum RecordingEntry<'a> {
+    Successful(&'a UserUpload),
+    Local(&'a LocalRecording),
+}
+impl<'a> RecordingEntry<'a> {
+    fn timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+        match self {
+            RecordingEntry::Successful(upload) => upload.created_at,
+            RecordingEntry::Local(recording) => recording
+                .info()
+                .timestamp
+                .map(chrono::DateTime::<chrono::Utc>::from)
+                .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::from(std::time::UNIX_EPOCH)),
+        }
+    }
+}
+
 impl MainApp {
     pub fn main_view(&mut self, ctx: &egui::Context) {
         const SETTINGS_TEXT_WIDTH: f32 = 150.0;
@@ -320,6 +338,29 @@ impl MainApp {
 
                 // Upload Manager Section
                 ui.group(|ui| {
+                    // Compute the unified recordings list.
+                    let mut all_entries = self.user_uploads
+                        .as_ref()
+                        .map(|u| u.uploads.as_slice())
+                        .unwrap_or_default()
+                        .iter()
+                        .map(RecordingEntry::Successful)
+                        .chain(self.local_recordings.iter().map(RecordingEntry::Local))
+                        .collect::<Vec<_>>();
+                    all_entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
+                    let now = chrono::Utc::now().date_naive();
+                    // The last entry in the list is the oldest entry, so we use that as the start date.
+                    let start_date = all_entries.last().map(|entry| entry.timestamp().date_naive()).unwrap_or(now);
+                    // The first entry in the list is the newest entry, so we use that as the end date.
+                    let end_date = all_entries.first().map(|entry| entry.timestamp().date_naive()).unwrap_or(now);
+
+                    let filtered_entries = all_entries.iter().copied().filter(|entry| {
+                        let date = entry.timestamp().date_naive();
+                        let after_start = self.main_view_state.filter_start_date.is_none_or(|start| date >= start);
+                        let before_end = self.main_view_state.filter_end_date.is_none_or(|end| date <= end);
+                        after_start && before_end
+                    }).collect::<Vec<_>>();
+
                     // Display the full path below
                     let full_rec_loc = dunce::canonicalize(&self.local_preferences.recording_location)
                         .unwrap_or_else(|_| self.local_preferences.recording_location.clone());
@@ -368,6 +409,24 @@ impl MainApp {
                                 });
                         });
                     });
+                    ui.horizontal(|ui| {
+                        let filter_start_date = &mut self.main_view_state.filter_start_date;
+                        let filter_end_date = &mut self.main_view_state.filter_end_date;
+
+                        // From date picker
+                        ui.label("Viewing recordings from");
+                        optional_date_picker(ui, filter_start_date, start_date, "filter_start_date");
+
+                        // To date picker
+                        ui.label("to");
+                        optional_date_picker(ui, filter_end_date, end_date, "filter_end_date");
+
+                        // Clear filter button
+                        if (filter_start_date.is_some() || filter_end_date.is_some()) && ui.button("Reset").clicked() {
+                            *filter_start_date = None;
+                            *filter_end_date = None;
+                        }
+                    });
                     ui.separator();
                     ui.add_space(10.0);
 
@@ -399,11 +458,10 @@ impl MainApp {
                         unified_recordings_view(
                             ui,
                             &mut self.virtual_list,
-                            &self.local_recordings,
-                            self.user_uploads.as_ref().map(|u| u.uploads.as_slice()),
+                            &filtered_entries,
+                            self.user_uploads.is_none() && self.local_recordings.is_empty(),
                             &self.app_state,
                             &mut self.main_view_state.pending_delete_recording,
-                            (&mut self.main_view_state.filter_start_date, &mut self.main_view_state.filter_end_date),
                         );
                     });
 
@@ -505,6 +563,7 @@ impl MainApp {
                             }
                         });
                     }
+
                 });
 
                 // Logo
@@ -734,10 +793,13 @@ fn upload_stats(
         ui.label(egui::RichText::new(title).size(12.0).strong());
         ui.add_space(4.0);
         // Value
-        ui.label(
-            egui::RichText::new(value)
-                .size(10.0)
-                .color(egui::Color32::from_rgb(128, 128, 128)),
+        ui.add(
+            egui::Label::new(
+                egui::RichText::new(value)
+                    .size(10.0)
+                    .color(egui::Color32::from_rgb(128, 128, 128)),
+            )
+            .wrap_mode(egui::TextWrapMode::Extend),
         );
     }
 
@@ -830,36 +892,13 @@ fn upload_stats(
     ui.add_space(10.0);
 }
 
-#[derive(Debug)]
-enum RecordingEntry<'a> {
-    Successful(&'a UserUpload),
-    Local(&'a LocalRecording),
-}
-
-impl<'a> RecordingEntry<'a> {
-    fn timestamp(&self) -> chrono::DateTime<chrono::Utc> {
-        match self {
-            RecordingEntry::Successful(upload) => upload.created_at,
-            RecordingEntry::Local(recording) => recording
-                .info()
-                .timestamp
-                .map(chrono::DateTime::<chrono::Utc>::from)
-                .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::from(std::time::UNIX_EPOCH)),
-        }
-    }
-}
-
 fn unified_recordings_view(
     ui: &mut egui::Ui,
     virtual_list: &mut egui_virtual_list::VirtualList,
-    local_recordings: &[LocalRecording],
-    uploads: Option<&[UserUpload]>,
+    recordings: &[RecordingEntry],
+    still_loading: bool,
     app_state: &AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
-    (filter_start_date, filter_end_date): (
-        &mut Option<chrono::NaiveDate>,
-        &mut Option<chrono::NaiveDate>,
-    ),
 ) {
     const FONTSIZE: f32 = 13.0;
     egui::Frame::new()
@@ -871,24 +910,23 @@ fn unified_recordings_view(
         })
         .show(ui, |ui| {
             // Delete All Invalid button (only show if there are invalid recordings)
-            let invalid_count = local_recordings
+            let invalid_count = recordings
                 .iter()
-                .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
+                .filter(|r| matches!(r, RecordingEntry::Local(LocalRecording::Invalid { .. })))
                 .count();
 
             let button_height = 28.0;
-            let button_gap = 8.0;
 
             let height = 120.0;
 
             // Show spinner if still loading
-            let Some(uploads) = uploads else {
+            if still_loading {
                 ui.vertical_centered(|ui| {
                     ui.add(egui::widgets::Spinner::new().size(
                         height
                             + if invalid_count > 0 {
                                 // Accommodate the button to match heights
-                                button_height + button_gap
+                                button_height
                             } else {
                                 0.0
                             },
@@ -897,8 +935,8 @@ fn unified_recordings_view(
                 return;
             };
 
-            if invalid_count > 0 {
-                if ui
+            if invalid_count > 0
+                && ui
                     .add_sized(
                         egui::vec2(ui.available_width(), button_height),
                         egui::Button::new(
@@ -909,56 +947,15 @@ fn unified_recordings_view(
                         .fill(egui::Color32::from_rgb(180, 60, 60)),
                     )
                     .clicked()
-                {
-                    // Send async request to delete all invalid recordings
-                    app_state
-                        .async_request_tx
-                        .blocking_send(AsyncRequest::DeleteAllInvalidRecordings)
-                        .ok();
-                }
-                ui.add_space(button_gap);
+            {
+                // Send async request to delete all invalid recordings
+                app_state
+                    .async_request_tx
+                    .blocking_send(AsyncRequest::DeleteAllInvalidRecordings)
+                    .ok();
             }
 
-            // Date filter UI
-            ui.horizontal(|ui| {
-                // From date picker
-                ui.label("From:");
-                optional_date_picker(ui, filter_start_date, "filter_start_date");
-
-                // To date picker
-                ui.label("To:");
-                optional_date_picker(ui, filter_end_date, "filter_end_date");
-
-                // Clear filter button
-                if ui.button("Clear").clicked() {
-                    *filter_start_date = None;
-                    *filter_end_date = None;
-                }
-            });
-            ui.add_space(4.0);
-
-            // Filter uploads by date range (only filter Successful entries, not Local)
-            let filtered_uploads: Vec<&UserUpload> = uploads
-                .iter()
-                .filter(|upload| {
-                    let upload_date = upload.created_at.date_naive();
-
-                    // Check if upload is within date range
-                    let after_start = filter_start_date.is_none_or(|start| upload_date >= start);
-                    let before_end = filter_end_date.is_none_or(|end| upload_date <= end);
-
-                    after_start && before_end
-                })
-                .collect();
-
-            let mut all_entries = filtered_uploads
-                .iter()
-                .map(|upload| RecordingEntry::Successful(upload))
-                .chain(local_recordings.iter().map(RecordingEntry::Local))
-                .collect::<Vec<_>>();
-            all_entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
-
-            if all_entries.is_empty() {
+            if recordings.is_empty() {
                 ui.label("No recordings yet");
                 return;
             }
@@ -967,10 +964,10 @@ fn unified_recordings_view(
                 .max_height(height)
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
-                    virtual_list.ui_custom_layout(ui, all_entries.len(), |ui, index| {
+                    virtual_list.ui_custom_layout(ui, recordings.len(), |ui, index| {
                         render_recording_entry(
                             ui,
-                            &all_entries[index],
+                            &recordings[index],
                             app_state,
                             FONTSIZE,
                             pending_delete_recording,
@@ -1549,18 +1546,16 @@ fn move_location_confirmation_window(
 }
 
 /// Wrapper for DatePickerButton that handles Option<NaiveDate>
-fn optional_date_picker(ui: &mut egui::Ui, date: &mut Option<chrono::NaiveDate>, id: &str) {
+fn optional_date_picker(
+    ui: &mut egui::Ui,
+    date: &mut Option<chrono::NaiveDate>,
+    default: chrono::NaiveDate,
+    id: &str,
+) {
     // Initialize with today's date if None
-    let mut temp_date = date.unwrap_or_else(|| chrono::Local::now().date_naive());
-
+    let mut temp_date = date.unwrap_or(default);
     let response = ui.add(egui_extras::DatePickerButton::new(&mut temp_date).id_salt(id));
-
     if response.changed() {
         *date = Some(temp_date);
-    }
-
-    // Show "X" button to clear the date if it's set
-    if date.is_some() && ui.small_button("✖").on_hover_text("Clear date").clicked() {
-        *date = None;
     }
 }
