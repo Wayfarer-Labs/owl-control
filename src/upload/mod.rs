@@ -579,10 +579,10 @@ async fn upload_tar(
             // Check if upload has been cancelled (user-initiated pause)
             if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
                 // Ensure the latest progress is saved for resume
-                if let Some(state) = abort_upload_on_drop.progress_state.as_ref() {
-                    if let Err(e) = state.save_to_file(&progress_file_path) {
-                        tracing::error!("Failed to save upload progress on pause: {:?}", e);
-                    }
+                if let Some(state) = abort_upload_on_drop.progress_state.as_ref()
+                    && let Err(e) = state.save_to_file(&progress_file_path)
+                {
+                    tracing::error!("Failed to save upload progress on pause: {:?}", e);
                 }
                 // Disarm auto-abort to keep server/session state for resume
                 abort_upload_on_drop.disarm();
