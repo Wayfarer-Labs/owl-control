@@ -909,33 +909,24 @@ fn unified_recordings_view(
             bottom: 4,
         })
         .show(ui, |ui| {
-            // Delete All Invalid button (only show if there are invalid recordings)
-            let invalid_count = recordings
-                .iter()
-                .filter(|r| matches!(r, RecordingEntry::Local(LocalRecording::Invalid { .. })))
-                .count();
-
             let button_height = 28.0;
-
             let height = 120.0;
 
             // Show spinner if still loading
             if still_loading {
                 ui.vertical_centered(|ui| {
-                    ui.add(egui::widgets::Spinner::new().size(
-                        height
-                            + if invalid_count > 0 {
-                                // Accommodate the button to match heights
-                                button_height
-                            } else {
-                                0.0
-                            },
-                    ));
+                    ui.add(egui::widgets::Spinner::new().size(height));
                 });
                 return;
             };
 
-            if invalid_count > 0
+            // Delete All Invalid button (only show if there are invalid recordings)
+            let any_invalid = recordings
+                .iter()
+                .filter(|r| matches!(r, RecordingEntry::Local(LocalRecording::Invalid { .. })))
+                .count()
+                > 0;
+            if any_invalid
                 && ui
                     .add_sized(
                         egui::vec2(ui.available_width(), button_height),
@@ -961,7 +952,7 @@ fn unified_recordings_view(
             }
 
             egui::ScrollArea::vertical()
-                .max_height(height)
+                .max_height(height - if any_invalid { button_height } else { 0.0 })
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
                     virtual_list.ui_custom_layout(ui, recordings.len(), |ui, index| {
