@@ -5,5 +5,5 @@ mod obs_socket_recorder;
 mod recorder;
 mod recording;
 
-pub use local_recording::LocalRecording;
+pub use local_recording::{LocalRecording, LocalRecordingInfo};
 pub use recorder::Recorder;

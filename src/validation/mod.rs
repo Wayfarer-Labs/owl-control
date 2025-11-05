@@ -150,7 +150,7 @@ fn validate_files(
     let input = ValidationInput {
         start_time,
         filtered_events: &filtered_events,
-        duration_minutes: end_time - start_time,
+        duration_minutes: (end_time - start_time) / 60.0,
     };
 
     let mut invalid_reasons = video::validate(mp4_path, metadata);
