@@ -4,7 +4,7 @@
 };
 
 use crate::{
-    api::{UserUpload, UserUploadStatistics},
+    api::UserUpload,
     app_state::{AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey},
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
@@ -433,10 +433,8 @@ impl MainApp {
                     ui.horizontal(|ui| {
                         upload_stats(
                             ui,
-                            self.user_uploads
-                                .as_ref()
-                                .map(|u| (&u.statistics, u.uploads.as_slice())),
-                            &self.local_recordings,
+                            &filtered_entries,
+                            self.user_uploads.is_none()
                         );
                     });
                     ui.add_space(8.0);
@@ -762,26 +760,43 @@ fn obs_running_warning(ui: &mut egui::Ui) {
         });
 }
 
-fn upload_stats(
-    ui: &mut egui::Ui,
-    stats_and_uploads: Option<(&UserUploadStatistics, &[UserUpload])>,
-    local_recordings: &[LocalRecording],
-) {
-    let (stats, uploads) = stats_and_uploads.unzip();
+fn upload_stats(ui: &mut egui::Ui, recordings: &[RecordingEntry], still_loading_uploads: bool) {
     let cell_count = 5;
     let available_width = ui.available_width() - (cell_count as f32 * 10.0);
     let cell_width = available_width / cell_count as f32;
 
-    // Calculate total duration, count, and size of unuploaded recordings
+    // Calculate stats for each of our categories. The endpoint that we use to get
+    // the uploaded recordings tells us this, but over the entire range: we'd like to
+    // cover just the user-filtered range.
+    let mut total_duration: f64 = 0.0;
+    let mut total_count: usize = 0;
+    let mut total_size: u64 = 0;
+    let mut last_upload: Option<chrono::DateTime<chrono::Utc>> = None;
+
     let mut unuploaded_duration: f64 = 0.0;
     let mut unuploaded_count: usize = 0;
     let mut unuploaded_size: u64 = 0;
 
-    for rec in local_recordings.iter() {
-        if let LocalRecording::Unuploaded { metadata, info } = rec {
-            unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
-            unuploaded_count += 1;
-            unuploaded_size += info.folder_size;
+    for recording in recordings {
+        match recording {
+            RecordingEntry::Successful(recording) => {
+                total_duration += recording.video_duration_seconds.unwrap_or(0.0);
+                total_count += 1;
+                total_size += recording.file_size_bytes;
+                if last_upload.is_none() || recording.created_at > last_upload.unwrap() {
+                    last_upload = Some(recording.created_at);
+                }
+            }
+            RecordingEntry::Local(LocalRecording::Unuploaded { info, metadata }) => {
+                unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
+                unuploaded_count += 1;
+                unuploaded_size += info.folder_size;
+            }
+            RecordingEntry::Local(
+                LocalRecording::Invalid { .. } | LocalRecording::Uploaded { .. },
+            ) => {
+                // We don't count these in our stats
+            }
         }
     }
 
@@ -812,9 +827,9 @@ fn upload_stats(
                 ui,
                 "📊", // Icon
                 "Total Uploaded",
-                &stats
-                    .map(|s| util::format_seconds(s.total_video_time.seconds as u64))
-                    .unwrap_or_else(|| "Loading...".to_string()),
+                &still_loading_uploads
+                    .then(|| "Loading...".to_string())
+                    .unwrap_or_else(|| util::format_seconds(total_duration as u64)),
             );
         },
     );
@@ -828,9 +843,9 @@ fn upload_stats(
                 ui,
                 "📁", // Icon
                 "Files Uploaded",
-                &stats
-                    .map(|s| s.total_uploads.to_string())
-                    .unwrap_or_else(|| "Loading...".to_string()),
+                &still_loading_uploads
+                    .then(|| "Loading...".to_string())
+                    .unwrap_or_else(|| total_count.to_string()),
             );
         },
     );
@@ -844,7 +859,9 @@ fn upload_stats(
                 ui,
                 "💾", // Icon
                 "Volume Uploaded",
-                &util::format_bytes(stats.map(|s| s.total_data.bytes).unwrap_or_else(|| 0)),
+                &still_loading_uploads
+                    .then(|| "Loading...".to_string())
+                    .unwrap_or_else(|| util::format_bytes(total_size)),
             );
         },
     );
@@ -878,14 +895,14 @@ fn upload_stats(
                 ui,
                 "🕒", // Icon
                 "Last Upload",
-                &uploads
-                    .map(|u| {
-                        u.first()
-                            .map(|upload| upload.created_at.with_timezone(&chrono::Local))
+                &still_loading_uploads
+                    .then(|| "Loading...".to_string())
+                    .unwrap_or_else(|| {
+                        last_upload
+                            .map(|dt| dt.with_timezone(&chrono::Local))
                             .map(util::format_datetime)
-                            .unwrap_or_else(|| "Never".to_string())
-                    })
-                    .unwrap_or_else(|| "Loading...".to_string()),
+                            .unwrap_or("Never".to_string())
+                    }),
             );
         },
     );
