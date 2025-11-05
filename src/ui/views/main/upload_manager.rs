@@ -9,6 +9,31 @@ use crate::{
 };
 
 #[derive(Default)]
+pub struct UploadManager {
+    recordings: Recordings,
+    virtual_list: egui_virtual_list::VirtualList,
+    current_upload_progress: Option<upload::ProgressData>,
+    last_upload_error: Option<String>,
+}
+impl UploadManager {
+    pub fn update_user_uploads(&mut self, user_uploads: Vec<UserUpload>) {
+        self.recordings.update_user_uploads(user_uploads);
+    }
+
+    pub fn update_local_recordings(&mut self, local_recordings: Vec<LocalRecording>) {
+        self.recordings.update_local_recordings(local_recordings);
+    }
+
+    pub fn update_current_upload_progress(&mut self, progress: Option<upload::ProgressData>) {
+        self.current_upload_progress = progress;
+    }
+
+    pub fn update_last_upload_error(&mut self, last_upload_error: Option<String>) {
+        self.last_upload_error = last_upload_error;
+    }
+}
+
+#[derive(Default)]
 pub struct Recordings {
     storage: RecordingStorage,
 
@@ -213,15 +238,14 @@ impl Recording<'_> {
 #[allow(clippy::too_many_arguments)]
 pub fn view(
     ui: &mut egui::Ui,
-    recordings: &mut Recordings,
+    upload_manager: &mut UploadManager,
     local_preferences: &mut Preferences,
     app_state: &AppState,
-    recordings_virtual_list: &mut egui_virtual_list::VirtualList,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
-    current_upload_progress: Option<&upload::ProgressData>,
-    last_upload_error: &mut Option<String>,
     is_newer_release_available: bool,
 ) {
+    let recordings = &mut upload_manager.recordings;
+
     // Compute the unified recordings list.
     let now = chrono::Utc::now();
     let start_date = recordings.earliest_timestamp().unwrap_or(now).date_naive();
@@ -322,15 +346,14 @@ pub fn view(
         recordings_view(
             ui,
             recordings,
-            recordings_virtual_list,
+            &mut upload_manager.virtual_list,
             app_state,
             pending_delete_recording,
         );
     });
 
     // Progress Bar
-    let is_uploading = current_upload_progress.is_some();
-    if let Some(progress) = current_upload_progress {
+    if let Some(progress) = &upload_manager.current_upload_progress {
         ui.add_space(10.0);
 
         // Display current file and files remaining
@@ -384,7 +407,7 @@ pub fn view(
 
     // Upload Button
     ui.add_space(5.0);
-    if is_uploading {
+    if upload_manager.current_upload_progress.is_some() {
         // Show Cancel button when uploading
         ui.add_enabled_ui(
             !app_state
@@ -423,15 +446,15 @@ pub fn view(
                 )
                 .clicked()
             {
-                *last_upload_error = None;
+                upload_manager.last_upload_error = None;
                 app_state
                     .async_request_tx
                     .blocking_send(AsyncRequest::UploadData)
                     .ok();
             }
-            if let Some(error) = last_upload_error {
+            if let Some(error) = &upload_manager.last_upload_error {
                 ui.label(
-                    egui::RichText::new(&*error)
+                    egui::RichText::new(error)
                         .size(12.0)
                         .color(egui::Color32::from_rgb(255, 0, 0)),
                 );

@@ -27,7 +27,6 @@ use crate::{
     assets,
     config::{Credentials, Preferences},
     system::keycode::virtual_keycode_to_name,
-    upload,
 };
 
 mod egui_renderer;
@@ -449,11 +448,6 @@ pub struct MainApp {
     /// Time since last requested config edit: we only attempt to save once enough time has passed
     config_last_edit: Option<Instant>,
 
-    /// Current upload progress, updated from upload bridge via mpsc channel
-    current_upload_progress: Option<upload::ProgressData>,
-    /// Last upload error, updated from upload bridge via mpsc channel
-    last_upload_error: Option<String>,
-
     /// A newer release is available, updated from tokio thread via mpsc channel
     newer_release_available: Option<GitHubRelease>,
 
@@ -512,9 +506,6 @@ impl MainApp {
             local_preferences,
             config_last_edit: None,
 
-            current_upload_progress: None,
-            last_upload_error: None,
-
             newer_release_available: None,
 
             md_cache: CommonMarkCache::default(),
@@ -558,7 +549,9 @@ impl MainApp {
                     }
                 }
                 Ok(UiUpdate::UploadFailed(error)) => {
-                    self.last_upload_error = Some(error);
+                    self.main_view_state
+                        .upload_manager
+                        .update_last_upload_error(Some(error));
                 }
                 Ok(UiUpdate::UpdateTrayIconRecording(recording)) => {
                     self.tray_icon.set_icon_recording(recording);
@@ -568,12 +561,12 @@ impl MainApp {
                 }
                 Ok(UiUpdate::UpdateUserUploads(uploads)) => {
                     self.main_view_state
-                        .recordings
+                        .upload_manager
                         .update_user_uploads(uploads.uploads);
                 }
                 Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
                     self.main_view_state
-                        .recordings
+                        .upload_manager
                         .update_local_recordings(recordings);
                 }
                 Ok(UiUpdate::FolderPickerResult { old_path, new_path }) => {
@@ -601,7 +594,9 @@ impl MainApp {
         loop {
             match self.ui_update_unreliable_rx.try_recv() {
                 Ok(UiUpdateUnreliable::UpdateUploadProgress(progress_data)) => {
-                    self.current_upload_progress = progress_data;
+                    self.main_view_state
+                        .upload_manager
+                        .update_current_upload_progress(progress_data);
                 }
                 Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {
                     tracing::warn!("UiUpdateUnreliable channel lagged, dropping message");

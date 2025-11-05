@@ -15,7 +15,6 @@ use crate::{
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
 
 mod upload_manager;
-pub use upload_manager::Recordings;
 
 #[derive(Default)]
 pub(crate) struct MainViewState {
@@ -25,9 +24,8 @@ pub(crate) struct MainViewState {
     /// Pending recording location move (stores old path and new path)
     pub(crate) pending_move_location: Option<(PathBuf, PathBuf)>,
 
-    /// Recordings data
-    pub(crate) recordings: Recordings,
-    recordings_virtual_list: egui_virtual_list::VirtualList,
+    /// Upload manager state
+    pub(crate) upload_manager: upload_manager::UploadManager,
 }
 
 const SETTINGS_TEXT_WIDTH: f32 = 150.0;
@@ -322,13 +320,10 @@ impl MainApp {
                 ui.group(|ui| {
                     upload_manager::view(
                         ui,
-                        &mut self.main_view_state.recordings,
+                        &mut self.main_view_state.upload_manager,
                         &mut self.local_preferences,
                         &self.app_state,
-                        &mut self.main_view_state.recordings_virtual_list,
                         &mut self.main_view_state.pending_delete_recording,
-                        self.current_upload_progress.as_ref(),
-                        &mut self.last_upload_error,
                         self.newer_release_available.is_some(),
                     );
                 });
