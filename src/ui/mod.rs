@@ -20,14 +20,12 @@ use winit::{
 };
 
 use crate::{
-    api::UserUploads,
     app_state::{
         AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey, UiUpdate,
         UiUpdateUnreliable,
     },
     assets,
     config::{Credentials, Preferences},
-    record::LocalRecording,
     system::keycode::virtual_keycode_to_name,
     upload,
 };
@@ -44,11 +42,11 @@ pub mod notification;
 
 /// Optimized to show everything in the layout at 1x scaling.
 ///
-/// Update this whenever you add or remove content. Assume that everything that a normal useer
+/// Update this whenever you add or remove content. Assume that everything that a normal user
 /// might see should be covered by this size (e.g. no temporary notices, but yes "delete invalid" button)
 ///
 /// Try to keep this below ~840px ((1080/1.25 = 864) - 24px taskbar)).
-const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 820);
+const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 825);
 
 pub fn start(
     wgpu_instance: wgpu::Instance,
@@ -467,10 +465,6 @@ pub struct MainApp {
 
     main_view_state: views::main::MainViewState,
 
-    user_uploads: Option<UserUploads>,
-    local_recordings: Vec<LocalRecording>,
-    virtual_list: egui_virtual_list::VirtualList,
-
     tray_icon: tray_icon::TrayIconState,
 
     /// Whether the encoder settings window is open
@@ -531,10 +525,6 @@ impl MainApp {
 
             main_view_state: views::main::MainViewState::default(),
 
-            user_uploads: None,
-            local_recordings: vec![],
-            virtual_list: egui_virtual_list::VirtualList::default(),
-
             tray_icon,
 
             encoder_settings_window_open: false,
@@ -577,15 +567,22 @@ impl MainApp {
                     self.newer_release_available = Some(release);
                 }
                 Ok(UiUpdate::UpdateUserUploads(uploads)) => {
-                    self.user_uploads = Some(uploads);
+                    self.main_view_state
+                        .recordings
+                        .update_user_uploads(uploads.uploads);
                 }
                 Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
-                    self.local_recordings = recordings;
+                    self.main_view_state
+                        .recordings
+                        .update_local_recordings(recordings);
                 }
                 Ok(UiUpdate::FolderPickerResult { old_path, new_path }) => {
                     // Check if there are any recordings in the old location
-                    if !self.local_recordings.is_empty()
-                        && old_path.exists()
+                    if old_path.exists()
+                        && std::fs::read_dir(&old_path).is_ok_and(|dir| {
+                            dir.filter_map(Result::ok)
+                                .any(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+                        })
                         && old_path != new_path
                     {
                         // Show confirmation dialog to ask about moving files

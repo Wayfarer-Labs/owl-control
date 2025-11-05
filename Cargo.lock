@@ -1510,6 +1510,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bdced1964ad8a02a116b1307f7b4f73dbe408c5f53dcdd488f527609f261da60"
 dependencies = [
  "ahash",
+ "chrono",
  "egui",
  "ehttp",
  "enum-map",

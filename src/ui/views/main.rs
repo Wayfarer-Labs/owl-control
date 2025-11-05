@@ -4,7 +4,7 @@
 };
 
 use crate::{
-    api::{UserUpload, UserUploadStatistics},
+    api::UserUpload,
     app_state::{AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey},
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
@@ -24,6 +24,196 @@ pub(crate) struct MainViewState {
     pub(crate) pending_delete_recording: Option<(PathBuf, String)>,
     /// Pending recording location move (stores old path and new path)
     pub(crate) pending_move_location: Option<(PathBuf, PathBuf)>,
+
+    /// Recordings data
+    pub(crate) recordings: Recordings,
+    recordings_virtual_list: egui_virtual_list::VirtualList,
+}
+
+#[derive(Default)]
+pub(crate) struct Recordings {
+    storage: RecordingStorage,
+
+    /// Date filter for uploaded files (start date)
+    filter_start_date: Option<chrono::NaiveDate>,
+    /// Date filter for uploaded files (end date)
+    filter_end_date: Option<chrono::NaiveDate>,
+
+    // Updated on changes
+    all: Vec<RecordingIndex>,
+    filtered: Vec<RecordingIndex>,
+    latest_upload_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+    invalid_count: usize,
+}
+impl Recordings {
+    pub fn update_user_uploads(&mut self, user_uploads: Vec<UserUpload>) {
+        self.storage.uploaded = user_uploads;
+        self.storage.uploads_available = true;
+        self.update_calculated_state();
+    }
+
+    pub fn update_local_recordings(&mut self, local_recordings: Vec<LocalRecording>) {
+        self.storage.local = local_recordings;
+        self.storage.local_available = true;
+        self.update_calculated_state();
+    }
+
+    fn iter_filtered(&self) -> impl Iterator<Item = Recording<'_>> {
+        self.filtered.iter().filter_map(|ri| self.storage.get(*ri))
+    }
+
+    fn get(&self, index: RecordingIndex) -> Option<Recording<'_>> {
+        self.storage.get(index)
+    }
+
+    fn get_by_index_filtered(&self, index: usize) -> Option<Recording<'_>> {
+        self.filtered
+            .get(index)
+            .and_then(|ri| self.storage.get(*ri))
+    }
+
+    fn is_empty_filtered(&self) -> bool {
+        self.filtered.is_empty()
+    }
+
+    fn len_filtered(&self) -> usize {
+        self.filtered.len()
+    }
+
+    fn any_available(&self) -> bool {
+        self.uploads_available() || self.local_available()
+    }
+
+    fn uploads_available(&self) -> bool {
+        self.storage.uploads_available
+    }
+
+    fn local_available(&self) -> bool {
+        self.storage.local_available
+    }
+
+    fn earliest_timestamp(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.all
+            .last()
+            .and_then(|ri| self.storage.get(*ri))
+            .map(|r| r.timestamp())
+    }
+
+    fn latest_timestamp(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.all
+            .first()
+            .and_then(|ri| self.storage.get(*ri))
+            .map(|r| r.timestamp())
+    }
+
+    fn latest_upload_timestamp(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.latest_upload_timestamp
+    }
+
+    fn set_filter_start_date(&mut self, date: Option<chrono::NaiveDate>) {
+        self.set_filter_dates(date, self.filter_end_date);
+    }
+
+    fn set_filter_end_date(&mut self, date: Option<chrono::NaiveDate>) {
+        self.set_filter_dates(self.filter_start_date, date);
+    }
+
+    fn set_filter_dates(
+        &mut self,
+        start: Option<chrono::NaiveDate>,
+        end: Option<chrono::NaiveDate>,
+    ) {
+        self.filter_start_date = start;
+        self.filter_end_date = end;
+        self.update_filtered_state();
+    }
+
+    fn update_calculated_state(&mut self) {
+        let user_upload_indices = self
+            .storage
+            .uploaded
+            .iter()
+            .enumerate()
+            .map(|(i, _)| RecordingIndex::Uploaded(i));
+        let local_recording_indices = self
+            .storage
+            .local
+            .iter()
+            .enumerate()
+            .map(|(i, _)| RecordingIndex::Local(i));
+
+        self.all = user_upload_indices
+            .chain(local_recording_indices)
+            .collect::<Vec<_>>();
+        self.all
+            .sort_by_key(|ri| std::cmp::Reverse(self.storage.get(*ri).map(|r| r.timestamp())));
+        self.update_filtered_state();
+    }
+
+    fn update_filtered_state(&mut self) {
+        self.filtered = self
+            .all
+            .iter()
+            .copied()
+            .filter(|entry| {
+                let Some(date) = self.get(*entry).map(|r| r.timestamp().date_naive()) else {
+                    return false;
+                };
+                let after_start = self.filter_start_date.is_none_or(|start| date >= start);
+                let before_end = self.filter_end_date.is_none_or(|end| date <= end);
+                after_start && before_end
+            })
+            .collect::<Vec<_>>();
+
+        self.latest_upload_timestamp = self
+            .iter_filtered()
+            .filter(|r| matches!(r, Recording::Uploaded(_)))
+            .map(|r| r.timestamp())
+            .max();
+
+        self.invalid_count = self
+            .iter_filtered()
+            .filter(|r| matches!(r, Recording::Local(LocalRecording::Invalid { .. })))
+            .count();
+    }
+}
+#[derive(Default)]
+struct RecordingStorage {
+    uploaded: Vec<UserUpload>,
+    uploads_available: bool,
+
+    local: Vec<LocalRecording>,
+    local_available: bool,
+}
+impl RecordingStorage {
+    fn get(&self, index: RecordingIndex) -> Option<Recording<'_>> {
+        match index {
+            RecordingIndex::Uploaded(index) => self.uploaded.get(index).map(Recording::Uploaded),
+            RecordingIndex::Local(index) => self.local.get(index).map(Recording::Local),
+        }
+    }
+}
+#[derive(Debug, Copy, Clone)]
+enum RecordingIndex {
+    Uploaded(usize),
+    Local(usize),
+}
+#[derive(Debug, Copy, Clone)]
+enum Recording<'a> {
+    Uploaded(&'a UserUpload),
+    Local(&'a LocalRecording),
+}
+impl Recording<'_> {
+    fn timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+        match self {
+            Recording::Uploaded(upload) => upload.created_at,
+            Recording::Local(local) => local
+                .info()
+                .timestamp
+                .map(chrono::DateTime::<chrono::Utc>::from)
+                .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::from(std::time::UNIX_EPOCH)),
+        }
+    }
 }
 
 impl MainApp {
@@ -316,6 +506,11 @@ impl MainApp {
 
                 // Upload Manager Section
                 ui.group(|ui| {
+                    // Compute the unified recordings list.
+                    let now = chrono::Utc::now();
+                    let start_date = self.main_view_state.recordings.earliest_timestamp().unwrap_or(now).date_naive();
+                    let end_date = self.main_view_state.recordings.latest_timestamp().unwrap_or(now).date_naive();
+
                     // Display the full path below
                     let full_rec_loc = dunce::canonicalize(&self.local_preferences.recording_location)
                         .unwrap_or_else(|_| self.local_preferences.recording_location.clone());
@@ -364,42 +559,55 @@ impl MainApp {
                                 });
                         });
                     });
+                    ui.horizontal(|ui| {
+                        let filter_start = self.main_view_state.recordings.filter_start_date;
+                        let filter_end = self.main_view_state.recordings.filter_end_date;
+
+                        // From date picker
+                        ui.label("Viewing recordings from");
+                        if let Some(new_start) = optional_date_picker(ui, filter_start, start_date, "filter_start_date") {
+                            self.main_view_state.recordings.set_filter_start_date(Some(new_start));
+                        }
+
+                        // To date picker
+                        ui.label("to");
+                        if let Some(new_end) = optional_date_picker(ui, filter_end, end_date, "filter_end_date") {
+                            self.main_view_state.recordings.set_filter_end_date(Some(new_end));
+                        }
+
+                        // Clear filter button
+                        if (filter_start.is_some() || filter_end.is_some()) && ui.button("Reset").clicked() {
+                            self.main_view_state.recordings.set_filter_dates(None, None);
+                        }
+                    });
                     ui.separator();
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
                         upload_stats(
                             ui,
-                            self.user_uploads
-                                .as_ref()
-                                .map(|u| (&u.statistics, u.uploads.as_slice())),
-                            &self.local_recordings,
+                            &self.main_view_state.recordings,
                         );
                     });
                     ui.add_space(8.0);
 
                     // Unified Recordings Section
-                    let invalid_count = self.local_recordings.iter()
-                        .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
-                        .count();
                     egui::CollapsingHeader::new(
-                        if invalid_count > 0 {
-                            egui::RichText::new(format!("Upload Tracker ({invalid_count} invalid)"))
-                                .size(16.0)
-                        } else {
-                            egui::RichText::new("Upload Tracker").size(16.0)
-                        }
+                        egui::RichText::new(&{
+                            let invalid_count = self.main_view_state.recordings.invalid_count;
+                            if invalid_count > 0 {
+                                format!("Upload Tracker ({invalid_count} invalid)")
+                            } else {
+                                "Upload Tracker".to_string()
+                            }
+                        }).size(16.0)
                     )
                     .default_open(true)
                     .show(ui, |ui| {
-                        ui.add_space(4.0);
-
-                        // Unified view with both successful and invalid recordings
                         unified_recordings_view(
                             ui,
-                            &mut self.virtual_list,
-                            &self.local_recordings,
-                            self.user_uploads.as_ref().map(|u| u.uploads.as_slice()),
+                            &mut self.main_view_state.recordings,
+                            &mut self.main_view_state.recordings_virtual_list,
                             &self.app_state,
                             &mut self.main_view_state.pending_delete_recording,
                         );
@@ -503,6 +711,7 @@ impl MainApp {
                             }
                         });
                     }
+
                 });
 
                 // Logo
@@ -701,26 +910,41 @@ fn obs_running_warning(ui: &mut egui::Ui) {
         });
 }
 
-fn upload_stats(
-    ui: &mut egui::Ui,
-    stats_and_uploads: Option<(&UserUploadStatistics, &[UserUpload])>,
-    local_recordings: &[LocalRecording],
-) {
-    let (stats, uploads) = stats_and_uploads.unzip();
+fn upload_stats(ui: &mut egui::Ui, recordings: &Recordings) {
     let cell_count = 5;
     let available_width = ui.available_width() - (cell_count as f32 * 10.0);
     let cell_width = available_width / cell_count as f32;
 
-    // Calculate total duration, count, and size of unuploaded recordings
+    // Calculate stats for each of our categories. The endpoint that we use to get
+    // the uploaded recordings tells us this, but over the entire range: we'd like to
+    // cover just the user-filtered range.
+    let mut total_duration: f64 = 0.0;
+    let mut total_count: usize = 0;
+    let mut total_size: u64 = 0;
+    let mut last_upload: Option<chrono::DateTime<chrono::Utc>> = None;
+
     let mut unuploaded_duration: f64 = 0.0;
     let mut unuploaded_count: usize = 0;
     let mut unuploaded_size: u64 = 0;
 
-    for rec in local_recordings.iter() {
-        if let LocalRecording::Unuploaded { metadata, info } = rec {
-            unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
-            unuploaded_count += 1;
-            unuploaded_size += info.folder_size;
+    for recording in recordings.iter_filtered() {
+        match recording {
+            Recording::Uploaded(recording) => {
+                total_duration += recording.video_duration_seconds.unwrap_or(0.0);
+                total_count += 1;
+                total_size += recording.file_size_bytes;
+                if last_upload.is_none() || recording.created_at > last_upload.unwrap() {
+                    last_upload = Some(recording.created_at);
+                }
+            }
+            Recording::Local(LocalRecording::Unuploaded { info, metadata }) => {
+                unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
+                unuploaded_count += 1;
+                unuploaded_size += info.folder_size;
+            }
+            Recording::Local(LocalRecording::Invalid { .. } | LocalRecording::Uploaded { .. }) => {
+                // We don't count these in our stats
+            }
         }
     }
 
@@ -732,10 +956,13 @@ fn upload_stats(
         ui.label(egui::RichText::new(title).size(12.0).strong());
         ui.add_space(4.0);
         // Value
-        ui.label(
-            egui::RichText::new(value)
-                .size(10.0)
-                .color(egui::Color32::from_rgb(128, 128, 128)),
+        ui.add(
+            egui::Label::new(
+                egui::RichText::new(value)
+                    .size(10.0)
+                    .color(egui::Color32::from_rgb(128, 128, 128)),
+            )
+            .wrap_mode(egui::TextWrapMode::Extend),
         );
     }
 
@@ -748,9 +975,11 @@ fn upload_stats(
                 ui,
                 "📊", // Icon
                 "Total Uploaded",
-                &stats
-                    .map(|s| util::format_seconds(s.total_video_time.seconds as u64))
-                    .unwrap_or_else(|| "Loading...".to_string()),
+                &if recordings.uploads_available() {
+                    util::format_seconds(total_duration as u64)
+                } else {
+                    "Loading...".to_string()
+                },
             );
         },
     );
@@ -764,9 +993,11 @@ fn upload_stats(
                 ui,
                 "📁", // Icon
                 "Files Uploaded",
-                &stats
-                    .map(|s| s.total_uploads.to_string())
-                    .unwrap_or_else(|| "Loading...".to_string()),
+                &if recordings.uploads_available() {
+                    total_count.to_string()
+                } else {
+                    "Loading...".to_string()
+                },
             );
         },
     );
@@ -780,7 +1011,11 @@ fn upload_stats(
                 ui,
                 "💾", // Icon
                 "Volume Uploaded",
-                &util::format_bytes(stats.map(|s| s.total_data.bytes).unwrap_or_else(|| 0)),
+                &if recordings.uploads_available() {
+                    util::format_bytes(total_size)
+                } else {
+                    "Loading...".to_string()
+                },
             );
         },
     );
@@ -790,17 +1025,16 @@ fn upload_stats(
         egui::vec2(cell_width, ui.available_height()),
         egui::Layout::top_down(egui::Align::Center),
         |ui| {
-            let pending_text = format!(
-                "{} / {} files / {}",
-                util::format_seconds(unuploaded_duration as u64),
-                unuploaded_count,
-                util::format_bytes(unuploaded_size)
-            );
             create_upload_cell(
                 ui,
                 "⏳", // Icon
                 "Pending Uploads",
-                &pending_text,
+                &format!(
+                    "{} / {} files / {}",
+                    util::format_seconds(unuploaded_duration as u64),
+                    unuploaded_count,
+                    util::format_bytes(unuploaded_size)
+                ),
             );
         },
     );
@@ -814,44 +1048,25 @@ fn upload_stats(
                 ui,
                 "🕒", // Icon
                 "Last Upload",
-                &uploads
-                    .map(|u| {
-                        u.first()
-                            .map(|upload| upload.created_at.with_timezone(&chrono::Local))
-                            .map(util::format_datetime)
-                            .unwrap_or_else(|| "Never".to_string())
-                    })
-                    .unwrap_or_else(|| "Loading...".to_string()),
+                &if recordings.uploads_available() {
+                    recordings
+                        .latest_upload_timestamp()
+                        .map(|dt| dt.with_timezone(&chrono::Local))
+                        .map(util::format_datetime)
+                        .unwrap_or("Never".to_string())
+                } else {
+                    "Loading...".to_string()
+                },
             );
         },
     );
     ui.add_space(10.0);
 }
 
-#[derive(Debug)]
-enum RecordingEntry<'a> {
-    Successful(&'a UserUpload),
-    Local(&'a LocalRecording),
-}
-
-impl<'a> RecordingEntry<'a> {
-    fn timestamp(&self) -> chrono::DateTime<chrono::Utc> {
-        match self {
-            RecordingEntry::Successful(upload) => upload.created_at,
-            RecordingEntry::Local(recording) => recording
-                .info()
-                .timestamp
-                .map(chrono::DateTime::<chrono::Utc>::from)
-                .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::from(std::time::UNIX_EPOCH)),
-        }
-    }
-}
-
 fn unified_recordings_view(
     ui: &mut egui::Ui,
-    virtual_list: &mut egui_virtual_list::VirtualList,
-    local_recordings: &[LocalRecording],
-    uploads: Option<&[UserUpload]>,
+    recordings: &mut Recordings,
+    recordings_virtual_list: &mut egui_virtual_list::VirtualList,
     app_state: &AppState,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
@@ -864,35 +1079,21 @@ fn unified_recordings_view(
             bottom: 4,
         })
         .show(ui, |ui| {
-            // Delete All Invalid button (only show if there are invalid recordings)
-            let invalid_count = local_recordings
-                .iter()
-                .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
-                .count();
-
             let button_height = 28.0;
-            let button_gap = 8.0;
-
             let height = 120.0;
 
             // Show spinner if still loading
-            let Some(uploads) = uploads else {
+            if !recordings.any_available() {
                 ui.vertical_centered(|ui| {
-                    ui.add(egui::widgets::Spinner::new().size(
-                        height
-                            + if invalid_count > 0 {
-                                // Accommodate the button to match heights
-                                button_height + button_gap
-                            } else {
-                                0.0
-                            },
-                    ));
+                    ui.add(egui::widgets::Spinner::new().size(height));
                 });
                 return;
             };
 
-            if invalid_count > 0 {
-                if ui
+            // Delete All Invalid button (only show if there are invalid recordings)
+            let any_invalid = recordings.invalid_count > 0;
+            if any_invalid
+                && ui
                     .add_sized(
                         egui::vec2(ui.available_width(), button_height),
                         egui::Button::new(
@@ -903,49 +1104,48 @@ fn unified_recordings_view(
                         .fill(egui::Color32::from_rgb(180, 60, 60)),
                     )
                     .clicked()
-                {
-                    // Send async request to delete all invalid recordings
-                    app_state
-                        .async_request_tx
-                        .blocking_send(AsyncRequest::DeleteAllInvalidRecordings)
-                        .ok();
-                }
-                ui.add_space(button_gap);
-            }
-
-            let mut all_entries = uploads
-                .iter()
-                .map(RecordingEntry::Successful)
-                .chain(local_recordings.iter().map(RecordingEntry::Local))
-                .collect::<Vec<_>>();
-            all_entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp()));
-
-            if all_entries.is_empty() {
-                ui.label("No recordings yet");
-                return;
+            {
+                // Send async request to delete all invalid recordings
+                app_state
+                    .async_request_tx
+                    .blocking_send(AsyncRequest::DeleteAllInvalidRecordings)
+                    .ok();
             }
 
             egui::ScrollArea::vertical()
-                .max_height(height)
-                .auto_shrink([false, true])
+                .max_height(height - if any_invalid { button_height } else { 0.0 })
+                .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    virtual_list.ui_custom_layout(ui, all_entries.len(), |ui, index| {
-                        render_recording_entry(
-                            ui,
-                            &all_entries[index],
-                            app_state,
-                            FONTSIZE,
-                            pending_delete_recording,
-                        );
-                        1
-                    });
+                    if recordings.is_empty_filtered() {
+                        ui.label("No recordings available in this time period.");
+                        return;
+                    }
+
+                    recordings_virtual_list.ui_custom_layout(
+                        ui,
+                        recordings.len_filtered(),
+                        |ui, index| {
+                            let Some(recording) = recordings.get_by_index_filtered(index) else {
+                                return 0;
+                            };
+
+                            render_recording_entry(
+                                ui,
+                                recording,
+                                app_state,
+                                FONTSIZE,
+                                pending_delete_recording,
+                            );
+                            1
+                        },
+                    );
                 });
         });
 }
 
 fn render_recording_entry(
     ui: &mut egui::Ui,
-    entry: &RecordingEntry,
+    entry: Recording,
     app_state: &AppState,
     font_size: f32,
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
@@ -1027,7 +1227,7 @@ fn render_recording_entry(
     }
 
     match entry {
-        RecordingEntry::Successful(upload) => {
+        Recording::Uploaded(upload) => {
             // Successful upload entry
             frame(ui, ui.visuals().faint_bg_color, |ui| {
                 ui.horizontal(|ui| {
@@ -1053,7 +1253,7 @@ fn render_recording_entry(
                 });
             });
         }
-        RecordingEntry::Local(recording) => match recording {
+        Recording::Local(recording) => match recording {
             LocalRecording::Invalid {
                 info,
                 metadata,
@@ -1507,5 +1707,22 @@ fn move_location_confirmation_window(
 
     if !keep_open {
         *pending_move_location = None;
+    }
+}
+
+/// Wrapper for DatePickerButton that handles Option<NaiveDate>
+fn optional_date_picker(
+    ui: &mut egui::Ui,
+    date: Option<chrono::NaiveDate>,
+    default: chrono::NaiveDate,
+    id: &str,
+) -> Option<chrono::NaiveDate> {
+    // Initialize with today's date if None
+    let mut temp_date = date.unwrap_or(default);
+    let response = ui.add(egui_extras::DatePickerButton::new(&mut temp_date).id_salt(id));
+    if response.changed() {
+        Some(temp_date)
+    } else {
+        None
     }
 }
