@@ -469,7 +469,7 @@ pub struct MainApp {
 
     user_uploads: Option<UserUploads>,
     local_recordings: Vec<LocalRecording>,
-    virtual_list: Option<egui_virtual_list::VirtualList>,
+    virtual_list: egui_virtual_list::VirtualList,
 
     tray_icon: tray_icon::TrayIconState,
 
@@ -533,7 +533,7 @@ impl MainApp {
 
             user_uploads: None,
             local_recordings: vec![],
-            virtual_list: None,
+            virtual_list: egui_virtual_list::VirtualList::default(),
 
             tray_icon,
 
@@ -578,15 +578,9 @@ impl MainApp {
                 }
                 Ok(UiUpdate::UpdateUserUploads(uploads)) => {
                     self.user_uploads = Some(uploads);
-                    // Reset virtual list so it can be re-created
-                    // with the new uploads
-                    self.virtual_list = None;
                 }
                 Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
                     self.local_recordings = recordings;
-                    // Reset virtual list so it can be re-created
-                    // with the new recordings
-                    self.virtual_list = None;
                 }
                 Ok(UiUpdate::FolderPickerResult { old_path, new_path }) => {
                     // Check if there are any recordings in the old location

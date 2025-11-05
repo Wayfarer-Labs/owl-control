@@ -849,7 +849,7 @@ impl<'a> RecordingEntry<'a> {
 
 fn unified_recordings_view(
     ui: &mut egui::Ui,
-    virtual_list: &mut Option<egui_virtual_list::VirtualList>,
+    virtual_list: &mut egui_virtual_list::VirtualList,
     local_recordings: &[LocalRecording],
     uploads: Option<&[UserUpload]>,
     app_state: &AppState,
@@ -925,11 +925,6 @@ fn unified_recordings_view(
                 return;
             }
 
-            let virtual_list = virtual_list.get_or_insert_default();
-
-            // We have to use efficient .show_viewport() variation that renders selected rows otherwise
-            // egui crashes out when we have too many entries, starts calling window redraws all the time
-            // and cpu usage explodes for no reason whenever upload tracker is open
             egui::ScrollArea::vertical()
                 .max_height(height)
                 .auto_shrink([false, true])
