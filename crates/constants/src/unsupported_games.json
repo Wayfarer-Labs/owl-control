@@ -1,198 +1,326 @@
 [
   {
+    "name": "Fortnite",
+    "binaries": [
+      "fortnite",
+      "fortniteclient-win64-shipping"
+    ],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "DayZ",
+    "binaries": [
+      "dayz_x64"
+    ],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Finals",
+    "binaries": [
+      "discovery-e.exe"
+    ],
+    "reason": "EnoughData"
+  },
+  {
     "name": "Minecraft",
-    "binaries": ["minecraft"],
+    "binaries": [
+      "minecraft"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Valorant",
-    "binaries": ["valorant-win64-shipping"],
+    "binaries": [
+      "valorant-win64-shipping"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Counter-Strike: Source",
-    "binaries": ["cstrike"],
+    "binaries": [
+      "cstrike"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Counter-Strike 2",
-    "binaries": ["cs2"],
+    "binaries": [
+      "cs2"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Overwatch 2",
-    "binaries": ["overwatch"],
+    "binaries": [
+      "overwatch"
+    ],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Arena Breakout: Infinite",
+    "binaries": [
+      "uagame"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Team Fortress 2",
-    "binaries": ["tf", "tf_win64"],
+    "binaries": [
+      "tf",
+      "tf_win64"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Apex Legends",
-    "binaries": ["r5apex"],
+    "binaries": [
+      "r5apex",
+      "r5apex_dx12.exe"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Rainbow Six Siege",
-    "binaries": ["rainbowsix"],
+    "binaries": [
+      "rainbowsix"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Squad",
-    "binaries": ["squad"],
+    "binaries": [
+      "squad"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Hell Let Loose",
-    "binaries": ["hll-win64-shipping"],
+    "binaries": [
+      "hll-win64-shipping"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "GTA III",
-    "binaries": ["gta3"],
+    "binaries": [
+      "gta3"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "GTA: Vice City",
-    "binaries": ["gta-vc"],
+    "binaries": [
+      "gta-vc"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "GTA: San Andreas",
-    "binaries": ["gta_sa"],
+    "binaries": [
+      "gta_sa"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "GTA IV",
-    "binaries": ["gtaiv"],
+    "binaries": [
+      "gtaiv"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "GTA V",
-    "binaries": ["gta5"],
+    "binaries": [
+      "gta5"
+    ],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "GTA V Enhanced",
+    "binaries": [
+      "gta5_enhanced"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Subnautica",
-    "binaries": ["subnautica"],
+    "binaries": [
+      "subnautica"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Far Cry",
-    "binaries": ["farcry"],
+    "binaries": [
+      "farcry"
+    ],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Far Cry: New Dawn",
+    "binaries": [
+      "farcrynewdawn.exe"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Far Cry 2",
-    "binaries": ["farcry2"],
+    "binaries": [
+      "farcry2"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Far Cry 3",
-    "binaries": ["farcry3"],
+    "binaries": [
+      "farcry3"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Far Cry 4",
-    "binaries": ["farcry4"],
+    "binaries": [
+      "farcry4"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Far Cry 5",
-    "binaries": ["farcry5"],
+    "binaries": [
+      "farcry5"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Far Cry 6",
-    "binaries": ["farcry6"],
+    "binaries": [
+      "farcry6"
+    ],
     "reason": "EnoughData"
   },
   {
     "name": "Roblox",
-    "binaries": ["robloxstudiobeta", "robloxplayerbeta"],
+    "binaries": [
+      "robloxstudiobeta",
+      "robloxplayerbeta"
+    ],
     "reason": {
       "Other": "Recorded footage is all-black."
     }
   },
   {
     "name": "Destiny 2",
-    "binaries": ["destiny2launcher", "destiny2"],
+    "binaries": [
+      "destiny2launcher",
+      "destiny2"
+    ],
     "reason": {
       "Other": "Recorded footage is all-black."
     }
   },
   {
     "name": "Split Fiction",
-    "binaries": ["splitfiction"],
+    "binaries": [
+      "splitfiction"
+    ],
     "reason": {
       "Other": "Split-screen games are unsupported."
     }
   },
   {
     "name": "OBS Studio",
-    "binaries": ["obs", "obs64", "obs32"],
+    "binaries": [
+      "obs",
+      "obs64",
+      "obs32"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Spotify",
-    "binaries": ["spotify"],
+    "binaries": [
+      "spotify"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Opera",
-    "binaries": ["opera"],
+    "binaries": [
+      "opera"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Discord",
-    "binaries": ["discord", "discordptb"],
+    "binaries": [
+      "discord",
+      "discordptb"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "OWL Control",
-    "binaries": ["owl control"],
+    "binaries": [
+      "owl control"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Firefox",
-    "binaries": ["firefox"],
+    "binaries": [
+      "firefox"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Microsoft Edge",
-    "binaries": ["msedge"],
+    "binaries": [
+      "msedge"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Google Chrome",
-    "binaries": ["chrome"],
+    "binaries": [
+      "chrome"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Windows Search",
-    "binaries": ["searchapp"],
+    "binaries": [
+      "searchapp"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Application Frame Host",
-    "binaries": ["applicationframehost"],
+    "binaries": [
+      "applicationframehost"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Discovery",
-    "binaries": ["discovery"],
+    "binaries": [
+      "discovery"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Windows Terminal",
-    "binaries": ["wt", "windowsterminal"],
+    "binaries": [
+      "wt",
+      "windowsterminal"
+    ],
     "reason": "NotAGame"
   },
   {
     "name": "Steam",
-    "binaries": ["steam", "steamwebhelper"],
+    "binaries": [
+      "steam",
+      "steamwebhelper"
+    ],
     "reason": "NotAGame"
   }
 ]

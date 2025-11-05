@@ -1,112 +1,51 @@
 <div align="center">
 
-# 🦉 OWL Control
+# OWL Control
 
 ### **Help train the next generation of AI by sharing your gameplay!**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
-<p align="center">
-  <strong>OWL Control</strong> is a desktop application that records gameplay footage and input data from video games<br/>
-  to create open-source datasets for AI research. By using OWL Control,<br/>
-  you're contributing to the development of AI agents and world models.
-</p>
-
----
-
 </div>
+OWL Control is a high-performance Windows app that captures the control data from games. These datasets are fundamental to training world models that power sophisticated robots and simulations.
 
-## 🎮 What is OWL Control?
+## About
 
-OWL Control records your gameplay sessions (video + keyboard/mouse inputs) from games, using OBS behind the scenes to do the recording work. This data can be uploaded to create a public dataset that researchers worldwide can use to train AI models.
+We carefully log keyboard, mouse and gamepad inputs sent directly to the game being played into a local file synced to a small video of the game. No other windows or control input is recorded. Any other window or input - including any microphone or camera - is not captured.
 
-**[The games list](./GAMES.md)** is a list of the games we're most actively seeking data for. Other first- and third-person games are acceptable, but check in with us if possible.
+OWL Control is fully open-source, so anyone can verify its inner workings by reading the code or feeding this page's link to your favorite AI language model. The software is developed and enriched by a vibrant community on [our Discord server](https://discord.gg/dX4HW9Pt7Z), and anyone is allowed to [contribute to the project](./CONTRIBUTING.md)
 
-**DISCLAIMER**: THERE ARE REPORTS OF OWL CONTROL CAUSING BANS IN MULTIPLAYER PVP GAMES - WE STRONGLY RECOMMEND USING ONLY IN SINGLE-PLAYER GAMES
+## System Requirements
 
-## 🚀 Getting Started (User Installation)
+- Windows PC system capable of running games at 60 FPS.
+- Keyboard, mouse, trackball, trackpad, Wired/Wireless XBOX or Wired PS5 gamepads. PS4 controllers may be used with DS4Windows.
+- A reliable internet connection. Uploading may take a long time.
+- Computer games! We provide [eligible games](./GAMES.md) to veteran players!
 
-~~The below text is supplemental, please watch the video tutorial here: [link](https://www.loom.com/share/f18451c8196a47a9a2dd7418f785cd37)~~
+## Setup
 
-~~The video goes over common failure cases and shows some light debugging. OWL Control is currently in pre-release and there a lot of kinks to iron out. As such the video tutorial is extensive, and features some minor debugging. It should be watched in full before you use the software so you can both verify it is working and report correctly when it is not.~~
+- [Create an account at our website](https://wayfarerlabs.ai/dashboard)
+- [Download OWL Control](https://github.com/Wayfarer-Labs/owl-control/releases/latest")
+- Install the app
+- Generate an API key on the website
+- Input the API key into the app
+- Review the terms of recording
+- Run a game.  Hit F5 to toggle recording on/off
+- Upload the recordings by hitting the Upload button.
 
-The video is currently being updated.
+> [!IMPORTANT]
+>
+> - We don't capture your microphone or anything outside the active game.
+> - We screen and filter all the data we receive, and private information is removed.
+> - You can review the recordings made by the app the `Open Recordings Folder` button.
 
-<table>
-<tr>
-<td width="50px" align="center">1️⃣</td>
-<td><strong>Download</strong> the latest installer from the <a href="https://github.com/Wayfarer-Labs/owl-control/releases">Releases</a> page</td>
-</tr>
-<tr>
-<td align="center">2️⃣</td>
-<td><strong>Install</strong> the application for your operating system</td>
-</tr>
-<tr>
-<td align="center">3️⃣</td>
-<td><strong>Create an account</strong> or enter your <a href="https://wayfarerlabs.ai/dashboard">API key</a></td>
-</tr>
-<tr>
-<td align="center">4️⃣</td>
-<td><strong>Review and accept</strong> the data collection terms</td>
-</tr>
-<tr>
-<td align="center">7️⃣</td>
-<td>Recordings are currently manually initiated; when in any game, hit F5 to toggle recording on/off (by default). You can customize this hotkey and enable a separate stop hotkey in the application settings.</td>
-</tr>
-</table>
+## Troubleshooting
 
-## 🛡️ Risks And Additional Information
+Software known to interfere with OWL Control:
 
-- **Audio**: OWL Control does not record microphone inputs. It records game audio only, not all system audio.
-- **Processing**: All data will undergo an automated vetting process to ensure we aren't using any empty recordings. We will never record your desktop.
-- **Data Verification**: You can use the "Open Recordings Folder" button to check your own recordings before upload.
+- RivaTuner Statistics Server - Often installed with MSI Afterburner
+- Antivirus Software - OWL Control is not malware, but you may need to add OWL Control to your antivirus whitelist if you experience problems.
 
-## ⚠️ Potential Incompatibilities
-
-Some software and system configurations may interfere with OWL Control's recording functionality:
-
-- **RivaTuner Statistics Server**: Often installed with MSI Afterburner, this software can cause compatibility issues with recordings. If you experience recording problems, try disabling or uninstalling RivaTuner Statistics Server.
-- **Administrator Mode**: Some games require recorders to be run in administrator mode to be recorded properly. If you're having trouble recording certain games, try running OWL Control as an administrator.
-- **Antivirus Software**: Some antivirus programs may interfere with the recording process or block OWL Control's functionality. You may need to add OWL Control to your antivirus whitelist.
-
-## 💻 System Requirements
-
-An NVIDIA GPU is recommended, but not a requirement.
-Video upload can be bandwidth intensive, though we downsample videos to 360p and set an appropriate bitrate to lighten the load as much as possible.
-
-## ⚠️ Restrictions
-
-### Input Device Support
-
-- **Keyboard + Mouse**: Supported
-- **Wireless Xbox Controllers**: Supported
-- **Wired PlayStation Controllers**: Supported
-- **Wireless PlayStation Controllers**: _Not supported_
-- **Other controllers (joysticks, etc)**: Potentially supported, but not recommended
-
-### Recording Validation Criteria
-
-Recordings are automatically validated before upload. The following conditions will cause recordings to be rejected:
-
-**Video Requirements:**
-
-The recording must be at least 30 seconds long, and its file size should be reasonable relative to duration (e.g. it should not be corrupted).
-
-**Input Activity Requirements:**
-
-- **Keyboard**: At least 10 WASD actions per minute OR at least 50 total keyboard events
-- **Mouse**: The range of movement should be reasonable (e.g. not fully idle, and not all over the place)
-- **Gamepad**: At least 20 total gamepad events AND at least 5 button presses per minute AND axis activity above 0.01 (prevents idle recordings)
-
-**Important**: A recording will only be rejected if ALL three input types (keyboard, mouse, and gamepad) fail their respective validation criteria. This means you can use any combination of supported input devices.
-
-## ⚙️ Uploading
-
-Uploads are manual only. Data is stored locally and only uploaded when you manually press the Upload button in settings.
-
-## ⌨️ Default Hotkeys
-
-<div align="center">
+## Keybindings
 
 |      Key/Action      | Function                        |
 | :------------------: | :------------------------------ |
@@ -115,107 +54,73 @@ Uploads are manual only. Data is stored locally and only uploaded when you manua
 
 **Note**: The recording toggle hotkey can be customized in the application settings. You can also enable a separate stop hotkey if desired.
 
-</div>
+## Contributing to AI Research
 
-## 🤝 Contributing to AI Research
+By using OWL Control, you're helping to:
 
-<div align="center">
-  <h3>By using OWL Control, you're helping to:</h3>
-</div>
+- Train AI agents to understand and play games
+- Develop better spatial comprehension for AI systems
+- Build open datasets for the scientific research community
+- Advance the field< of AI and machine learning
 
-<table align="center">
-<tr>
-<td align="center">🤖</td>
-<td><strong>Train AI agents</strong> to understand and play games</td>
-</tr>
-<tr>
-<td align="center">🌍</td>
-<td><strong>Develop better world models</strong> for AI systems</td>
-</tr>
-<tr>
-<td align="center">📊</td>
-<td><strong>Create open datasets</strong> for the research community</td>
-</tr>
-<tr>
-<td align="center">🚀</td>
-<td><strong>Advance the field</strong> of AI and machine learning</td>
-</tr>
-</table>
+Scrubbed and filtered data will be made publicly available for research purposes.
 
-<div align="center">
-  <em>✨ All collected data will be made publicly available for research purposes ✨</em>
-</div>
+## For Developers
 
-## 💻 For Developers
+### OWL Control is open source!
 
-> **OWL Control is open source!** If you're interested in the technical details or want to contribute:
+If you're interested in the technical details or want to contribute:
 
-### 🔨 Building from Source
+### Building from Source
 
-First make sure you've installed Rust (Cargo). It is recommended to use PowerShell for this.
-Winget can sometimes make a lot of this easier for you, but online installers should work. If you have any issues with setup, ask your local LLM!
+Using _powershell_:
 
-The following steps only need to be done once:
+1. Install [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 
+2. Clone the repo
+> ```powershell
+> git clone https://github.com/Wayfarer-Labs/owl-control.git
+> cd owl-control
+> ```
+
+3. Build the application to create the target directory
+> ```powershell
+> cargo build
+> ```
+
+4. Install `cargo-obs-build`
+> ```powershell
+> cargo install cargo-obs-build
+> ```
+
+5. Install the dependencies
+> ```powershell
+> cargo obs-build --out-dir target\x86_64-pc-windows-msvc\debug
+> ```
+
+6. Run OWL Control with:
+
+> ```powershell
+> cargo run
+> ```
+
+
+To build a production-ready release with an installer:
+
+- Install [NSIS](https://sourceforge.net/projects/nsis/) to default location
+
+- Run the build script
 ```powershell
-# Clone the repository
-git clone https://github.com/Wayfarer-Labs/owl-control.git
-cd owl-control
-
-# Build the application to create the target directory
-cargo build
-
-# Install `cargo-obs-build`, which is a helper for downloading the libobs dependencies in binary format
-cargo install cargo-obs-build
-
-# Install the dependencies into your target directory (you will have to do this again for a release build)
-cargo obs-build --out-dir target\x86_64-pc-windows-msvc\debug
+build-resources\scripts\build.ps1
 ```
-
-You can then run OWL Control with `cargo run`.
-
-To build a production-ready release with an installer, use `build-resources\scripts\build.ps1` in PowerShell.
-Note that this requires <https://sourceforge.net/projects/nsis/> to be installed in its default location.
-
-Currently only Windows is supported, although we'll be adding more platforms in the near future.
-
-### 🎨 Code Formatting
-
-This project uses automated code formatting tools to maintain consistent code style:
-
-```bash
-# Format Rust code
-cargo fmt
-```
-
-<div align="center">
-  <em>📖 For detailed development instructions, see our <a href="docs/development.md">Development Guide</a></em>
-</div>
-
-## 📄 License
-
-<div align="center">
-  <em>This project is open source and available under the <a href="LICENSE">MIT License</a></em>
-</div>
-
-## 🙋 Support
-
-<div align="center">
 
 |       Need Help?       | Where to Go                                                                                  |
 | :--------------------: | :------------------------------------------------------------------------------------------- |
 | 🐛 **Issues or Bugs?** | Report them on our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page |
 |   ❓ **Questions?**    | Visit our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page          |
-
-</div>
-
----
+|     **💬Discord**      | [Discord Server](https://discord.gg/dX4HW9Pt7Z)                                              |
 
 <div align="center">
-  <br>
-  <strong>🦉 OWL Control</strong> is a project by <a href="https://wayfarerlabs.ai">Wayfarer Labs</a>
-  <br>
-  <em>Building open datasets for AI research</em>
-  <br><br>
-  <a href="https://github.com/Wayfarer-Labs/owl-control">⭐ Star us on GitHub</a>
+# OWL Control is a project by [Wayfarer Labs](https://wayfarerlabs.ai)
+Building open datasets for AI research
 </div>
