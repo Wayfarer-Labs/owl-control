@@ -398,10 +398,10 @@ impl From<input_capture::GamepadMetadata> for GamepadMetadata {
 pub struct Inputs {
     pub keyboard: HashSet<u16>,
     pub mouse: HashSet<u16>,
-    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+    #[serde(default, skip_serializing)]
     #[deprecated]
     gamepad_digital: HashSet<u16>,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default, skip_serializing)]
     #[deprecated]
     gamepad_analog: HashMap<u16, f32>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
