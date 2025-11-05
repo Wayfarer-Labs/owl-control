@@ -1,6 +1,6 @@
-use crate::ui::{HEADING_TEXT_SIZE, MainApp, SUBHEADING_TEXT_SIZE};
+use crate::ui::views::{App, HEADING_TEXT_SIZE, SUBHEADING_TEXT_SIZE};
 
-impl MainApp {
+impl App {
     pub fn consent_view(&mut self, ctx: &egui::Context) {
         let padding = 8;
         let button_font_size = 14.0;

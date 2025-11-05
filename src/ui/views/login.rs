@@ -1,6 +1,6 @@
-use crate::{app_state::AsyncRequest, ui::MainApp};
+use crate::{app_state::AsyncRequest, ui::views::App};
 
-impl MainApp {
+impl App {
     pub fn login_view(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // Center the content vertically and horizontally

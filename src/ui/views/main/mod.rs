@@ -4,12 +4,12 @@
 };
 
 use crate::{
-    app_state::{AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey},
+    app_state::{AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey},
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
         RecordingBackend,
     },
-    ui::{HotkeyRebindTarget, MainApp, util},
+    ui::{util, views::App},
 };
 
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
@@ -31,7 +31,7 @@ pub(crate) struct MainViewState {
 const SETTINGS_TEXT_WIDTH: f32 = 150.0;
 const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
 
-impl MainApp {
+impl App {
     pub fn main_view(&mut self, ctx: &egui::Context) {
         fn add_settings_text(ui: &mut egui::Ui, widget: impl egui::Widget) -> egui::Response {
             ui.allocate_ui_with_layout(
