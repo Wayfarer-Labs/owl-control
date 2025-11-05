@@ -16,8 +16,8 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 
 ## System Requirements
 
-- Windows™️device capable of running games at 60 FPS.
-- Keyboard, mouse, trackball, trackpad, Wired/Wireless XBOX or Wired PS5 gamepads. PS4 controllers may be used with DS4Windows.
+- Windows™️ device capable of running games at 60 FPS.
+- Keyboard, mouse, trackball, trackpad, Wired/Wireless XBOX™️ or Wired PS5™️ gamepads. PS4™️ controllers may be used with DS4Windows.
 - A reliable internet connection. Uploading may take a long time.
 - Computer games! We provide [eligible games](./GAMES.md) to veteran players!
 
@@ -27,7 +27,7 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 - [Download OWL Control](https://github.com/Wayfarer-Labs/owl-control/releases/latest)
 - Run the installer
 - Launch the app from your desktop or Start menu.
-  -Check the bottom right corner of your screen, as the app may already be open.
+  - Check the bottom right corner of your screen, as the app may already be open.
 - Generate an API key on [our website](https://wayfarerlabs.ai/dashboard)
 - Copy the API key into the app and submit.
 - Please review the terms of recording, then submit.
@@ -143,6 +143,10 @@ build-resources\scripts\build.ps1
 |     **💬Discord**      | [Discord Server](https://discord.gg/dX4HW9Pt7Z)                                              |
 
 <div align="center">
+
 # OWL Control is a project by [Wayfarer Labs](https://wayfarerlabs.ai)
-Building open datasets for AI research
-</div>
+
+Building open datasets for AI research<hr>
+
+2025 Wayfarer Labs<br>
+Trademarks `™️` copyright respective owners where indicated .</div>
