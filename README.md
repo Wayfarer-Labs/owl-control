@@ -23,8 +23,8 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 
 ## Setup
 
-- [Create an account at our website](https://wayfarerlabs.ai/dashboard)
-- [Download OWL Control](https://github.com/Wayfarer-Labs/owl-control/releases/latest")
+- [Create an account at our website](https://wayfarerlabs.ai/handler/sign-up?after_auth_return_to=%2Fhandler%2Fsign-in)
+- [Download OWL Control](https://github.com/Wayfarer-Labs/owl-control/releases/latest)
 - Install the app
 - Generate an API key on the website
 - Input the API key into the app
