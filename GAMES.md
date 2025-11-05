@@ -38,8 +38,10 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/aP6dnuc
 
 ### First-person, High-quality/detailed, Active
 
+#### - [A Story About My Uncle](https://store.steampowered.com/app/278360/A_Story_About_My_Uncle/)
 #### - [Among The Sleep](https://store.steampowered.com/app/250620/Among_the_Sleep__Enhanced_Edition/)
 #### - [The Beginner's Guide](https://store.steampowered.com/app/303210/The_Beginners_Guide/)
+#### - [Car Mechanic Simulator 2021](https://store.steampowered.com/app/1190000/Car_Mechanic_Simulator_2021/)
 #### - [Close to the Sun](https://store.steampowered.com/app/968870/Close_to_the_Sun/)
 #### - [Clustertruck](https://store.steampowered.com/app/397950/Clustertruck/)
 #### - [Conundrum](https://store.steampowered.com/app/1744140/Conundrum/)

@@ -12,11 +12,11 @@ OWL Control is a high-performance Windows app that captures the control data fro
 
 We carefully log keyboard, mouse and gamepad inputs sent directly to the game being played into a local file synced to a small video of the game. No other windows or control input is recorded. Any other window or input - including any microphone or camera - is not captured.
 
-OWL Control is fully open-source, so anyone can verify its inner workings by reading the code or feeding this page's link to your favorite AI language model. The software is developed and enriched by a vibrant community on [our Discord server](https://discord.gg/dX4HW9Pt7Z), and anyone is allowed to [contribute to the project](./CONTRIBUTING.md)
+OWL Control is fully open-source, so anyone can verify its inner workings by reading the code or feeding this page's link to your favorite AI language model. The software is developed and enriched by a vibrant community on [our Discord server](https://discord.gg/ZgCWTGYf4E), and anyone is allowed to [contribute to the project](./CONTRIBUTING.md)
 
 ## System Requirements
 
-- Windows PC system capable of running games at 60 FPS.
+- Windows™️device capable of running games at 60 FPS.
 - Keyboard, mouse, trackball, trackpad, Wired/Wireless XBOX or Wired PS5 gamepads. PS4 controllers may be used with DS4Windows.
 - A reliable internet connection. Uploading may take a long time.
 - Computer games! We provide [eligible games](./GAMES.md) to veteran players!
@@ -25,18 +25,45 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 
 - [Create an account at our website](https://wayfarerlabs.ai/handler/sign-up?after_auth_return_to=%2Fhandler%2Fsign-in)
 - [Download OWL Control](https://github.com/Wayfarer-Labs/owl-control/releases/latest)
-- Install the app
-- Generate an API key on the website
-- Input the API key into the app
-- Review the terms of recording
-- Run a game.  Hit F5 to toggle recording on/off
-- Upload the recordings by hitting the Upload button.
+- Run the installer
+- Launch the app from your desktop or Start menu.
+  -Check the bottom right corner of your screen, as the app may already be open.
+- Generate an API key on [our website](https://wayfarerlabs.ai/dashboard)
+- Copy the API key into the app and submit.
+- Please review the terms of recording, then submit.
 
 > [!IMPORTANT]
 >
 > - We don't capture your microphone or anything outside the active game.
-> - We screen and filter all the data we receive, and private information is removed.
-> - You can review the recordings made by the app the `Open Recordings Folder` button.
+> - We screen and filter all the data we receive, and any private information is removed.
+> - We will release our scrubbed and prefiltered data to the research community under permissive and open-source license.
+
+## Usage
+
+- We accept recordings of [these games](./GAMES.md) in PvE modes only.
+- Hit `F5` key to switch recording on and off. Please only trigger this within a game you want to record.
+  - A small overlay on a screen corner shows that the app is open and recording.
+  - Position, keys, and goose-flavored notifications can be customized.
+  - If your game runs slowly while recording, lower settings in `Video Encoder`, or lower the game detail or resolution.
+- Recordings will be tracked in the app. Recordings ready to be uploaded are marked in yellow.
+- Recordings may be too short or not have enough activity to submit. These recordings are marked with red and tagged invalid.
+  - A message why they can't be accepted will appear. This information can be useful to share in [our Discord](https://discord.gg/ZgCWTGYf4E).
+- You can review your recordings by clicking its number. A window will open showing the folder contents.
+  - Non-video files in this folder can be opened in Notepad or other text editors.
+  - Location of the entire recordings folder can be changed with the `Move` button to the right of `Upload Manager`
+- Upload recordings by hitting the `Upload Recordings` button.
+  - If your connection is slow, try checking `Optimize for unreliable recordings`.
+
+> [!TIP]
+>
+> For a LIMITED TIME, we are compensating per hour for game data under these circumstances:
+> - You must be 18 years old, or older.
+> - You must play a game on [the games list](./GAMES.md)
+> - You must only play PvE or Co-op PvE (ie: gameplay against in-game, non-human opponents). We do not allow PvP recordings.
+> - You must upload least 20 hours of footage.
+> - You must record active and human play. No camping, bots, idling, etc.
+> - You must use [Wise](https://wise.com/) ($10 an hour) or [Fiverr](https://www.fiverr.com/) ($5 an hour). We do not use other payment providers. If you need help setting up ask [our Discord community](https://discord.gg/ZgCWTGYf4E).
+>
 
 ## Troubleshooting
 
@@ -45,14 +72,9 @@ Software known to interfere with OWL Control:
 - RivaTuner Statistics Server - Often installed with MSI Afterburner
 - Antivirus Software - OWL Control is not malware, but you may need to add OWL Control to your antivirus whitelist if you experience problems.
 
-## Keybindings
-
-|      Key/Action      | Function                        |
-| :------------------: | :------------------------------ |
-|        **F5**        | 🔄 Toggle recording on/off      |
-| **System Tray Icon** | ⚙️ Access settings and controls |
-
-**Note**: The recording toggle hotkey can be customized in the application settings. You can also enable a separate stop hotkey if desired.
+> [!NOTE]
+>
+> You may get an `.invalid` recording that is marked as Too Long, is longer than 10 minutes, or larger than 150-200MB. If this happens, Please [speak to us on our discord](https://discord.gg/ZgCWTGYf4E) or [open an issue on GitHub](https://github.com/Wayfarer-Labs/owl-control/issues).
 
 ## Contributing to AI Research
 
