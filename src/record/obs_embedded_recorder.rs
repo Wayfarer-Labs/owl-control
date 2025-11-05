@@ -309,6 +309,10 @@ impl RecorderState {
         // Register the source
         scene.set_to_channel(0)?;
 
+        // Ensure the source takes up the entire scene
+        scene.set_source_position(&source, libobs_wrapper::Vec2::new(0.0, 0.0))?;
+        scene.set_source_scale(&source, libobs_wrapper::Vec2::new(1.0, 1.0))?;
+
         // Set up output
         let mut output_settings = self.obs_context.data()?;
         output_settings.set_string("path", ObsPath::new(&request.recording_path).build())?;
