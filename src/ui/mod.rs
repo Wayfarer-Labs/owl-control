@@ -9,8 +9,7 @@ use std::{
 use color_eyre::Result;
 use constants::encoding::VideoEncoderType;
 use egui_commonmark::CommonMarkCache;
-use egui_wgpu::{ScreenDescriptor, wgpu};
-use wgpu::SurfaceError;
+use egui_wgpu::wgpu;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -29,8 +28,7 @@ use crate::{
     system::keycode::virtual_keycode_to_name,
 };
 
-mod egui_renderer;
-use egui_renderer::EguiRenderer;
+mod internal;
 mod overlay;
 pub mod tray_icon;
 mod util;
@@ -88,90 +86,9 @@ pub fn start(
     Ok(())
 }
 
-struct WgpuState {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    surface_config: wgpu::SurfaceConfiguration,
-    surface: wgpu::Surface<'static>,
-    scale_factor: f32,
-    egui_renderer: EguiRenderer,
-}
-
-impl WgpuState {
-    /// based on https://github.com/kaphula/winit-egui-wgpu-template/blob/master/src/egui_tools.rs
-    async fn new(
-        instance: &wgpu::Instance,
-        surface: wgpu::Surface<'static>,
-        window: &Window,
-        width: u32,
-        height: u32,
-    ) -> Self {
-        let power_pref = wgpu::PowerPreference::default();
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: power_pref,
-                force_fallback_adapter: false,
-                compatible_surface: Some(&surface),
-            })
-            .await
-            .expect("Failed to find an appropriate adapter");
-
-        let features = wgpu::Features::empty();
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: features,
-                ..Default::default()
-            })
-            .await
-            .expect("Failed to create device");
-
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
-        let selected_format = wgpu::TextureFormat::Bgra8UnormSrgb;
-        let swapchain_format = swapchain_capabilities
-            .formats
-            .iter()
-            .find(|d| **d == selected_format)
-            .expect("failed to select proper surface texture format!");
-
-        let surface_config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: *swapchain_format,
-            width,
-            height,
-            // if u use AutoNoVsync instead it will fix tearing behaviour when resizing, but at cost of significantly higher CPU usage
-            present_mode: wgpu::PresentMode::AutoVsync,
-            desired_maximum_frame_latency: 2,
-            alpha_mode: swapchain_capabilities.alpha_modes[0],
-            view_formats: vec![],
-        };
-
-        surface.configure(&device, &surface_config);
-
-        let egui_renderer = EguiRenderer::new(&device, surface_config.format, None, 1, window);
-
-        let scale_factor = 1.0;
-
-        Self {
-            device,
-            queue,
-            surface,
-            surface_config,
-            egui_renderer,
-            scale_factor,
-        }
-    }
-
-    fn resize_surface(&mut self, width: u32, height: u32) {
-        self.surface_config.width = width;
-        self.surface_config.height = height;
-        self.surface.configure(&self.device, &self.surface_config);
-    }
-}
-
 struct App {
     instance: wgpu::Instance,
-    wgpu_state: Option<WgpuState>,
+    wgpu_state: Option<internal::WgpuState>,
     window: Option<Arc<Window>>,
     main_app: MainApp,
     last_repaint_requested: Instant,
@@ -217,7 +134,7 @@ impl App {
             .create_surface(window.clone())
             .expect("Failed to create surface!");
 
-        let state = WgpuState::new(
+        let state = internal::WgpuState::new(
             &self.instance,
             surface,
             &window,
@@ -231,80 +148,27 @@ impl App {
     }
 
     fn handle_resized(&mut self, width: u32, height: u32) {
-        if width > 0 && height > 0 {
-            self.wgpu_state
-                .as_mut()
-                .unwrap()
-                .resize_surface(width, height);
+        if width > 0
+            && height > 0
+            && let Some(state) = self.wgpu_state.as_mut()
+        {
+            state.resize_surface(width, height);
         }
     }
 
     fn handle_redraw(&mut self) {
         // Attempt to handle minimizing window
-        if let Some(window) = self.window.as_ref()
-            && let Some(min) = window.is_minimized()
-            && min
-        {
+        let Some(window) = self.window.as_ref() else {
+            return;
+        };
+        if window.is_minimized().is_some_and(|v| v) {
             return;
         }
-
-        let state = self.wgpu_state.as_mut().unwrap();
-
-        let screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [state.surface_config.width, state.surface_config.height],
-            pixels_per_point: self.window.as_ref().unwrap().scale_factor() as f32
-                * state.scale_factor,
+        let Some(state) = self.wgpu_state.as_mut() else {
+            return;
         };
 
-        let surface_texture = state.surface.get_current_texture();
-
-        match surface_texture {
-            Err(SurfaceError::Outdated) => {
-                // Ignoring outdated to allow resizing and minimization
-                return;
-            }
-            Err(_) => {
-                surface_texture.expect("Failed to acquire next swap chain texture");
-                return;
-            }
-            Ok(_) => {}
-        };
-
-        let surface_texture = surface_texture.unwrap();
-
-        let surface_view = surface_texture
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder = state
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        let window = self.window.as_ref().unwrap();
-
-        {
-            state.egui_renderer.begin_frame(window);
-
-            // Render the main UI
-            self.main_app.render(state.egui_renderer.context());
-
-            state.egui_renderer.end_frame_and_draw(
-                &state.device,
-                &state.queue,
-                &mut encoder,
-                window,
-                &surface_view,
-                screen_descriptor,
-            );
-        }
-
-        state.queue.submit(Some(encoder.finish()));
-
-        // I don't feel like this is doing anything, but according to the docs it's supposed to be useful
-        // eh. I'll just leave it here I guess...
-        window.pre_present_notify();
-
-        surface_texture.present();
+        state.render(window, |ctx| self.main_app.render(ctx));
     }
 }
 
@@ -342,7 +206,9 @@ impl ApplicationHandler for App {
         futures::executor::block_on(self.set_window(window, inner_size));
 
         // Initialize tray icon and egui context after window is created
-        let ctx = self.wgpu_state.as_ref().unwrap().egui_renderer.context();
+        let Some(ctx) = self.wgpu_state.as_ref().map(|state| state.context()) else {
+            return;
+        };
         let _ = self.main_app.app_state.ui_update_tx.ctx.set(ctx.clone());
 
         self.main_app.tray_icon.post_initialize(
@@ -370,16 +236,13 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
-        if self.wgpu_state.is_none() {
+        let Some(state) = self.wgpu_state.as_mut() else {
             return;
-        }
+        };
 
         // Let egui renderer process the event first
-        let response = self
-            .wgpu_state
-            .as_mut()
-            .unwrap()
-            .egui_renderer
+        let response = state
+            .renderer()
             .handle_input(self.window.as_ref().unwrap(), &event);
 
         // We throttle this so we aren't unnecessarily repainting for what is otherwise a relatively
@@ -392,11 +255,8 @@ impl ApplicationHandler for App {
         }
 
         // Handle window events
-        self.main_app.handle_window_event(
-            event_loop,
-            &event,
-            self.wgpu_state.as_ref().unwrap().egui_renderer.context(),
-        );
+        self.main_app
+            .handle_window_event(event_loop, &event, state.context());
 
         match event {
             WindowEvent::CloseRequested => {
@@ -683,7 +543,6 @@ impl MainApp {
         self.frame += 1;
     }
 }
-
 impl MainApp {
     fn go_to_login(&mut self) {
         self.local_credentials.logout();
