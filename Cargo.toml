@@ -35,8 +35,8 @@ sysinfo = "0.32.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = "5.0.0"
-libobs-sources = "3.0.0"
+libobs-wrapper = "5.1.0"
+libobs-sources = "3.1.0"
 libobs-window-helper = "0.1.6"
 
 [package]

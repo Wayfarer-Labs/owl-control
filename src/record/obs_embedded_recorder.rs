@@ -340,7 +340,7 @@ impl RecorderState {
 
             // Get video handler and attach encoder to output
             let video_handler = self.obs_context.get_video_ptr()?;
-            output.video_encoder(
+            output.create_and_set_video_encoder(
                 VideoEncoderInfo::new(
                     vet_to_obs_vet(request.video_settings.encoder),
                     "video_encoder",
@@ -358,7 +358,7 @@ impl RecorderState {
                 AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
 
             let audio_handler = self.obs_context.get_audio_ptr()?;
-            output.audio_encoder(audio_info, 0, audio_handler)?;
+            output.create_and_set_audio_encoder(audio_info, 0, audio_handler)?;
 
             output
         } else {
