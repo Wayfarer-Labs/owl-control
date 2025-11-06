@@ -10,9 +10,10 @@ Follow these guidelines. You must be 18 or older!
 
 ✅ First-person view.<br>
 ✅ Steady 60 FPS (aka frames per second/framerate) or more. Lower resolution or cap framerate if necessary.<br>
-✅ Stop recording in menus, cutscenes, and when not playing.<br>
-✅ Repeat playthroughs. Do new things each time!<br>
+✅ Display sizes from 640x360 up to ultrawide.<br>b
 ✅ XBOX and PS5 controllers. PS5 controllers should be be wired to the computer.<br>
+✅ Stopping recording in menus, cutscenes, and when not playing.<br>
+✅ Repeat playthroughs. Do new things each time!<br>
 ✅ Game mods.<br>
 ✅ Use Discord or other voice chat.<br>
 ✅ Playing music in the background.<br>
@@ -161,6 +162,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Crysis 2](https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/)
 - [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/)
 - [Crysis](https://store.steampowered.com/app/17300/Crysis/)
+- [Deep Rock Galactic](https://store.steampowered.com/app/548430/Deep_Rock_Galactic/)
 - [DOOM 2016](https://store.steampowered.com/app/379720/DOOM/)
 - [DOOM Eternal](https://store.steampowered.com/app/782330/DOOM_Eternal/)
 - [Ghostwire: Tokyo](https://store.steampowered.com/app/1475810/Ghostwire_Tokyo/)
@@ -194,6 +196,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [The Forest](https://store.steampowered.com/app/242760/The_Forest/)
 - [Killing Floor](https://store.steampowered.com/app/1250/Killing_Floor/)
 - [Left 4 Dead 2](https://store.steampowered.com/app/550/Left_4_Dead_2)
+- [Miside](https://store.steampowered.com/app/2527500/MiSide/)
 - [Lethal Company](https://store.steampowered.com/app/1966720/Lethal_Company) (no voice chat)
 - [Murky Divers](https://store.steampowered.com/app/2963880/Murky_Divers/)
 - [Outlast 2](https://store.steampowered.com/app/414700/Outlast_2/)

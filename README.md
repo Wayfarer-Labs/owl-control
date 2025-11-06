@@ -23,6 +23,8 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 
 ## Setup
 
+Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps below:
+
 - [Download OWL Control](https://github.com/Wayfarer-Labs/owl-control/releases/latest)
 - Run the installer
 - Launch the app from your desktop or Start menu.
