@@ -517,11 +517,9 @@ impl RecorderState {
     }
 
     fn poll(&mut self) -> eyre::Result<()> {
-        if self
-            .last_application
-            .as_ref()
-            .is_some_and(|a| find_game_capture_window(&a.0, a.1).is_err())
-        {
+        if self.last_application.as_ref().is_some_and(|a| {
+            !game_process::does_process_exist(game_process::Pid(a.1)).unwrap_or(false)
+        }) {
             tracing::warn!("Game no longer open, removing source");
             if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)?
                 && let Some(source) = self.source.take()
