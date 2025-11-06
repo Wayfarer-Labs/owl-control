@@ -40,14 +40,12 @@ pub fn ensure_single_instance() -> eyre::Result<()> {
                 // The mutex will be automatically released when the process exits
             }
             WAIT_TIMEOUT => {
-                use crate::ui::notification::{NotificationType, show_notification};
+                use crate::ui::notification::error_message_box;
 
-                show_notification(
-                    "OWL Control",
-                    "Another instance of OWL Control is already running.",
-                    "Only one instance can run at a time.",
-                    NotificationType::Error,
-                );
+                error_message_box(concat!(
+                    "Another instance of OWL Control is already running.\n\n",
+                    "Only one instance can run at a time."
+                ));
                 eyre::bail!("Another instance of OWL Control is already running.");
             }
             _ => {

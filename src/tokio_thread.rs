@@ -6,7 +6,7 @@ use crate::{
     assets::{get_honk_0_bytes, get_honk_1_bytes},
     record::LocalRecording,
     system::keycode::name_to_virtual_keycode,
-    ui::notification::{NotificationType, show_notification},
+    ui::notification::error_message_box,
     upload,
     util::version::is_version_newer,
 };
@@ -156,11 +156,12 @@ async fn main(
                                 tracing::info!("Recording started with HWND {actively_recording_window:?}");
                             }
                         } else {
-                            show_notification(
-                                "OWL Control - Error",
-                                "You are using an outdated version of OWL Control. Please update to the latest version to continue.",
-                                "Recording and uploading will be blocked until you update.",
-                                NotificationType::Error
+                            error_message_box(
+                                concat!(
+                                    "You are using an outdated version of OWL Control. ",
+                                    "Please update to the latest version to continue.\n\n",
+                                    "Recording and uploading will be blocked until you update."
+                                )
                             );
                         }
                     } else if Some(key) == stop_key && recorder.recording().is_some() {
@@ -418,12 +419,7 @@ async fn start_recording_safely(
 ) -> bool {
     if let Err(e) = recorder.start(input_capture, unsupported_games).await {
         tracing::error!(e=?e, "Failed to start recording");
-        show_notification(
-            "OWL Control - Error",
-            &e.to_string(),
-            "",
-            NotificationType::Error,
-        );
+        error_message_box(&e.to_string());
         recorder.stop(input_capture).await.ok();
         false
     } else {

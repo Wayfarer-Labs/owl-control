@@ -21,7 +21,6 @@ use crate::{
         obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
         recording::Recording,
     },
-    ui::notification::{NotificationType, show_notification},
 };
 use constants::{
     MIN_FREE_SPACE_MB, encoding::VideoEncoderType, unsupported_games::UnsupportedGames,
@@ -197,13 +196,6 @@ impl Recorder {
             }
         };
 
-        show_notification(
-            "Started recording",
-            &format!("Recording `{game_exe}`"),
-            "",
-            NotificationType::Info,
-        );
-
         self.recording = Some(recording);
         *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
             start_time: Instant::now(),
@@ -234,13 +226,6 @@ impl Recorder {
         let Some(recording) = self.recording.take() else {
             return Ok(());
         };
-
-        show_notification(
-            "Stopped recording",
-            &format!("No longer recording `{}`", recording.game_exe()),
-            "",
-            NotificationType::Info,
-        );
 
         recording
             .stop(
