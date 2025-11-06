@@ -1,12 +1,16 @@
 <div align="center">
 
+<picture>
+<img alt="An Owl emerging from an abstract globe of the Earth, all floating above a hand" src="assets/owl-logo.png">
+</picture>
+
 # OWL Control
 
 ### **Help train the next generation of AI by sharing your gameplay!**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 </div>
-OWL Control is a high-performance Windows app that captures the control data from games. These datasets are fundamental to training world models that power sophisticated robots and simulations.
+OWL Control is a high-performance Windows app that captures control data from games. These datasets are fundamental to training world models that power sophisticated robots and simulations.
 
 ## About
 
@@ -25,12 +29,12 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 
 Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps below:
 
-- [Download OWL Control](https://github.com/Wayfarer-Labs/owl-control/releases/latest)
-- Run the installer
+- [Download OWL Control installer](https://github.com/Wayfarer-Labs/owl-control/releases/latest).
+- Run the installer.
 - Launch the app from your desktop or Start menu.
-  - Check the bottom right corner of your screen, as the app may already be open.
+  - Check the bottom right corner of your screen for the turquoise OWL control icon. The app may already be open.
 - [Create an account at our website](https://wayfarerlabs.ai/handler/sign-up?after_auth_return_to=%2Fhandler%2Fsign-in). The link is also in the app.
-- [Generate an API key](https://wayfarerlabs.ai/dashboard)
+- [Generate an API key](https://wayfarerlabs.ai/dashboard).
 - Copy your API key into the app and click `Continue`.
 - Review the terms of recording. Only record if you agree with them.
 
@@ -38,7 +42,7 @@ Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps 
 >
 > - We don't capture your microphone or anything outside the active game.
 > - We screen and filter all the data we receive, and any private information is removed.
-> - We will release our scrubbed and prefiltered data to the research community under permissive and open-source license.
+> - We will freely release our scrubbed and prefiltered data to the research community under permissive and open-source license.
 
 ## Usage
 
@@ -64,15 +68,15 @@ Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps 
 > - You must only play PvE or Co-op PvE (ie: gameplay against in-game, non-human opponents). We do not allow PvP recordings.
 > - You must upload least 20 hours of footage.
 > - You must record active and human play. No camping, bots, idling, etc.
-> - You must use [Wise](https://wise.com/) ($10 an hour) or [Fiverr](https://www.fiverr.com/) ($5 an hour). We do not use other payment providers. If you need help setting up ask [our Discord community](https://discord.gg/ZgCWTGYf4E).
+> - You must use [Wise](https://wise.com/) or [Fiverr](https://www.fiverr.com/). We do not use other payment providers. If you need help setting up ask [our Discord community](https://discord.gg/ZgCWTGYf4E).
 >
 
 ## Troubleshooting
 
 Software known to interfere with OWL Control:
 
-- RivaTuner Statistics Server - Often installed with MSI Afterburner
-- Antivirus Software - OWL Control is not malware, but you may need to add OWL Control to your antivirus whitelist if you experience problems.
+- RivaTuner Statistics Server - Often installed with MSI Afterburner. Sometimes causes conflicts.
+- Antivirus Software - OWL Control is NOT malware. If you experience problems, you are safe to add OWL Control to your antivirus whitelist while problem solving.
 
 > [!NOTE]
 >
