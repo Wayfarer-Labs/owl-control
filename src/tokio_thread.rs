@@ -77,12 +77,25 @@ async fn main(
         app_state.clone(),
     )
     .await?;
-    app_state
-        .ui_update_tx
-        .send(UiUpdate::UpdateAvailableVideoEncoders(
-            recorder.available_video_encoders().to_vec(),
-        ))
-        .ok();
+
+    // Reset our encoder to x264 if the previously-set encoder is no longer available,
+    // and update the available video encoders in the UI.
+    {
+        let encoders = recorder.available_video_encoders();
+
+        {
+            let mut config = app_state.config.write().unwrap();
+            if !encoders.contains(&config.preferences.encoder.encoder) {
+                tracing::warn!("Currently-set encoder is no longer available, resetting to x264");
+                config.preferences.encoder.encoder = constants::encoding::VideoEncoderType::X264;
+            }
+        }
+
+        app_state
+            .ui_update_tx
+            .send(UiUpdate::UpdateAvailableVideoEncoders(encoders.to_vec()))
+            .ok();
+    }
 
     tracing::info!("recorder initialized");
     // I initially tried to move this into `Recorder`, so that it could be passed down to
