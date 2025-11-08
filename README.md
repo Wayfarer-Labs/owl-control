@@ -20,8 +20,8 @@ OWL Control is fully open-source, so anyone can verify its inner workings by rea
 
 ## System Requirements
 
-- Windows™️ device capable of running games at 60 FPS.
-- Keyboard, mouse, trackball, trackpad, Wired/Wireless XBOX™️ or Wired PS5™️ gamepads. PS4™️ controllers may be used with DS4Windows.
+- Windows device capable of running games at 60 FPS.
+- Keyboard, mouse, trackball, trackpad, Wired/Wireless XBOX or Wired PS5 gamepads. PS4 controllers may be used with DS4Windows.
 - A reliable internet connection. Uploading may take a long time.
 - Computer games! We provide [eligible games](./GAMES.md) to veteran players!
 
@@ -159,4 +159,4 @@ build-resources\scripts\build.ps1
 Building open datasets for AI research<hr>
 
 2025 Wayfarer Labs<br>
-Trademarks `™️` copyright respective owners where indicated .</div>
+Trademarks `` copyright respective owners where indicated .</div>
