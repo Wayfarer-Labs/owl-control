@@ -11,7 +11,7 @@ pub fn validate(video_path: &Path, metadata: &Metadata) -> Vec<String> {
     if duration < MIN_FOOTAGE {
         invalid_reasons.push(format!("Video length {} too short.", metadata.duration));
     }
-    if duration > MAX_FOOTAGE + Duration::from_secs(10) {
+    if duration > Duration::from_secs_f32(MAX_FOOTAGE.as_secs_f32() * 1.5) {
         invalid_reasons.push(format!("Video length {} too long.", metadata.duration));
     }
 
