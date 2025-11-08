@@ -1,8 +1,7 @@
 use chrono::{DateTime, Utc};
-use color_eyre::eyre::{self, Context as _};
 use serde::Deserialize;
 
-use crate::api::{API_BASE_URL, ApiClient, check_for_response_success};
+use crate::api::{API_BASE_URL, ApiClient, ApiError, check_for_response_success};
 
 #[derive(Debug, Clone)]
 pub struct UserUploads {
@@ -56,7 +55,7 @@ impl ApiClient {
         &self,
         api_key: &str,
         user_id: &str,
-    ) -> eyre::Result<UserUploads> {
+    ) -> Result<UserUploads, ApiError> {
         // Response structs for the user info endpoint
         #[derive(Deserialize, Debug)]
         #[allow(unused)]
@@ -73,16 +72,12 @@ impl ApiClient {
             .header("Content-Type", "application/json")
             .header("X-API-Key", api_key)
             .send()
-            .await
-            .context("failed to get user upload stats")?;
+            .await?;
 
         let response =
             check_for_response_success(response, "User upload stats unavailable").await?;
 
-        let server_stats = response
-            .json::<UserStatsResponse>()
-            .await
-            .context("failed to parse user upload stats response")?;
+        let server_stats = response.json::<UserStatsResponse>().await?;
 
         Ok(UserUploads {
             statistics: server_stats.statistics,

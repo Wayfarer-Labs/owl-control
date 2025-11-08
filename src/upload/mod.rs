@@ -280,13 +280,12 @@ async fn upload_folder(
             .context("failed to get csv filename")?
             .to_string_lossy()
             .as_ref(),
-        validation.metadata.duration,
+        &validation.metadata,
         unreliable_tx,
         cancel_flag,
         file_progress,
     )
-    .await
-    .context("error uploading tar file")?;
+    .await?;
 
     std::fs::write(
         path.join(constants::filename::recording::UPLOADED),
@@ -310,7 +309,7 @@ async fn upload_tar(
     unreliable_connection: bool,
     video_filename: &str,
     control_filename: &str,
-    video_duration_seconds: f64,
+    metadata: &Metadata,
     unreliable_tx: app_state::UiUpdateUnreliableSender,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     file_progress: FileProgress,
@@ -328,13 +327,18 @@ async fn upload_tar(
     let upload_session = api_client
         .init_multipart_upload(
             api_token,
-            tar_path,
+            tar_path
+                .file_name()
+                .context("failed to get tar filename")?
+                .to_string_lossy()
+                .as_ref(),
             file_size,
+            &crate::system::hardware_id::get().with_context(|| "failed to get hardware ID")?,
             InitMultipartUploadArgs {
                 tags: None,
                 video_filename: Some(video_filename),
                 control_filename: Some(control_filename),
-                video_duration_seconds: Some(video_duration_seconds),
+                video_duration_seconds: Some(metadata.duration),
                 video_width: Some(constants::RECORDING_WIDTH),
                 video_height: Some(constants::RECORDING_HEIGHT),
                 video_fps: Some(constants::FPS as f32),
@@ -346,8 +350,7 @@ async fn upload_tar(
                 },
             },
         )
-        .await
-        .context("failed to initialize multipart upload")?;
+        .await?;
 
     tracing::info!(
         "Starting upload of {} bytes in {} chunks of {} bytes each; upload_id={}, game_control_id={}",
