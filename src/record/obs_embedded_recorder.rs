@@ -19,10 +19,9 @@ use libobs_sources::{
     ObsObjectUpdater, ObsSourceBuilder,
     windows::{
         GameCaptureSourceBuilder, GameCaptureSourceUpdater, ObsGameCaptureMode,
-        WindowCaptureSourceBuilder, WindowCaptureSourceUpdater,
+        WindowCaptureSourceBuilder, WindowCaptureSourceUpdater, WindowInfo, WindowSearchMode,
     },
 };
-use libobs_window_helper::{WindowInfo, WindowSearchMode};
 use libobs_wrapper::{
     context::ObsContext,
     data::{
@@ -290,13 +289,8 @@ impl RecorderState {
         audio_settings.set_int("bitrate", 160)?;
         let audio_info =
             AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
-        let audio_handler = obs_context.get_audio_ptr()?;
-        let audio_encoder = ObsAudioEncoder::new_from_info(
-            audio_info,
-            0,
-            audio_handler,
-            obs_context.runtime().clone(),
-        )?;
+        let audio_encoder =
+            ObsAudioEncoder::new_from_info(audio_info, 0, obs_context.runtime().clone())?;
 
         Ok((
             Self {
@@ -365,7 +359,6 @@ impl RecorderState {
         self.output.update_settings(output_settings)?;
 
         // Create or reuse video encoder
-        let video_handler = self.obs_context.get_video_ptr()?;
         let encoder_type = request.video_settings.encoder;
 
         let video_encoder = if let Some(existing_encoder) = self.video_encoders.get(&encoder_type) {
@@ -383,7 +376,6 @@ impl RecorderState {
                     Some(video_encoder_settings.clone()),
                     None,
                 ),
-                video_handler,
                 self.obs_context.runtime().clone(),
             )?;
             self.video_encoders.insert(encoder_type, encoder.clone());

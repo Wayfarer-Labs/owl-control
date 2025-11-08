@@ -3246,14 +3246,12 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libobs"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0dff4f162fe229e7e206eabb7f00d6eaf2249c6024a230d79dd14c5530407d36"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
 
 [[package]]
 name = "libobs-source-macro"
 version = "5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80e47e031bc4134f3faf8f6f731611ccd1bf11f6fa1800880f7663424e7a3eb8"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
 dependencies = [
  "num-traits",
  "proc-macro2",
@@ -3264,8 +3262,7 @@ dependencies = [
 [[package]]
 name = "libobs-sources"
 version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b00b6f81127697e4c913b64e5183219685bb8dfb793b7d96f6d1c910de1c469"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3284,8 +3281,7 @@ dependencies = [
 [[package]]
 name = "libobs-window-helper"
 version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ea9eb8fb34cf4eea1241061a12b0dd9bf38c9cf170649c411af9cfa079790fa"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
@@ -3294,8 +3290,7 @@ dependencies = [
 [[package]]
 name = "libobs-wrapper"
 version = "5.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d81905f4cce3ef21fd2fa60c9cd106e48f89f05e6c5a46abe99a3012b8caba3b"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
 dependencies = [
  "anyhow",
  "arboard",

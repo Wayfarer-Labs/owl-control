@@ -35,14 +35,22 @@ sysinfo = "0.32.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = "5.1.0"
-libobs-sources = "3.1.0"
-libobs-window-helper = "0.1.6"
+# TODO: update this once the PR is merged
+# libobs-wrapper = "5.1.0"
+# libobs-sources = "3.1.0"
+# libobs-window-helper = "0.1.6"
+libobs-wrapper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc" }
+libobs-sources = { git = "https://github.com/joshprk/libobs-rs.git", branch = "44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc" }
+libobs-window-helper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc" }
 
 [package]
 name = "owl-control"
 version.workspace = true
 edition = "2024"
+
+[[bin]]
+name = "encoder_switch_repro"
+path = "encoder_switch_repro.rs"
 
 [dependencies]
 constants.workspace = true
