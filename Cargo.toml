@@ -48,10 +48,6 @@ name = "owl-control"
 version.workspace = true
 edition = "2024"
 
-[[bin]]
-name = "encoder_switch_repro"
-path = "encoder_switch_repro.rs"
-
 [dependencies]
 constants.workspace = true
 input-capture.workspace = true
