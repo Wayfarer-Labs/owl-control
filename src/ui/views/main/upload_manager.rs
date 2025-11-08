@@ -24,10 +24,12 @@ pub struct UploadManager {
 impl UploadManager {
     pub fn update_user_uploads(&mut self, user_uploads: Vec<UserUpload>) {
         self.recordings.update_user_uploads(user_uploads);
+        self.virtual_list.reset();
     }
 
     pub fn update_local_recordings(&mut self, local_recordings: Vec<LocalRecording>) {
         self.recordings.update_local_recordings(local_recordings);
+        self.virtual_list.reset();
     }
 
     pub fn update_current_upload_progress(&mut self, progress: Option<upload::ProgressData>) {
