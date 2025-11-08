@@ -5,7 +5,7 @@ Follow these guidelines. You must be 18 or older!
 ❌ PvP modes.<br>
 ❌ Cutscenes or menus. We need input data, not movies.<br>
 ❌ Idling during recording. No standing still, camping, afk, etc.<br>
-❌ Play or voice chat of real people not recording with our software in any Co-Op/PvP games.<br
+❌ Play or voice chat of real people not recording with our software in any Co-Op/PvE games.<br
 ❌ Controls other than keyboard, mouse and gamepad.<br><br>
 
 ✅ First-person view.<br>
