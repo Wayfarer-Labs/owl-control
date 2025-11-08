@@ -131,7 +131,7 @@ impl ApiClient {
             .await?;
 
         Ok(
-            check_for_response_success(response, "Multipart upload initialization failed")
+            check_for_response_success(response, "Upload initialization failed")
                 .await?
                 .json()
                 .await?,
@@ -201,7 +201,7 @@ impl ApiClient {
             .await?;
 
         Ok(
-            check_for_response_success(response, "Complete multipart upload request failed")
+            check_for_response_success(response, "Complete upload request failed")
                 .await?
                 .json()
                 .await?,
@@ -223,7 +223,7 @@ impl ApiClient {
             .await?;
 
         Ok(
-            check_for_response_success(response, "Abort multipart upload request failed")
+            check_for_response_success(response, "Abort upload request failed")
                 .await?
                 .json()
                 .await?,

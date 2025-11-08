@@ -9,7 +9,7 @@ use serde::Deserialize;
 use tokio::{io::AsyncReadExt, sync::mpsc};
 
 use crate::{
-    api::{ApiClient, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
+    api::{ApiClient, ApiError, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
     app_state::{self, AppState, AsyncRequest, UiUpdate, UiUpdateUnreliable},
     output_types::Metadata,
     record::LocalRecording,
@@ -305,6 +305,71 @@ async fn upload_folder(
     })
 }
 
+#[derive(Debug)]
+enum UploadTarError {
+    Io(std::io::Error),
+    FailedToGetTarFilename(PathBuf),
+    FailedToGetHardwareId(String),
+    Serde(serde_json::Error),
+    Api {
+        api_request: &'static str,
+        error: ApiError,
+    },
+    UploadCancelled,
+    FailedToUploadChunk {
+        chunk_number: u64,
+        total_chunks: u64,
+        max_retries: u32,
+        error: UploadSingleChunkError,
+    },
+    FailedToCompleteMultipartUpload(String),
+}
+impl std::fmt::Display for UploadTarError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UploadTarError::Io(e) => write!(f, "I/O error: {e}"),
+            UploadTarError::FailedToGetTarFilename(path) => {
+                write!(f, "Failed to get tar filename: {path:?}")
+            }
+            UploadTarError::FailedToGetHardwareId(id) => {
+                write!(f, "Failed to get hardware ID: {id}")
+            }
+            UploadTarError::Serde(e) => {
+                write!(f, "Serde error: {e}")
+            }
+            UploadTarError::Api { api_request, error } => {
+                write!(f, "API error for {api_request}: {error}")
+            }
+            UploadTarError::UploadCancelled => write!(f, "Upload cancelled by user"),
+            UploadTarError::FailedToUploadChunk {
+                chunk_number,
+                total_chunks,
+                max_retries,
+                error,
+            } => {
+                write!(
+                    f,
+                    "Failed to upload chunk {chunk_number}/{total_chunks} after {max_retries} attempts: {error:?}"
+                )
+            }
+            UploadTarError::FailedToCompleteMultipartUpload(message) => {
+                write!(f, "Failed to complete multipart upload: {message}")
+            }
+        }
+    }
+}
+impl std::error::Error for UploadTarError {}
+impl From<std::io::Error> for UploadTarError {
+    fn from(e: std::io::Error) -> Self {
+        UploadTarError::Io(e)
+    }
+}
+impl From<serde_json::Error> for UploadTarError {
+    fn from(e: serde_json::Error) -> Self {
+        UploadTarError::Serde(e)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn upload_tar(
     tar_path: &Path,
@@ -317,11 +382,8 @@ async fn upload_tar(
     unreliable_tx: app_state::UiUpdateUnreliableSender,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     file_progress: FileProgress,
-) -> eyre::Result<String> {
-    let file_size = std::fs::metadata(tar_path)
-        .map(|m| m.len())
-        .context("failed to get file size")?;
-
+) -> Result<String, UploadTarError> {
+    let file_size = std::fs::metadata(tar_path).map(|m| m.len())?;
     unreliable_tx
         .send(UiUpdateUnreliable::UpdateUploadProgress(Some(
             ProgressData::default(),
@@ -333,11 +395,12 @@ async fn upload_tar(
             api_token,
             tar_path
                 .file_name()
-                .context("failed to get tar filename")?
+                .ok_or_else(|| UploadTarError::FailedToGetTarFilename(tar_path.to_owned()))?
                 .to_string_lossy()
                 .as_ref(),
             file_size,
-            &crate::system::hardware_id::get().with_context(|| "failed to get hardware ID")?,
+            &crate::system::hardware_id::get()
+                .map_err(|e| UploadTarError::FailedToGetHardwareId(e.to_string()))?,
             InitMultipartUploadArgs {
                 tags: None,
                 video_filename: Some(video_filename),
@@ -354,7 +417,11 @@ async fn upload_tar(
                 },
             },
         )
-        .await?;
+        .await
+        .map_err(|e| UploadTarError::Api {
+            api_request: "init_multipart_upload",
+            error: e,
+        })?;
 
     tracing::info!(
         "Starting upload of {} bytes in {} chunks of {} bytes each; upload_id={}, game_control_id={}",
@@ -400,9 +467,7 @@ async fn upload_tar(
     let mut chunk_etags = vec![];
 
     {
-        let mut file = tokio::fs::File::open(tar_path)
-            .await
-            .context("failed to open tar file")?;
+        let mut file = tokio::fs::File::open(tar_path).await?;
 
         // TODO: make this less sloppy.
         // Instead of allocating a chunk-sized buffer, and then allocating that buffer
@@ -419,7 +484,7 @@ async fn upload_tar(
         for chunk_number in 1..=upload_session.total_chunks {
             // Check if upload has been cancelled
             if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
-                eyre::bail!("Upload cancelled by user");
+                return Err(UploadTarError::UploadCancelled);
             }
 
             tracing::info!(
@@ -432,10 +497,7 @@ async fn upload_tar(
             // Read chunk data from file (only once per chunk, not per retry)
             let mut buffer_start = 0;
             loop {
-                let bytes_read = file
-                    .read(&mut buffer[buffer_start..])
-                    .await
-                    .context("failed to read chunk")?;
+                let bytes_read = file.read(&mut buffer[buffer_start..]).await?;
                 if bytes_read == 0 {
                     break;
                 }
@@ -479,7 +541,7 @@ async fn upload_tar(
                         );
                         break; // Success, move to next chunk
                     }
-                    Err(e) => {
+                    Err(error) => {
                         // Reset bytes_uploaded to what it was before the chunk attempt
                         {
                             let mut progress_sender = progress_sender.lock().unwrap();
@@ -487,15 +549,17 @@ async fn upload_tar(
                         }
 
                         tracing::warn!(
-                            "Failed to upload chunk {chunk_number}/{} (attempt {attempt}/{MAX_RETRIES}): {e:?}",
+                            "Failed to upload chunk {chunk_number}/{} (attempt {attempt}/{MAX_RETRIES}): {error:?}",
                             upload_session.total_chunks,
                         );
 
                         if attempt == MAX_RETRIES {
-                            eyre::bail!(
-                                "Failed to upload chunk {chunk_number}/{} after {MAX_RETRIES} attempts: {e}",
-                                upload_session.total_chunks
-                            );
+                            return Err(UploadTarError::FailedToUploadChunk {
+                                chunk_number,
+                                total_chunks: upload_session.total_chunks,
+                                max_retries: MAX_RETRIES,
+                                error,
+                            });
                         }
 
                         // Optional: add a small delay before retrying
@@ -509,15 +573,17 @@ async fn upload_tar(
     let completion_result = api_client
         .complete_multipart_upload(api_token, &upload_session.upload_id, &chunk_etags)
         .await
-        .context("failed to complete multipart upload")?;
+        .map_err(|e| UploadTarError::Api {
+            api_request: "complete_multipart_upload",
+            error: e,
+        })?;
 
     abort_upload_on_drop.disarm();
 
     if !completion_result.success {
-        eyre::bail!(
-            "Failed to complete multipart upload: {}",
-            completion_result.message
-        );
+        return Err(UploadTarError::FailedToCompleteMultipartUpload(
+            completion_result.message,
+        ));
     }
 
     tracing::info!(
@@ -536,6 +602,46 @@ struct Chunk<'a> {
     number: u64,
 }
 
+#[derive(Debug)]
+enum UploadSingleChunkError {
+    Io(std::io::Error),
+    Api {
+        api_request: &'static str,
+        error: ApiError,
+    },
+    Reqwest(reqwest::Error),
+    ChunkUploadFailed(reqwest::StatusCode),
+    NoEtagHeaderFound,
+}
+impl std::fmt::Display for UploadSingleChunkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UploadSingleChunkError::Io(e) => write!(f, "I/O error: {e}"),
+            UploadSingleChunkError::Api { api_request, error } => {
+                write!(f, "API error for {api_request}: {error:?}")
+            }
+            UploadSingleChunkError::Reqwest(e) => write!(f, "Reqwest error: {e}"),
+            UploadSingleChunkError::ChunkUploadFailed(status) => {
+                write!(f, "Chunk upload failed with status: {status}")
+            }
+            UploadSingleChunkError::NoEtagHeaderFound => {
+                write!(f, "No ETag header found after chunk upload")
+            }
+        }
+    }
+}
+impl std::error::Error for UploadSingleChunkError {}
+impl From<std::io::Error> for UploadSingleChunkError {
+    fn from(e: std::io::Error) -> Self {
+        UploadSingleChunkError::Io(e)
+    }
+}
+impl From<reqwest::Error> for UploadSingleChunkError {
+    fn from(e: reqwest::Error) -> Self {
+        UploadSingleChunkError::Reqwest(e)
+    }
+}
+
 async fn upload_single_chunk(
     chunk: Chunk<'_>,
     api_client: &Arc<ApiClient>,
@@ -543,11 +649,14 @@ async fn upload_single_chunk(
     upload_id: &str,
     progress_sender: Arc<Mutex<ProgressSender>>,
     client: &reqwest::Client,
-) -> eyre::Result<String> {
+) -> Result<String, UploadSingleChunkError> {
     let multipart_chunk_response = api_client
         .upload_multipart_chunk(api_token, upload_id, chunk.number, chunk.hash)
         .await
-        .context("failed to upload chunk")?;
+        .map_err(|e| UploadSingleChunkError::Api {
+            api_request: "upload_multipart_chunk",
+            error: e,
+        })?;
 
     // Create a stream that wraps chunk_data and tracks upload progress
     let progress_stream =
@@ -567,11 +676,10 @@ async fn upload_single_chunk(
         .header("Content-Length", chunk.data.len())
         .body(reqwest::Body::wrap_stream(progress_stream))
         .send()
-        .await
-        .context("failed to stream chunk to upload url")?;
+        .await?;
 
     if !res.status().is_success() {
-        eyre::bail!("Chunk upload failed with status: {}", res.status())
+        return Err(UploadSingleChunkError::ChunkUploadFailed(res.status()));
     }
 
     // Extract etag header from response
@@ -580,7 +688,7 @@ async fn upload_single_chunk(
         .get("etag")
         .and_then(|hv| hv.to_str().ok())
         .map(|s| s.trim_matches('"').to_owned())
-        .ok_or_else(|| eyre::eyre!("No ETag header found after chunk upload"))?;
+        .ok_or(UploadSingleChunkError::NoEtagHeaderFound)?;
 
     Ok(etag)
 }
