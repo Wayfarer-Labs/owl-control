@@ -5,7 +5,7 @@ Follow these guidelines. You must be 18 or older!
 ❌ PvP modes.<br>
 ❌ Cutscenes or menus. We need input data, not movies.<br>
 ❌ Idling during recording. No standing still, camping, afk, etc.<br>
-❌ Play or voice chat of real people not recording with our software in any Co-Op/PvP games.<br>
+❌ Play or voice chat of real people not recording with our software in any Co-Op/PvP games.<br
 ❌ Controls other than keyboard, mouse and gamepad.<br><br>
 
 ✅ First-person view.<br>
@@ -23,6 +23,7 @@ Follow these guidelines. You must be 18 or older!
 > - Singleplayer game recordings give best results.
 > - We buy games from `Top-priority` for veteran contributors.
 > - We don't capture your microphone or anything outside the active game.
+> - MSI Afterburner or similar stats programs should be disabled and substituted with [Steam Overlay stats](https://help.steampowered.com/en/faqs/view/3462-CD4C-36BD5767)
 
 > [!WARNING]
 >
@@ -99,6 +100,8 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Severed Steel](https://store.steampowered.com/app/1227690/Severed_Steel/)
 - [Shady Knight](https://store.steampowered.com/app/1155650/Shady_Knight/)
 - [SUPERHOT](https://store.steampowered.com/app/322500/SUPERHOT)
+- [ULTRAKILL](https://store.steampowered.com/app/1229490/ULTRAKILL/)
+- [VOIDBREAKER](https://store.steampowered.com/app/2615540/VOIDBREAKER/)
 - [White Knuckle](https://store.steampowered.com/app/3195790/White_Knuckle/)
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
@@ -111,6 +114,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Euro Truck Simulator 2](https://store.steampowered.com/app/227300/Euro_Truck_Simulator_2)
 - [Fallout 4](https://store.steampowered.com/app/377160/Fallout_4/)
 - [Fallout: New Vegas](https://store.steampowered.com/app/22380/Fallout_New_Vegas/)
+- [Assetto Corsa Competizione](https://store.steampowered.com/app/805550/Assetto_Corsa_Competizione/)
 - [Forza Horizon 5](https://store.steampowered.com/app/1551360/Forza_Horizon_5/)
 - [Forza Motorsport](https://store.steampowered.com/app/2440510/Forza_Motorsport/)
 - [Internet Cafe Simulator 2025](https://store.steampowered.com/app/3326290/Internet_Cafe_Simulator_2025)
