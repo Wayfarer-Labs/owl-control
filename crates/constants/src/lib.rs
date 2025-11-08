@@ -27,6 +27,8 @@ pub mod filename {
     pub mod recording {
         /// Reasons that a recording is invalid
         pub const INVALID: &str = ".invalid";
+        /// Reasons that a server invalidated a recording
+        pub const SERVER_INVALID: &str = ".server_invalid";
         /// Indicates the file was uploaded; contains information about the upload
         pub const UPLOADED: &str = ".uploaded";
         /// The video recording file

@@ -17,6 +17,7 @@ pub enum ApiError {
         error: String,
         status: Option<reqwest::StatusCode>,
     },
+    ServerInvalidation(String),
 }
 impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -27,7 +28,14 @@ impl std::fmt::Display for ApiError {
                 context,
                 error,
                 status,
-            } => write!(f, "{context}: {error} ({status:?})"),
+            } => {
+                write!(f, "{context}: {error}")?;
+                if let Some(status) = status {
+                    write!(f, " (HTTP {status})")?;
+                }
+                Ok(())
+            }
+            ApiError::ServerInvalidation(err) => write!(f, "Server invalidation: {err}"),
         }
     }
 }
@@ -96,20 +104,30 @@ async fn check_for_response_success(
     response: reqwest::Response,
     context: &str,
 ) -> Result<reqwest::Response, ApiError> {
+    #[derive(Deserialize, Debug)]
+    #[serde(rename_all = "snake_case", tag = "type")]
+    enum StructuredError {
+        ServerInvalidation {
+            detail: String,
+        },
+        #[serde(untagged)]
+        Other {
+            #[serde(default)]
+            detail: Option<String>,
+        },
+    }
+
     let status = response.status();
     if !status.is_success() {
-        let value = response
-            .json::<serde_json::Value>()
-            .await
-            .unwrap_or_default();
-        let detail = value
-            .get("detail")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown error");
-        return Err(ApiError::ApiFailure {
-            context: context.into(),
-            error: detail.into(),
-            status: Some(status),
+        let value = response.json::<StructuredError>().await?;
+
+        return Err(match value {
+            StructuredError::ServerInvalidation { detail } => ApiError::ServerInvalidation(detail),
+            StructuredError::Other { detail } => ApiError::ApiFailure {
+                context: context.into(),
+                error: detail.unwrap_or_else(|| "unknown error".to_string()),
+                status: Some(status),
+            },
         });
     }
     Ok(response)

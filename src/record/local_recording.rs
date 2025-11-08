@@ -26,6 +26,7 @@ pub enum LocalRecording {
         info: LocalRecordingInfo,
         metadata: Option<Box<Metadata>>,
         error_reasons: Vec<String>,
+        by_server: bool,
     },
     Unuploaded {
         info: LocalRecordingInfo,
@@ -99,6 +100,7 @@ impl LocalRecording {
         }
 
         let invalid_file_path = path.join(constants::filename::recording::INVALID);
+        let server_invalid_file_path = path.join(constants::filename::recording::SERVER_INVALID);
         let uploaded_file_path = path.join(constants::filename::recording::UPLOADED);
         let metadata_path = path.join(constants::filename::recording::METADATA);
 
@@ -141,7 +143,7 @@ impl LocalRecording {
                 .map(Box::new);
 
             if invalid_file_path.is_file() {
-                // Read the error reasons from the .invalid file
+                // Read the error reasons from the [`constants::filename::recording::INVALID`] file
                 let error_reasons = std::fs::read_to_string(&invalid_file_path)
                     .unwrap_or_else(|_| "Unknown error".to_string())
                     .lines()
@@ -152,6 +154,21 @@ impl LocalRecording {
                     info,
                     metadata,
                     error_reasons,
+                    by_server: false,
+                })
+            } else if server_invalid_file_path.is_file() {
+                // Read the error reasons from the [`constants::filename::recording::SERVER_INVALID`] file
+                let error_reasons = std::fs::read_to_string(&server_invalid_file_path)
+                    .unwrap_or_else(|_| "Unknown error".to_string())
+                    .lines()
+                    .map(|s| s.to_string())
+                    .collect();
+
+                Some(LocalRecording::Invalid {
+                    info,
+                    metadata,
+                    error_reasons,
+                    by_server: true,
                 })
             } else {
                 Some(LocalRecording::Unuploaded { info, metadata })
@@ -189,7 +206,7 @@ impl LocalRecording {
     }
 
     /// Write metadata to disk and validate the recording.
-    /// Creates a .invalid file if validation fails.
+    /// Creates a [`constants::filename::recording::INVALID`] file if validation fails.
     #[allow(clippy::too_many_arguments)]
     pub(crate) async fn write_metadata_and_validate(
         recording_location: PathBuf,
@@ -261,7 +278,7 @@ impl LocalRecording {
         let metadata_json = serde_json::to_string_pretty(&metadata)?;
         tokio::fs::write(&metadata_path, &metadata_json).await?;
 
-        // Validate the recording immediately after stopping to create .invalid file if needed
+        // Validate the recording immediately after stopping to create [`constants::filename::recording::INVALID`] file if needed
         tracing::info!("Validating recording at {}", recording_location.display());
         tokio::task::spawn_blocking(move || {
             if let Err(e) = crate::validation::validate_folder(&recording_location) {

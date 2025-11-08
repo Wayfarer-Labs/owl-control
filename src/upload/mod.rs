@@ -206,6 +206,7 @@ async fn run(
     Ok(stats)
 }
 
+#[derive(Default)]
 struct RecordingStats {
     duration: f64,
     bytes: u64,
@@ -267,7 +268,7 @@ async fn upload_folder(
     }
     let tar_path = DeleteFileOnDrop(tar_path);
 
-    let game_control_id = upload_tar(
+    let response = upload_tar(
         &tar_path.0,
         api_client,
         api_token,
@@ -289,20 +290,40 @@ async fn upload_folder(
         cancel_flag,
         file_progress,
     )
-    .await?;
+    .await;
 
-    std::fs::write(
-        path.join(constants::filename::recording::UPLOADED),
-        game_control_id,
-    )
-    .ok();
+    match response {
+        Ok(game_control_id) => {
+            std::fs::write(
+                path.join(constants::filename::recording::UPLOADED),
+                game_control_id,
+            )
+            .ok();
 
-    Ok(RecordingStats {
-        duration: validation.metadata.duration as f64,
-        bytes: std::fs::metadata(&tar_path.0)
-            .map(|m| m.len())
-            .unwrap_or_default(),
-    })
+            Ok(RecordingStats {
+                duration: validation.metadata.duration as f64,
+                bytes: std::fs::metadata(&tar_path.0)
+                    .map(|m| m.len())
+                    .unwrap_or_default(),
+            })
+        }
+        Err(UploadTarError::Api {
+            error: ApiError::ServerInvalidation(message),
+            ..
+        }) => {
+            std::fs::write(
+                path.join(constants::filename::recording::SERVER_INVALID),
+                message,
+            )
+            .ok();
+
+            // This is a bit dubious, but I want the upload process to continue without
+            // this error being surfaced: the server invalidation will be shown through
+            // the UI when the local recordings are reloaded
+            Ok(RecordingStats::default())
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 #[derive(Debug)]
@@ -415,6 +436,8 @@ async fn upload_tar(
                 } else {
                     None
                 },
+                additional_metadata: serde_json::to_value(metadata)?,
+                uploading_owl_control_version: Some(env!("CARGO_PKG_VERSION")),
             },
         )
         .await
