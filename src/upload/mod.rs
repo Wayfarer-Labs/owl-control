@@ -11,6 +11,7 @@ use tokio::{io::AsyncReadExt, sync::mpsc};
 use crate::{
     api::{ApiClient, CompleteMultipartUploadChunk, InitMultipartUploadArgs},
     app_state::{self, AppState, AsyncRequest, UiUpdate, UiUpdateUnreliable},
+    output_types::Metadata,
     record::LocalRecording,
     validation::{ValidationResult, validate_folder},
 };
@@ -43,7 +44,7 @@ pub async fn start(
     api_client: Arc<ApiClient>,
     recording_location: PathBuf,
 ) {
-    let tx = app_state.ui_update_tx.clone();
+    let reliable_tx = app_state.ui_update_tx.clone();
     let unreliable_tx = app_state.ui_update_unreliable_tx.clone();
     let cancel_flag = app_state.upload_cancel_flag.clone();
 
@@ -72,13 +73,14 @@ pub async fn start(
         api_token,
         unreliable_connection,
         delete_uploaded,
+        reliable_tx.clone(),
         unreliable_tx.clone(),
         app_state.async_request_tx.clone(),
         cancel_flag,
     )
     .await
     {
-        tx.send(UiUpdate::UploadFailed(e.to_string())).ok();
+        tracing::error!(e=?e, "Error uploading recordings");
     }
 
     app_state
@@ -105,6 +107,7 @@ async fn run(
     api_token: String,
     unreliable_connection: bool,
     delete_uploaded: bool,
+    reliable_tx: app_state::UiUpdateSender,
     unreliable_tx: app_state::UiUpdateUnreliableSender,
     async_req_tx: mpsc::Sender<AsyncRequest>,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
@@ -152,6 +155,7 @@ async fn run(
             Ok(recording_stats) => recording_stats,
             Err(e) => {
                 tracing::error!("Error uploading folder {}: {:?}", path.display(), e);
+                reliable_tx.send(UiUpdate::UploadFailed(e.to_string())).ok();
                 continue;
             }
         };
