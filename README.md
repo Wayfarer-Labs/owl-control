@@ -14,7 +14,7 @@ OWL Control is a high-performance Windows app that captures control data from ga
 
 ## About
 
-We carefully log keyboard, mouse and gamepad inputs sent directly to the game being played into a local file synced to a small video of the game. No other windows or control input is recorded. Any other window or input - including any microphone or camera - is not captured.
+We carefully log keyboard, mouse and gamepad inputs from the active game to a file synced with a mini video of game. No other windows or control input is recorded. Any other window or input - including any microphone or camera - is not captured.
 
 OWL Control is fully open-source, so anyone can verify its inner workings by reading the code or feeding this page's link to your favorite AI language model. The software is developed and enriched by a vibrant [community on Discord](https://discord.gg/ZgCWTGYf4E), and anyone is allowed to [contribute to the project](./CONTRIBUTING.md)
 
@@ -75,8 +75,9 @@ Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps 
 
 Software known to interfere with OWL Control:
 
+- MSI Afterburner - Causes problems with recording. Use [Steam Overlay with performance stats](https://help.steampowered.com/en/faqs/view/3462-CD4C-36BD5767) instead.
 - RivaTuner Statistics Server - Often installed with MSI Afterburner. Sometimes causes conflicts.
-- Antivirus Software - OWL Control is NOT malware. If you experience problems, you are safe to add OWL Control to your antivirus whitelist while problem solving.
+- Antivirus Software - OWL Control is NOT malware. If you experience problems, you are safe to lower antivirus on OWL Control while problem solving.
 
 If you run into other difficulties, write down what happened and take screenshots using [Windows' snipper tool](https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b), then [speak to us on our Discord server](https://discord.gg/ZgCWTGYf4E) or [open an issue on GitHub](https://github.com/Wayfarer-Labs/owl-control/issues).
 
