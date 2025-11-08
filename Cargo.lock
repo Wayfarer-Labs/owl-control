@@ -3246,12 +3246,14 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libobs"
 version = "3.0.0"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dff4f162fe229e7e206eabb7f00d6eaf2249c6024a230d79dd14c5530407d36"
 
 [[package]]
 name = "libobs-source-macro"
 version = "5.0.0"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80e47e031bc4134f3faf8f6f731611ccd1bf11f6fa1800880f7663424e7a3eb8"
 dependencies = [
  "num-traits",
  "proc-macro2",
@@ -3261,8 +3263,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-sources"
-version = "3.1.0"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2be1d0edc617d935fdb0bc83d5573c9308e8af856d708e514380451b0090dfb5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3280,8 +3283,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-window-helper"
-version = "0.1.6"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5cf06c5664d5e80d3881ec4a1e3cf6fee3fd43ec5aca78e4d3ff7298f8ecd0d"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
@@ -3289,8 +3293,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "5.1.0"
-source = "git+https://github.com/joshprk/libobs-rs.git?branch=44-libobs-crash-when-switching-video-encoder-from-nvenc-to-x264-to-nvenc#4ac4ec1f9b0778b38088bf0d7b8ab0ae2fb2e077"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46300b8bc7e153f63dcc4165362d7ad90af8b1a3a8ec72dcc3731829de1ec9f2"
 dependencies = [
  "anyhow",
  "arboard",
