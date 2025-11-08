@@ -14,7 +14,7 @@ OWL Control is a high-performance Windows app that captures control data from ga
 
 ## About
 
-We carefully log keyboard, mouse and gamepad inputs from the active game to a file synced with a mini video of game. No other windows or control input is recorded. Any other window or input - including any microphone or camera - is not captured.
+We carefully log keyboard, mouse and gamepad inputs from the active game to a file synced with a mini video of the game. No other windows or control input is recorded. Any other window or input - including any microphone or camera - is not captured.
 
 OWL Control is fully open-source, so anyone can verify its inner workings by reading the code or feeding this page's link to your favorite AI language model. The software is developed and enriched by a vibrant [community on Discord](https://discord.gg/ZgCWTGYf4E), and anyone is allowed to [contribute to the project](./CONTRIBUTING.md)
 
@@ -69,6 +69,7 @@ Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps 
 > - You must upload least 20 hours of footage.
 > - You must record active and human play. No camping, bots, idling, etc.
 > - You must use [Wise](https://wise.com/) or [Fiverr](https://www.fiverr.com/). We do not use other payment providers. If you need help setting up ask [our Discord community](https://discord.gg/ZgCWTGYf4E).
+>   - Due to legal and technical restrictions, residents of MENA countries, .PK, or .VN must use Fiverr.
 >
 
 ## Troubleshooting
