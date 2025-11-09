@@ -52,6 +52,26 @@ pub struct UploadProgressState {
 }
 
 impl UploadProgressState {
+    /// Create a new upload progress state from a fresh upload session
+    pub fn new(
+        upload_id: String,
+        game_control_id: String,
+        tar_path: PathBuf,
+        total_chunks: u64,
+        chunk_size_bytes: u64,
+        expires_at: u64,
+    ) -> Self {
+        Self {
+            upload_id,
+            game_control_id,
+            tar_path,
+            chunk_etags: vec![],
+            total_chunks,
+            chunk_size_bytes,
+            expires_at,
+        }
+    }
+
     /// Check if the upload session has expired
     pub fn is_expired(&self) -> bool {
         let now = SystemTime::now()
@@ -304,20 +324,16 @@ async fn upload_folder(
 ) -> eyre::Result<RecordingStats> {
     // Check for existing upload progress
     let progress_file_path = path.join(constants::filename::recording::UPLOAD_PROGRESS);
-    let resume_state = if progress_file_path.is_file() {
+    let upload_state = if progress_file_path.is_file() {
         match UploadProgressState::load_from_file(&progress_file_path) {
             Ok(state) => {
-                if state.is_expired() {
-                    tracing::warn!(
-                        "Upload progress for {} has expired, starting fresh",
-                        path.display()
-                    );
-                    // Clean up expired progress and tar file
-                    std::fs::remove_file(&progress_file_path).ok();
-                    std::fs::remove_file(&state.tar_path).ok();
-                    None
-                } else {
-                    let seconds_left = state.seconds_until_expiration();
+                // Per Philpax: We should avoid resuming uploads if there's less than 15 minutes remaining on the timer;
+                // we've seen upload speeds of 0.3MB/s, which would take 11 minutes to upload 200MB. 15 minutes is safer.
+                const MIN_TIME_REMAINING_SECONDS: i64 = 15 * 60; // 15 minutes
+                let seconds_left = state.seconds_until_expiration();
+                if state.seconds_until_expiration() > MIN_TIME_REMAINING_SECONDS
+                    && state.tar_path.is_file()
+                {
                     tracing::info!(
                         "Resuming upload for {} from chunk {}/{} (expires in {}s)",
                         path.display(),
@@ -325,10 +341,33 @@ async fn upload_folder(
                         state.total_chunks,
                         seconds_left
                     );
-                    if seconds_left < 300 {
-                        tracing::warn!("Upload session expires in less than 5 minutes!");
-                    }
                     Some(state)
+                } else {
+                    // if tar file does not exist, we want to restart upload as there is no guarantee the
+                    // recreated tar file will be the same
+                    if !state.tar_path.is_file() {
+                        tracing::warn!(
+                            "Tar file for {} does not exist, starting fresh",
+                            path.display()
+                        );
+                    }
+                    // Also indicate if expired in logs, since expiry and tar files missing both above can happen independently
+                    if state.is_expired() {
+                        tracing::warn!(
+                            "Upload progress for {} has expired, starting fresh",
+                            path.display()
+                        );
+                    } else {
+                        tracing::warn!(
+                            "Upload progress for {} has insufficient time remaining ({}s < 15min), starting fresh",
+                            path.display(),
+                            seconds_left
+                        );
+                    }
+                    // Clean up expired progress and tar file
+                    std::fs::remove_file(&progress_file_path).ok();
+                    std::fs::remove_file(&state.tar_path).ok();
+                    None
                 }
             }
             Err(e) => {
@@ -349,17 +388,71 @@ async fn upload_folder(
     .await??;
 
     // Use existing tar if resuming, otherwise create new one
-    let tar_path = if let Some(ref state) = resume_state {
-        if state.tar_path.is_file() {
-            tracing::info!("Using existing tar file: {}", state.tar_path.display());
-            state.tar_path.clone()
-        } else {
-            tracing::warn!("Tar file missing for resume, creating new one");
-            create_tar_file(&validation).await?
-        }
+    let tar_path = if let Some(ref state) = upload_state {
+        tracing::info!("Using existing tar file: {}", state.tar_path.display());
+        state.tar_path.clone()
     } else {
         tracing::info!("Creating tar file for {}", path.display());
         create_tar_file(&validation).await?
+    };
+
+    // Create or resume upload progress state
+    let progress_state = if let Some(state) = upload_state {
+        // Resume from saved state
+        tracing::info!("Resuming upload from saved state");
+        state
+    } else {
+        // Initialize new upload session
+        let file_size = std::fs::metadata(&tar_path)
+            .map(|m| m.len())
+            .context("failed to get file size")?;
+
+        let init_response = api_client
+            .init_multipart_upload(
+                api_token,
+                &tar_path,
+                file_size,
+                InitMultipartUploadArgs {
+                    tags: None,
+                    video_filename: Some(
+                        validation
+                            .mp4_path
+                            .file_name()
+                            .context("failed to get mp4 filename")?
+                            .to_string_lossy()
+                            .as_ref(),
+                    ),
+                    control_filename: Some(
+                        validation
+                            .csv_path
+                            .file_name()
+                            .context("failed to get csv filename")?
+                            .to_string_lossy()
+                            .as_ref(),
+                    ),
+                    video_duration_seconds: Some(validation.metadata.duration),
+                    video_width: Some(constants::RECORDING_WIDTH),
+                    video_height: Some(constants::RECORDING_HEIGHT),
+                    video_fps: Some(constants::FPS as f32),
+                    video_codec: None,
+                    chunk_size_bytes: if unreliable_connection {
+                        Some(5 * 1024 * 1024)
+                    } else {
+                        None
+                    },
+                },
+            )
+            .await
+            .context("failed to initialize multipart upload")?;
+
+        UploadProgressState::new(
+            init_response.upload_id,
+            init_response.game_control_id,
+            tar_path.to_path_buf(),
+            init_response.total_chunks,
+            init_response.chunk_size_bytes,
+            init_response.expires_at,
+        )
     };
 
     let game_control_id = upload_tar(
@@ -367,24 +460,10 @@ async fn upload_folder(
         &tar_path,
         api_client,
         api_token,
-        unreliable_connection,
-        validation
-            .mp4_path
-            .file_name()
-            .context("failed to get mp4 filename")?
-            .to_string_lossy()
-            .as_ref(),
-        validation
-            .csv_path
-            .file_name()
-            .context("failed to get csv filename")?
-            .to_string_lossy()
-            .as_ref(),
-        validation.metadata.duration,
         unreliable_tx,
         cancel_flag,
         file_progress,
-        resume_state,
+        progress_state,
     )
     .await
     .context("error uploading tar file")?;
@@ -413,14 +492,10 @@ async fn upload_tar(
     tar_path: &Path,
     api_client: Arc<ApiClient>,
     api_token: &str,
-    unreliable_connection: bool,
-    video_filename: &str,
-    control_filename: &str,
-    video_duration_seconds: f64,
     unreliable_tx: app_state::UiUpdateUnreliableSender,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     file_progress: FileProgress,
-    resume_state: Option<UploadProgressState>,
+    progress_state: UploadProgressState,
 ) -> eyre::Result<String> {
     let file_size = std::fs::metadata(tar_path)
         .map(|m| m.len())
@@ -432,58 +507,16 @@ async fn upload_tar(
         )))
         .ok();
 
-    // Use existing upload session if resuming, otherwise initialize new one
-    let (upload_session, mut chunk_etags, start_chunk) =
-        if let Some(state) = resume_state.as_ref().filter(|s| s.tar_path == tar_path) {
-            // Resume from saved state
-            tracing::info!("Resuming upload from saved state");
-            let session = crate::api::InitMultipartUploadResponse {
-                upload_id: state.upload_id.clone(),
-                game_control_id: state.game_control_id.clone(),
-                total_chunks: state.total_chunks,
-                chunk_size_bytes: state.chunk_size_bytes,
-                expires_at: state.expires_at,
-            };
-            let start_chunk = state.next_chunk_number();
-            (session, state.chunk_etags.clone(), start_chunk)
-        } else {
-            // Initialize new upload session (either no resume state or tar path mismatch)
-            if resume_state.is_some() {
-                tracing::warn!("Resume state tar path mismatch, starting fresh upload");
-            }
-            let session = api_client
-                .init_multipart_upload(
-                    api_token,
-                    tar_path,
-                    file_size,
-                    InitMultipartUploadArgs {
-                        tags: None,
-                        video_filename: Some(video_filename),
-                        control_filename: Some(control_filename),
-                        video_duration_seconds: Some(video_duration_seconds),
-                        video_width: Some(constants::RECORDING_WIDTH),
-                        video_height: Some(constants::RECORDING_HEIGHT),
-                        video_fps: Some(constants::FPS as f32),
-                        video_codec: None,
-                        chunk_size_bytes: if unreliable_connection {
-                            Some(5 * 1024 * 1024)
-                        } else {
-                            None
-                        },
-                    },
-                )
-                .await
-                .context("failed to initialize multipart upload")?;
-            (session, vec![], 1)
-        };
+    let mut chunk_etags = progress_state.chunk_etags.clone();
+    let start_chunk = progress_state.next_chunk_number();
 
     tracing::info!(
         "Starting upload of {} bytes in {} chunks of {} bytes each; upload_id={}, game_control_id={}",
         file_size,
-        upload_session.total_chunks,
-        upload_session.chunk_size_bytes,
-        upload_session.upload_id,
-        upload_session.game_control_id
+        progress_state.total_chunks,
+        progress_state.chunk_size_bytes,
+        progress_state.upload_id,
+        progress_state.game_control_id
     );
 
     // Auto-abort guard: on unexpected drop, abort the upload and clean up.
@@ -529,15 +562,7 @@ async fn upload_tar(
     let mut abort_upload_on_drop = AbortUploadOnDrop {
         api_client: api_client.clone(),
         api_token: api_token.to_string(),
-        progress_state: Some(UploadProgressState {
-            upload_id: upload_session.upload_id.clone(),
-            game_control_id: upload_session.game_control_id.clone(),
-            tar_path: tar_path.to_path_buf(),
-            chunk_etags: chunk_etags.clone(),
-            total_chunks: upload_session.total_chunks,
-            chunk_size_bytes: upload_session.chunk_size_bytes,
-            expires_at: upload_session.expires_at,
-        }),
+        progress_state: Some(progress_state.clone()),
         progress_file_path: progress_file_path.clone(),
     };
 
@@ -548,7 +573,7 @@ async fn upload_tar(
 
         // If resuming, seek to the correct position in the file
         if start_chunk > 1 {
-            let bytes_to_skip = (start_chunk - 1) * upload_session.chunk_size_bytes;
+            let bytes_to_skip = (start_chunk - 1) * progress_state.chunk_size_bytes;
             use tokio::io::AsyncSeekExt;
             file.seek(std::io::SeekFrom::Start(bytes_to_skip))
                 .await
@@ -564,18 +589,18 @@ async fn upload_tar(
         // Instead of allocating a chunk-sized buffer, and then allocating that buffer
         // again for each chunk's stream, figure out a way to stream each chunk from the file
         // directly into the hasher, and then stream each chunk directly into the uploader
-        let mut buffer = vec![0u8; upload_session.chunk_size_bytes as usize];
+        let mut buffer = vec![0u8; progress_state.chunk_size_bytes as usize];
         let client = reqwest::Client::new();
 
         // Initialize progress sender with bytes already uploaded
-        let bytes_already_uploaded = (start_chunk - 1) * upload_session.chunk_size_bytes;
+        let bytes_already_uploaded = (start_chunk - 1) * progress_state.chunk_size_bytes;
         let progress_sender = Arc::new(Mutex::new({
             let mut sender = ProgressSender::new(unreliable_tx.clone(), file_size, file_progress);
             sender.set_bytes_uploaded(bytes_already_uploaded);
             sender
         }));
 
-        for chunk_number in start_chunk..=upload_session.total_chunks {
+        for chunk_number in start_chunk..=progress_state.total_chunks {
             // Check if upload has been cancelled (user-initiated pause)
             if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
                 // Ensure the latest progress is saved for resume
@@ -594,10 +619,10 @@ async fn upload_tar(
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-            if now >= upload_session.expires_at {
+            if now >= progress_state.expires_at {
                 eyre::bail!("Upload session has expired");
             }
-            let seconds_left = upload_session.expires_at as i64 - now as i64;
+            let seconds_left = progress_state.expires_at as i64 - now as i64;
             if seconds_left < 60 && chunk_number % 10 == 0 {
                 tracing::warn!("Upload session expires in {} seconds!", seconds_left);
             }
@@ -605,8 +630,8 @@ async fn upload_tar(
             tracing::info!(
                 "Uploading chunk {}/{} for upload_id {}",
                 chunk_number,
-                upload_session.total_chunks,
-                upload_session.upload_id
+                progress_state.total_chunks,
+                progress_state.upload_id
             );
 
             // Read chunk data from file (only once per chunk, not per retry)
@@ -641,7 +666,7 @@ async fn upload_tar(
                     chunk,
                     &api_client,
                     api_token,
-                    &upload_session.upload_id,
+                    &progress_state.upload_id,
                     progress_sender.clone(),
                     &client,
                 )
@@ -664,8 +689,8 @@ async fn upload_tar(
                         tracing::info!(
                             "Uploaded chunk {}/{} for upload_id {}",
                             chunk_number,
-                            upload_session.total_chunks,
-                            upload_session.upload_id
+                            progress_state.total_chunks,
+                            progress_state.upload_id
                         );
                         break; // Success, move to next chunk
                     }
@@ -678,13 +703,13 @@ async fn upload_tar(
 
                         tracing::warn!(
                             "Failed to upload chunk {chunk_number}/{} (attempt {attempt}/{MAX_RETRIES}): {e:?}",
-                            upload_session.total_chunks,
+                            progress_state.total_chunks,
                         );
 
                         if attempt == MAX_RETRIES {
                             eyre::bail!(
                                 "Failed to upload chunk {chunk_number}/{} after {MAX_RETRIES} attempts: {e}",
-                                upload_session.total_chunks
+                                progress_state.total_chunks
                             );
                         }
 
@@ -697,7 +722,7 @@ async fn upload_tar(
         }
     }
     let completion_result = api_client
-        .complete_multipart_upload(api_token, &upload_session.upload_id, &chunk_etags)
+        .complete_multipart_upload(api_token, &progress_state.upload_id, &chunk_etags)
         .await
         .context("failed to complete multipart upload")?;
 
