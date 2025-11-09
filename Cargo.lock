@@ -611,7 +611,7 @@ checksum = "56ed6191a7e78c36abdb16ab65341eefd73d64d303fffccdbb00d51e4205967b"
 
 [[package]]
 name = "bump-version"
-version = "1.2.1-beta1"
+version = "1.3.0-rc2"
 dependencies = [
  "clap",
  "color-eyre",
@@ -3263,9 +3263,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-sources"
-version = "3.0.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dc19b221b1f59d66c7a2367c69346268e5a7df8f762503aad4cf352fd84e08d"
+checksum = "2be1d0edc617d935fdb0bc83d5573c9308e8af856d708e514380451b0090dfb5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3283,9 +3283,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-window-helper"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ea9eb8fb34cf4eea1241061a12b0dd9bf38c9cf170649c411af9cfa079790fa"
+checksum = "b5cf06c5664d5e80d3881ec4a1e3cf6fee3fd43ec5aca78e4d3ff7298f8ecd0d"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
@@ -3293,9 +3293,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "5.0.0"
+version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "672eea8e100a82f37f72e4ee5223e40b11a09a9b244d0b4cb3d4d0200504addf"
+checksum = "46300b8bc7e153f63dcc4165362d7ad90af8b1a3a8ec72dcc3731829de1ec9f2"
 dependencies = [
  "anyhow",
  "arboard",
@@ -4359,7 +4359,7 @@ dependencies = [
 
 [[package]]
 name = "owl-control"
-version = "1.2.1-beta1"
+version = "1.3.0-rc2"
 dependencies = [
  "async-trait",
  "catppuccin-egui",
@@ -4397,7 +4397,6 @@ dependencies = [
  "sha256",
  "sysinfo",
  "tar",
- "tauri-winrt-notification",
  "tokio",
  "tokio-util",
  "tracing",
@@ -5998,18 +5997,6 @@ name = "target-lexicon"
 version = "0.12.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
-
-[[package]]
-name = "tauri-winrt-notification"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b1e66e07de489fe43a46678dd0b8df65e0c973909df1b60ba33874e297ba9b9"
-dependencies = [
- "quick-xml 0.37.5",
- "thiserror 2.0.17",
- "windows 0.61.3",
- "windows-version",
-]
 
 [[package]]
 name = "tempfile"
@@ -7712,15 +7699,6 @@ name = "windows-threading"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab47f085ad6932defa48855254c758cdd0e2f2d48e62a34118a268d8f345e118"
-dependencies = [
- "windows-link 0.2.0",
-]
-
-[[package]]
-name = "windows-version"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69e061eb0a22b4a1d778ad70f7575ec7845490abb35b08fa320df7895882cacb"
 dependencies = [
  "windows-link 0.2.0",
 ]

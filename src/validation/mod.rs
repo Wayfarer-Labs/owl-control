@@ -31,7 +31,7 @@ pub struct ValidationResult {
     pub metadata: Metadata,
 }
 
-/// Validates the given recording folder, creating a .invalid file if validation fails.
+/// Validates the given recording folder, creating a [`constants::filename::recording::INVALID`] file if validation fails.
 pub fn validate_folder(path: &Path) -> eyre::Result<ValidationResult> {
     match validate_folder_impl(path) {
         Ok(result) => Ok(result),

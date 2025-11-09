@@ -11,6 +11,7 @@ pub struct GamepadOutputStats {
     gamepad_button_diversity: f64,
     gamepad_total_events: u64,
     gamepad_axis_activity: f64,
+    #[serde(default)]
     gamepad_axis_movement: f64,
     gamepad_max_axis_movement: f64,
 }

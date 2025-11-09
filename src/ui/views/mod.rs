@@ -268,6 +268,17 @@ impl App {
     }
 
     pub fn render(&mut self, ctx: &egui::Context) {
+        // Copy in the remote config if it has changed
+        {
+            let config = self.app_state.config.read().unwrap();
+            if config.credentials != self.local_credentials {
+                self.local_credentials = config.credentials.clone();
+            }
+            if config.preferences != self.local_preferences {
+                self.local_preferences = config.preferences.clone();
+            }
+        }
+
         let (has_api_key, has_consented) = (
             !self.local_credentials.api_key.is_empty(),
             self.local_credentials.has_consented,

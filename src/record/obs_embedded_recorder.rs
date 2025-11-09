@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::Path,
     sync::{
         Arc, Mutex,
@@ -18,17 +19,18 @@ use libobs_sources::{
     ObsObjectUpdater, ObsSourceBuilder,
     windows::{
         GameCaptureSourceBuilder, GameCaptureSourceUpdater, ObsGameCaptureMode,
-        WindowCaptureSourceBuilder, WindowCaptureSourceUpdater,
+        WindowCaptureSourceBuilder, WindowCaptureSourceUpdater, WindowInfo, WindowSearchMode,
     },
 };
-use libobs_window_helper::{WindowInfo, WindowSearchMode};
 use libobs_wrapper::{
     context::ObsContext,
     data::{
         output::ObsOutputRef,
         video::{ObsVideoInfo, ObsVideoInfoBuilder},
     },
-    encoders::{ObsContextEncoders, ObsVideoEncoderType},
+    encoders::{
+        ObsContextEncoders, ObsVideoEncoderType, audio::ObsAudioEncoder, video::ObsVideoEncoder,
+    },
     enums::ObsScaleType,
     logger::ObsLogger,
     scenes::ObsSceneRef,
@@ -188,53 +190,16 @@ fn recorder_thread(
     >,
 ) {
     let skipped_frames = Arc::new(Mutex::new(None));
-    let obs_context = ObsContext::new(
-        ObsContext::builder()
-            .set_logger(Box::new(TracingObsLogger {
-                skipped_frames: skipped_frames.clone(),
-            }))
-            .set_video_info(video_info(
-                adapter_index,
-                (RECORDING_WIDTH, RECORDING_HEIGHT),
-            )),
-    );
-    let obs_context = match obs_context {
-        Ok(obs_context) => {
-            let available_encoders = obs_context.available_video_encoders().map(|es| {
-                es.into_iter()
-                    .filter_map(|e| obs_vet_to_vet(e.get_encoder_id()))
-                    .collect::<Vec<_>>()
-            });
-            let available_encoders = match available_encoders {
-                Ok(available_encoders) => available_encoders,
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to get available video encoders, assuming x264 only: {e}"
-                    );
-                    vec![VideoEncoderType::X264]
-                }
-            };
+
+    let mut state = match RecorderState::new(adapter_index, skipped_frames.clone()) {
+        Ok((state, available_encoders)) => {
             init_success_tx.send(Ok(available_encoders)).unwrap();
-            obs_context
+            state
         }
         Err(e) => {
             init_success_tx.send(Err(e)).unwrap();
             return;
         }
-    };
-
-    let mut state = RecorderState {
-        adapter_index,
-        skipped_frames,
-        current_output: None,
-        source: None,
-        last_encoder_settings: None,
-        was_hooked: Arc::new(AtomicBool::new(false)),
-        last_video_encoder_type: None,
-        last_application: None,
-        is_recording: false,
-
-        obs_context,
     };
 
     let mut last_shutdown_tx = None;
@@ -265,7 +230,7 @@ fn recorder_thread(
 struct RecorderState {
     adapter_index: usize,
     skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
-    current_output: Option<ObsOutputRef>,
+    output: ObsOutputRef,
     source: Option<ObsSourceRef>,
     last_encoder_settings: Option<serde_json::Value>,
     was_hooked: Arc<AtomicBool>,
@@ -273,10 +238,79 @@ struct RecorderState {
     last_application: Option<(String, u32)>,
     is_recording: bool,
 
+    // Store video encoders by type to reuse them
+    video_encoders: HashMap<VideoEncoderType, Arc<ObsVideoEncoder>>,
+    // Audio encoder (created once upfront, reused always)
+    audio_encoder: Arc<ObsAudioEncoder>,
+
     // This needs to be last as it needs to be dropped last
     obs_context: ObsContext,
 }
 impl RecorderState {
+    fn new(
+        adapter_index: usize,
+        skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
+    ) -> Result<(Self, Vec<VideoEncoderType>), libobs_wrapper::utils::ObsError> {
+        // Create OBS context
+        let mut obs_context = ObsContext::new(
+            ObsContext::builder()
+                .set_logger(Box::new(TracingObsLogger {
+                    skipped_frames: skipped_frames.clone(),
+                }))
+                .set_video_info(video_info(
+                    adapter_index,
+                    (RECORDING_WIDTH, RECORDING_HEIGHT),
+                )),
+        )?;
+
+        // Get available encoders
+        let available_encoders = obs_context.available_video_encoders().map(|es| {
+            es.into_iter()
+                .filter_map(|e| obs_vet_to_vet(e.get_encoder_id()))
+                .collect::<Vec<_>>()
+        });
+        let available_encoders = match available_encoders {
+            Ok(available_encoders) => available_encoders,
+            Err(e) => {
+                tracing::error!("Failed to get available video encoders, assuming x264 only: {e}");
+                vec![VideoEncoderType::X264]
+            }
+        };
+
+        // Create output upfront (will be reused for all recordings)
+        tracing::info!("Creating output (one-time)");
+        let output_settings = obs_context.data()?;
+        let output_info = OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
+        let output = obs_context.output(output_info)?;
+
+        // Create audio encoder upfront (will be reused for all recordings)
+        tracing::info!("Creating audio encoder (one-time)");
+        let mut audio_settings = obs_context.data()?;
+        audio_settings.set_int("bitrate", 160)?;
+        let audio_info =
+            AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
+        let audio_encoder =
+            ObsAudioEncoder::new_from_info(audio_info, 0, obs_context.runtime().clone())?;
+
+        Ok((
+            Self {
+                adapter_index,
+                skipped_frames,
+                output,
+                source: None,
+                last_encoder_settings: None,
+                was_hooked: Arc::new(AtomicBool::new(false)),
+                last_video_encoder_type: None,
+                last_application: None,
+                is_recording: false,
+                video_encoders: HashMap::new(),
+                audio_encoder,
+                obs_context,
+            },
+            available_encoders,
+        ))
+    }
+
     fn start_recording(
         &mut self,
         request: Box<RecordingRequest>,
@@ -309,9 +343,9 @@ impl RecorderState {
         // Register the source
         scene.set_to_channel(0)?;
 
-        // Set up output
-        let mut output_settings = self.obs_context.data()?;
-        output_settings.set_string("path", ObsPath::new(&request.recording_path).build())?;
+        // Ensure the source takes up the entire scene
+        scene.set_source_position(&source, libobs_wrapper::Vec2::new(0.0, 0.0))?;
+        scene.set_source_scale(&source, libobs_wrapper::Vec2::new(1.0, 1.0))?;
 
         // Register the video encoder with encoder-specific settings
         let video_encoder_data = self.obs_context.data()?;
@@ -319,52 +353,43 @@ impl RecorderState {
             .video_settings
             .apply_to_obs_data(video_encoder_data)?;
 
-        let output = if self.current_output.is_none()
-            || self.last_video_encoder_type != Some(request.video_settings.encoder)
-        {
-            // We don't have an output, or the video encoder type has changed, so we need to create a new output
-            //
-            // TODO: once https://github.com/joshprk/libobs-rs/issues/38 is available, see if we can
-            // update the output with a new encoder if the encoder type changes
-            tracing::info!(
-                "Creating new output with encoder type: {}",
-                request.video_settings.encoder.id()
-            );
-            let output_info =
-                OutputInfo::new("ffmpeg_muxer", "output", Some(output_settings), None);
-            let mut output = self.obs_context.output(output_info)?;
+        // Update the output path settings (when output is not active)
+        let mut output_settings = self.obs_context.data()?;
+        output_settings.set_string("path", ObsPath::new(&request.recording_path).build())?;
+        self.output.update_settings(output_settings)?;
 
-            // Get video handler and attach encoder to output
-            let video_handler = self.obs_context.get_video_ptr()?;
-            output.video_encoder(
+        // Create or reuse video encoder
+        let encoder_type = request.video_settings.encoder;
+
+        let video_encoder = if let Some(existing_encoder) = self.video_encoders.get(&encoder_type) {
+            tracing::info!(
+                "Reusing existing video encoder for type: {}",
+                encoder_type.id()
+            );
+            existing_encoder.clone()
+        } else {
+            tracing::info!("Creating new video encoder for type: {}", encoder_type.id());
+            let encoder = ObsVideoEncoder::new_from_info(
                 VideoEncoderInfo::new(
-                    vet_to_obs_vet(request.video_settings.encoder),
+                    vet_to_obs_vet(encoder_type),
                     "video_encoder",
                     Some(video_encoder_settings.clone()),
                     None,
                 ),
-                video_handler,
+                self.obs_context.runtime().clone(),
             )?;
-
-            // Register the audio encoder
-            let mut audio_settings = self.obs_context.data()?;
-            audio_settings.set_int("bitrate", 160)?;
-
-            let audio_info =
-                AudioEncoderInfo::new("ffmpeg_aac", "audio_encoder", Some(audio_settings), None);
-
-            let audio_handler = self.obs_context.get_audio_ptr()?;
-            output.audio_encoder(audio_info, 0, audio_handler)?;
-
-            output
-        } else {
-            tracing::info!("Reusing existing output");
-            let mut output = self.current_output.take().unwrap();
-            output.update_settings(output_settings)?;
-            output
+            self.video_encoders.insert(encoder_type, encoder.clone());
+            encoder
         };
 
-        self.last_video_encoder_type = Some(request.video_settings.encoder);
+        // Set the video encoder on the output
+        self.output.set_video_encoder(video_encoder)?;
+
+        // Set the audio encoder on the output
+        self.output
+            .set_audio_encoder(self.audio_encoder.clone(), 0)?;
+
+        self.last_video_encoder_type = Some(encoder_type);
 
         // Listen for signals to pass onto the event stream
         self.was_hooked.store(false, Ordering::Relaxed);
@@ -373,11 +398,13 @@ impl RecorderState {
             let was_hooked = self.was_hooked.clone();
 
             // output
-            let mut start_signal_rx = output
+            let mut start_signal_rx = self
+                .output
                 .signal_manager()
                 .on_start()
                 .context("failed to register output on_start signal")?;
-            let mut stop_signal_rx = output
+            let mut stop_signal_rx = self
+                .output
                 .signal_manager()
                 .on_stop()
                 .context("failed to register output on_stop signal")?;
@@ -452,9 +479,8 @@ impl RecorderState {
         // Just before we start, clear out our skipped frame counter
         self.skipped_frames.lock().unwrap().take();
 
-        output.start()?;
+        self.output.start()?;
 
-        self.current_output = Some(output);
         self.source = Some(source);
         self.last_application = Some((request.game_exe.clone(), request.pid));
         self.is_recording = true;
@@ -466,10 +492,8 @@ impl RecorderState {
         &mut self,
         last_shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
     ) -> eyre::Result<serde_json::Value> {
-        if let Some(output) = self.current_output.as_mut()
-            && self.is_recording
-        {
-            output.stop().wrap_err("Failed to stop OBS output")?;
+        if self.is_recording {
+            self.output.stop().wrap_err("Failed to stop OBS output")?;
             tracing::debug!("OBS recording stopped");
             self.is_recording = false;
         } else {
@@ -513,11 +537,9 @@ impl RecorderState {
     }
 
     fn poll(&mut self) -> eyre::Result<()> {
-        if self
-            .last_application
-            .as_ref()
-            .is_some_and(|a| find_game_capture_window(&a.0, a.1).is_err())
-        {
+        if self.last_application.as_ref().is_some_and(|a| {
+            !game_process::does_process_exist(game_process::Pid(a.1)).unwrap_or(false)
+        }) {
             tracing::warn!("Game no longer open, removing source");
             if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)?
                 && let Some(source) = self.source.take()

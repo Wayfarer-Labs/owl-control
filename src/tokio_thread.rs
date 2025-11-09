@@ -6,7 +6,7 @@ use crate::{
     assets::{get_honk_0_bytes, get_honk_1_bytes},
     record::LocalRecording,
     system::keycode::name_to_virtual_keycode,
-    ui::notification::{NotificationType, show_notification},
+    ui::notification::error_message_box,
     upload,
     util::version::is_version_newer,
 };
@@ -77,12 +77,25 @@ async fn main(
         app_state.clone(),
     )
     .await?;
-    app_state
-        .ui_update_tx
-        .send(UiUpdate::UpdateAvailableVideoEncoders(
-            recorder.available_video_encoders().to_vec(),
-        ))
-        .ok();
+
+    // Reset our encoder to x264 if the previously-set encoder is no longer available,
+    // and update the available video encoders in the UI.
+    {
+        let encoders = recorder.available_video_encoders();
+
+        {
+            let mut config = app_state.config.write().unwrap();
+            if !encoders.contains(&config.preferences.encoder.encoder) {
+                tracing::warn!("Currently-set encoder is no longer available, resetting to x264");
+                config.preferences.encoder.encoder = constants::encoding::VideoEncoderType::X264;
+            }
+        }
+
+        app_state
+            .ui_update_tx
+            .send(UiUpdate::UpdateAvailableVideoEncoders(encoders.to_vec()))
+            .ok();
+    }
 
     tracing::info!("recorder initialized");
     // I initially tried to move this into `Recorder`, so that it could be passed down to
@@ -156,11 +169,12 @@ async fn main(
                                 tracing::info!("Recording started with HWND {actively_recording_window:?}");
                             }
                         } else {
-                            show_notification(
-                                "OWL Control - Error",
-                                "You are using an outdated version of OWL Control. Please update to the latest version to continue.",
-                                "Recording and uploading will be blocked until you update.",
-                                NotificationType::Error
+                            error_message_box(
+                                concat!(
+                                    "You are using an outdated version of OWL Control. ",
+                                    "Please update to the latest version to continue.\n\n",
+                                    "Recording and uploading will be blocked until you update."
+                                )
                             );
                         }
                     } else if Some(key) == stop_key && recorder.recording().is_some() {
@@ -418,12 +432,7 @@ async fn start_recording_safely(
 ) -> bool {
     if let Err(e) = recorder.start(input_capture, unsupported_games).await {
         tracing::error!(e=?e, "Failed to start recording");
-        show_notification(
-            "OWL Control - Error",
-            &e.to_string(),
-            "",
-            NotificationType::Error,
-        );
+        error_message_box(&e.to_string());
         recorder.stop(input_capture).await.ok();
         false
     } else {

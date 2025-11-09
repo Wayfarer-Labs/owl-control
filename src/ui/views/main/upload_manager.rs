@@ -24,10 +24,12 @@ pub struct UploadManager {
 impl UploadManager {
     pub fn update_user_uploads(&mut self, user_uploads: Vec<UserUpload>) {
         self.recordings.update_user_uploads(user_uploads);
+        self.virtual_list.reset();
     }
 
     pub fn update_local_recordings(&mut self, local_recordings: Vec<LocalRecording>) {
         self.recordings.update_local_recordings(local_recordings);
+        self.virtual_list.reset();
     }
 
     pub fn update_current_upload_progress(&mut self, progress: Option<upload::ProgressData>) {
@@ -811,6 +813,7 @@ fn render_recording_entry(
                 info,
                 metadata,
                 error_reasons,
+                by_server,
             } => {
                 // Invalid upload entry
                 frame(ui, Color32::from_rgb(80, 40, 40), |ui| {
@@ -863,9 +866,14 @@ fn render_recording_entry(
                         // Collapsible error reasons section
                         CollapsingHeader::new(
                             RichText::new(format!(
-                                "⚠ {} error{}",
+                                "⚠ {} error{}{}",
                                 error_reasons.len(),
-                                if error_reasons.len() == 1 { "" } else { "s" }
+                                if error_reasons.len() == 1 { "" } else { "s" },
+                                if *by_server {
+                                    " (server invalidated)"
+                                } else {
+                                    ""
+                                }
                             ))
                             .size(font_size - 1.0)
                             .color(Color32::from_rgb(255, 150, 150)),

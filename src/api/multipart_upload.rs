@@ -1,9 +1,6 @@
-use std::path::Path;
-
-use color_eyre::eyre::{self, Context as _, ContextCompat as _};
 use serde::{Deserialize, Serialize};
 
-use crate::api::{API_BASE_URL, ApiClient, check_for_response_success};
+use crate::api::{API_BASE_URL, ApiClient, ApiError, check_for_response_success};
 
 #[derive(Default, Debug, Clone)]
 #[allow(unused)]
@@ -17,6 +14,8 @@ pub struct InitMultipartUploadArgs<'a> {
     pub video_codec: Option<&'a str>,
     pub video_fps: Option<f32>,
     pub chunk_size_bytes: Option<u64>,
+    pub additional_metadata: serde_json::Value,
+    pub uploading_owl_control_version: Option<&'a str>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -67,10 +66,11 @@ impl ApiClient {
     pub async fn init_multipart_upload<'a>(
         &self,
         api_key: &str,
-        archive_path: &Path,
+        archive_filename: &str,
         total_size_bytes: u64,
+        hardware_id: &str,
         args: InitMultipartUploadArgs<'a>,
-    ) -> eyre::Result<InitMultipartUploadResponse> {
+    ) -> Result<InitMultipartUploadResponse, ApiError> {
         #[derive(Serialize, Debug)]
         struct InitMultipartUploadRequest<'a> {
             filename: &'a str,
@@ -98,6 +98,12 @@ impl ApiClient {
             #[serde(skip_serializing_if = "Option::is_none")]
             video_fps: Option<f32>,
 
+            #[serde(skip_serializing_if = "Option::is_none")]
+            additional_metadata: Option<serde_json::Value>,
+
+            #[serde(skip_serializing_if = "Option::is_none")]
+            uploading_owl_control_version: Option<&'a str>,
+
             uploader_hwid: &'a str,
             upload_timestamp: &'a str,
         }
@@ -110,11 +116,7 @@ impl ApiClient {
             .header("Content-Type", "application/json")
             .header("X-API-Key", api_key)
             .json(&InitMultipartUploadRequest {
-                filename: archive_path
-                    .file_name()
-                    .with_context(|| format!("Archive path {archive_path:?} has no filename"))?
-                    .to_string_lossy()
-                    .as_ref(),
+                filename: archive_filename,
                 content_type: "application/x-tar",
                 total_size_bytes,
                 chunk_size_bytes: args.chunk_size_bytes,
@@ -130,16 +132,18 @@ impl ApiClient {
                 video_codec: args.video_codec,
                 video_fps: args.video_fps,
 
-                uploader_hwid: &crate::system::hardware_id::get()
-                    .with_context(|| "Failed to get hardware ID")?,
+                additional_metadata: Some(args.additional_metadata),
+
+                uploading_owl_control_version: args.uploading_owl_control_version,
+
+                uploader_hwid: hardware_id,
                 upload_timestamp: &chrono::Local::now().to_rfc3339(),
             })
             .send()
-            .await
-            .context("failed to send init multipart upload request")?;
+            .await?;
 
         Ok(
-            check_for_response_success(response, "Multipart upload initialization failed")
+            check_for_response_success(response, "Upload initialization failed")
                 .await?
                 .json()
                 .await?,
@@ -152,7 +156,7 @@ impl ApiClient {
         upload_id: &str,
         chunk_number: u64,
         chunk_hash: &str,
-    ) -> eyre::Result<UploadMultipartChunkResponse> {
+    ) -> Result<UploadMultipartChunkResponse, ApiError> {
         #[derive(Serialize, Debug)]
         struct UploadMultipartChunkRequest<'a> {
             upload_id: &'a str,
@@ -173,8 +177,7 @@ impl ApiClient {
                 chunk_hash,
             })
             .send()
-            .await
-            .context("failed to send upload multipart chunk request")?;
+            .await?;
         Ok(
             check_for_response_success(response, "Upload multipart chunk request failed")
                 .await?
@@ -188,7 +191,7 @@ impl ApiClient {
         api_key: &str,
         upload_id: &str,
         chunk_etags: &[CompleteMultipartUploadChunk],
-    ) -> eyre::Result<CompleteMultipartUploadResponse> {
+    ) -> Result<CompleteMultipartUploadResponse, ApiError> {
         #[derive(Serialize, Debug)]
         struct CompleteMultipartUploadRequest<'a> {
             upload_id: &'a str,
@@ -207,11 +210,10 @@ impl ApiClient {
                 chunk_etags,
             })
             .send()
-            .await
-            .context("failed to send complete multipart upload request")?;
+            .await?;
 
         Ok(
-            check_for_response_success(response, "Complete multipart upload request failed")
+            check_for_response_success(response, "Complete upload request failed")
                 .await?
                 .json()
                 .await?,
@@ -222,7 +224,7 @@ impl ApiClient {
         &self,
         api_key: &str,
         upload_id: &str,
-    ) -> eyre::Result<AbortMultipartUploadResponse> {
+    ) -> Result<AbortMultipartUploadResponse, ApiError> {
         let response = self
             .client
             .delete(format!(
@@ -230,11 +232,10 @@ impl ApiClient {
             ))
             .header("X-API-Key", api_key)
             .send()
-            .await
-            .context("failed to send abort multipart upload request")?;
+            .await?;
 
         Ok(
-            check_for_response_success(response, "Abort multipart upload request failed")
+            check_for_response_success(response, "Abort upload request failed")
                 .await?
                 .json()
                 .await?,
