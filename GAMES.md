@@ -10,7 +10,7 @@ Follow these guidelines. You must be 18 or older!
 
 ✅ First-person view.<br>
 ✅ Steady 60 FPS (aka frames per second/framerate) or more. Lower resolution or cap framerate if necessary.<br>
-✅ Display sizes from 640x360 up to ultrawide.<br>b
+✅ Display sizes from 640x360 up to ultrawide.<br>
 ✅ XBOX and PS5 controllers. PS5 controllers should be be wired to the computer.<br>
 ✅ Stopping recording in menus, cutscenes, and when not playing.<br>
 ✅ Repeat playthroughs. Do new things each time!<br>

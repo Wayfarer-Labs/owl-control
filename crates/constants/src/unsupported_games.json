@@ -329,5 +329,12 @@
       "steamwebhelper"
     ],
     "reason": "NotAGame"
+  },
+  {
+    "name": "Comet",
+    "binaries": [
+      "comet"
+    ],
+    "reason": "NotAGame"
   }
 ]
