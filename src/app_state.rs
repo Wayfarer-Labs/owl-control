@@ -113,7 +113,7 @@ pub enum UiUpdate {
     UpdateAvailableVideoEncoders(Vec<VideoEncoderType>),
     UpdateUserId(Result<String, String>),
     UploadFailed(String),
-    UpdateTrayIconRecording(bool),
+    UpdateRecordingState(bool),
     UpdateNewerReleaseAvailable(GitHubRelease),
     UpdateUserUploads(UserUploads),
     UpdateLocalRecordings(Vec<LocalRecording>),

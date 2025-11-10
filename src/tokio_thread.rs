@@ -469,7 +469,7 @@ fn notify_of_recording_state_change(
 ) {
     app_state
         .ui_update_tx
-        .send(UiUpdate::UpdateTrayIconRecording(is_recording))
+        .send(UiUpdate::UpdateRecordingState(is_recording))
         .ok();
     if should_play_sound {
         let source = Decoder::new_mp3(Cursor::new(if is_recording {

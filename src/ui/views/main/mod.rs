@@ -4,7 +4,10 @@
 };
 
 use crate::{
-    app_state::{AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey},
+    app_state::{
+        AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey,
+        RecordingStatus,
+    },
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
         Preferences, RecordingBackend,
@@ -14,9 +17,10 @@ use crate::{
 
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
 use egui::{
-    Align, Align2, Button, CentralPanel, Checkbox, Color32, ComboBox, Context, Direction, Frame,
-    InnerResponse, Label, Layout, Margin, Response, RichText, ScrollArea, Slider, TextEdit, Ui,
-    Vec2, Widget, Window, vec2,
+    Align, Align2, Button, CentralPanel, Checkbox, Color32, ComboBox, Context, Direction,
+    FontFamily, FontId, Frame, InnerResponse, Label, Layout, Margin, Response, RichText,
+    ScrollArea, Slider, TextEdit, TextFormat, Ui, Vec2, Widget, WidgetText, Window,
+    text::LayoutJob, vec2,
 };
 
 mod upload_manager;
@@ -62,6 +66,11 @@ impl App {
                     .is_some_and(|(_, is_obs_running)| is_obs_running)
             {
                 obs_running_warning(ui);
+                ui.add_space(8.0);
+            }
+
+            if self.is_recording {
+                recording_notice(ui, &self.app_state);
                 ui.add_space(8.0);
             }
 
@@ -538,6 +547,70 @@ fn obs_running_warning(ui: &mut Ui) {
                     .size(14.0)
                     .color(Color32::WHITE),
                 );
+            });
+        });
+}
+
+fn recording_notice(ui: &mut Ui, app_state: &AppState) {
+    let recording_status = app_state.state.read().unwrap().clone();
+    Frame::default()
+        .fill(Color32::from_rgb(147, 51, 234))
+        .inner_margin(Margin::same(10))
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                let font_id = FontId::new(16.0, FontFamily::Proportional);
+                let color = Color32::WHITE;
+                let recording_text: WidgetText = match recording_status {
+                    RecordingStatus::Stopped => RichText::new("Stopped")
+                        .font(font_id)
+                        .strong()
+                        .color(color)
+                        .into(),
+                    RecordingStatus::Recording {
+                        start_time,
+                        game_exe,
+                    } => {
+                        let mut job = LayoutJob::default();
+                        job.append(
+                            "Recording ",
+                            0.0,
+                            TextFormat {
+                                font_id: font_id.clone(),
+                                color,
+                                ..Default::default()
+                            },
+                        );
+                        job.append(
+                            &game_exe,
+                            0.0,
+                            TextFormat {
+                                font_id: font_id.clone(),
+                                italics: true,
+                                color,
+                                ..Default::default()
+                            },
+                        );
+                        job.append(
+                            &format!(
+                                " ({})",
+                                util::format_seconds(start_time.elapsed().as_secs())
+                            ),
+                            0.0,
+                            TextFormat {
+                                font_id,
+                                color,
+                                ..Default::default()
+                            },
+                        );
+                        job.into()
+                    }
+                    RecordingStatus::Paused => RichText::new("Paused")
+                        .font(font_id)
+                        .strong()
+                        .color(color)
+                        .into(),
+                };
+                ui.label(recording_text);
             });
         });
 }
