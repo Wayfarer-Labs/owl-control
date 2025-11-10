@@ -4,7 +4,7 @@ members = ["crates/*", "tools/*"]
 default-members = ["."]
 
 [workspace.package]
-version = "1.3.0-rc2"
+version = "1.3.0"
 
 [workspace.dependencies]
 input-capture = { path = "crates/input-capture" }
