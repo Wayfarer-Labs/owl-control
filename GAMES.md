@@ -244,6 +244,7 @@ Please do not submit data for these games.
 ## Sufficient data captured
 
 - Fortnite
+- Rust
 - DayZ
 - Finals
 - Minecraft

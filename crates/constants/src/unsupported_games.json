@@ -336,5 +336,13 @@
       "comet"
     ],
     "reason": "NotAGame"
+  },
+  {
+    "name": "Visual Studio Code",
+    "binaries": [
+      "code",
+      "codium"
+    ],
+    "reason": "NotAGame"
   }
 ]
