@@ -34,9 +34,12 @@ sysinfo = "0.32.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = "5.2.0"
-libobs-sources = "3.2.0"
-libobs-window-helper = "0.1.7"
+# libobs-wrapper = "5.2.0"
+# libobs-sources = "3.2.0"
+# libobs-window-helper = "0.1.7"
+libobs-wrapper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "main" }
+libobs-sources = { git = "https://github.com/joshprk/libobs-rs.git", branch = "main", default-features = false, features = ["window-list"] }
+libobs-window-helper = { git = "https://github.com/joshprk/libobs-rs.git", branch = "main" }
 
 [package]
 name = "owl-control"

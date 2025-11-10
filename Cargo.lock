@@ -3245,17 +3245,14 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "libobs"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0dff4f162fe229e7e206eabb7f00d6eaf2249c6024a230d79dd14c5530407d36"
+version = "3.0.1+32.0.2"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=main#d30a30759a86cceccfe2cd205c000f754cce62ee"
 
 [[package]]
 name = "libobs-source-macro"
 version = "5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80e47e031bc4134f3faf8f6f731611ccd1bf11f6fa1800880f7663424e7a3eb8"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=main#d30a30759a86cceccfe2cd205c000f754cce62ee"
 dependencies = [
- "num-traits",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
@@ -3263,12 +3260,10 @@ dependencies = [
 
 [[package]]
 name = "libobs-sources"
-version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2be1d0edc617d935fdb0bc83d5573c9308e8af856d708e514380451b0090dfb5"
+version = "3.2.3+32.0.2"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=main#d30a30759a86cceccfe2cd205c000f754cce62ee"
 dependencies = [
  "anyhow",
- "async-trait",
  "display-info",
  "ffmpeg-sidecar",
  "libobs",
@@ -3284,8 +3279,7 @@ dependencies = [
 [[package]]
 name = "libobs-window-helper"
 version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5cf06c5664d5e80d3881ec4a1e3cf6fee3fd43ec5aca78e4d3ff7298f8ecd0d"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=main#d30a30759a86cceccfe2cd205c000f754cce62ee"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
@@ -3293,9 +3287,8 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "5.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46300b8bc7e153f63dcc4165362d7ad90af8b1a3a8ec72dcc3731829de1ec9f2"
+version = "5.2.3+32.0.2"
+source = "git+https://github.com/joshprk/libobs-rs.git?branch=main#d30a30759a86cceccfe2cd205c000f754cce62ee"
 dependencies = [
  "anyhow",
  "arboard",
@@ -3304,8 +3297,6 @@ dependencies = [
  "dialog",
  "display-info",
  "duplicate",
- "futures",
- "futures-util",
  "getters0",
  "lazy_static",
  "libobs",
@@ -3313,7 +3304,6 @@ dependencies = [
  "num-derive",
  "num-traits",
  "oneshot",
- "parking_lot",
  "paste",
  "tokio",
  "vsprintf",
