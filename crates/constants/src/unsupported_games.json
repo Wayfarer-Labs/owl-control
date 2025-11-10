@@ -268,7 +268,8 @@
   {
     "name": "OWL Control",
     "binaries": [
-      "owl control"
+      "owl control",
+      "owl-control"
     ],
     "reason": "NotAGame"
   },
