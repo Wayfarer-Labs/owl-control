@@ -30,7 +30,6 @@ const SUBHEADING_TEXT_SIZE: f32 = 16.0;
 
 pub struct App {
     app_state: Arc<AppState>,
-    frame: u64,
     /// Receives commands from various tx in other threads to perform some UI update
     /// that don't need to be processed immediately.
     ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
@@ -93,7 +92,6 @@ impl App {
 
         Ok(Self {
             app_state,
-            frame: 0,
             ui_update_unreliable_rx,
 
             login_api_key: local_credentials.api_key.clone(),
@@ -258,29 +256,17 @@ impl App {
         );
     }
 
-    pub fn render(&mut self, ctx: &egui::Context) {
-        // Copy in the remote config if it has changed
-        {
-            let config = self.app_state.config.read().unwrap();
-            if config.credentials != self.local_credentials {
-                self.local_credentials = config.credentials.clone();
-            }
-            if config.preferences != self.local_preferences {
-                self.local_preferences = config.preferences.clone();
-            }
+    pub fn copy_in_app_config(&mut self) {
+        let config = self.app_state.config.read().unwrap();
+        if config.credentials != self.local_credentials {
+            self.local_credentials = config.credentials.clone();
         }
-
-        let (has_api_key, has_consented) = (
-            !self.local_credentials.api_key.is_empty(),
-            self.local_credentials.has_consented,
-        );
-
-        match (has_api_key, has_consented) {
-            (true, true) => self.main_view(ctx),
-            (true, false) => self.consent_view(ctx),
-            (false, _) => self.login_view(ctx),
+        if config.preferences != self.local_preferences {
+            self.local_preferences = config.preferences.clone();
         }
+    }
 
+    pub fn copy_out_local_config(&mut self) {
         // Queue up a save if any state has changed
         {
             let mut config = self.app_state.config.write().unwrap();
@@ -305,8 +291,19 @@ impl App {
             let _ = self.app_state.config.read().unwrap().save();
             self.config_last_edit = None;
         }
+    }
 
-        self.frame += 1;
+    pub fn render(&mut self, ctx: &egui::Context) {
+        let (has_api_key, has_consented) = (
+            !self.local_credentials.api_key.is_empty(),
+            self.local_credentials.has_consented,
+        );
+
+        match (has_api_key, has_consented) {
+            (true, true) => self.main_view(ctx),
+            (true, false) => self.consent_view(ctx),
+            (false, _) => self.login_view(ctx),
+        }
     }
 }
 impl App {

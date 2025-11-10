@@ -233,6 +233,10 @@ impl ApplicationHandler for WinitApp {
             return;
         };
 
+        // Copy in the config from the AppState into the UI. We do this first to ensure
+        // that the UI is using the latest config.
+        self.main_app.copy_in_app_config();
+
         // Let egui renderer process the event first
         let response = state
             .renderer()
@@ -291,5 +295,8 @@ impl ApplicationHandler for WinitApp {
             }
             _ => (),
         }
+
+        // Once the UI has completed its processing, copy out the local config to the AppState.
+        self.main_app.copy_out_local_config();
     }
 }
