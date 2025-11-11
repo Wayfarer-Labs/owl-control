@@ -1,4 +1,6 @@
-use std::{path::PathBuf, sync::OnceLock};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
 // if run in dev mode will be relative to project root. When run from .exe will be relative to install directory.
 fn get_asset_path(filename: &str) -> PathBuf {
@@ -6,8 +8,8 @@ fn get_asset_path(filename: &str) -> PathBuf {
     cwd.join("assets").join(filename)
 }
 
-struct IconData(OnceLock<Vec<u8>>);
-impl IconData {
+struct AssetData(OnceLock<Vec<u8>>);
+impl AssetData {
     const fn new() -> Self {
         Self(OnceLock::new())
     }
@@ -19,42 +21,65 @@ impl IconData {
             })
         })
     }
-
-    pub fn get_cue(&'static self, filename: &'static str) -> &'static [u8] {
-        self.0.get_or_init(move || {
-            let path = format!("cues/{filename}");
-            std::fs::read(get_asset_path(&path)).unwrap_or_else(|e| {
-                panic!("Failed to load {path}: {e}");
-            })
-        })
-    }
 }
 
 // lazy static init of the bytes, will be initialized from png assets once at startup, then ref'd as bytes after
 // helper fn cuz i don't want to call bytes.get().unwrap() everytime
 pub fn get_owl_bytes() -> &'static [u8] {
-    static DATA: IconData = IconData::new();
+    static DATA: AssetData = AssetData::new();
     DATA.get("owl.png")
 }
 
 pub fn get_logo_default_bytes() -> &'static [u8] {
-    static DATA: IconData = IconData::new();
+    static DATA: AssetData = AssetData::new();
     DATA.get("owl-logo.png")
 }
 
 pub fn get_logo_recording_bytes() -> &'static [u8] {
-    static DATA: IconData = IconData::new();
+    static DATA: AssetData = AssetData::new();
     DATA.get("owl-logo-recording.png")
 }
 
-pub fn get_honk_0_bytes() -> &'static [u8] {
-    static DATA: IconData = IconData::new();
-    DATA.get_cue("goose_honk0.mp3")
+/// Loads an arbitrary audio cue from the assets/cues/ directory, storing it all as lazily init
+/// static refs in a hashmap that will last for the entire program lifetime (hence the Box::leak)
+pub fn get_cue(filename: &str) -> &'static [u8] {
+    static CUES: OnceLock<Mutex<HashMap<String, &'static [u8]>>> = OnceLock::new();
+
+    let cues = CUES.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut map = cues.lock().unwrap();
+
+    *map.entry(filename.to_string()).or_insert_with(|| {
+        let path = format!("cues/{filename}");
+        let data = std::fs::read(get_asset_path(&path)).unwrap_or_else(|e| {
+            panic!("Failed to load {path}: {e}");
+        });
+        Box::leak(data.into_boxed_slice())
+    })
 }
 
-pub fn get_honk_1_bytes() -> &'static [u8] {
-    static DATA: IconData = IconData::new();
-    DATA.get_cue("goose_honk1.mp3")
+/// Scans the cues folder and returns a list of available MP3 files
+pub fn get_available_cues() -> Vec<String> {
+    let cues_path = get_asset_path("cues");
+
+    let mut cues = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(&cues_path) {
+        for entry in entries.flatten() {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_file() {
+                    if let Some(filename) = entry.file_name().to_str() {
+                        if filename.ends_with(".mp3") {
+                            cues.push(filename.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort alphabetically for consistent ordering
+    cues.sort();
+    cues
 }
 
 /// Loads icon data from bytes and returns the rgba data and dimensions

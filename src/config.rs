@@ -26,6 +26,8 @@ pub struct Preferences {
     #[serde(default = "default_honk_volume")]
     pub honk_volume: u8,
     #[serde(default)]
+    pub audio_cues: AudioCues,
+    #[serde(default)]
     pub recording_backend: RecordingBackend,
     #[serde(default)]
     pub encoder: EncoderSettings,
@@ -44,6 +46,7 @@ impl Default for Preferences {
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
             honk_volume: default_honk_volume(),
+            audio_cues: Default::default(),
             recording_backend: Default::default(),
             encoder: Default::default(),
             recording_location: default_recording_location(),
@@ -99,6 +102,23 @@ impl std::fmt::Display for OverlayLocation {
 
 // by default now start and stop recording are mapped to same key
 // f5 instead of f4 so users can alt+f4 properly.
+/// Audio cue settings for recording events
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AudioCues {
+    pub start_recording: String,
+    pub stop_recording: String,
+}
+
+impl Default for AudioCues {
+    fn default() -> Self {
+        Self {
+            start_recording: "goose_honk0.mp3".to_string(),
+            stop_recording: "goose_honk1.mp3".to_string(),
+        }
+    }
+}
+
 fn default_start_key() -> String {
     "F5".to_string()
 }

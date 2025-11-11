@@ -94,6 +94,7 @@ impl App {
                         &mut self.local_preferences,
                         &self.available_video_encoders,
                         &mut self.encoder_settings_window_open,
+                        &self.available_cues,
                     );
                 });
 
@@ -292,6 +293,7 @@ fn overlay_settings_section(
     local_preferences: &mut Preferences,
     available_video_encoders: &[VideoEncoderType],
     encoder_settings_window_open: &mut bool,
+    available_cues: &[String],
 ) {
     ui.label(RichText::new("Recorder Customization").size(18.0).strong());
     ui.separator();
@@ -360,6 +362,42 @@ fn overlay_settings_section(
                     local_preferences.honk_volume = vol as u8;
                 }
             });
+        });
+    });
+
+    ui.horizontal(|ui| {
+        add_settings_text(ui, Label::new("Start Recording Sound:"));
+        add_settings_ui(ui, |ui| {
+            ComboBox::from_id_salt("start_recording_cue")
+                .selected_text(&local_preferences.audio_cues.start_recording)
+                .width(150.0)
+                .show_ui(ui, |ui| {
+                    for cue in available_cues {
+                        ui.selectable_value(
+                            &mut local_preferences.audio_cues.start_recording,
+                            cue.clone(),
+                            cue,
+                        );
+                    }
+                });
+        });
+    });
+
+    ui.horizontal(|ui| {
+        add_settings_text(ui, Label::new("Stop Recording Sound:"));
+        add_settings_ui(ui, |ui| {
+            ComboBox::from_id_salt("stop_recording_cue")
+                .selected_text(&local_preferences.audio_cues.stop_recording)
+                .width(150.0)
+                .show_ui(ui, |ui| {
+                    for cue in available_cues {
+                        ui.selectable_value(
+                            &mut local_preferences.audio_cues.stop_recording,
+                            cue.clone(),
+                            cue,
+                        );
+                    }
+                });
         });
     });
 

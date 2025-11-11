@@ -3,7 +3,7 @@ use crate::{
     app_state::{
         AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey, RecordingStatus, UiUpdate,
     },
-    assets::{get_honk_0_bytes, get_honk_1_bytes},
+    assets::get_cue,
     record::LocalRecording,
     system::keycode::name_to_virtual_keycode,
     ui::notification::error_message_box,
@@ -472,17 +472,24 @@ fn notify_of_recording_state_change(
         .send(UiUpdate::UpdateRecordingState(is_recording))
         .ok();
     if should_play_sound {
-        // Apply configured honk volume (0-100 -> 0.0-1.0)
-        let volume = {
+        // Apply configured honk volume (0-100 -> 0.0-1.0) and get selected cue filenames
+        let (volume, cue_filename) = {
             let cfg = app_state.config.read().unwrap();
-            (cfg.preferences.honk_volume as f32 / 100.0).clamp(0.0, 1.0)
+            let vol = (cfg.preferences.honk_volume as f32 / 100.0).clamp(0.0, 1.0);
+            let filename = if is_recording {
+                cfg.preferences.audio_cues.start_recording.clone()
+            } else {
+                cfg.preferences.audio_cues.stop_recording.clone()
+            };
+            (vol, filename)
         };
+
         sink.set_volume(volume);
-        let source = Decoder::new_mp3(Cursor::new(if is_recording {
-            get_honk_0_bytes()
-        } else {
-            get_honk_1_bytes()
-        }));
+
+        // Load the selected cue file
+        let cue_bytes = get_cue(&cue_filename);
+        let source = Decoder::new_mp3(Cursor::new(cue_bytes));
+
         match source {
             Ok(source) => {
                 sink.append(source);
