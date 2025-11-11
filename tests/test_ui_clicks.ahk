@@ -10,9 +10,8 @@ InitUIVars() {
     global
     reset_position := Array(376, 30)  ;   Origin within the titlebar of `Account`
     ;   Offsets for rearranging elements
-    stop_offset := 20   ; offset for y coordinate if stop_toggle is on
     collapse_offset := -160
-    option_offset := 28
+    option_offset := 28  ; offset for y coordinate between options, if stop_toggle is on, etc
 
     /* Hex RBG color of boolean elements at a bright(TRUE) state.
     Deeply coupled with their coordinates. Trial run to ensure accurate reflection of state */
@@ -79,7 +78,7 @@ if WinExist("ahk_exe OWL Control.exe") {
     if (collapse_toggled == collapse_true)
         MouseClick "left", collapse_button[1], collapse_button[2]
 
-    ; dont click logout, hotkey, stop, settings, move, collapse,
+    ; dont click logout, hotkey, stop
     buttons := [location_button, opacity_button, honk_button, encoder_button,
         unreliable_button, after_button, upload_button, settings_button, date_min_button, date_max_button, logs_button,
         open_button, move_button, website_button, FAQ_button, collapse_button]

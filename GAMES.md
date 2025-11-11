@@ -17,6 +17,8 @@ Follow these guidelines. You must be 18 or older!
 ✅ Game mods.<br>
 ✅ Use Discord or other voice chat.<br>
 ✅ Playing music in the background.<br>
+✅ Exiting the app to rest between long sessions.<br>
+
 
 > [!IMPORTANT]
 >
@@ -70,6 +72,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 #### - [Nucleares](https://store.steampowered.com/app/1428420/Nucleares)
 #### - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
 #### - [Outer Wilds](https://store.steampowered.com/app/753640/Outer_Wilds/)
+#### - [Peaks of Yore](https://store.steampowered.com/app/2236070/Peaks_of_Yore/)
 #### - [PowerWash Simulator 2](https://store.steampowered.com/app/2968420/PowerWash_Simulator_2/)
 #### - [PowerWash Simulator](https://store.steampowered.com/app/1290000/PowerWash_Simulator/)
 #### - [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/)
@@ -92,6 +95,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 
 ### Movement / Parkour (continuous control, momentum, traversal)
 
+- [Bloodthief](https://store.steampowered.com/app/2533600/Bloodthief/)
 - [BPM: Bullets Per Minute](https://store.steampowered.com/app/1286350/BPM_BULLETS_PER_MINUTE/)
 - [Dying Light 2](https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human/)
 - [Dying Light](https://store.steampowered.com/app/239140/Dying_Light/)
@@ -160,6 +164,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 
 ### Sci‑Fi / Post‑apocalyptic (survival, radiation, ballistics, simulation)
 
+- [Abyssus](https://store.steampowered.com/app/1721110/Abyssus/)
 - [ARK: Survival Ascended](https://store.steampowered.com/app/2399830/ARK_Survival_Ascended/)
 - [Atomic Heart](https://store.steampowered.com/app/668580/Atomic_Heart/)
 - [Avatar: Frontiers of Pandora](https://store.steampowered.com/app/2840770/Avatar_Frontiers_of_Pandora/)
@@ -168,6 +173,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Crysis 3](https://store.steampowered.com/app/2096610/Crysis_3_Remastered/)
 - [Crysis](https://store.steampowered.com/app/17300/Crysis/)
 - [Deep Rock Galactic](https://store.steampowered.com/app/548430/Deep_Rock_Galactic/)
+- [Deadzone:Rogue](https://store.steampowered.com/app/3228590/Deadzone_Rogue)
 - [DOOM 2016](https://store.steampowered.com/app/379720/DOOM/)
 - [DOOM Eternal](https://store.steampowered.com/app/782330/DOOM_Eternal/)
 - [Ghostwire: Tokyo](https://store.steampowered.com/app/1475810/Ghostwire_Tokyo/)
@@ -176,6 +182,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Metro 2033 Redux](https://store.steampowered.com/app/286690/Metro_2033_Redux/)
 - [Metro Exodus](https://store.steampowered.com/app/412020/Metro_Exodus/)
 - [Metro: Last Light Redux](https://store.steampowered.com/app/287390/Metro_Last_Light_Redux/)
+- [Mycopunk](https://store.steampowered.com/app/3247750/Mycopunk/)
 - [Painkiller](https://store.steampowered.com/app/2300120/Painkiller/)
 - [PIGFACE](https://store.steampowered.com/app/3341650/PIGFACE/)
 - [Project Silverfish](https://store.steampowered.com/app/2941710/Project_Silverfish/)
@@ -229,9 +236,12 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Halo 3 (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [MORDHAU](https://store.steampowered.com/app/629760/MORDHAU/)
+- [Mortal Sin](https://store.steampowered.com/app/1494810/Mortal_Sin/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
 - [Shadow Warrior 3](https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition)
+- [VOIN](https://store.steampowered.com/app/2464530/VOIN/)
 - [Warhammer: Vermintide 2](https://store.steampowered.com/app/552500/Warhammer_Vermintide_2/)
+- [Witchfire](https://store.steampowered.com/app/3228590/Deadzone_Rogue)
 
 # Unwanted games
 
