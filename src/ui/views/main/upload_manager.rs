@@ -416,7 +416,7 @@ pub fn view(
     // Upload Button
     ui.add_space(5.0);
     if upload_manager.current_upload_progress.is_some() {
-        // Show Cancel button when uploading
+        // Show Pause/Cancel button when uploading
         ui.add_enabled_ui(
             !app_state
                 .upload_cancel_flag
@@ -426,15 +426,15 @@ pub fn view(
                     .add_sized(
                         vec2(ui.available_width(), 32.0),
                         Button::new(
-                            RichText::new("Cancel Upload")
+                            RichText::new("Pause/Cancel Upload")
                                 .size(12.0)
                                 .color(Color32::WHITE),
                         )
                         .fill(Color32::from_rgb(180, 60, 60)),
                     )
                     .on_hover_text(concat!(
-                        "Cancel the current upload. ",
-                        "This upload will be restarted the next time you click the Upload button."
+                        "Pause the current upload, or cancel the next upload. ",
+                        "The next upload will resume where the current one left off."
                     ));
                 if response.clicked() {
                     app_state
