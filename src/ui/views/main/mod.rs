@@ -338,17 +338,29 @@ fn overlay_settings_section(
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Recording Audio Cue:"));
-        let honk = local_preferences.honk;
-        add_settings_widget(
-            ui,
-            Checkbox::new(
-                &mut local_preferences.honk,
-                match honk {
-                    true => "Honk.",
-                    false => "Honk?",
-                },
-            ),
-        );
+        add_settings_ui(ui, |ui| {
+            ui.horizontal(|ui| {
+                // Honk toggle
+                let honk = local_preferences.honk;
+                let _ = ui.add(Checkbox::new(
+                    &mut local_preferences.honk,
+                    match honk {
+                        true => "Honk.",
+                        false => "Honk?",
+                    },
+                ));
+
+                ui.add_space(8.0);
+
+                // Inline volume slider
+                let mut vol = local_preferences.honk_volume as f32;
+                // ui.spacing_mut().slider_width = ui.available_width() - 70.0;
+                let r = ui.add(Slider::new(&mut vol, 0.0..=100.0).suffix("%").integer());
+                if r.changed() {
+                    local_preferences.honk_volume = vol as u8;
+                }
+            });
+        });
     });
 
     ui.horizontal(|ui| {

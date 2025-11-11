@@ -23,6 +23,8 @@ pub struct Preferences {
     pub delete_uploaded_files: bool,
     #[serde(default)]
     pub honk: bool,
+    #[serde(default = "default_honk_volume")]
+    pub honk_volume: u8,
     #[serde(default)]
     pub recording_backend: RecordingBackend,
     #[serde(default)]
@@ -41,6 +43,7 @@ impl Default for Preferences {
             overlay_opacity: default_opacity(),
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
+            honk_volume: default_honk_volume(),
             recording_backend: Default::default(),
             encoder: Default::default(),
             recording_location: default_recording_location(),
@@ -104,6 +107,10 @@ fn default_stop_key() -> String {
 }
 fn default_opacity() -> u8 {
     85
+}
+
+fn default_honk_volume() -> u8 {
+    100
 }
 
 fn default_recording_location() -> std::path::PathBuf {

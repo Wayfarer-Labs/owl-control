@@ -472,6 +472,12 @@ fn notify_of_recording_state_change(
         .send(UiUpdate::UpdateRecordingState(is_recording))
         .ok();
     if should_play_sound {
+        // Apply configured honk volume (0-100 -> 0.0-1.0)
+        let volume = {
+            let cfg = app_state.config.read().unwrap();
+            (cfg.preferences.honk_volume as f32 / 100.0).clamp(0.0, 1.0)
+        };
+        sink.set_volume(volume);
         let source = Decoder::new_mp3(Cursor::new(if is_recording {
             get_honk_0_bytes()
         } else {

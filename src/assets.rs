@@ -19,6 +19,15 @@ impl IconData {
             })
         })
     }
+
+    pub fn get_cue(&'static self, filename: &'static str) -> &'static [u8] {
+        self.0.get_or_init(move || {
+            let path = format!("cues/{filename}");
+            std::fs::read(get_asset_path(&path)).unwrap_or_else(|e| {
+                panic!("Failed to load {path}: {e}");
+            })
+        })
+    }
 }
 
 // lazy static init of the bytes, will be initialized from png assets once at startup, then ref'd as bytes after
@@ -40,12 +49,12 @@ pub fn get_logo_recording_bytes() -> &'static [u8] {
 
 pub fn get_honk_0_bytes() -> &'static [u8] {
     static DATA: IconData = IconData::new();
-    DATA.get("goose_honk0.mp3")
+    DATA.get_cue("goose_honk0.mp3")
 }
 
 pub fn get_honk_1_bytes() -> &'static [u8] {
     static DATA: IconData = IconData::new();
-    DATA.get("goose_honk1.mp3")
+    DATA.get_cue("goose_honk1.mp3")
 }
 
 /// Loads icon data from bytes and returns the rgba data and dimensions
