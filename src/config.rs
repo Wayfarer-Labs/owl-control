@@ -100,8 +100,6 @@ impl std::fmt::Display for OverlayLocation {
     }
 }
 
-// by default now start and stop recording are mapped to same key
-// f5 instead of f4 so users can alt+f4 properly.
 /// Audio cue settings for recording events
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, rename_all = "camelCase")]
@@ -113,12 +111,14 @@ pub struct AudioCues {
 impl Default for AudioCues {
     fn default() -> Self {
         Self {
-            start_recording: "goose_honk0.mp3".to_string(),
-            stop_recording: "goose_honk1.mp3".to_string(),
+            start_recording: "default_start.mp3".to_string(),
+            stop_recording: "default_end.mp3".to_string(),
         }
     }
 }
 
+/// by default now start and stop recording are mapped to same key
+/// f5 instead of f4 so users can alt+f4 properly.
 fn default_start_key() -> String {
     "F5".to_string()
 }
