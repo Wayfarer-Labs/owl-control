@@ -49,7 +49,7 @@ pub fn get_cue(filename: &str) -> &'static [u8] {
     let cues = CUES.get_or_init(|| Mutex::new(HashMap::new()));
     let mut map = cues.lock().unwrap();
 
-    *map.entry(filename.to_string()).or_insert_with(|| {
+    map.entry(filename.to_string()).or_insert_with(|| {
         let path = format!("cues/{filename}");
         let data = std::fs::read(get_asset_path(&path)).unwrap_or_else(|e| {
             // Try to fallback to default_start.mp3
@@ -75,15 +75,12 @@ pub fn get_available_cues() -> Vec<String> {
 
     if let Ok(entries) = std::fs::read_dir(&cues_path) {
         for entry in entries.flatten() {
-            if let Ok(file_type) = entry.file_type() {
-                if file_type.is_file() {
-                    if let Some(filename) = entry.file_name().to_str() {
-                        if filename.ends_with(".mp3") {
+            if let Ok(file_type) = entry.file_type()
+                && file_type.is_file()
+                    && let Some(filename) = entry.file_name().to_str()
+                        && filename.ends_with(".mp3") {
                             cues.push(filename.to_string());
                         }
-                    }
-                }
-            }
         }
     }
 
