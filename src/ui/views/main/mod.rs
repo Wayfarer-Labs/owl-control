@@ -317,25 +317,11 @@ fn overlay_settings_section(
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Overlay Opacity:"));
-        let mut stored_opacity = local_preferences.overlay_opacity;
-        let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
-
-        let r = ui
-            .scope(|ui| {
-                // one day egui will make sliders respect their width properly
-                ui.spacing_mut().slider_width = ui.available_width() - 50.0;
-                add_settings_widget(
-                    ui,
-                    Slider::new(&mut egui_opacity, 0.0..=100.0)
-                        .suffix("%")
-                        .integer(),
-                )
-            })
-            .inner;
-        if r.changed() {
-            stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
-            local_preferences.overlay_opacity = stored_opacity;
-        }
+        ui.scope(|ui| {
+            // one day egui will make sliders respect their width properly
+            ui.spacing_mut().slider_width = ui.available_width() - 50.0;
+            u8_percentage_slider(ui, &mut local_preferences.overlay_opacity);
+        });
     });
 
     ui.horizontal(|ui| {
@@ -354,13 +340,8 @@ fn overlay_settings_section(
 
                 ui.add_space(8.0);
 
-                // Inline volume slider
-                let mut vol = local_preferences.honk_volume as f32;
-                // ui.spacing_mut().slider_width = ui.available_width() - 70.0;
-                let r = ui.add(Slider::new(&mut vol, 0.0..=100.0).suffix("%").integer());
-                if r.changed() {
-                    local_preferences.honk_volume = vol as u8;
-                }
+                // Inline volume slider (0-255 mapped to 0-100%)
+                u8_percentage_slider(ui, &mut local_preferences.honk_volume);
             });
         });
     });
@@ -468,6 +449,19 @@ fn add_settings_ui<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> I
 
 fn add_settings_widget(ui: &mut Ui, widget: impl Widget) -> Response {
     add_settings_ui(ui, |ui| ui.add(widget)).inner
+}
+
+/// Helper function to create a percentage slider for a u8 value (0-255 -> 0-100%)
+/// Returns true if the value was changed
+fn u8_percentage_slider(ui: &mut Ui, value: &mut u8) -> bool {
+    let mut percentage = (*value as f32 / 255.0 * 100.0).round();
+    let response = ui.add(Slider::new(&mut percentage, 0.0..=100.0).suffix("%").integer());
+    if response.changed() {
+        *value = (percentage / 100.0 * 255.0).round() as u8;
+        true
+    } else {
+        false
+    }
 }
 
 fn newer_release_available(ui: &mut Ui, release: &GitHubRelease) {

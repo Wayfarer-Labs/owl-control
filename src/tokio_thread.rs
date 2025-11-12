@@ -472,10 +472,10 @@ fn notify_of_recording_state_change(
         .send(UiUpdate::UpdateRecordingState(is_recording))
         .ok();
     if should_play_sound {
-        // Apply configured honk volume (0-100 -> 0.0-1.0) and get selected cue filenames
+        // Apply configured honk volume (0-255 -> 0.0-1.0) and get selected cue filenames
         let (volume, cue_filename) = {
             let cfg = app_state.config.read().unwrap();
-            let vol = (cfg.preferences.honk_volume as f32 / 100.0).clamp(0.0, 1.0);
+            let vol = (cfg.preferences.honk_volume as f32 / 255.0).clamp(0.0, 1.0);
             let filename = if is_recording {
                 cfg.preferences.audio_cues.start_recording.clone()
             } else {

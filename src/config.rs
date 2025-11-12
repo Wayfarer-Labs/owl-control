@@ -128,11 +128,9 @@ fn default_stop_key() -> String {
 fn default_opacity() -> u8 {
     85
 }
-
 fn default_honk_volume() -> u8 {
-    100
+    255
 }
-
 fn default_recording_location() -> std::path::PathBuf {
     std::path::PathBuf::from("./data_dump/games")
 }
