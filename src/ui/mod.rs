@@ -52,7 +52,7 @@ pub fn start(
         let app_state = app_state.clone();
         let stopped_rx = stopped_rx.resubscribe();
         move || {
-            egui_overlay::start(overlay::OverlayApp::new(app_state, stopped_rx));
+            overlay::start_overlay(app_state, stopped_rx);
         }
     });
 

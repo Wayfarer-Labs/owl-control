@@ -38,9 +38,6 @@ fn main() -> Result<()> {
         "wgpu_hal",
         "symphonia_core",
         "symphonia_bundle_mp3",
-        "egui_window_glfw_passthrough",
-        "egui_overlay",
-        "egui_render_glow",
     ] {
         env_filter = env_filter.add_directive(format!("{crate_name}=warn").parse().unwrap());
     }
