@@ -40,30 +40,21 @@ pub fn get_logo_recording_bytes() -> &'static [u8] {
     DATA.get("owl-logo-recording.png")
 }
 
-/// Loads an arbitrary audio cue from the assets/cues/ directory, storing it all as lazily init
-/// static refs in a hashmap that will last for the entire program lifetime (hence the Box::leak)
-/// Falls back to default_start.mp3 if the requested cue fails to load
-pub fn get_cue(filename: &str) -> &'static [u8] {
-    static CUES: OnceLock<Mutex<HashMap<String, &'static [u8]>>> = OnceLock::new();
-
-    let cues = CUES.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut map = cues.lock().unwrap();
-
-    map.entry(filename.to_string()).or_insert_with(|| {
-        let path = format!("cues/{filename}");
-        let data = std::fs::read(get_asset_path(&path)).unwrap_or_else(|e| {
-            // Try to fallback to default_start.mp3
-            if filename != "default_start.mp3" {
-                tracing::warn!("Failed to load {path}: {e}, falling back to default_start.mp3");
-                let default_path = "cues/default_start.mp3";
-                std::fs::read(get_asset_path(default_path)).unwrap_or_else(|e| {
-                    panic!("Failed to load fallback {default_path}: {e}");
-                })
-            } else {
-                panic!("Failed to load {path}: {e}");
-            }
-        });
-        Box::leak(data.into_boxed_slice())
+/// Loads an arbitrary audio cue from the assets/cues/ directory.
+/// Falls back to default_start.mp3 if the requested cue fails to load.
+pub fn load_cue_bytes(filename: &str) -> Vec<u8> {
+    let path = format!("cues/{filename}");
+    std::fs::read(get_asset_path(&path)).unwrap_or_else(|e| {
+        // Try to fallback to default_start.mp3
+        if filename != "default_start.mp3" {
+            tracing::warn!("Failed to load {path}: {e}, falling back to default_start.mp3");
+            let default_path = "cues/default_start.mp3";
+            std::fs::read(get_asset_path(default_path)).unwrap_or_else(|e| {
+                panic!("Failed to load fallback {default_path}: {e}");
+            })
+        } else {
+            panic!("Failed to load {path}: {e}");
+        }
     })
 }
 
@@ -77,10 +68,11 @@ pub fn get_available_cues() -> Vec<String> {
         for entry in entries.flatten() {
             if let Ok(file_type) = entry.file_type()
                 && file_type.is_file()
-                    && let Some(filename) = entry.file_name().to_str()
-                        && filename.ends_with(".mp3") {
-                            cues.push(filename.to_string());
-                        }
+                && let Some(filename) = entry.file_name().to_str()
+                && filename.ends_with(".mp3")
+            {
+                cues.push(filename.to_string());
+            }
         }
     }
 
