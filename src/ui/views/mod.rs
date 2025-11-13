@@ -37,6 +37,9 @@ pub struct App {
     /// Available video encoders, updated from tokio thread via mpsc channel
     available_video_encoders: Vec<VideoEncoderType>,
 
+    /// Available sound cues from the cues folder
+    available_cues: Vec<String>,
+
     login_api_key: String,
     is_authenticating_login_api_key: bool,
     authenticated_user_id: Option<Result<String, String>>,
@@ -100,6 +103,7 @@ impl App {
             has_scrolled_to_bottom_of_consent: false,
 
             available_video_encoders: vec![],
+            available_cues: crate::assets::get_available_cues(),
 
             local_credentials,
             local_preferences,

@@ -23,6 +23,10 @@ pub struct Preferences {
     pub delete_uploaded_files: bool,
     #[serde(default)]
     pub honk: bool,
+    #[serde(default = "default_honk_volume")]
+    pub honk_volume: u8,
+    #[serde(default)]
+    pub audio_cues: AudioCues,
     #[serde(default)]
     pub recording_backend: RecordingBackend,
     #[serde(default)]
@@ -41,6 +45,8 @@ impl Default for Preferences {
             overlay_opacity: default_opacity(),
             delete_uploaded_files: Default::default(),
             honk: Default::default(),
+            honk_volume: default_honk_volume(),
+            audio_cues: Default::default(),
             recording_backend: Default::default(),
             encoder: Default::default(),
             recording_location: default_recording_location(),
@@ -94,8 +100,25 @@ impl std::fmt::Display for OverlayLocation {
     }
 }
 
-// by default now start and stop recording are mapped to same key
-// f5 instead of f4 so users can alt+f4 properly.
+/// Audio cue settings for recording events
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AudioCues {
+    pub start_recording: String,
+    pub stop_recording: String,
+}
+
+impl Default for AudioCues {
+    fn default() -> Self {
+        Self {
+            start_recording: "default_start.mp3".to_string(),
+            stop_recording: "default_end.mp3".to_string(),
+        }
+    }
+}
+
+/// by default now start and stop recording are mapped to same key
+/// f5 instead of f4 so users can alt+f4 properly.
 fn default_start_key() -> String {
     "F5".to_string()
 }
@@ -105,7 +128,9 @@ fn default_stop_key() -> String {
 fn default_opacity() -> u8 {
     85
 }
-
+fn default_honk_volume() -> u8 {
+    255
+}
 fn default_recording_location() -> std::path::PathBuf {
     std::path::PathBuf::from("./data_dump/games")
 }
