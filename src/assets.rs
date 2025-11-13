@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
 // if run in dev mode will be relative to project root. When run from .exe will be relative to install directory.
 fn get_asset_path(filename: &str) -> PathBuf {

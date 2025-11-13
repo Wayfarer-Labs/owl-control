@@ -1,4 +1,4 @@
-﻿use std::{
+use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -455,7 +455,11 @@ fn add_settings_widget(ui: &mut Ui, widget: impl Widget) -> Response {
 /// Returns true if the value was changed
 fn u8_percentage_slider(ui: &mut Ui, value: &mut u8) -> bool {
     let mut percentage = (*value as f32 / 255.0 * 100.0).round();
-    let response = ui.add(Slider::new(&mut percentage, 0.0..=100.0).suffix("%").integer());
+    let response = ui.add(
+        Slider::new(&mut percentage, 0.0..=100.0)
+            .suffix("%")
+            .integer(),
+    );
     if response.changed() {
         *value = (percentage / 100.0 * 255.0).round() as u8;
         true
