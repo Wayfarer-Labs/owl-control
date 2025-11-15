@@ -185,8 +185,8 @@ impl EguiOverlay for OverlayApp {
             update_overlay_position_based_on_location(&mut glfw_backend.window, curr_location);
         }
         let frame = Frame {
-            fill: Color32::BLACK,      // Solid black background (opacity controlled by window)
-            stroke: Stroke::NONE,      // No border
+            fill: Color32::BLACK, // Solid black background (opacity controlled by window)
+            stroke: Stroke::NONE, // No border
             corner_radius: 0.0.into(), // No rounded corners
             shadow: Default::default(), // Default shadow settings
             inner_margin: Margin::same(8), // Inner padding
@@ -284,7 +284,7 @@ impl EguiOverlay for OverlayApp {
             let content_size = window_rect.size();
 
             // Only resize if content size has changed to avoid unnecessary updates
-            if self.last_content_size.map_or(true, |last| {
+            if self.last_content_size.is_none_or(|last| {
                 (last.x - content_size.x).abs() > 0.5 || (last.y - content_size.y).abs() > 0.5
             }) {
                 self.last_content_size = Some(content_size);
