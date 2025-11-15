@@ -80,7 +80,9 @@ impl OverlayApp {
 
         // don't show transparent window outline
         glfw_backend.window.set_decorated(false);
-        // Window size will be set dynamically based on content
+        // Set initial window opacity (0-255 -> 0.0-1.0)
+        let opacity_normalized = curr_opacity as f32 / 255.0;
+        glfw_backend.window.set_opacity(opacity_normalized);
         // always allow input to passthrough
         glfw_backend.set_passthrough(true);
 
@@ -173,18 +175,22 @@ impl EguiOverlay for OverlayApp {
             egui_context.request_repaint();
 
             self.set_window_visible(glfw_backend, curr_opacity > 0);
+
+            // Set window opacity (0-255 -> 0.0-1.0)
+            let opacity_normalized = curr_opacity as f32 / 255.0;
+            glfw_backend.window.set_opacity(opacity_normalized);
         }
         if curr_location != self.overlay_location {
             self.overlay_location = curr_location;
             update_overlay_position_based_on_location(&mut glfw_backend.window, curr_location);
         }
         let frame = Frame {
-            fill: Color32::from_black_alpha(self.overlay_opacity), // Transparent background
-            stroke: Stroke::NONE,                                  // No border
-            corner_radius: 0.0.into(),                             // No rounded corners
-            shadow: Default::default(),                            // Default shadow settings
-            inner_margin: Margin::same(8),                         // Inner padding
-            outer_margin: Margin::ZERO,                            // No outer margin
+            fill: Color32::BLACK,      // Solid black background (opacity controlled by window)
+            stroke: Stroke::NONE,      // No border
+            corner_radius: 0.0.into(), // No rounded corners
+            shadow: Default::default(), // Default shadow settings
+            inner_margin: Margin::same(8), // Inner padding
+            outer_margin: Margin::ZERO, // No outer margin
         };
 
         // only repaint the window every 500ms or when the recording state changes
@@ -209,11 +215,11 @@ impl EguiOverlay for OverlayApp {
                     ui.add(
                         Image::from_bytes("bytes://", get_owl_bytes())
                             .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
-                            .tint(Color32::from_white_alpha(self.overlay_opacity)),
+                            .tint(Color32::WHITE),
                     );
 
                     let font_id = FontId::new(12.0, FontFamily::Proportional);
-                    let color = Color32::from_white_alpha(self.overlay_opacity);
+                    let color = Color32::WHITE;
                     let recording_text: WidgetText =
                         if self.app_state.is_out_of_date.load(Ordering::Relaxed) {
                             RichText::new("Out of date; will not record. Please update!")
