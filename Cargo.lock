@@ -179,6 +179,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 
 [[package]]
+name = "approx"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -758,6 +767,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "cgmath"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a98d30140e3296250832bbaaff83b27dcd6fa3cc70fb6f1f3e5c9c0023b5317"
+dependencies = [
+ "approx",
+ "num-traits",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -818,6 +837,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bde03770d3df201d4fb868f2c9c59e66a3e4e2bd06692a0fe701e7103c7e84d4"
 dependencies = [
  "error-code",
+]
+
+[[package]]
+name = "cmake"
+version = "0.1.54"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -1429,7 +1457,7 @@ dependencies = [
  "objc2-foundation 0.2.2",
  "objc2-ui-kit",
  "profiling",
- "raw-window-handle",
+ "raw-window-handle 0.6.2",
  "smithay-clipboard",
  "web-time",
  "webbrowser",
@@ -1494,6 +1522,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_overlay"
+version = "0.9.0"
+source = "git+https://github.com/Wayfarer-Labs/egui_overlay.git?branch=master#5ea1c91b4baac4b0fb808bc94486c881dc413a86"
+dependencies = [
+ "egui",
+ "egui_render_three_d",
+ "egui_window_glfw_passthrough",
+ "raw-window-handle 0.6.2",
+ "tracing",
+]
+
+[[package]]
+name = "egui_render_glow"
+version = "0.9.1"
+source = "git+https://github.com/Wayfarer-Labs/egui_overlay.git?branch=master#5ea1c91b4baac4b0fb808bc94486c881dc413a86"
+dependencies = [
+ "bytemuck",
+ "egui",
+ "getrandom 0.2.16",
+ "glow 0.13.1",
+ "js-sys",
+ "raw-window-handle 0.6.2",
+ "tracing",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "egui_render_three_d"
+version = "0.9.0"
+source = "git+https://github.com/Wayfarer-Labs/egui_overlay.git?branch=master#5ea1c91b4baac4b0fb808bc94486c881dc413a86"
+dependencies = [
+ "egui",
+ "egui_render_glow",
+ "raw-window-handle 0.6.2",
+ "three-d",
+]
+
+[[package]]
 name = "egui_virtual_list"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1501,6 +1568,16 @@ checksum = "b81f88c8461c55ffba77f9f5ae8b97ed8b55fbef93bb8dd64a619a6632228138"
 dependencies = [
  "egui",
  "web-time",
+]
+
+[[package]]
+name = "egui_window_glfw_passthrough"
+version = "0.9.0"
+source = "git+https://github.com/Wayfarer-Labs/egui_overlay.git?branch=master#5ea1c91b4baac4b0fb808bc94486c881dc413a86"
+dependencies = [
+ "egui",
+ "glfw-passthrough",
+ "tracing",
 ]
 
 [[package]]
@@ -2087,8 +2164,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "335ff9f135e4384c8150d6f27c6daed433577f86b4750418338c01a1a2528592"
 dependencies = [
  "cfg-if 1.0.3",
+ "js-sys",
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2261,6 +2340,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "glfw-passthrough"
+version = "0.55.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2872aeb75dc8d6f2b0f0c8f5e30b525f1c647d94799ab426d215b08eea0ac49"
+dependencies = [
+ "bitflags 1.3.2",
+ "glfw-sys-passthrough",
+ "objc",
+ "raw-window-handle 0.5.2",
+ "raw-window-handle 0.6.2",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "glfw-sys-passthrough"
+version = "4.0.4+3.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34e9f4bbaf3039648a0fdd382acc5cfcb12066b477ed3fe373a9c25cfd5e2300"
+dependencies = [
+ "cmake",
+]
+
+[[package]]
 name = "glib"
 version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2305,6 +2407,18 @@ checksum = "063ce2eb6a8d0ea93d2bf8ba1957e78dbab6be1c2220dd3daca57d5a9d869898"
 dependencies = [
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "glow"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd348e04c43b32574f2de31c8bb397d96c9fcfa1371bd4ca6d8bdc464ab121b1"
+dependencies = [
+ "js-sys",
+ "slotmap",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -2470,6 +2584,7 @@ dependencies = [
  "cfg-if 1.0.3",
  "crunchy",
  "num-traits",
+ "zerocopy",
 ]
 
 [[package]]
@@ -2890,6 +3005,15 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "windows 0.61.3",
+]
+
+[[package]]
+name = "instant"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
+dependencies = [
+ "cfg-if 1.0.3",
 ]
 
 [[package]]
@@ -3508,7 +3632,7 @@ dependencies = [
  "log",
  "ndk-sys",
  "num_enum",
- "raw-window-handle",
+ "raw-window-handle 0.6.2",
  "thiserror 1.0.69",
 ]
 
@@ -4250,7 +4374,10 @@ dependencies = [
  "egui-winit",
  "egui_commonmark",
  "egui_extras",
+ "egui_overlay",
+ "egui_render_three_d",
  "egui_virtual_list",
+ "egui_window_glfw_passthrough",
  "embed-manifest",
  "futures",
  "game-process",
@@ -4829,6 +4956,12 @@ dependencies = [
 
 [[package]]
 name = "raw-window-handle"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
+
+[[package]]
+name = "raw-window-handle"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
@@ -5008,7 +5141,7 @@ dependencies = [
  "objc-foundation",
  "objc_id",
  "pollster",
- "raw-window-handle",
+ "raw-window-handle 0.6.2",
  "urlencoding",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -5937,6 +6070,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "three-d"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07faa59e1c1db457218631f1342c43b7c9d0b3657a0864b876a268c49cd0eebe"
+dependencies = [
+ "cgmath",
+ "glow 0.13.1",
+ "instant",
+ "thiserror 1.0.69",
+ "three-d-asset",
+]
+
+[[package]]
+name = "three-d-asset"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8207e9cdb58d83b02b320412d75ba6503d718f0cafa37de9cf0511839f3d86e1"
+dependencies = [
+ "cgmath",
+ "half",
+ "thiserror 1.0.69",
+ "web-sys",
+]
+
+[[package]]
 name = "tiff"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6855,7 +7013,7 @@ dependencies = [
  "parking_lot",
  "portable-atomic",
  "profiling",
- "raw-window-handle",
+ "raw-window-handle 0.6.2",
  "smallvec",
  "static_assertions",
  "wasm-bindgen",
@@ -6887,7 +7045,7 @@ dependencies = [
  "parking_lot",
  "portable-atomic",
  "profiling",
- "raw-window-handle",
+ "raw-window-handle 0.6.2",
  "rustc-hash 1.1.0",
  "smallvec",
  "thiserror 2.0.17",
@@ -6941,7 +7099,7 @@ dependencies = [
  "cfg-if 1.0.3",
  "cfg_aliases",
  "core-graphics-types 0.2.0",
- "glow",
+ "glow 0.16.0",
  "glutin_wgl_sys",
  "gpu-alloc",
  "gpu-allocator",
@@ -6963,7 +7121,7 @@ dependencies = [
  "portable-atomic-util",
  "profiling",
  "range-alloc",
- "raw-window-handle",
+ "raw-window-handle 0.6.2",
  "renderdoc-sys",
  "smallvec",
  "thiserror 2.0.17",
@@ -7755,7 +7913,7 @@ dependencies = [
  "orbclient",
  "percent-encoding",
  "pin-project",
- "raw-window-handle",
+ "raw-window-handle 0.6.2",
  "redox_syscall 0.4.1",
  "rustix 0.38.44",
  "sctk-adwaita",

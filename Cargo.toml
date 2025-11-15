@@ -76,6 +76,13 @@ egui_extras = { version = "0.33", features = ["all_loaders", "datepicker"] }
 egui-wgpu = "0.33"
 egui-winit = "0.33"
 egui_commonmark = { version = "0.22", features = ["macros"] }
+# Wayfarer-owned forks for bumping egui version to 0.33. Will remove once updated.
+egui_overlay = { git = "https://github.com/Wayfarer-Labs/egui_overlay.git", branch = "master", features = [
+    "egui_default",
+    "glfw_default",
+] }
+egui_window_glfw_passthrough = { git = "https://github.com/Wayfarer-Labs/egui_overlay.git", branch = "master" }
+egui_render_three_d = { git = "https://github.com/Wayfarer-Labs/egui_overlay.git", branch = "master" }
 catppuccin-egui = { git = "https://github.com/Wayfarer-Labs/catppuccin-egui.git", branch = "disable-build-script", default-features = false, features = [
     "egui33",
 ] }
