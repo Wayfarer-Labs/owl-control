@@ -567,7 +567,10 @@ fn notify_of_recording_state_change(
 
         match source {
             Ok(source) => {
+                // Stop any currently playing audio and clear the queue, then play new audio cue immediately
+                sink.stop();
                 sink.append(source);
+                sink.play();
             }
             Err(e) => {
                 tracing::error!(e=?e, "Failed to decode recording notification sound");
