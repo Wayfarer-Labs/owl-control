@@ -7,3 +7,4 @@ mod recording;
 
 pub use local_recording::{LocalRecording, LocalRecordingInfo};
 pub use recorder::Recorder;
+pub use recording::get_recording_base_resolution;

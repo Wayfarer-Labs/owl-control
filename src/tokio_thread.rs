@@ -28,7 +28,10 @@ use rodio::{Decoder, Sink};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::GetForegroundWindow};
 
-use crate::{record::Recorder, system::raw_input_debouncer::EventDebouncer};
+use crate::{
+    record::{Recorder, get_recording_base_resolution},
+    system::raw_input_debouncer::EventDebouncer,
+};
 
 pub fn run(
     app_state: Arc<AppState>,
@@ -400,6 +403,21 @@ async fn main(
                         tracing::info!("Window {window:?} lost focus, stopping recording");
                         if let Err(e) = stop_recording_with_notification(&mut recorder, &input_capture, &sink, honk, &app_state).await {
                             tracing::error!(e=?e, "Failed to stop recording on window lost focus");
+                        }
+                    } else if let Ok(current_resolution) = get_recording_base_resolution(recording.hwnd()) {
+                        // Check if the window resolution has changed and restart the recording
+                        if current_resolution != recording.game_resolution() {
+                            tracing::info!(
+                                old_resolution=?recording.game_resolution(),
+                                new_resolution=?current_resolution,
+                                "Window resolution changed, restarting recording"
+                            );
+                            // We intentionally do not notify of recording state change here because we're restarting the recording
+                            if let Err(e) = recorder.stop(&input_capture).await {
+                                tracing::error!(e=?e, "Failed to stop recording on resolution change");
+                            }
+                            start_recording_safely(&mut recorder, &input_capture, &unsupported_games, None).await;
+                            last_active = Instant::now();
                         }
                     }
                 } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
