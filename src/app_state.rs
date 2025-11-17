@@ -21,6 +21,7 @@ pub struct AppState {
     pub upload_cancel_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
+    pub unsupported_games: RwLock<UnsupportedGames>,
 }
 
 impl AppState {
@@ -40,6 +41,7 @@ impl AppState {
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
+            unsupported_games: RwLock::new(UnsupportedGames::load_from_embedded()),
         }
     }
 }

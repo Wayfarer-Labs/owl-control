@@ -244,7 +244,8 @@ async fn main(
                     }
                     AsyncRequest::UpdateUnsupportedGames(new_games) => {
                         let old_game_count = unsupported_games.games.len();
-                        unsupported_games = new_games;
+                        unsupported_games = new_games.clone();
+                        *app_state.unsupported_games.write().unwrap() = new_games;
                         tracing::info!(
                             "Updated unsupported games, old count: {old_game_count}, new count: {}",
                             unsupported_games.games.len()

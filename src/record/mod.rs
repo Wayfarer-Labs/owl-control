@@ -6,4 +6,4 @@ mod recorder;
 mod recording;
 
 pub use local_recording::{LocalRecording, LocalRecordingInfo};
-pub use recorder::Recorder;
+pub use recorder::{Recorder, get_foregrounded_game};

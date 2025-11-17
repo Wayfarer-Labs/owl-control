@@ -257,7 +257,7 @@ fn get_free_space_in_mb(path: &std::path::Path) -> Option<u64> {
         .map(|disk| disk.available_space() / 1024 / 1024)
 }
 
-fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> {
+pub fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> {
     let (hwnd, pid) = game_process::foreground_window()?;
 
     let exe_path = game_process::exe_name_for_pid(pid)?;
