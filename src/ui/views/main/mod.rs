@@ -55,7 +55,7 @@ impl App {
             // Show new release warning if available
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
-                ui.add_space(8.0);
+                ui.add_space(4.0);
             }
 
             // Show OBS warning if necessary
@@ -66,12 +66,12 @@ impl App {
                     .is_some_and(|(_, is_obs_running)| is_obs_running)
             {
                 obs_running_warning(ui);
-                ui.add_space(8.0);
+                ui.add_space(4.0);
             }
 
             if self.is_recording {
                 recording_notice(ui, &self.app_state);
-                ui.add_space(8.0);
+                ui.add_space(4.0);
             }
 
             ScrollArea::vertical().show(ui, |ui| {
@@ -79,13 +79,13 @@ impl App {
                 ui.group(|ui| {
                     account_section(ui, self);
                 });
-                ui.add_space(10.0);
+                ui.add_space(4.0);
 
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
                     keyboard_shortcuts_section(ui, &self.app_state, &mut self.local_preferences);
                 });
-                ui.add_space(10.0);
+                ui.add_space(4.0);
 
                 // Overlay Settings Section
                 ui.group(|ui| {
@@ -97,8 +97,7 @@ impl App {
                         &self.available_cues,
                     );
                 });
-
-                ui.add_space(10.0);
+                ui.add_space(4.0);
 
                 // Upload Manager Section
                 ui.group(|ui| {
@@ -338,7 +337,7 @@ fn overlay_settings_section(
                     },
                 ));
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 // Inline volume slider (0-255 mapped to 0-100%)
                 u8_percentage_slider(ui, &mut local_preferences.honk_volume);
@@ -346,41 +345,38 @@ fn overlay_settings_section(
         });
     });
 
-    ui.horizontal(|ui| {
-        add_settings_text(ui, Label::new("Start Recording Sound:"));
-        add_settings_ui(ui, |ui| {
-            ComboBox::from_id_salt("start_recording_cue")
-                .selected_text(&local_preferences.audio_cues.start_recording)
-                .width(150.0)
-                .show_ui(ui, |ui| {
-                    for cue in available_cues {
-                        ui.selectable_value(
-                            &mut local_preferences.audio_cues.start_recording,
-                            cue.clone(),
-                            cue,
-                        );
-                    }
-                });
-        });
-    });
+    if local_preferences.honk {
+        ui.horizontal(|ui| {
+            add_settings_text(ui, Label::new("Recording Audio Cues:"));
+            add_settings_ui(ui, |ui| {
+                ComboBox::from_id_salt("start_recording_cue")
+                    .selected_text(&local_preferences.audio_cues.start_recording)
+                    .width(150.0)
+                    .show_ui(ui, |ui| {
+                        for cue in available_cues {
+                            ui.selectable_value(
+                                &mut local_preferences.audio_cues.start_recording,
+                                cue.clone(),
+                                cue,
+                            );
+                        }
+                    });
 
-    ui.horizontal(|ui| {
-        add_settings_text(ui, Label::new("Stop Recording Sound:"));
-        add_settings_ui(ui, |ui| {
-            ComboBox::from_id_salt("stop_recording_cue")
-                .selected_text(&local_preferences.audio_cues.stop_recording)
-                .width(150.0)
-                .show_ui(ui, |ui| {
-                    for cue in available_cues {
-                        ui.selectable_value(
-                            &mut local_preferences.audio_cues.stop_recording,
-                            cue.clone(),
-                            cue,
-                        );
-                    }
-                });
+                ComboBox::from_id_salt("stop_recording_cue")
+                    .selected_text(&local_preferences.audio_cues.stop_recording)
+                    .width(150.0)
+                    .show_ui(ui, |ui| {
+                        for cue in available_cues {
+                            ui.selectable_value(
+                                &mut local_preferences.audio_cues.stop_recording,
+                                cue.clone(),
+                                cue,
+                            );
+                        }
+                    });
+            });
         });
-    });
+    }
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Video Encoder:"));
@@ -486,14 +482,14 @@ fn newer_release_available(ui: &mut Ui, release: &GitHubRelease) {
                     );
                 }
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 ui.label(
                     RichText::new("Recording and uploading will be blocked until you update.")
                         .size(14.0),
                 );
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 let button_width = 200.0;
                 let button_height = 35.0;
@@ -585,7 +581,7 @@ fn obs_running_warning(ui: &mut Ui) {
                         .color(Color32::WHITE),
                 );
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 ui.label(
                     RichText::new(
@@ -853,7 +849,7 @@ fn move_location_confirmation_window(
                     .size(14.0),
                 );
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 ui.label(
                     RichText::new("From:")
