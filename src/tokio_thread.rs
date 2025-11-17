@@ -404,34 +404,31 @@ async fn main(
                         // threshold break detected - reset tracking
                         play_time.reset();
                     } else if let Some(break_end) = play_time.last_break_end {
-                        // Check if we're past the rolling window  
+                        // Check if we're past the rolling window
                         if break_end.elapsed() > constants::PLAY_TIME_ROLLING_WINDOW {
                             play_time.reset();
                         }
                     }
 
                     // Update active/paused state based on recording status
-                    match *recording_status {
-                        RecordingStatus::Recording { .. } => {
-                            // Check if we're idle (no input for MAX_IDLE_DURATION)
-                            if idle_duration <= MAX_IDLE_DURATION {
-                                // Active - ensure session is started
-                                if !play_time.is_active() {
-                                    play_time.start_session();
-                                }
-                            } else {
-                                // Idle - pause session
-                                if play_time.is_active() {
-                                    play_time.pause_session();
-                                }
-                            }
-                        },
-                        RecordingStatus::Paused | RecordingStatus::Stopped => {
-                            // Not recording - pause session
-                            if play_time.is_active() {
+                    match (&*recording_status, play_time.is_active()) {
+                        (RecordingStatus::Recording { .. }, true) => {
+                            // Idle - pause session
+                            if idle_duration > MAX_IDLE_DURATION {
                                 play_time.pause_session();
                             }
+                        },
+                        (RecordingStatus::Recording { .. }, false) => {
+                            // Active - ensure session is started
+                            if idle_duration <= MAX_IDLE_DURATION {
+                                play_time.start_session();
+                            }
+                        },
+                        (RecordingStatus::Paused | RecordingStatus::Stopped, true) => {
+                            // Not recording - pause session
+                            play_time.pause_session();
                         }
+                        _ => {}
                     }
                 }
 

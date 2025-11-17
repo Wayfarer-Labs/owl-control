@@ -213,13 +213,13 @@ impl EguiOverlay for OverlayApp {
             let total_time = play_time.get_total_active_time();
 
             // Show if past threshold AND (first time OR update interval elapsed)
-            let should_update = total_time >= constants::PLAY_TIME_THRESHOLD &&
-                (self.play_time_text.is_none() ||
-                 play_time.last_update_time.elapsed() >= constants::PLAY_TIME_UPDATE_INTERVAL);
-
-            if should_update {
+            if total_time >= constants::PLAY_TIME_THRESHOLD
+                && (self.play_time_text.is_none()
+                    || play_time.last_update_time.elapsed() >= constants::PLAY_TIME_UPDATE_INTERVAL)
+            {
                 let formatted_duration = format_duration(total_time);
-                let message = constants::PLAY_TIME_MESSAGE.replace("{duration}", &formatted_duration);
+                let message =
+                    constants::PLAY_TIME_MESSAGE.replace("{duration}", &formatted_duration);
                 self.play_time_text = Some(message);
 
                 // Update the timestamp (need to drop read lock first)
@@ -229,12 +229,10 @@ impl EguiOverlay for OverlayApp {
                 }
 
                 egui_context.request_repaint();
-            } else if total_time < constants::PLAY_TIME_THRESHOLD {
+            } else if total_time < constants::PLAY_TIME_THRESHOLD && self.play_time_text.is_some() {
                 // Below threshold - hide
-                if self.play_time_text.is_some() {
-                    self.play_time_text = None;
-                    egui_context.request_repaint();
-                }
+                self.play_time_text = None;
+                egui_context.request_repaint();
             }
         }
         let window_response = Window::new("recording overlay")
