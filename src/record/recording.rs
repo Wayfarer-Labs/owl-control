@@ -110,6 +110,10 @@ impl Recording {
         self.hwnd
     }
 
+    pub(crate) fn game_resolution(&self) -> (u32, u32) {
+        self.game_resolution
+    }
+
     pub(crate) fn get_window_name(&self) -> Option<String> {
         use game_process::windows::Win32::UI::WindowsAndMessaging::{
             GetWindowTextLengthW, GetWindowTextW,
