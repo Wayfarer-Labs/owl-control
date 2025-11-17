@@ -10,8 +10,8 @@ pub fn foregrounded_game(
     foregrounded_game: Option<&ForegroundedGame>,
     font_size: Option<f32>,
 ) {
-    let mut body_font = TextStyle::Body.resolve(&ui.style());
-    let mut monospace_font = TextStyle::Monospace.resolve(&ui.style());
+    let mut body_font = TextStyle::Body.resolve(ui.style());
+    let mut monospace_font = TextStyle::Monospace.resolve(ui.style());
     if let Some(font_size) = font_size {
         body_font.size = font_size;
         monospace_font.size = font_size;
