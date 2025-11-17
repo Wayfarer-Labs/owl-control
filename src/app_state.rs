@@ -89,8 +89,8 @@ pub struct AppState {
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
     pub play_time_state: RwLock<PlayTimeState>,
+    pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
 }
-
 impl AppState {
     pub fn new(
         async_request_tx: mpsc::Sender<AsyncRequest>,
@@ -109,7 +109,19 @@ impl AppState {
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
             play_time_state: RwLock::new(PlayTimeState::new()),
+            last_foregrounded_game: RwLock::new(None),
         }
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct ForegroundedGame {
+    pub exe_name: Option<String>,
+    pub unsupported_reason: Option<String>,
+}
+impl ForegroundedGame {
+    pub fn is_recordable(&self) -> bool {
+        self.unsupported_reason.is_none()
     }
 }
 
@@ -173,6 +185,7 @@ pub enum AsyncRequest {
     OpenFolder(PathBuf),
     MoveRecordingsFolder { from: PathBuf, to: PathBuf },
     PickRecordingFolder { current_location: PathBuf },
+    PlayCue { cue: String },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread

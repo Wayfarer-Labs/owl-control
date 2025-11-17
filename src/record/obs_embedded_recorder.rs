@@ -19,7 +19,7 @@ use libobs_sources::{
     ObsObjectUpdater, ObsSourceBuilder,
     windows::{
         GameCaptureSourceBuilder, GameCaptureSourceUpdater, ObsGameCaptureMode,
-        WindowCaptureSourceBuilder, WindowCaptureSourceUpdater, WindowInfo, WindowSearchMode,
+        WindowCaptureSourceBuilder, WindowCaptureSourceUpdater, WindowInfo,
     },
 };
 use libobs_wrapper::{
@@ -35,6 +35,7 @@ use libobs_wrapper::{
     logger::ObsLogger,
     scenes::ObsSceneRef,
     sources::ObsSourceRef,
+    unsafe_send::SendableComp,
     utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo, traits::ObsUpdatable},
 };
 
@@ -89,8 +90,8 @@ impl VideoRecorder for ObsEmbeddedRecorder {
     async fn start_recording(
         &mut self,
         dummy_video_path: &Path,
-        pid: u32,
-        _hwnd: HWND,
+        _pid: u32,
+        hwnd: HWND,
         game_exe: &str,
         video_settings: EncoderSettings,
         (base_width, base_height): (u32, u32),
@@ -111,7 +112,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                     video_settings,
                     recording_path,
                     game_exe: game_exe.to_string(),
-                    pid,
+                    hwnd: SendableComp(hwnd),
                     event_stream,
                 }),
                 result_tx,
@@ -141,6 +142,10 @@ impl VideoRecorder for ObsEmbeddedRecorder {
     async fn poll(&mut self) {
         self.obs_tx.send(RecorderMessage::Poll).await.ok();
     }
+
+    fn is_window_capturable(&self, hwnd: HWND) -> bool {
+        find_game_capture_window(None, hwnd).is_ok()
+    }
 }
 
 enum RecorderMessage {
@@ -159,7 +164,7 @@ struct RecordingRequest {
     video_settings: EncoderSettings,
     recording_path: String,
     game_exe: String,
-    pid: u32,
+    hwnd: SendableComp<HWND>,
     event_stream: InputEventStream,
 }
 
@@ -235,7 +240,7 @@ struct RecorderState {
     last_encoder_settings: Option<serde_json::Value>,
     was_hooked: Arc<AtomicBool>,
     last_video_encoder_type: Option<VideoEncoderType>,
-    last_application: Option<(String, u32)>,
+    last_application: Option<(String, SendableComp<HWND>)>,
     is_recording: bool,
 
     // Store video encoders by type to reuse them
@@ -334,8 +339,8 @@ impl RecorderState {
 
         let source = prepare_source(
             &mut self.obs_context,
-            request.pid,
             &request.game_exe,
+            request.hwnd.0,
             &mut scene,
             self.source.take(),
         )?;
@@ -417,7 +422,7 @@ impl RecorderState {
 
             let last_application = self.last_application.clone();
             let game_exe = request.game_exe.clone();
-            let pid = request.pid;
+            let hwnd = request.hwnd.clone();
 
             move || {
                 let initial_time = Instant::now();
@@ -428,7 +433,7 @@ impl RecorderState {
                         tokio::select! {
                             r = start_signal_rx.recv() => {
                                 if r.is_ok() {
-                                    if last_application.as_ref().is_some_and(|a| a == &(game_exe.clone(), pid)) {
+                                    if last_application.as_ref().is_some_and(|a| a == &(game_exe.clone(), hwnd.clone())) {
                                         tracing::warn!("Video started again for last game, assuming we're already hooked");
                                         let _ = event_stream.send(InputEventType::HookStart);
                                         was_hooked.store(true, Ordering::Relaxed);
@@ -482,7 +487,7 @@ impl RecorderState {
         self.output.start()?;
 
         self.source = Some(source);
-        self.last_application = Some((request.game_exe.clone(), request.pid));
+        self.last_application = Some((request.game_exe.clone(), request.hwnd));
         self.is_recording = true;
 
         Ok(())
@@ -537,9 +542,11 @@ impl RecorderState {
     }
 
     fn poll(&mut self) -> eyre::Result<()> {
-        if self.last_application.as_ref().is_some_and(|a| {
-            !game_process::does_process_exist(game_process::Pid(a.1)).unwrap_or(false)
-        }) {
+        if self
+            .last_application
+            .as_ref()
+            .is_some_and(|a| find_game_capture_window(Some(a.0.as_str()), a.1.0).is_err())
+        {
             tracing::warn!("Game no longer open, removing source");
             if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)?
                 && let Some(source) = self.source.take()
@@ -566,32 +573,37 @@ fn video_info(adapter_index: usize, (base_width, base_height): (u32, u32)) -> Ob
         .build()
 }
 
-fn find_game_capture_window(game_exe: &str, pid: u32) -> Result<WindowInfo> {
-    let window = GameCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
-        .map_err(|e| eyre!(e))?;
-    window
-    .iter()
-    .find(|w| w.pid == pid)
-    .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))
-    .cloned()
+fn find_game_capture_window(game_exe: Option<&str>, hwnd: HWND) -> Result<WindowInfo> {
+    let game_exe = game_exe.unwrap_or("unknown");
+    let window = libobs_window_helper::get_window_info(hwnd).map_err(|e| {
+        eyre!(
+            "{} ({}). {} {}",
+            "We couldn't get window info for the window you're trying to record",
+            game_exe,
+            "Please ensure you are capturing a game and try again. Error:",
+            e
+        )
+    })?;
+    if !window.is_game {
+        eyre::bail!(
+            "The window you're trying to record ({game_exe}) does not appear to be a capturable game."
+        );
+    }
+    Ok(window)
 }
 
 fn prepare_source(
     obs_context: &mut ObsContext,
-    pid: u32,
     game_exe: &str,
+    hwnd: HWND,
     scene: &mut ObsSceneRef,
     mut last_source: Option<ObsSourceRef>,
 ) -> Result<ObsSourceRef> {
     let capture_audio = true;
 
     let result = if USE_WINDOW_CAPTURE {
-        let window = WindowCaptureSourceBuilder::get_windows(WindowSearchMode::ExcludeMinimized)
-            .map_err(|e| eyre!(e))?;
-        let window = window
-            .iter()
-            .find(|w| w.0.pid == pid)
-            .ok_or_else(|| eyre!("We couldn't find a capturable window for this application (EXE: {game_exe}, PID: {pid}). Please ensure you are capturing a game."))?;
+        let window =
+            libobs_wrapper::unsafe_send::Sendable(find_game_capture_window(Some(game_exe), hwnd)?);
 
         // capture full screen. if this is set to true there's black borders around the window capture.
         let client_area = false;
@@ -600,7 +612,7 @@ fn prepare_source(
             tracing::info!("Reusing existing window capture source");
             source
                 .create_updater::<WindowCaptureSourceUpdater>()?
-                .set_window(window)
+                .set_window(&window)
                 .set_capture_audio(capture_audio)
                 .set_client_area(client_area)
                 .update()?;
@@ -609,13 +621,13 @@ fn prepare_source(
             tracing::info!("Creating new window capture source");
             obs_context
                 .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)?
-                .set_window(window)
+                .set_window(&window)
                 .set_capture_audio(capture_audio)
                 .set_client_area(client_area)
                 .add_to_scene(scene)
         }
     } else {
-        let window = find_game_capture_window(game_exe, pid)?;
+        let window = find_game_capture_window(Some(game_exe), hwnd)?;
 
         if !window.is_game {
             bail!(

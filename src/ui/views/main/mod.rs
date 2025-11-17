@@ -1,18 +1,18 @@
-﻿use std::{
+use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
 
 use crate::{
     app_state::{
-        AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey,
-        RecordingStatus,
+        AppState, AsyncRequest, ForegroundedGame, GitHubRelease, HotkeyRebindTarget,
+        ListeningForNewHotkey, RecordingStatus,
     },
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
         Preferences, RecordingBackend,
     },
-    ui::{util, views::App},
+    ui::{components, util, views::App},
 };
 
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
@@ -55,7 +55,7 @@ impl App {
             // Show new release warning if available
             if let Some(release) = &self.newer_release_available {
                 newer_release_available(ui, release);
-                ui.add_space(8.0);
+                ui.add_space(4.0);
             }
 
             // Show OBS warning if necessary
@@ -66,12 +66,12 @@ impl App {
                     .is_some_and(|(_, is_obs_running)| is_obs_running)
             {
                 obs_running_warning(ui);
-                ui.add_space(8.0);
+                ui.add_space(4.0);
             }
 
             if self.is_recording {
                 recording_notice(ui, &self.app_state);
-                ui.add_space(8.0);
+                ui.add_space(4.0);
             }
 
             ScrollArea::vertical().show(ui, |ui| {
@@ -79,25 +79,33 @@ impl App {
                 ui.group(|ui| {
                     account_section(ui, self);
                 });
-                ui.add_space(10.0);
+                ui.add_space(4.0);
 
                 // Keyboard Shortcuts Section
                 ui.group(|ui| {
                     keyboard_shortcuts_section(ui, &self.app_state, &mut self.local_preferences);
                 });
-                ui.add_space(10.0);
+                ui.add_space(4.0);
 
                 // Overlay Settings Section
                 ui.group(|ui| {
+                    let foregrounded_game = self
+                        .app_state
+                        .last_foregrounded_game
+                        .read()
+                        .unwrap()
+                        .clone();
                     overlay_settings_section(
                         ui,
+                        &self.app_state,
                         &mut self.local_preferences,
                         &self.available_video_encoders,
                         &mut self.encoder_settings_window_open,
+                        foregrounded_game.as_ref(),
+                        &self.available_cues,
                     );
                 });
-
-                ui.add_space(10.0);
+                ui.add_space(4.0);
 
                 // Upload Manager Section
                 ui.group(|ui| {
@@ -289,12 +297,24 @@ fn keyboard_shortcuts_section(
 
 fn overlay_settings_section(
     ui: &mut Ui,
+    app_state: &AppState,
     local_preferences: &mut Preferences,
     available_video_encoders: &[VideoEncoderType],
     encoder_settings_window_open: &mut bool,
+    foregrounded_game: Option<&ForegroundedGame>,
+    available_cues: &[String],
 ) {
     ui.label(RichText::new("Recorder Customization").size(18.0).strong());
     ui.separator();
+
+    // Display foregrounded game indicator
+    ui.horizontal(|ui| {
+        add_settings_text(ui, Label::new("Foregrounded Window:"));
+
+        add_settings_ui(ui, |ui| {
+            components::foregrounded_game(ui, foregrounded_game, None);
+        });
+    });
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Overlay Location:"));
@@ -315,41 +335,79 @@ fn overlay_settings_section(
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Overlay Opacity:"));
-        let mut stored_opacity = local_preferences.overlay_opacity;
-        let mut egui_opacity = stored_opacity as f32 / 255.0 * 100.0;
-
-        let r = ui
-            .scope(|ui| {
-                // one day egui will make sliders respect their width properly
-                ui.spacing_mut().slider_width = ui.available_width() - 50.0;
-                add_settings_widget(
-                    ui,
-                    Slider::new(&mut egui_opacity, 0.0..=100.0)
-                        .suffix("%")
-                        .integer(),
-                )
-            })
-            .inner;
-        if r.changed() {
-            stored_opacity = (egui_opacity / 100.0 * 255.0) as u8;
-            local_preferences.overlay_opacity = stored_opacity;
-        }
+        ui.scope(|ui| {
+            // one day egui will make sliders respect their width properly
+            ui.spacing_mut().slider_width = ui.available_width() - 50.0;
+            u8_percentage_slider(ui, &mut local_preferences.overlay_opacity);
+        });
     });
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Recording Audio Cue:"));
-        let honk = local_preferences.honk;
-        add_settings_widget(
-            ui,
-            Checkbox::new(
-                &mut local_preferences.honk,
-                match honk {
-                    true => "Honk.",
-                    false => "Honk?",
-                },
-            ),
-        );
+        add_settings_ui(ui, |ui| {
+            ui.horizontal(|ui| {
+                // Honk toggle
+                let honk = local_preferences.honk;
+                let _ = ui.add(Checkbox::new(
+                    &mut local_preferences.honk,
+                    match honk {
+                        true => "Honk.",
+                        false => "Honk?",
+                    },
+                ));
+
+                ui.add_space(4.0);
+
+                // Inline volume slider (0-255 mapped to 0-100%)
+                u8_percentage_slider(ui, &mut local_preferences.honk_volume);
+            });
+        });
     });
+
+    if local_preferences.honk {
+        ui.horizontal(|ui| {
+            add_settings_text(ui, Label::new("Recording Audio Cues:"));
+            add_settings_ui(ui, |ui| {
+                let audio_cues = &mut local_preferences.audio_cues;
+                let old_start_cue = audio_cues.start_recording.clone();
+                let old_stop_cue = audio_cues.stop_recording.clone();
+                ComboBox::from_id_salt("start_recording_cue")
+                    .selected_text(&audio_cues.start_recording)
+                    .width(150.0)
+                    .show_ui(ui, |ui| {
+                        for cue in available_cues {
+                            ui.selectable_value(&mut audio_cues.start_recording, cue.clone(), cue);
+                        }
+                    });
+
+                ComboBox::from_id_salt("stop_recording_cue")
+                    .selected_text(&audio_cues.stop_recording)
+                    .width(150.0)
+                    .show_ui(ui, |ui| {
+                        for cue in available_cues {
+                            ui.selectable_value(&mut audio_cues.stop_recording, cue.clone(), cue);
+                        }
+                    });
+
+                if old_start_cue != audio_cues.start_recording {
+                    app_state
+                        .async_request_tx
+                        .try_send(AsyncRequest::PlayCue {
+                            cue: audio_cues.start_recording.clone(),
+                        })
+                        .ok();
+                }
+                if old_stop_cue != audio_cues.stop_recording {
+                    app_state
+                        .async_request_tx
+                        .try_send(AsyncRequest::PlayCue {
+                            cue: audio_cues.stop_recording.clone(),
+                        })
+                        .ok();
+                }
+            });
+        });
+    }
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Video Encoder:"));
@@ -420,6 +478,23 @@ fn add_settings_widget(ui: &mut Ui, widget: impl Widget) -> Response {
     add_settings_ui(ui, |ui| ui.add(widget)).inner
 }
 
+/// Helper function to create a percentage slider for a u8 value (0-255 -> 0-100%)
+/// Returns true if the value was changed
+fn u8_percentage_slider(ui: &mut Ui, value: &mut u8) -> bool {
+    let mut percentage = (*value as f32 / 255.0 * 100.0).round();
+    let response = ui.add(
+        Slider::new(&mut percentage, 0.0..=100.0)
+            .suffix("%")
+            .integer(),
+    );
+    if response.changed() {
+        *value = (percentage / 100.0 * 255.0).round() as u8;
+        true
+    } else {
+        false
+    }
+}
+
 fn newer_release_available(ui: &mut Ui, release: &GitHubRelease) {
     Frame::default()
         .fill(Color32::DARK_GREEN)
@@ -438,14 +513,14 @@ fn newer_release_available(ui: &mut Ui, release: &GitHubRelease) {
                     );
                 }
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 ui.label(
                     RichText::new("Recording and uploading will be blocked until you update.")
                         .size(14.0),
                 );
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 let button_width = 200.0;
                 let button_height = 35.0;
@@ -537,7 +612,7 @@ fn obs_running_warning(ui: &mut Ui) {
                         .color(Color32::WHITE),
                 );
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 ui.label(
                     RichText::new(
@@ -805,7 +880,7 @@ fn move_location_confirmation_window(
                     .size(14.0),
                 );
 
-                ui.add_space(8.0);
+                ui.add_space(4.0);
 
                 ui.label(
                     RichText::new("From:")
