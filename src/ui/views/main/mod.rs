@@ -5,8 +5,8 @@ use std::{
 
 use crate::{
     app_state::{
-        AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey,
-        RecordingStatus,
+        AppState, AsyncRequest, ForegroundedGame, GitHubRelease, HotkeyRebindTarget,
+        ListeningForNewHotkey, RecordingStatus,
     },
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
@@ -28,9 +28,6 @@ mod upload_manager;
 #[derive(Default)]
 pub(crate) struct MainViewState {
     pub(crate) last_obs_check: Option<(std::time::Instant, bool)>,
-    /// Last check for the foregrounded game window (timestamp, exe_name, is_recordable, unsupported_reason)
-    pub(crate) last_foreground_check:
-        Option<(std::time::Instant, Option<String>, bool, Option<String>)>,
     /// Recording pending deletion confirmation (stores folder path and name)
     pub(crate) pending_delete_recording: Option<(PathBuf, String)>,
     /// Pending recording location move (stores old path and new path)
@@ -52,42 +49,6 @@ impl App {
                 .is_some_and(|(last, _)| last.elapsed() > Duration::from_secs(1))
         {
             self.main_view_state.last_obs_check = Some((Instant::now(), is_obs_running()));
-        }
-
-        // Check foregrounded game every 500ms
-        if self.main_view_state.last_foreground_check.is_none()
-            || self
-                .main_view_state
-                .last_foreground_check
-                .as_ref()
-                .is_some_and(|(last, _, _, _)| last.elapsed() > Duration::from_millis(500))
-        {
-            let (foregrounded_game, is_recordable, unsupported_reason) =
-                match crate::record::get_foregrounded_game() {
-                    Ok(Some((exe_name, _, _))) => {
-                        // Check if game is supported
-                        let exe_without_ext = std::path::Path::new(&exe_name)
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or(&exe_name)
-                            .to_lowercase();
-
-                        let unsupported_games = self.app_state.unsupported_games.read().unwrap();
-                        let unsupported_game = unsupported_games.get(exe_without_ext.clone());
-
-                        let reason = unsupported_game.map(|ug| ug.reason.to_string());
-                        let is_unsupported = unsupported_game.is_some();
-
-                        (Some(exe_name), !is_unsupported, reason)
-                    }
-                    _ => (None, false, None),
-                };
-            self.main_view_state.last_foreground_check = Some((
-                Instant::now(),
-                foregrounded_game,
-                is_recordable,
-                unsupported_reason,
-            ));
         }
 
         CentralPanel::default().show(ctx, |ui| {
@@ -128,22 +89,18 @@ impl App {
 
                 // Overlay Settings Section
                 ui.group(|ui| {
-                    let (foregrounded_game, is_recordable, unsupported_reason) = self
-                        .main_view_state
-                        .last_foreground_check
-                        .as_ref()
-                        .map(|(_, game, recordable, reason)| {
-                            (game.clone(), *recordable, reason.clone())
-                        })
-                        .unwrap_or((None, false, None));
+                    let foregrounded_game = self
+                        .app_state
+                        .last_foregrounded_game
+                        .read()
+                        .unwrap()
+                        .clone();
                     overlay_settings_section(
                         ui,
                         &mut self.local_preferences,
                         &self.available_video_encoders,
                         &mut self.encoder_settings_window_open,
-                        foregrounded_game,
-                        is_recordable,
-                        unsupported_reason,
+                        foregrounded_game.as_ref(),
                         &self.available_cues,
                     );
                 });
@@ -343,9 +300,7 @@ fn overlay_settings_section(
     local_preferences: &mut Preferences,
     available_video_encoders: &[VideoEncoderType],
     encoder_settings_window_open: &mut bool,
-    foregrounded_game: Option<String>,
-    is_recordable: bool,
-    unsupported_reason: Option<String>,
+    foregrounded_game: Option<&ForegroundedGame>,
     available_cues: &[String],
 ) {
     ui.label(RichText::new("Recorder Customization").size(18.0).strong());
@@ -356,25 +311,29 @@ fn overlay_settings_section(
         add_settings_text(ui, Label::new("Foregrounded Window:"));
 
         add_settings_ui(ui, |ui| {
-            if let Some(game_name) = foregrounded_game {
+            if let Some(fg) = foregrounded_game {
                 ui.horizontal(|ui| {
-                    let (color, icon) = if is_recordable {
+                    let (color, icon) = if fg.is_recordable {
                         (Color32::from_rgb(100, 255, 100), "✅")
                     } else {
                         (Color32::from_rgb(255, 100, 100), "❌")
                     };
 
                     ui.label(RichText::new(icon).color(color).strong());
-                    ui.label(RichText::new(&game_name).color(color).monospace());
+                    ui.label(
+                        RichText::new(&fg.exe_name.clone().unwrap_or("Unknown".to_string()))
+                            .color(color)
+                            .monospace(),
+                    );
 
-                    if !is_recordable {
+                    if !fg.is_recordable {
                         let label = ui.label(
                             RichText::new("(unsupported)")
                                 .color(Color32::from_rgb(200, 100, 100))
                                 .italics(),
                         );
 
-                        if let Some(reason) = unsupported_reason {
+                        if let Some(reason) = fg.unsupported_reason.as_ref() {
                             label.on_hover_text(reason);
                         }
                     }

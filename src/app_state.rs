@@ -21,9 +21,8 @@ pub struct AppState {
     pub upload_cancel_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
-    pub unsupported_games: RwLock<UnsupportedGames>,
+    pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
 }
-
 impl AppState {
     pub fn new(
         async_request_tx: mpsc::Sender<AsyncRequest>,
@@ -41,9 +40,16 @@ impl AppState {
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
-            unsupported_games: RwLock::new(UnsupportedGames::load_from_embedded()),
+            last_foregrounded_game: RwLock::new(None),
         }
     }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct ForegroundedGame {
+    pub exe_name: Option<String>,
+    pub is_recordable: bool,
+    pub unsupported_reason: Option<String>,
 }
 
 #[derive(Clone, PartialEq)]

@@ -1,7 +1,8 @@
 use crate::{
     api::ApiClient,
     app_state::{
-        AppState, AsyncRequest, GitHubRelease, ListeningForNewHotkey, RecordingStatus, UiUpdate,
+        AppState, AsyncRequest, ForegroundedGame, GitHubRelease, ListeningForNewHotkey,
+        RecordingStatus, UiUpdate,
     },
     assets::load_cue_bytes,
     record::LocalRecording,
@@ -276,7 +277,6 @@ async fn main(
                     AsyncRequest::UpdateUnsupportedGames(new_games) => {
                         let old_game_count = unsupported_games.games.len();
                         unsupported_games = new_games.clone();
-                        *app_state.unsupported_games.write().unwrap() = new_games;
                         tracing::info!(
                             "Updated unsupported games, old count: {old_game_count}, new count: {}",
                             unsupported_games.games.len()
@@ -399,14 +399,15 @@ async fn main(
                 }
             },
             _ = perform_checks.tick() => {
-                // Periodically force the UI to rerender so that it will process events, even if not visible
-                app_state.ui_update_tx.send(UiUpdate::ForceUpdate).ok();
-
                 // Flush pending input events to disk
                 if let Err(e) = recorder.flush_input_events().await {
                     tracing::error!(e=?e, "Failed to flush input events");
                 }
 
+                // Check foregrounded game
+                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&unsupported_games);
+
+                // Update recording state
                 if let Some(recording) = recorder.recording() {
                     if !does_process_exist(recording.pid()).unwrap_or_default() {
                         tracing::info!(pid=recording.pid().0, "Game process no longer exists, stopping recording");
@@ -479,7 +480,7 @@ async fn main(
                             if let Err(e) = recorder.stop(&input_capture).await {
                                 tracing::error!(e=?e, "Failed to stop recording on resolution change");
                             }
-                            start_recording_safely(&mut recorder, &input_capture, &unsupported_games, None).await;
+                            start_recording_safely(&mut recorder, &input_capture, &unsupported_games, None, &mut cue_cache).await;
                             last_active = Instant::now();
                         }
                     }
@@ -498,6 +499,9 @@ async fn main(
                 }
 
                 recorder.poll().await;
+
+                // Periodically force the UI to rerender so that it will process events, even if not visible
+                app_state.ui_update_tx.send(UiUpdate::ForceUpdate).ok();
             },
         }
     }
@@ -612,6 +616,28 @@ fn wait_for_ctrl_c() -> oneshot::Receiver<()> {
 
 fn is_window_focused(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
+}
+
+fn get_foregrounded_game(unsupported_games: &UnsupportedGames) -> Option<ForegroundedGame> {
+    let (exe_name, _, _) = crate::record::get_foregrounded_game().ok().flatten()?;
+
+    // Check if game is supported
+    let exe_without_ext = std::path::Path::new(&exe_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&exe_name)
+        .to_lowercase();
+
+    let unsupported_game = unsupported_games.get(exe_without_ext.clone());
+
+    let reason = unsupported_game.map(|ug| ug.reason.to_string());
+    let is_unsupported = unsupported_game.is_some();
+
+    Some(ForegroundedGame {
+        exe_name: Some(exe_name),
+        is_recordable: !is_unsupported,
+        unsupported_reason: reason,
+    })
 }
 
 async fn pick_recording_folder(app_state: Arc<AppState>, current_location: PathBuf) {
