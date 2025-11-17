@@ -396,6 +396,9 @@ async fn main(
                     AsyncRequest::PickRecordingFolder { current_location } => {
                         tokio::spawn(pick_recording_folder(app_state.clone(), current_location));
                     }
+                    AsyncRequest::PlayCue { cue } => {
+                        play_cue(&sink, &app_state, &cue, &mut cue_cache);
+                    }
                 }
             },
             _ = perform_checks.tick() => {
@@ -568,36 +571,46 @@ fn notify_of_recording_state_change(
         .ok();
     if should_play_sound {
         // Apply configured honk volume (0-255 -> 0.0-1.0) and get selected cue filenames
-        let (volume, cue_filename) = {
+        let cue_filename = {
             let cfg = app_state.config.read().unwrap();
-            let vol = (cfg.preferences.honk_volume as f32 / 255.0).clamp(0.0, 1.0);
-            let filename = if is_recording {
+            if is_recording {
                 cfg.preferences.audio_cues.start_recording.clone()
             } else {
                 cfg.preferences.audio_cues.stop_recording.clone()
-            };
-            (vol, filename)
+            }
         };
+        play_cue(sink, app_state, &cue_filename, cue_cache);
+    }
+}
 
-        sink.set_volume(volume);
+fn play_cue(
+    sink: &Sink,
+    app_state: &AppState,
+    filename: &str,
+    cue_cache: &mut HashMap<String, Vec<u8>>,
+) {
+    // Apply configured honk volume (0-255 -> 0.0-1.0) and get selected cue filenames
+    let volume =
+        (app_state.config.read().unwrap().preferences.honk_volume as f32 / 255.0).clamp(0.0, 1.0);
 
-        // Load the selected cue file with a per-thread cache
-        let cue_bytes = cue_cache
-            .entry(cue_filename.clone())
-            .or_insert_with(|| load_cue_bytes(&cue_filename))
-            .clone();
-        let source = Decoder::new_mp3(Cursor::new(cue_bytes));
+    sink.set_volume(volume);
 
-        match source {
-            Ok(source) => {
-                // Stop any currently playing audio and clear the queue, then play new audio cue immediately
-                sink.stop();
-                sink.append(source);
-                sink.play();
-            }
-            Err(e) => {
-                tracing::error!(e=?e, "Failed to decode recording notification sound");
-            }
+    // Load the selected cue file with a per-thread cache
+    let cue_bytes = cue_cache
+        .entry(filename.to_string())
+        .or_insert_with(|| load_cue_bytes(filename))
+        .clone();
+    let source = Decoder::new_mp3(Cursor::new(cue_bytes));
+
+    match source {
+        Ok(source) => {
+            // Stop any currently playing audio and clear the queue, then play new audio cue immediately
+            sink.stop();
+            sink.append(source);
+            sink.play();
+        }
+        Err(e) => {
+            tracing::error!(e=?e, "Failed to decode recording notification sound");
         }
     }
 }

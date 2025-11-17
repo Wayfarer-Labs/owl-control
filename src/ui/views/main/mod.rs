@@ -97,6 +97,7 @@ impl App {
                         .clone();
                     overlay_settings_section(
                         ui,
+                        &self.app_state,
                         &mut self.local_preferences,
                         &self.available_video_encoders,
                         &mut self.encoder_settings_window_open,
@@ -294,9 +295,9 @@ fn keyboard_shortcuts_section(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn overlay_settings_section(
     ui: &mut Ui,
+    app_state: &AppState,
     local_preferences: &mut Preferences,
     available_video_encoders: &[VideoEncoderType],
     encoder_settings_window_open: &mut bool,
@@ -367,31 +368,43 @@ fn overlay_settings_section(
         ui.horizontal(|ui| {
             add_settings_text(ui, Label::new("Recording Audio Cues:"));
             add_settings_ui(ui, |ui| {
+                let audio_cues = &mut local_preferences.audio_cues;
+                let old_start_cue = audio_cues.start_recording.clone();
+                let old_stop_cue = audio_cues.stop_recording.clone();
                 ComboBox::from_id_salt("start_recording_cue")
-                    .selected_text(&local_preferences.audio_cues.start_recording)
+                    .selected_text(&audio_cues.start_recording)
                     .width(150.0)
                     .show_ui(ui, |ui| {
                         for cue in available_cues {
-                            ui.selectable_value(
-                                &mut local_preferences.audio_cues.start_recording,
-                                cue.clone(),
-                                cue,
-                            );
+                            ui.selectable_value(&mut audio_cues.start_recording, cue.clone(), cue);
                         }
                     });
 
                 ComboBox::from_id_salt("stop_recording_cue")
-                    .selected_text(&local_preferences.audio_cues.stop_recording)
+                    .selected_text(&audio_cues.stop_recording)
                     .width(150.0)
                     .show_ui(ui, |ui| {
                         for cue in available_cues {
-                            ui.selectable_value(
-                                &mut local_preferences.audio_cues.stop_recording,
-                                cue.clone(),
-                                cue,
-                            );
+                            ui.selectable_value(&mut audio_cues.stop_recording, cue.clone(), cue);
                         }
                     });
+
+                if old_start_cue != audio_cues.start_recording {
+                    app_state
+                        .async_request_tx
+                        .try_send(AsyncRequest::PlayCue {
+                            cue: audio_cues.start_recording.clone(),
+                        })
+                        .ok();
+                }
+                if old_stop_cue != audio_cues.stop_recording {
+                    app_state
+                        .async_request_tx
+                        .try_send(AsyncRequest::PlayCue {
+                            cue: audio_cues.stop_recording.clone(),
+                        })
+                        .ok();
+                }
             });
         });
     }

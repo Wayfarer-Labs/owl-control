@@ -116,6 +116,7 @@ pub enum AsyncRequest {
     OpenFolder(PathBuf),
     MoveRecordingsFolder { from: PathBuf, to: PathBuf },
     PickRecordingFolder { current_location: PathBuf },
+    PlayCue { cue: String },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
