@@ -142,6 +142,10 @@ impl VideoRecorder for ObsEmbeddedRecorder {
     async fn poll(&mut self) {
         self.obs_tx.send(RecorderMessage::Poll).await.ok();
     }
+
+    fn is_window_capturable(&self, hwnd: HWND) -> bool {
+        find_game_capture_window(None, hwnd).is_ok()
+    }
 }
 
 enum RecorderMessage {
@@ -541,7 +545,7 @@ impl RecorderState {
         if self
             .last_application
             .as_ref()
-            .is_some_and(|a| find_game_capture_window(a.0.as_str(), a.1.0).is_err())
+            .is_some_and(|a| find_game_capture_window(Some(a.0.as_str()), a.1.0).is_err())
         {
             tracing::warn!("Game no longer open, removing source");
             if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)?
@@ -569,7 +573,8 @@ fn video_info(adapter_index: usize, (base_width, base_height): (u32, u32)) -> Ob
         .build()
 }
 
-fn find_game_capture_window(game_exe: &str, hwnd: HWND) -> Result<WindowInfo> {
+fn find_game_capture_window(game_exe: Option<&str>, hwnd: HWND) -> Result<WindowInfo> {
+    let game_exe = game_exe.unwrap_or("unknown");
     let window = libobs_window_helper::get_window_info(hwnd).map_err(|e| {
         eyre!(
             "{} ({}). {} {}",
@@ -581,7 +586,7 @@ fn find_game_capture_window(game_exe: &str, hwnd: HWND) -> Result<WindowInfo> {
     })?;
     if !window.is_game {
         eyre::bail!(
-            "The window you're trying to record ({game_exe}) does not appear to be a capurable game."
+            "The window you're trying to record ({game_exe}) does not appear to be a capturable game."
         );
     }
     Ok(window)
@@ -598,7 +603,7 @@ fn prepare_source(
 
     let result = if USE_WINDOW_CAPTURE {
         let window =
-            libobs_wrapper::unsafe_send::Sendable(find_game_capture_window(game_exe, hwnd)?);
+            libobs_wrapper::unsafe_send::Sendable(find_game_capture_window(Some(game_exe), hwnd)?);
 
         // capture full screen. if this is set to true there's black borders around the window capture.
         let client_area = false;
@@ -622,7 +627,7 @@ fn prepare_source(
                 .add_to_scene(scene)
         }
     } else {
-        let window = find_game_capture_window(game_exe, hwnd)?;
+        let window = find_game_capture_window(Some(game_exe), hwnd)?;
 
         if !window.is_game {
             bail!(

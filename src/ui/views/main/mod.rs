@@ -5,14 +5,14 @@ use std::{
 
 use crate::{
     app_state::{
-        AppState, AsyncRequest, GitHubRelease, HotkeyRebindTarget, ListeningForNewHotkey,
-        RecordingStatus,
+        AppState, AsyncRequest, ForegroundedGame, GitHubRelease, HotkeyRebindTarget,
+        ListeningForNewHotkey, RecordingStatus,
     },
     config::{
         EncoderSettings, FfmpegNvencSettings, ObsAmfSettings, ObsQsvSettings, ObsX264Settings,
         Preferences, RecordingBackend,
     },
-    ui::{util, views::App},
+    ui::{components, util, views::App},
 };
 
 use constants::{GH_ORG, GH_REPO, encoding::VideoEncoderType};
@@ -89,11 +89,18 @@ impl App {
 
                 // Overlay Settings Section
                 ui.group(|ui| {
+                    let foregrounded_game = self
+                        .app_state
+                        .last_foregrounded_game
+                        .read()
+                        .unwrap()
+                        .clone();
                     overlay_settings_section(
                         ui,
                         &mut self.local_preferences,
                         &self.available_video_encoders,
                         &mut self.encoder_settings_window_open,
+                        foregrounded_game.as_ref(),
                         &self.available_cues,
                     );
                 });
@@ -287,15 +294,26 @@ fn keyboard_shortcuts_section(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn overlay_settings_section(
     ui: &mut Ui,
     local_preferences: &mut Preferences,
     available_video_encoders: &[VideoEncoderType],
     encoder_settings_window_open: &mut bool,
+    foregrounded_game: Option<&ForegroundedGame>,
     available_cues: &[String],
 ) {
     ui.label(RichText::new("Recorder Customization").size(18.0).strong());
     ui.separator();
+
+    // Display foregrounded game indicator
+    ui.horizontal(|ui| {
+        add_settings_text(ui, Label::new("Foregrounded Window:"));
+
+        add_settings_ui(ui, |ui| {
+            components::foregrounded_game(ui, foregrounded_game, None);
+        });
+    });
 
     ui.horizontal(|ui| {
         add_settings_text(ui, Label::new("Overlay Location:"));

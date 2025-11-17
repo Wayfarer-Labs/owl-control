@@ -47,6 +47,8 @@ pub trait VideoRecorder {
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
     /// Called periodically for any work the recorder might need to do
     async fn poll(&mut self);
+    /// Returns true if the window is capturable by the recorder
+    fn is_window_capturable(&self, hwnd: HWND) -> bool;
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
@@ -262,6 +264,10 @@ impl Recorder {
     pub async fn poll(&mut self) {
         self.video_recorder.poll().await;
     }
+
+    pub fn is_window_capturable(&self, hwnd: HWND) -> bool {
+        self.video_recorder.is_window_capturable(hwnd)
+    }
 }
 
 fn get_free_space_in_mb(path: &std::path::Path) -> Option<u64> {
@@ -276,7 +282,7 @@ fn get_free_space_in_mb(path: &std::path::Path) -> Option<u64> {
         .map(|disk| disk.available_space() / 1024 / 1024)
 }
 
-fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> {
+pub fn get_foregrounded_game() -> Result<Option<(String, game_process::Pid, HWND)>> {
     let (hwnd, pid) = game_process::foreground_window()?;
 
     let exe_path = game_process::exe_name_for_pid(pid)?;

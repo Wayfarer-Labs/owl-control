@@ -18,6 +18,7 @@ use crate::{
     assets,
 };
 
+mod components;
 mod internal;
 mod overlay;
 pub mod tray_icon;
@@ -32,7 +33,7 @@ pub mod notification;
 /// might see should be covered by this size (e.g. no temporary notices, but yes "delete invalid" button)
 ///
 /// Try to keep this below ~840px ((1080/1.25 = 864) - 24px taskbar)).
-const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 830);
+const WINDOW_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(600, 840);
 /// The UI will bug out below a given size. This is a conservative estimate.
 const WINDOW_MIN_INNER_SIZE: PhysicalSize<u32> = PhysicalSize::new(400, 450);
 

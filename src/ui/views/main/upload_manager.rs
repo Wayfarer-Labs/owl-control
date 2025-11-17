@@ -512,10 +512,8 @@ fn upload_stats_view(ui: &mut Ui, recordings: &Recordings) {
     fn create_upload_cell(ui: &mut Ui, icon: &str, title: &str, value: &str) {
         // Icon
         ui.label(RichText::new(icon).size(28.0));
-        ui.add_space(8.0);
         // Title
         ui.label(RichText::new(title).size(12.0).strong());
-        ui.add_space(4.0);
         // Value
         ui.add(
             Label::new(
