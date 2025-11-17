@@ -47,6 +47,8 @@ pub trait VideoRecorder {
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
     /// Called periodically for any work the recorder might need to do
     async fn poll(&mut self);
+    /// Returns true if the window is capturable by the recorder
+    fn is_window_capturable(&self, hwnd: HWND) -> bool;
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
@@ -261,6 +263,10 @@ impl Recorder {
 
     pub async fn poll(&mut self) {
         self.video_recorder.poll().await;
+    }
+
+    pub fn is_window_capturable(&self, hwnd: HWND) -> bool {
+        self.video_recorder.is_window_capturable(hwnd)
     }
 }
 

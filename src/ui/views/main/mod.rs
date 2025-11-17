@@ -329,7 +329,7 @@ fn overlay_settings_section(
 
                 ui.label(RichText::new(icon).color(color).strong());
                 ui.label(
-                    RichText::new(&fg.exe_name.clone().unwrap_or("Unknown".to_string()))
+                    RichText::new(fg.exe_name.clone().unwrap_or("Unknown".to_string()))
                         .color(color)
                         .monospace(),
                 );

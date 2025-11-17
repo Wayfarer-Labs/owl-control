@@ -405,7 +405,7 @@ async fn main(
                 }
 
                 // Check foregrounded game
-                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&unsupported_games);
+                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&unsupported_games, &recorder);
 
                 // Update recording state
                 if let Some(recording) = recorder.recording() {
@@ -618,8 +618,11 @@ fn is_window_focused(hwnd: HWND) -> bool {
     unsafe { GetForegroundWindow() == hwnd }
 }
 
-fn get_foregrounded_game(unsupported_games: &UnsupportedGames) -> Option<ForegroundedGame> {
-    let (exe_name, _, _) = crate::record::get_foregrounded_game().ok().flatten()?;
+fn get_foregrounded_game(
+    unsupported_games: &UnsupportedGames,
+    recorder: &Recorder,
+) -> Option<ForegroundedGame> {
+    let (exe_name, _, hwnd) = crate::record::get_foregrounded_game().ok().flatten()?;
 
     // Check if game is supported
     let exe_without_ext = std::path::Path::new(&exe_name)
@@ -629,11 +632,15 @@ fn get_foregrounded_game(unsupported_games: &UnsupportedGames) -> Option<Foregro
         .to_lowercase();
 
     let unsupported_game = unsupported_games.get(exe_without_ext.clone());
-    let reason = unsupported_game.map(|ug| ug.reason.to_string());
+    let mut unsupported_reason = unsupported_game.map(|ug| ug.reason.to_string());
+
+    if unsupported_game.is_none() && !recorder.is_window_capturable(hwnd) {
+        unsupported_reason = Some("The recorder cannot capture this window.".to_string());
+    }
 
     Some(ForegroundedGame {
         exe_name: Some(exe_name),
-        unsupported_reason: reason,
+        unsupported_reason,
     })
 }
 
