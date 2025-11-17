@@ -311,40 +311,38 @@ fn overlay_settings_section(
         add_settings_text(ui, Label::new("Foregrounded Window:"));
 
         add_settings_ui(ui, |ui| {
-            if let Some(fg) = foregrounded_game {
-                ui.horizontal(|ui| {
-                    let (color, icon) = if fg.is_recordable {
-                        (Color32::from_rgb(100, 255, 100), "✅")
-                    } else {
-                        (Color32::from_rgb(255, 100, 100), "❌")
-                    };
-
-                    ui.label(RichText::new(icon).color(color).strong());
-                    ui.label(
-                        RichText::new(&fg.exe_name.clone().unwrap_or("Unknown".to_string()))
-                            .color(color)
-                            .monospace(),
-                    );
-
-                    if !fg.is_recordable {
-                        let label = ui.label(
-                            RichText::new("(unsupported)")
-                                .color(Color32::from_rgb(200, 100, 100))
-                                .italics(),
-                        );
-
-                        if let Some(reason) = fg.unsupported_reason.as_ref() {
-                            label.on_hover_text(reason);
-                        }
-                    }
-                });
-            } else {
+            let Some(fg) = foregrounded_game else {
                 ui.label(
                     RichText::new("No window detected")
                         .color(Color32::from_rgb(150, 150, 150))
                         .monospace(),
                 );
-            }
+                return;
+            };
+
+            ui.horizontal(|ui| {
+                let (color, icon) = if fg.is_recordable() {
+                    (Color32::from_rgb(100, 255, 100), "✅")
+                } else {
+                    (Color32::from_rgb(255, 100, 100), "❌")
+                };
+
+                ui.label(RichText::new(icon).color(color).strong());
+                ui.label(
+                    RichText::new(&fg.exe_name.clone().unwrap_or("Unknown".to_string()))
+                        .color(color)
+                        .monospace(),
+                );
+
+                if let Some(reason) = fg.unsupported_reason.as_ref() {
+                    ui.label(
+                        RichText::new("(unsupported)")
+                            .color(Color32::from_rgb(200, 100, 100))
+                            .italics(),
+                    )
+                    .on_hover_text(reason);
+                }
+            });
         });
     });
 

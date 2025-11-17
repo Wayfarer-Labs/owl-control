@@ -629,13 +629,10 @@ fn get_foregrounded_game(unsupported_games: &UnsupportedGames) -> Option<Foregro
         .to_lowercase();
 
     let unsupported_game = unsupported_games.get(exe_without_ext.clone());
-
     let reason = unsupported_game.map(|ug| ug.reason.to_string());
-    let is_unsupported = unsupported_game.is_some();
 
     Some(ForegroundedGame {
         exe_name: Some(exe_name),
-        is_recordable: !is_unsupported,
         unsupported_reason: reason,
     })
 }

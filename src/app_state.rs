@@ -48,8 +48,12 @@ impl AppState {
 #[derive(Clone, PartialEq)]
 pub struct ForegroundedGame {
     pub exe_name: Option<String>,
-    pub is_recordable: bool,
     pub unsupported_reason: Option<String>,
+}
+impl ForegroundedGame {
+    pub fn is_recordable(&self) -> bool {
+        self.unsupported_reason.is_none()
+    }
 }
 
 #[derive(Clone, PartialEq)]
