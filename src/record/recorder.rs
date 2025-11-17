@@ -123,6 +123,23 @@ impl Recorder {
         LocalRecording::create_at(&recording_location)
             .wrap_err("Failed to create directory for recording. Did you install OWL Control to a location where your account is allowed to write files?")?;
 
+        struct DeleteRecordingOnExit(Option<PathBuf>);
+        impl Drop for DeleteRecordingOnExit {
+            fn drop(&mut self) {
+                if let Some(path) = self.0.take()
+                    && let Err(e) = std::fs::remove_dir_all(&path)
+                {
+                    tracing::error!(e=?e, "Failed to delete recording folder on failure to start recording: {}: {:?}", path.display(), e);
+                }
+            }
+        }
+        impl DeleteRecordingOnExit {
+            pub fn disarm(&mut self) {
+                self.0 = None;
+            }
+        }
+        let mut delete_recording_on_exit = DeleteRecordingOnExit(Some(recording_location.clone()));
+
         let free_space_mb = get_free_space_in_mb(&recording_location);
         if let Some(free_space_mb) = free_space_mb
             && free_space_mb < MIN_FREE_SPACE_MB
@@ -195,6 +212,8 @@ impl Recorder {
                 return Err(e);
             }
         };
+
+        delete_recording_on_exit.disarm();
 
         self.recording = Some(recording);
         *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
