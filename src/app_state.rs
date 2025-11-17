@@ -65,6 +65,11 @@ pub enum RecordingStatus {
     },
     Paused,
 }
+impl RecordingStatus {
+    pub fn is_recording(&self) -> bool {
+        matches!(self, RecordingStatus::Recording { .. })
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ListeningForNewHotkey {
