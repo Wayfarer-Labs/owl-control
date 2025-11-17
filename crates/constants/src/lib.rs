@@ -18,6 +18,21 @@ pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
 
+/// Play-time tracker: threshold before showing overlay (2 hours)
+pub const PLAY_TIME_THRESHOLD: Duration = Duration::from_secs(2 * 60 * 60);
+// pub const PLAY_TIME_THRESHOLD: Duration = Duration::from_secs(60); /// for testing
+/// Play-time tracker: update interval (30 minutes)
+pub const PLAY_TIME_UPDATE_INTERVAL: Duration = Duration::from_secs(30 * 60);
+// pub const PLAY_TIME_UPDATE_INTERVAL: Duration = Duration::from_secs(60); /// for testing
+/// Play-time tracker: break threshold - reset after this much idle time (4 hours)
+pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(4 * 60 * 60);
+// pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(2 * 60); /// for testing
+/// Play-time tracker: rolling window - reset after this much time since last break (12 hours)
+pub const PLAY_TIME_ROLLING_WINDOW: Duration = Duration::from_secs(12 * 60 * 60);
+// pub const PLAY_TIME_ROLLING_WINDOW: Duration = Duration::from_secs(10 * 60); /// for testing
+/// Play-time tracker: display message
+pub const PLAY_TIME_MESSAGE: &str = "Active {duration}";
+
 /// GitHub organization
 pub const GH_ORG: &str = "Wayfarer-Labs";
 /// GitHub repository

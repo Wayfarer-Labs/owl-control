@@ -42,6 +42,9 @@ pub struct OverlayApp {
 
     /// track the last window content size to avoid unnecessary resizing
     last_content_size: Option<Vec2>,
+
+    /// cached play-time display text
+    play_time_text: Option<String>,
 }
 impl OverlayApp {
     pub fn new(app_state: Arc<AppState>, stopped_rx: tokio::sync::broadcast::Receiver<()>) -> Self {
@@ -64,6 +67,7 @@ impl OverlayApp {
             last_paint_time: Instant::now(),
             stopped_rx,
             last_content_size: None,
+            play_time_text: None,
         }
     }
 }
@@ -202,6 +206,37 @@ impl EguiOverlay for OverlayApp {
             self.last_paint_time = Instant::now();
             egui_context.request_repaint();
         }
+
+        // Update play-time tracker display
+        {
+            let play_time = self.app_state.play_time_state.read().unwrap();
+            let total_time = play_time.get_total_active_time();
+
+            // Show if past threshold AND (first time OR update interval elapsed)
+            let should_update = total_time >= constants::PLAY_TIME_THRESHOLD &&
+                (self.play_time_text.is_none() ||
+                 play_time.last_update_time.elapsed() >= constants::PLAY_TIME_UPDATE_INTERVAL);
+
+            if should_update {
+                let formatted_duration = format_duration(total_time);
+                let message = constants::PLAY_TIME_MESSAGE.replace("{duration}", &formatted_duration);
+                self.play_time_text = Some(message);
+
+                // Update the timestamp (need to drop read lock first)
+                drop(play_time);
+                if let Ok(mut play_time) = self.app_state.play_time_state.try_write() {
+                    play_time.last_update_time = Instant::now();
+                }
+
+                egui_context.request_repaint();
+            } else if total_time < constants::PLAY_TIME_THRESHOLD {
+                // Below threshold - hide
+                if self.play_time_text.is_some() {
+                    self.play_time_text = None;
+                    egui_context.request_repaint();
+                }
+            }
+        }
         let window_response = Window::new("recording overlay")
             .title_bar(false) // No title bar
             .resizable(false) // Non-resizable
@@ -276,6 +311,20 @@ impl EguiOverlay for OverlayApp {
                         };
                     ui.label(recording_text);
                 });
+
+                // Play-time tracker display (below recording indicator)
+                if let Some(play_time_text) = &self.play_time_text {
+                    ui.horizontal(|ui| {
+                        // Add spacing to align with the text (skip icon width + spacing)
+                        ui.add_space(32.0);
+
+                        // Amber color (255, 191, 0)
+                        let amber = Color32::from_rgb(255, 191, 0);
+                        let font_id = FontId::new(12.0, FontFamily::Proportional);
+
+                        ui.label(RichText::new(play_time_text).color(amber).font(font_id));
+                    });
+                }
             });
 
         // Resize window to match egui content size
@@ -327,5 +376,22 @@ fn update_overlay_position_based_on_location(
                 monitor_height - height - OFFSET,
             );
         }
+    }
+}
+
+/// Format a duration as "Xh Ym" or "Xm" if less than an hour
+fn format_duration(duration: Duration) -> String {
+    let total_mins = duration.as_secs() / 60;
+    let hours = total_mins / 60;
+    let mins = total_mins % 60;
+
+    if hours > 0 {
+        if mins > 0 {
+            format!("{}h {}m", hours, mins)
+        } else {
+            format!("{}h", hours)
+        }
+    } else {
+        format!("{}m", mins)
     }
 }

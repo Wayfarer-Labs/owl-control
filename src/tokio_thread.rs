@@ -193,6 +193,11 @@ async fn main(
                     }
                 }
                 last_active = Instant::now();
+
+                // Also update play-time activity tracking
+                if let Ok(mut play_time) = app_state.play_time_state.try_write() {
+                    play_time.last_activity_time = Instant::now();
+                }
             },
             e = async_request_rx.recv() => {
                 let e = e.expect("async request reader was closed early");
@@ -369,6 +374,66 @@ async fn main(
             _ = perform_checks.tick() => {
                 // Periodically force the UI to rerender so that it will process events, even if not visible
                 app_state.ui_update_tx.send(UiUpdate::ForceUpdate).ok();
+
+                // Update play-time tracking
+                //
+                // Play-time tracking is intentionally coupled to recording state because it tracks
+                // active gameplay during recording sessions. The tracking logic:
+                //
+                // 1. Enforces break policies:
+                //    - PLAY_TIME_BREAK_THRESHOLD (4 hours): Reset if idle this long
+                //    - PLAY_TIME_ROLLING_WINDOW (12 hours): Reset after this period from last break
+                //
+                // 2. Responds to recording state:
+                //    - Recording + Active (input within MAX_IDLE_DURATION): Track time
+                //    - Recording + Idle (no input for MAX_IDLE_DURATION): Pause tracking
+                //    - Paused/Stopped: Always pause tracking
+                //
+                // 3. Shares idle detection logic with recording auto-stop for consistency.
+                //    Note: Recording auto-stops on idle (sets status to Paused), which would
+                //    cause play-time to pause on next tick. We check idle here for precision
+                //    to pause immediately rather than over-counting by ~1 second per idle event.
+                {
+                    let mut play_time = app_state.play_time_state.write().unwrap();
+                    let recording_status = app_state.state.read().unwrap();
+
+                    // Check if we've been idle for 4+ hours (break threshold)
+                    let idle_duration = play_time.last_activity_time.elapsed();
+
+                    if idle_duration > constants::PLAY_TIME_BREAK_THRESHOLD {
+                        // threshold break detected - reset tracking
+                        play_time.reset();
+                    } else if let Some(break_end) = play_time.last_break_end {
+                        // Check if we're past the rolling window  
+                        if break_end.elapsed() > constants::PLAY_TIME_ROLLING_WINDOW {
+                            play_time.reset();
+                        }
+                    }
+
+                    // Update active/paused state based on recording status
+                    match *recording_status {
+                        RecordingStatus::Recording { .. } => {
+                            // Check if we're idle (no input for MAX_IDLE_DURATION)
+                            if idle_duration <= MAX_IDLE_DURATION {
+                                // Active - ensure session is started
+                                if !play_time.is_active() {
+                                    play_time.start_session();
+                                }
+                            } else {
+                                // Idle - pause session
+                                if play_time.is_active() {
+                                    play_time.pause_session();
+                                }
+                            }
+                        },
+                        RecordingStatus::Paused | RecordingStatus::Stopped => {
+                            // Not recording - pause session
+                            if play_time.is_active() {
+                                play_time.pause_session();
+                            }
+                        }
+                    }
+                }
 
                 // Flush pending input events to disk
                 if let Err(e) = recorder.flush_input_events().await {

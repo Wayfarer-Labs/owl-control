@@ -10,6 +10,73 @@ use tokio::sync::{broadcast, mpsc};
 
 use crate::{api::UserUploads, config::Config, record::LocalRecording, upload::ProgressData};
 
+/// Tracks active play time during recording sessions
+#[derive(Debug, Clone)]
+pub struct PlayTimeState {
+    /// Total accumulated active time in current session
+    pub total_active_duration: Duration,
+    /// When current active period started (None if paused)
+    pub current_session_start: Option<Instant>,
+    /// Last time any activity was detected
+    pub last_activity_time: Instant,
+    /// When the tracker was last reset (used to enforce 12hr rolling window)
+    pub last_break_end: Option<Instant>,
+    /// Last time the overlay was updated
+    pub last_update_time: Instant,
+}
+
+impl PlayTimeState {
+    pub fn new() -> Self {
+        let now = Instant::now();
+        Self {
+            total_active_duration: Duration::ZERO,
+            current_session_start: None,
+            last_activity_time: now,
+            last_break_end: None,
+            last_update_time: now,
+        }
+    }
+
+    /// Get current total active time (accumulated + current session)
+    pub fn get_total_active_time(&self) -> Duration {
+        let mut total = self.total_active_duration;
+
+        if let Some(session_start) = self.current_session_start {
+            total += session_start.elapsed();
+        }
+
+        total
+    }
+
+    /// Check if currently in an active session
+    pub fn is_active(&self) -> bool {
+        self.current_session_start.is_some()
+    }
+
+    /// Start a new active session
+    pub fn start_session(&mut self) {
+        if self.current_session_start.is_none() {
+            self.current_session_start = Some(Instant::now());
+        }
+    }
+
+    /// Pause the current session, accumulating time
+    pub fn pause_session(&mut self) {
+        if let Some(session_start) = self.current_session_start.take() {
+            self.total_active_duration += session_start.elapsed();
+        }
+    }
+
+    /// Reset all tracking (called after 4hr+ break)
+    pub fn reset(&mut self) {
+        let now = Instant::now();
+        self.total_active_duration = Duration::ZERO;
+        self.current_session_start = None;
+        self.last_break_end = Some(now);
+        self.last_update_time = now;
+    }
+}
+
 pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
     pub state: RwLock<RecordingStatus>,
@@ -21,6 +88,7 @@ pub struct AppState {
     pub upload_cancel_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
+    pub play_time_state: RwLock<PlayTimeState>,
 }
 
 impl AppState {
@@ -40,6 +108,7 @@ impl AppState {
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
+            play_time_state: RwLock::new(PlayTimeState::new()),
         }
     }
 }
