@@ -23,7 +23,7 @@ use crate::{
     assets::get_owl_bytes,
     config::OverlayLocation,
     system::hardware_specs::get_primary_monitor_resolution,
-    ui::util,
+    ui::{components, util},
 };
 
 pub struct OverlayApp {
@@ -214,7 +214,7 @@ impl EguiOverlay for OverlayApp {
                 ui.horizontal(|ui| {
                     ui.add(
                         Image::from_bytes("bytes://", get_owl_bytes())
-                            .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
+                            .fit_to_exact_size(Vec2 { x: 32.0, y: 32.0 })
                             .tint(Color32::WHITE),
                     );
 
@@ -233,24 +233,14 @@ impl EguiOverlay for OverlayApp {
                                 }
                                 RecordingStatus::Recording {
                                     start_time,
-                                    game_exe,
+                                    game_exe: _,
                                 } => {
                                     let mut job = LayoutJob::default();
                                     job.append(
-                                        "Recording ",
+                                        "Recording",
                                         0.0,
                                         TextFormat {
                                             font_id: font_id.clone(),
-                                            color,
-                                            ..Default::default()
-                                        },
-                                    );
-                                    job.append(
-                                        game_exe,
-                                        0.0,
-                                        TextFormat {
-                                            font_id: font_id.clone(),
-                                            italics: true,
                                             color,
                                             ..Default::default()
                                         },
@@ -274,7 +264,21 @@ impl EguiOverlay for OverlayApp {
                                 }
                             }
                         };
-                    ui.label(recording_text);
+                    ui.vertical(|ui| {
+                        let item_spacing = ui.style().spacing.item_spacing;
+                        ui.style_mut().spacing.item_spacing = Vec2::new(0.0, 2.0);
+                        ui.label(recording_text);
+                        ui.style_mut().spacing.item_spacing = item_spacing;
+                        components::foregrounded_game(
+                            ui,
+                            self.app_state
+                                .last_foregrounded_game
+                                .read()
+                                .unwrap()
+                                .as_ref(),
+                            Some(10.0),
+                        );
+                    });
                 });
             });
 

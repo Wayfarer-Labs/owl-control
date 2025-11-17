@@ -18,6 +18,7 @@ use crate::{
     assets,
 };
 
+mod components;
 mod internal;
 mod overlay;
 pub mod tray_icon;
