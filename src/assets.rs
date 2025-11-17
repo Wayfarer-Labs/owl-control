@@ -68,7 +68,7 @@ pub fn get_available_cues() -> Vec<String> {
             if let Ok(file_type) = entry.file_type()
                 && file_type.is_file()
                 && let Some(filename) = entry.file_name().to_str()
-                && filename.ends_with(".mp3")
+                && (filename.ends_with(".mp3") || filename.ends_with(".ogg"))
             {
                 cues.push(filename.to_string());
             }
