@@ -478,7 +478,7 @@ async fn main(
                             if let Err(e) = recorder.stop(&input_capture).await {
                                 tracing::error!(e=?e, "Failed to stop recording on resolution change");
                             }
-                            start_recording_safely(&mut recorder, &input_capture, &unsupported_games, None).await;
+                            start_recording_safely(&mut recorder, &input_capture, &unsupported_games, None, &mut cue_cache).await;
                             last_active = Instant::now();
                         }
                     }
