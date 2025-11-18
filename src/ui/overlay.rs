@@ -209,27 +209,24 @@ impl EguiOverlay for OverlayApp {
 
         // Update play-time tracker display
         {
-            let play_time = self.app_state.play_time_state.read().unwrap();
+            // Copy the state with a brief read lock
+            let play_time = *self.app_state.play_time_state.read().unwrap();
             let total_time = play_time.get_total_active_time();
 
-            // Show if past threshold AND (first time OR update interval elapsed)
-            if total_time >= constants::PLAY_TIME_THRESHOLD
-                && (self.play_time_text.is_none()
-                    || play_time.last_update_time.elapsed() >= constants::PLAY_TIME_UPDATE_INTERVAL)
-            {
-                let formatted_duration = format_duration(total_time);
+            // Show if past threshold
+            if total_time >= constants::PLAY_TIME_THRESHOLD {
+                // Round to nearest display increment and format
+                let formatted_duration =
+                    format_rounded_duration(total_time, constants::PLAY_TIME_UPDATE_INTERVAL);
                 let message =
                     constants::PLAY_TIME_MESSAGE.replace("{duration}", &formatted_duration);
-                self.play_time_text = Some(message);
 
-                // Update the timestamp (need to drop read lock first)
-                drop(play_time);
-                if let Ok(mut play_time) = self.app_state.play_time_state.try_write() {
-                    play_time.last_update_time = Instant::now();
+                // Update display only if text changed
+                if self.play_time_text.as_ref() != Some(&message) {
+                    self.play_time_text = Some(message);
+                    egui_context.request_repaint();
                 }
-
-                egui_context.request_repaint();
-            } else if total_time < constants::PLAY_TIME_THRESHOLD && self.play_time_text.is_some() {
+            } else if self.play_time_text.is_some() {
                 // Below threshold - hide
                 self.play_time_text = None;
                 egui_context.request_repaint();
@@ -381,9 +378,13 @@ fn update_overlay_position_based_on_location(
     }
 }
 
-/// Format a duration as "Xh Ym" or "Xm" if less than an hour
-fn format_duration(duration: Duration) -> String {
-    let total_mins = duration.as_secs() / 60;
+/// Round `duration` down to the nearest `increment` and format as "Xh Ym" or "Xm"
+fn format_rounded_duration(duration: Duration, increment: Duration) -> String {
+    let secs = duration.as_secs();
+    let inc_secs = increment.as_secs().max(1); // avoid div-by-zero
+    let rounded_secs = (secs / inc_secs) * inc_secs;
+
+    let total_mins = rounded_secs / 60;
     let hours = total_mins / 60;
     let mins = total_mins % 60;
 

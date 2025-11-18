@@ -121,6 +121,7 @@ fn main() -> Result<()> {
         }
     });
 
+    let app_state_for_shutdown = app_state.clone();
     ui::start(
         wgpu_instance,
         app_state,
@@ -131,7 +132,17 @@ fn main() -> Result<()> {
     )?;
     tracing::info!("UI thread shut down, joining tokio thread");
     tokio_thread.join().unwrap();
-    tracing::info!("Tokio thread joined, shutting down");
+    tracing::info!("Tokio thread joined, saving final play time state");
+
+    // Save final play time state before shutdown
+    {
+        let play_time = app_state_for_shutdown.play_time_state.read().unwrap();
+        if let Err(e) = app_state::save_play_time_state(&play_time) {
+            tracing::error!("Failed to save play time state on shutdown: {}", e);
+        }
+    }
+
+    tracing::info!("Shutting down");
 
     Ok(())
 }

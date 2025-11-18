@@ -1,8 +1,8 @@
 use crate::{
     api::ApiClient,
     app_state::{
-        AppState, AsyncRequest, ForegroundedGame, GitHubRelease, ListeningForNewHotkey,
-        RecordingStatus, UiUpdate,
+        save_play_time_state, AppState, AsyncRequest, ForegroundedGame, GitHubRelease,
+        ListeningForNewHotkey, RecordingStatus, UiUpdate,
     },
     assets::load_cue_bytes,
     record::LocalRecording,
@@ -116,6 +116,7 @@ async fn main(
     let mut last_active = Instant::now();
     let mut start_on_activity = false;
     let mut actively_recording_window: Option<HWND> = None;
+    let mut last_play_time_save = Instant::now();
 
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -227,8 +228,10 @@ async fn main(
                 last_active = Instant::now();
 
                 // Also update play-time activity tracking
-                if let Ok(mut play_time) = app_state.play_time_state.try_write() {
-                    play_time.last_activity_time = Instant::now();
+                if recorder.recording().is_some() {
+                    if let Ok(mut play_time) = app_state.play_time_state.try_write() {
+                        play_time.last_activity_time = Instant::now();
+                    }
                 }
             },
             e = async_request_rx.recv() => {
@@ -408,23 +411,7 @@ async fn main(
             },
             _ = perform_checks.tick() => {
                 // Update play-time tracking
-                //
-                // Play-time tracking is intentionally coupled to recording state because it tracks
-                // active gameplay during recording sessions. The tracking logic:
-                //
-                // 1. Enforces break policies:
-                //    - PLAY_TIME_BREAK_THRESHOLD (4 hours): Reset if idle this long
-                //    - PLAY_TIME_ROLLING_WINDOW (12 hours): Reset after this period from last break
-                //
-                // 2. Responds to recording state:
-                //    - Recording + Active (input within MAX_IDLE_DURATION): Track time
-                //    - Recording + Idle (no input for MAX_IDLE_DURATION): Pause tracking
-                //    - Paused/Stopped: Always pause tracking
-                //
-                // 3. Shares idle detection logic with recording auto-stop for consistency.
-                //    Note: Recording auto-stops on idle (sets status to Paused), which would
-                //    cause play-time to pause on next tick. We check idle here for precision
-                //    to pause immediately rather than over-counting by ~1 second per idle event.
+                // Note: Recording auto-stops on idle (sets status to Paused), which would cause play-time to pause on next tick. We check idle here for precision to pause immediately rather than over-counting by ~1 second per idle event.
                 {
                     let mut play_time = app_state.play_time_state.write().unwrap();
                     let recording_status = app_state.state.read().unwrap();
@@ -462,6 +449,16 @@ async fn main(
                         }
                         _ => {}
                     }
+                }
+
+                // Periodically save play time state (every 5 minutes)
+                if last_play_time_save.elapsed() >= Duration::from_secs(5 * 60) {
+                    let play_time = app_state.play_time_state.read().unwrap();
+                    if let Err(e) = save_play_time_state(&play_time) {
+                        tracing::warn!("Failed to save play time state: {}", e);
+                    }
+                    drop(play_time);
+                    last_play_time_save = Instant::now();
                 }
 
                 // Flush pending input events to disk
@@ -506,7 +503,7 @@ async fn main(
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_FOOTAGE {
                         tracing::info!("Recording duration exceeded {} s, restarting recording", MAX_FOOTAGE.as_secs());
-                        // We intentionally do not notify of recording state change here because we're restarting the recording
+                        // We intentionally do not notify of recording state ggchange here because we're restarting the recording
                         if let Err(e) = recorder.stop(&input_capture).await {
                             tracing::error!(e=?e, "Failed to stop recording on recording duration exceeded");
                         }
