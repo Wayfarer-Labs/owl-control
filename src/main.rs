@@ -137,7 +137,7 @@ fn main() -> Result<()> {
     // Save final play time state before shutdown
     {
         let play_time = app_state_for_shutdown.play_time_state.read().unwrap();
-        if let Err(e) = app_state::save_play_time_state(&play_time) {
+        if let Err(e) = play_time.save() {
             tracing::error!("Failed to save play time state on shutdown: {}", e);
         }
     }

@@ -21,16 +21,12 @@ pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
 /// Play-time tracker
 /// Threshold before showing overlay
 pub const PLAY_TIME_THRESHOLD: Duration = Duration::from_secs(2 * 60 * 60);
-//  pub const PLAY_TIME_THRESHOLD: Duration = Duration::from_secs(60); /// for testing
-/// Update interval
-pub const PLAY_TIME_UPDATE_INTERVAL: Duration = Duration::from_secs(30 * 60);
-//  pub const PLAY_TIME_UPDATE_INTERVAL: Duration = Duration::from_secs(60); /// for testing
+/// Display granularity - how coarsely to round time values for display
+pub const PLAY_TIME_DISPLAY_GRANULARITY: Duration = Duration::from_secs(30 * 60);
 /// Break threshold - reset after this much idle time
 pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(4 * 60 * 60);
-//  pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(2 * 60); /// for testing
 /// Rolling window - reset after this much time since last break
 pub const PLAY_TIME_ROLLING_WINDOW: Duration = Duration::from_secs(8 * 60 * 60);
-//  pub const PLAY_TIME_ROLLING_WINDOW: Duration = Duration::from_secs(10 * 60); /// for testing
 /// Display message
 pub const PLAY_TIME_MESSAGE: &str = "Active {duration}";
 

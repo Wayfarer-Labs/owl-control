@@ -210,14 +210,14 @@ impl EguiOverlay for OverlayApp {
         // Update play-time tracker display
         {
             // Copy the state with a brief read lock
-            let play_time = *self.app_state.play_time_state.read().unwrap();
+            let play_time = self.app_state.play_time_state.read().unwrap();
             let total_time = play_time.get_total_active_time();
 
             // Show if past threshold
             if total_time >= constants::PLAY_TIME_THRESHOLD {
                 // Round to nearest display increment and format
                 let formatted_duration =
-                    format_rounded_duration(total_time, constants::PLAY_TIME_UPDATE_INTERVAL);
+                    format_rounded_duration(total_time, constants::PLAY_TIME_DISPLAY_GRANULARITY);
                 let message =
                     constants::PLAY_TIME_MESSAGE.replace("{duration}", &formatted_duration);
 

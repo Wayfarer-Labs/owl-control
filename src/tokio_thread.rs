@@ -1,8 +1,8 @@
 use crate::{
     api::ApiClient,
     app_state::{
-        save_play_time_state, AppState, AsyncRequest, ForegroundedGame, GitHubRelease,
-        ListeningForNewHotkey, RecordingStatus, UiUpdate,
+        AppState, AsyncRequest, ForegroundedGame, GitHubRelease, ListeningForNewHotkey,
+        RecordingStatus, UiUpdate,
     },
     assets::load_cue_bytes,
     record::LocalRecording,
@@ -226,13 +226,6 @@ async fn main(
                     }
                 }
                 last_active = Instant::now();
-
-                // Also update play-time activity tracking
-                if recorder.recording().is_some() {
-                    if let Ok(mut play_time) = app_state.play_time_state.try_write() {
-                        play_time.last_activity_time = Instant::now();
-                    }
-                }
             },
             e = async_request_rx.recv() => {
                 let e = e.expect("async request reader was closed early");
@@ -411,50 +404,44 @@ async fn main(
             },
             _ = perform_checks.tick() => {
                 // Update play-time tracking
-                // Note: Recording auto-stops on idle (sets status to Paused), which would cause play-time to pause on next tick. We check idle here for precision to pause immediately rather than over-counting by ~1 second per idle event.
                 {
                     let mut play_time = app_state.play_time_state.write().unwrap();
                     let recording_status = app_state.state.read().unwrap();
 
-                    // Check if we've been idle for 4+ hours (break threshold)
-                    let idle_duration = play_time.last_activity_time.elapsed();
-
-                    if idle_duration > constants::PLAY_TIME_BREAK_THRESHOLD {
-                        // threshold break detected - reset tracking
+                    // Check for breaks (4 hours idle) or rolling window (8 hours)
+                    // We only check for resets if we aren't currently playing
+                    if !play_time.is_active() && play_time.should_reset() {
                         play_time.reset();
-                    } else if let Some(break_end) = play_time.last_break_end {
-                        // Check if we're past the rolling window
-                        if break_end.elapsed() > constants::PLAY_TIME_ROLLING_WINDOW {
-                            play_time.reset();
-                        }
                     }
 
-                    // Update active/paused state based on recording status
-                    match (&*recording_status, play_time.is_active()) {
-                        (RecordingStatus::Recording { .. }, true) => {
-                            // Idle - pause session
-                            if idle_duration > MAX_IDLE_DURATION {
-                                play_time.pause_session();
-                            }
-                        },
-                        (RecordingStatus::Recording { .. }, false) => {
-                            // Active - ensure session is started
-                            if idle_duration <= MAX_IDLE_DURATION {
+                    match *recording_status {
+                        RecordingStatus::Recording { .. } => {
+                            // We are recording, so the user is active.
+                            if !play_time.is_active() {
                                 play_time.start_session();
+                                if let Err(e) = play_time.save() {
+                                    tracing::warn!("Failed to save play time after start: {}", e);
+                                    }
                             }
+                            // Mark that the user is still here right now
+                            play_time.tick_activity();
                         },
-                        (RecordingStatus::Paused | RecordingStatus::Stopped, true) => {
-                            // Not recording - pause session
-                            play_time.pause_session();
+                        RecordingStatus::Paused | RecordingStatus::Stopped => {
+                            // We are not recording.
+                            if play_time.is_active() {
+                                play_time.pause_session();
+                                if let Err(e) = play_time.save() {
+                                    tracing::warn!("Failed to save play time after pause: {}", e);
+                                }
+                            }
                         }
-                        _ => {}
                     }
                 }
 
                 // Periodically save play time state (every 5 minutes)
                 if last_play_time_save.elapsed() >= Duration::from_secs(5 * 60) {
                     let play_time = app_state.play_time_state.read().unwrap();
-                    if let Err(e) = save_play_time_state(&play_time) {
+                    if let Err(e) = play_time.save() {
                         tracing::warn!("Failed to save play time state: {}", e);
                     }
                     drop(play_time);
@@ -499,6 +486,15 @@ async fn main(
                         {
                             tracing::error!(e=?e, "Failed to stop recording on idle timeout");
                         }
+
+                        // Update play-time: The recorder just stopped because of idle.
+                        // We need to tell PlayTime to stop AND remove the 30s buffer.
+                        {
+                            let mut play_time = app_state.play_time_state.write().unwrap();
+                            play_time.pause_session(); // Stop the clock
+                            play_time.cancel_idle_buffer(); // Remove the 30s "afk" time
+                        }
+
                         *app_state.state.write().unwrap() = RecordingStatus::Paused;
                         start_on_activity = true;
                     } else if recording.elapsed() > MAX_FOOTAGE {
