@@ -146,6 +146,8 @@ To build a production-ready release with an installer:
 build-resources\scripts\build.ps1
 ```
 
+If you'd like to collaborate on this project, please visit our [contributor guidelines](./CONTRIBUTING.md).
+
 |       Need Help?       | Where to Go                                                                                  |
 | :--------------------: | :------------------------------------------------------------------------------------------- |
 | 🐛 **Issues or Bugs?** | Report them on our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page |

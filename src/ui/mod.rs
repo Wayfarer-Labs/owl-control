@@ -83,6 +83,11 @@ struct WinitApp {
     window: Option<Arc<Window>>,
     main_app: views::App,
     last_repaint_requested: Instant,
+    /// Receives commands from various tx in other threads to perform some UI update
+    ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
+
+    default_icon: winit::window::Icon,
+    recording_icon: winit::window::Icon,
 }
 impl WinitApp {
     #[allow(clippy::too_many_arguments)]
@@ -101,10 +106,18 @@ impl WinitApp {
             visible,
             stopped_rx,
             stopped_tx,
-            ui_update_rx,
             ui_update_unreliable_rx,
             tray_icon,
         )?;
+
+        fn load_icon_from_bytes(bytes: &[u8]) -> winit::window::Icon {
+            let (icon_rgb, (icon_width, icon_height)) = assets::load_icon_data_from_bytes(bytes);
+            winit::window::Icon::from_rgba(icon_rgb, icon_width, icon_height)
+                .expect("Failed to create window icon")
+        }
+
+        let default_icon = load_icon_from_bytes(assets::get_logo_default_bytes());
+        let recording_icon = load_icon_from_bytes(assets::get_logo_recording_bytes());
 
         Ok(Self {
             instance: wgpu_instance,
@@ -112,6 +125,9 @@ impl WinitApp {
             window: None,
             main_app,
             last_repaint_requested: Instant::now(),
+            ui_update_rx,
+            default_icon,
+            recording_icon,
         })
     }
 
@@ -160,6 +176,15 @@ impl WinitApp {
 
         state.render(window, |ctx| self.main_app.render(ctx));
     }
+
+    fn title(recording: bool) -> String {
+        let version = env!("CARGO_PKG_VERSION");
+        if recording {
+            format!("OWL Control v{version} | Recording")
+        } else {
+            format!("OWL Control v{version}")
+        }
+    }
 }
 
 impl ApplicationHandler for WinitApp {
@@ -168,19 +193,13 @@ impl ApplicationHandler for WinitApp {
             return;
         }
 
-        // Load window icon for taskbar
-        let (icon_rgb, (icon_width, icon_height)) =
-            assets::load_icon_data_from_bytes(assets::get_logo_default_bytes());
-        let window_icon = winit::window::Icon::from_rgba(icon_rgb, icon_width, icon_height)
-            .expect("Failed to create window icon");
-
         let inner_size = WINDOW_INNER_SIZE;
         let window_attributes = Window::default_attributes()
-            .with_title(format!("OWL Control v{}", env!("CARGO_PKG_VERSION")))
+            .with_title(Self::title(false))
             .with_inner_size(inner_size)
             .with_min_inner_size(WINDOW_MIN_INNER_SIZE)
             .with_resizable(true)
-            .with_window_icon(Some(window_icon));
+            .with_window_icon(Some(self.default_icon.clone()));
 
         let window = event_loop.create_window(window_attributes).unwrap();
 
@@ -214,6 +233,10 @@ impl ApplicationHandler for WinitApp {
             return;
         };
 
+        // Copy in the config from the AppState into the UI. We do this first to ensure
+        // that the UI is using the latest config.
+        self.main_app.copy_in_app_config();
+
         // Let egui renderer process the event first
         let response = state
             .renderer()
@@ -229,8 +252,28 @@ impl ApplicationHandler for WinitApp {
         }
 
         // Handle window events
-        self.main_app
-            .handle_window_event(event_loop, &event, state.context());
+        loop {
+            match self.ui_update_rx.try_recv() {
+                Ok(update @ UiUpdate::UpdateRecordingState(active)) => {
+                    if let Some(window) = self.window.as_ref() {
+                        window.set_window_icon(Some(if active {
+                            self.recording_icon.clone()
+                        } else {
+                            self.default_icon.clone()
+                        }));
+                        window.set_title(&Self::title(active));
+                    }
+                    self.main_app.handle_ui_update(update, state.context());
+                }
+                Ok(update) => {
+                    self.main_app.handle_ui_update(update, state.context());
+                }
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+        self.main_app.handle_window_event(event_loop, &event);
 
         match event {
             WindowEvent::CloseRequested => {
@@ -252,5 +295,8 @@ impl ApplicationHandler for WinitApp {
             }
             _ => (),
         }
+
+        // Once the UI has completed its processing, copy out the local config to the AppState.
+        self.main_app.copy_out_local_config();
     }
 }

@@ -268,7 +268,8 @@
   {
     "name": "OWL Control",
     "binaries": [
-      "owl control"
+      "owl control",
+      "owl-control"
     ],
     "reason": "NotAGame"
   },
@@ -327,6 +328,21 @@
     "binaries": [
       "steam",
       "steamwebhelper"
+    ],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Comet",
+    "binaries": [
+      "comet"
+    ],
+    "reason": "NotAGame"
+  },
+  {
+    "name": "Visual Studio Code",
+    "binaries": [
+      "code",
+      "codium"
     ],
     "reason": "NotAGame"
   }

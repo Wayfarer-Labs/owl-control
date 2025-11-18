@@ -4,7 +4,14 @@ Thanks for your interest in contributing to OWL Control! 🦉
 
 ## General Information
 
-For most development information, including building from source, system requirements, and code formatting, please see the [README.md](README.md).
+For setup information, including building from source, system requirements please see the [README.md](README.md).
+
+Code Formatting
+
+This project uses automated code formatting tools to maintain consistent code style:
+
+# Format Rust code
+cargo fmt
 
 ## Data Structure Changes
 

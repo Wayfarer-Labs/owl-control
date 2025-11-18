@@ -30,9 +30,6 @@ const SUBHEADING_TEXT_SIZE: f32 = 16.0;
 
 pub struct App {
     app_state: Arc<AppState>,
-    frame: u64,
-    /// Receives commands from various tx in other threads to perform some UI update
-    ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
     /// Receives commands from various tx in other threads to perform some UI update
     /// that don't need to be processed immediately.
     ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
@@ -64,6 +61,7 @@ pub struct App {
     main_view_state: views::main::MainViewState,
 
     tray_icon: TrayIconState,
+    is_recording: bool,
 
     /// Whether the encoder settings window is open
     encoder_settings_window_open: bool,
@@ -74,7 +72,6 @@ impl App {
         visible: Arc<AtomicBool>,
         stopped_rx: tokio::sync::broadcast::Receiver<()>,
         stopped_tx: tokio::sync::broadcast::Sender<()>,
-        ui_update_rx: tokio::sync::mpsc::UnboundedReceiver<UiUpdate>,
         ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
         tray_icon: TrayIconState,
     ) -> Result<Self> {
@@ -95,8 +92,6 @@ impl App {
 
         Ok(Self {
             app_state,
-            frame: 0,
-            ui_update_rx,
             ui_update_unreliable_rx,
 
             login_api_key: local_credentials.api_key.clone(),
@@ -121,6 +116,7 @@ impl App {
             main_view_state: views::main::MainViewState::default(),
 
             tray_icon,
+            is_recording: false,
 
             encoder_settings_window_open: false,
         })
@@ -130,71 +126,64 @@ impl App {
         self.has_stopped
     }
 
-    pub fn handle_window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        event: &WindowEvent,
-        ctx: &egui::Context,
-    ) {
-        loop {
-            match self.ui_update_rx.try_recv() {
-                Ok(UiUpdate::ForceUpdate) => {
-                    ctx.request_repaint();
+    pub fn handle_ui_update(&mut self, update: UiUpdate, ctx: &egui::Context) {
+        match update {
+            UiUpdate::ForceUpdate => {
+                ctx.request_repaint();
+            }
+            UiUpdate::UpdateAvailableVideoEncoders(encoders) => {
+                self.available_video_encoders = encoders;
+            }
+            UiUpdate::UpdateUserId(uid) => {
+                let was_successful = uid.is_ok();
+                self.authenticated_user_id = Some(uid);
+                self.is_authenticating_login_api_key = false;
+                if was_successful && !self.local_credentials.has_consented {
+                    self.go_to_consent();
                 }
-                Ok(UiUpdate::UpdateAvailableVideoEncoders(encoders)) => {
-                    self.available_video_encoders = encoders;
+            }
+            UiUpdate::UploadFailed(error) => {
+                self.main_view_state
+                    .upload_manager
+                    .update_last_upload_error(Some(error));
+            }
+            UiUpdate::UpdateRecordingState(recording) => {
+                self.tray_icon.set_icon_recording(recording);
+                self.is_recording = recording;
+            }
+            UiUpdate::UpdateNewerReleaseAvailable(release) => {
+                self.newer_release_available = Some(release);
+            }
+            UiUpdate::UpdateUserUploads(uploads) => {
+                self.main_view_state
+                    .upload_manager
+                    .update_user_uploads(uploads.uploads);
+            }
+            UiUpdate::UpdateLocalRecordings(recordings) => {
+                self.main_view_state
+                    .upload_manager
+                    .update_local_recordings(recordings);
+            }
+            UiUpdate::FolderPickerResult { old_path, new_path } => {
+                // Check if there are any recordings in the old location
+                if old_path.exists()
+                    && std::fs::read_dir(&old_path).is_ok_and(|dir| {
+                        dir.filter_map(Result::ok)
+                            .any(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+                    })
+                    && old_path != new_path
+                {
+                    // Show confirmation dialog to ask about moving files
+                    self.main_view_state.pending_move_location = Some((old_path, new_path));
+                } else {
+                    // No recordings to move, just update the location
+                    self.local_preferences.recording_location = new_path;
                 }
-                Ok(UiUpdate::UpdateUserId(uid)) => {
-                    let was_successful = uid.is_ok();
-                    self.authenticated_user_id = Some(uid);
-                    self.is_authenticating_login_api_key = false;
-                    if was_successful && !self.local_credentials.has_consented {
-                        self.go_to_consent();
-                    }
-                }
-                Ok(UiUpdate::UploadFailed(error)) => {
-                    self.main_view_state
-                        .upload_manager
-                        .update_last_upload_error(Some(error));
-                }
-                Ok(UiUpdate::UpdateTrayIconRecording(recording)) => {
-                    self.tray_icon.set_icon_recording(recording);
-                }
-                Ok(UiUpdate::UpdateNewerReleaseAvailable(release)) => {
-                    self.newer_release_available = Some(release);
-                }
-                Ok(UiUpdate::UpdateUserUploads(uploads)) => {
-                    self.main_view_state
-                        .upload_manager
-                        .update_user_uploads(uploads.uploads);
-                }
-                Ok(UiUpdate::UpdateLocalRecordings(recordings)) => {
-                    self.main_view_state
-                        .upload_manager
-                        .update_local_recordings(recordings);
-                }
-                Ok(UiUpdate::FolderPickerResult { old_path, new_path }) => {
-                    // Check if there are any recordings in the old location
-                    if old_path.exists()
-                        && std::fs::read_dir(&old_path).is_ok_and(|dir| {
-                            dir.filter_map(Result::ok)
-                                .any(|e| e.file_type().is_ok_and(|t| t.is_dir()))
-                        })
-                        && old_path != new_path
-                    {
-                        // Show confirmation dialog to ask about moving files
-                        self.main_view_state.pending_move_location = Some((old_path, new_path));
-                    } else {
-                        // No recordings to move, just update the location
-                        self.local_preferences.recording_location = new_path;
-                    }
-                }
-                Err(_) => {
-                    break;
-                }
-            };
+            }
         }
+    }
 
+    pub fn handle_window_event(&mut self, event_loop: &ActiveEventLoop, event: &WindowEvent) {
         loop {
             match self.ui_update_unreliable_rx.try_recv() {
                 Ok(UiUpdateUnreliable::UpdateUploadProgress(progress_data)) => {
@@ -267,29 +256,17 @@ impl App {
         );
     }
 
-    pub fn render(&mut self, ctx: &egui::Context) {
-        // Copy in the remote config if it has changed
-        {
-            let config = self.app_state.config.read().unwrap();
-            if config.credentials != self.local_credentials {
-                self.local_credentials = config.credentials.clone();
-            }
-            if config.preferences != self.local_preferences {
-                self.local_preferences = config.preferences.clone();
-            }
+    pub fn copy_in_app_config(&mut self) {
+        let config = self.app_state.config.read().unwrap();
+        if config.credentials != self.local_credentials {
+            self.local_credentials = config.credentials.clone();
         }
-
-        let (has_api_key, has_consented) = (
-            !self.local_credentials.api_key.is_empty(),
-            self.local_credentials.has_consented,
-        );
-
-        match (has_api_key, has_consented) {
-            (true, true) => self.main_view(ctx),
-            (true, false) => self.consent_view(ctx),
-            (false, _) => self.login_view(ctx),
+        if config.preferences != self.local_preferences {
+            self.local_preferences = config.preferences.clone();
         }
+    }
 
+    pub fn copy_out_local_config(&mut self) {
         // Queue up a save if any state has changed
         {
             let mut config = self.app_state.config.write().unwrap();
@@ -314,8 +291,19 @@ impl App {
             let _ = self.app_state.config.read().unwrap().save();
             self.config_last_edit = None;
         }
+    }
 
-        self.frame += 1;
+    pub fn render(&mut self, ctx: &egui::Context) {
+        let (has_api_key, has_consented) = (
+            !self.local_credentials.api_key.is_empty(),
+            self.local_credentials.has_consented,
+        );
+
+        match (has_api_key, has_consented) {
+            (true, true) => self.main_view(ctx),
+            (true, false) => self.consent_view(ctx),
+            (false, _) => self.login_view(ctx),
+        }
     }
 }
 impl App {
