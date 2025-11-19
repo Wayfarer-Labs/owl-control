@@ -212,7 +212,9 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [S.T.A.L.K.E.R.: Call of Pripyat](https://store.steampowered.com/app/41700/STALKER_Call_of_Pripyat/)
 - [S.T.A.L.K.E.R.: Shadow of Chernobyl](https://store.steampowered.com/app/4500/STALKER_Shadow_of_Chernobyl/)
 - [SCUM](https://store.steampowered.com/app/513710/SCUM/) (first-person PvE only)
+- [Void Bastards](https://store.steampowered.com/app/857980/Void_Bastards/)
 - [Voidtrain](https://store.steampowered.com/app/1159690/Voidtrain/)
+- [Wild Bastards](https://store.steampowered.com/app/1660840/Wild_Bastards/)
 
 ### Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
 
