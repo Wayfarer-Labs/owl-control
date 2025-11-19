@@ -286,6 +286,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [Warhammer 40,000: Darktide](https://store.steampowered.com/app/1361210/Warhammer_40000_Darktide/)
 - [Warhammer: Vermintide 2](https://store.steampowered.com/app/552500/Warhammer_Vermintide_2/)
 - [Witchfire](https://store.steampowered.com/app/3156770/Witchfire/)
+- [Zero Hour](https://store.steampowered.com/app/1359090/Zero_Hour/) (co-op PvE only)
 
 # Unwanted games
 
