@@ -150,6 +150,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 - [House Builder 2](https://store.steampowered.com/app/2827960/House_Builder_2/)
 - [House Builder](https://store.steampowered.com/app/1244630/House_Builder/)
 - [Ranch Simulator](https://store.steampowered.com/app/1119730/Ranch_Simulator_Build_Hunt_Farm/) (first-person only)
+- [Schedule I](https://store.steampowered.com/app/3164500/Schedule_I/)
 - [Ship Graveyard Simulator](https://store.steampowered.com/app/1286880/Ship_Graveyard_Simulator/)
 - [Store Wars](https://store.steampowered.com/app/3213600/Store_Wars_Multiplayer_Shop_Simulator/) (PvE only)
 - [WRC Generations](https://store.steampowered.com/app/1953520/WRC_Generations__The_FIA_WRC_Official_Game/)
