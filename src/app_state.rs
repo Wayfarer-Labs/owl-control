@@ -1,9 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{
-        Arc, OnceLock, RwLock,
-        atomic::AtomicBool,
-    },
+    sync::{Arc, OnceLock, RwLock, atomic::AtomicBool},
     time::{Duration, Instant},
 };
 
