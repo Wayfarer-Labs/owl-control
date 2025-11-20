@@ -59,7 +59,10 @@ pub async fn start_auto_upload_worker(
 
     loop {
         // Check if auto-upload is still enabled
-        if !app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::SeqCst) {
+        if !app_state
+            .auto_upload_enabled
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
             tracing::info!("Auto-upload disabled, stopping worker");
             break;
         }
@@ -303,7 +306,11 @@ async fn run(
                 stats.total_bytes_uploaded += recording_stats.bytes;
             }
             Err(e) => {
-                tracing::error!("Error uploading folder {}: {:?}", info.folder_path.display(), e);
+                tracing::error!(
+                    "Error uploading folder {}: {:?}",
+                    info.folder_path.display(),
+                    e
+                );
                 reliable_tx.send(UiUpdate::UploadFailed(e.to_string())).ok();
                 continue;
             }

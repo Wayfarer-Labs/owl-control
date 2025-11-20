@@ -8,7 +8,12 @@ use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames}
 use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
-use crate::{api::UserUploads, config::Config, record::LocalRecording, upload::{ProgressData, UploadQueue}};
+use crate::{
+    api::UserUploads,
+    config::Config,
+    record::LocalRecording,
+    upload::{ProgressData, UploadQueue},
+};
 
 pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay

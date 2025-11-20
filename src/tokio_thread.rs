@@ -572,7 +572,10 @@ async fn stop_recording_with_notification(
 
     // Queue recording for auto-upload if enabled and recording was successful
     if let Some(path) = recording_path {
-        if app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::SeqCst) {
+        if app_state
+            .auto_upload_enabled
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
             app_state
                 .async_request_tx
                 .send(AsyncRequest::QueueRecordingForUpload(path))

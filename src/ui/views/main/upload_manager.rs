@@ -415,13 +415,18 @@ pub fn view(
 
     // Auto-Upload Setting
     ui.horizontal(|ui| {
-        let auto_upload_enabled = app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::Relaxed);
+        let auto_upload_enabled = app_state
+            .auto_upload_enabled
+            .load(std::sync::atomic::Ordering::Relaxed);
         let mut auto_upload_checkbox = auto_upload_enabled;
 
-        if ui.add(Checkbox::new(
-            &mut auto_upload_checkbox,
-            "Auto-upload recordings as they complete",
-        )).changed() {
+        if ui
+            .add(Checkbox::new(
+                &mut auto_upload_checkbox,
+                "Auto-upload recordings as they complete",
+            ))
+            .changed()
+        {
             if auto_upload_checkbox {
                 app_state
                     .async_request_tx
@@ -435,11 +440,15 @@ pub fn view(
             }
         }
 
-        util::tooltip(ui, concat!(
-            "Automatically upload recordings as they complete. ",
-            "Recordings will be queued and uploaded one at a time. ",
-            "You can cancel ongoing uploads and clear the queue using the Cancel button."
-        ), None);
+        util::tooltip(
+            ui,
+            concat!(
+                "Automatically upload recordings as they complete. ",
+                "Recordings will be queued and uploaded one at a time. ",
+                "You can cancel ongoing uploads and clear the queue using the Cancel button."
+            ),
+            None,
+        );
 
         // Show queue status if auto-upload is enabled
         if auto_upload_enabled {
@@ -449,10 +458,14 @@ pub fn view(
                     RichText::new(format!(
                         "({} in queue{})",
                         queue_stats.pending_count,
-                        if queue_stats.has_current { ", 1 uploading" } else { "" }
+                        if queue_stats.has_current {
+                            ", 1 uploading"
+                        } else {
+                            ""
+                        }
                     ))
                     .size(11.0)
-                    .color(Color32::from_rgb(200, 200, 100))
+                    .color(Color32::from_rgb(200, 200, 100)),
                 );
             }
         }
@@ -467,7 +480,9 @@ pub fn view(
                 .upload_cancel_flag
                 .load(std::sync::atomic::Ordering::Relaxed),
             |ui| {
-                let auto_upload_enabled = app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::Relaxed);
+                let auto_upload_enabled = app_state
+                    .auto_upload_enabled
+                    .load(std::sync::atomic::Ordering::Relaxed);
                 let hover_text = if auto_upload_enabled {
                     concat!(
                         "Cancel the current upload and clear all queued auto-uploads. ",

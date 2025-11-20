@@ -157,8 +157,7 @@ impl Recording {
         if let Err(e) = result {
             tracing::error!("Error while stopping recording, invalidating recording: {e}");
             tokio::fs::write(
-                recording_location
-                    .join(constants::filename::recording::INVALID),
+                recording_location.join(constants::filename::recording::INVALID),
                 e.to_string(),
             )
             .await?;
