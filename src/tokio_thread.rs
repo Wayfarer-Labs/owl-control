@@ -260,6 +260,26 @@ async fn main(
                         app_state.upload_cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
                         tracing::info!("Upload cancellation requested");
                     }
+                    AsyncRequest::EnableAutoUpload => {
+                        app_state.auto_upload_enabled.store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::info!("Auto-upload enabled, starting worker");
+
+                        // Spawn the auto-upload worker
+                        tokio::spawn(upload::start_auto_upload_worker(
+                            app_state.clone(),
+                            api_client.clone(),
+                            recording_location.clone(),
+                        ));
+                    }
+                    AsyncRequest::DisableAutoUpload => {
+                        app_state.auto_upload_enabled.store(false, std::sync::atomic::Ordering::SeqCst);
+                        tracing::info!("Auto-upload disabled");
+                        // The worker will detect this and stop itself
+                    }
+                    AsyncRequest::QueueRecordingForUpload(path) => {
+                        tracing::info!("Queueing recording for auto-upload: {}", path.display());
+                        app_state.upload_queue.enqueue(path);
+                    }
                     AsyncRequest::OpenDataDump => {
                         if !recording_location.exists() {
                             let _ = std::fs::create_dir_all(&recording_location);
@@ -547,8 +567,20 @@ async fn stop_recording_with_notification(
     app_state: &AppState,
     cue_cache: &mut HashMap<String, Vec<u8>>,
 ) -> Result<()> {
-    recorder.stop(input_capture).await?;
+    let recording_path = recorder.stop(input_capture).await?;
     notify_of_recording_state_change(sink, honk, app_state, false, cue_cache);
+
+    // Queue recording for auto-upload if enabled and recording was successful
+    if let Some(path) = recording_path {
+        if app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::SeqCst) {
+            app_state
+                .async_request_tx
+                .send(AsyncRequest::QueueRecordingForUpload(path))
+                .await
+                .ok();
+        }
+    }
+
     // refresh the uploads
     app_state
         .async_request_tx

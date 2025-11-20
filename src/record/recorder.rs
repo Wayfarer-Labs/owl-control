@@ -243,12 +243,12 @@ impl Recorder {
         recording.flush_input_events().await
     }
 
-    pub async fn stop(&mut self, input_capture: &InputCapture) -> Result<()> {
+    pub async fn stop(&mut self, input_capture: &InputCapture) -> Result<Option<PathBuf>> {
         let Some(recording) = self.recording.take() else {
-            return Ok(());
+            return Ok(None);
         };
 
-        recording
+        let recording_path = recording
             .stop(
                 self.video_recorder.as_mut(),
                 &self.app_state.adapter_infos,
@@ -257,8 +257,8 @@ impl Recorder {
             .await?;
         *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
 
-        tracing::info!("Recording stopped");
-        Ok(())
+        tracing::info!("Recording stopped at: {}", recording_path.display());
+        Ok(Some(recording_path))
     }
 
     pub async fn poll(&mut self) {

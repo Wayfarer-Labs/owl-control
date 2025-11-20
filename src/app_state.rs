@@ -8,7 +8,7 @@ use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames}
 use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
-use crate::{api::UserUploads, config::Config, record::LocalRecording, upload::ProgressData};
+use crate::{api::UserUploads, config::Config, record::LocalRecording, upload::{ProgressData, UploadQueue}};
 
 pub struct AppState {
     /// holds the current state of recording, recorder <-> overlay
@@ -19,6 +19,8 @@ pub struct AppState {
     pub ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
     pub upload_cancel_flag: Arc<AtomicBool>,
+    pub upload_queue: UploadQueue,
+    pub auto_upload_enabled: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
     pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
@@ -38,6 +40,8 @@ impl AppState {
             ui_update_unreliable_tx,
             adapter_infos,
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
+            upload_queue: UploadQueue::new(),
+            auto_upload_enabled: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
             last_foregrounded_game: RwLock::new(None),
@@ -111,6 +115,9 @@ pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
     UploadData,
     CancelUpload,
+    EnableAutoUpload,
+    DisableAutoUpload,
+    QueueRecordingForUpload(PathBuf),
     OpenDataDump,
     OpenLog,
     UpdateUnsupportedGames(UnsupportedGames),

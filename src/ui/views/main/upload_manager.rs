@@ -413,6 +413,51 @@ pub fn view(
         ), None);
     });
 
+    // Auto-Upload Setting
+    ui.horizontal(|ui| {
+        let auto_upload_enabled = app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::Relaxed);
+        let mut auto_upload_checkbox = auto_upload_enabled;
+
+        if ui.add(Checkbox::new(
+            &mut auto_upload_checkbox,
+            "Auto-upload recordings as they complete",
+        )).changed() {
+            if auto_upload_checkbox {
+                app_state
+                    .async_request_tx
+                    .blocking_send(AsyncRequest::EnableAutoUpload)
+                    .ok();
+            } else {
+                app_state
+                    .async_request_tx
+                    .blocking_send(AsyncRequest::DisableAutoUpload)
+                    .ok();
+            }
+        }
+
+        util::tooltip(ui, concat!(
+            "Automatically upload recordings as they complete. ",
+            "Recordings will be queued and uploaded one at a time. ",
+            "You can cancel ongoing uploads and clear the queue using the Cancel button."
+        ), None);
+
+        // Show queue status if auto-upload is enabled
+        if auto_upload_enabled {
+            let queue_stats = app_state.upload_queue.stats();
+            if queue_stats.pending_count > 0 || queue_stats.has_current {
+                ui.label(
+                    RichText::new(format!(
+                        "({} in queue{})",
+                        queue_stats.pending_count,
+                        if queue_stats.has_current { ", 1 uploading" } else { "" }
+                    ))
+                    .size(11.0)
+                    .color(Color32::from_rgb(200, 200, 100))
+                );
+            }
+        }
+    });
+
     // Upload Button
     ui.add_space(5.0);
     if upload_manager.current_upload_progress.is_some() {
@@ -422,6 +467,19 @@ pub fn view(
                 .upload_cancel_flag
                 .load(std::sync::atomic::Ordering::Relaxed),
             |ui| {
+                let auto_upload_enabled = app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::Relaxed);
+                let hover_text = if auto_upload_enabled {
+                    concat!(
+                        "Cancel the current upload and clear all queued auto-uploads. ",
+                        "New recordings will still be queued for auto-upload as they complete."
+                    )
+                } else {
+                    concat!(
+                        "Cancel the current upload. ",
+                        "This upload will be restarted the next time you click the Upload button."
+                    )
+                };
+
                 let response = ui
                     .add_sized(
                         vec2(ui.available_width(), 32.0),
@@ -432,10 +490,7 @@ pub fn view(
                         )
                         .fill(Color32::from_rgb(180, 60, 60)),
                     )
-                    .on_hover_text(concat!(
-                        "Cancel the current upload. ",
-                        "This upload will be restarted the next time you click the Upload button."
-                    ));
+                    .on_hover_text(hover_text);
                 if response.clicked() {
                     app_state
                         .async_request_tx

@@ -148,15 +148,16 @@ impl Recording {
         recorder: &mut dyn VideoRecorder,
         adapter_infos: &[wgpu::AdapterInfo],
         input_capture: &InputCapture,
-    ) -> Result<()> {
+    ) -> Result<PathBuf> {
         let window_name = self.get_window_name();
+        let recording_location = self.recording_location.clone();
         let result = recorder.stop_recording().await;
         self.input_writer.stop(input_capture).await?;
 
         if let Err(e) = result {
             tracing::error!("Error while stopping recording, invalidating recording: {e}");
             tokio::fs::write(
-                self.recording_location
+                recording_location
                     .join(constants::filename::recording::INVALID),
                 e.to_string(),
             )
@@ -164,7 +165,7 @@ impl Recording {
         } else {
             let gamepads = input_capture.gamepads();
             LocalRecording::write_metadata_and_validate(
-                self.recording_location,
+                recording_location.clone(),
                 self.game_exe,
                 self.game_resolution,
                 self.start_instant,
@@ -178,7 +179,7 @@ impl Recording {
             .await?;
         }
 
-        Ok(())
+        Ok(recording_location)
     }
 }
 

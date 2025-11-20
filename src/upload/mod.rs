@@ -16,6 +16,9 @@ use crate::{
     validation::{ValidationResult, validate_folder},
 };
 
+pub mod queue;
+pub use queue::UploadQueue;
+
 #[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 pub struct FileProgress {
     pub current_file: String,
@@ -37,6 +40,149 @@ pub struct FinalStats {
     pub total_files_uploaded: u64,
     pub total_duration_uploaded: f64,
     pub total_bytes_uploaded: u64,
+}
+
+/// Start the auto-upload worker that processes recordings from the queue.
+/// This runs continuously until auto-upload is disabled.
+pub async fn start_auto_upload_worker(
+    app_state: Arc<AppState>,
+    api_client: Arc<ApiClient>,
+    recording_location: PathBuf,
+) {
+    tracing::info!("Auto-upload worker started");
+
+    let unreliable_tx = app_state.ui_update_unreliable_tx.clone();
+    let cancel_flag = app_state.upload_cancel_flag.clone();
+
+    // Reset cancel flag at start
+    cancel_flag.store(false, std::sync::atomic::Ordering::SeqCst);
+
+    loop {
+        // Check if auto-upload is still enabled
+        if !app_state.auto_upload_enabled.load(std::sync::atomic::Ordering::SeqCst) {
+            tracing::info!("Auto-upload disabled, stopping worker");
+            break;
+        }
+
+        // Check if upload has been cancelled
+        if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+            tracing::info!("Auto-upload cancelled, clearing queue");
+            app_state.upload_queue.clear_all();
+            cancel_flag.store(false, std::sync::atomic::Ordering::SeqCst);
+
+            // Clear progress indicator
+            unreliable_tx
+                .send(UiUpdateUnreliable::UpdateUploadProgress(None))
+                .ok();
+
+            // Wait a bit before checking again
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            continue;
+        }
+
+        // Try to get next recording from queue
+        let Some(path) = app_state.upload_queue.dequeue() else {
+            // Queue is empty, wait a bit before checking again
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            continue;
+        };
+
+        // Verify the recording still exists and is unuploaded
+        let recording = LocalRecording::from_path(&path);
+        match recording {
+            Some(LocalRecording::Unuploaded { info, metadata }) => {
+                tracing::info!("Auto-uploading recording: {}", path.display());
+
+                let (api_token, unreliable_connection, delete_uploaded) = {
+                    let config = app_state.config.read().unwrap();
+                    (
+                        config.credentials.api_key.clone(),
+                        config.preferences.unreliable_connection,
+                        config.preferences.delete_uploaded_files,
+                    )
+                };
+
+                let file_progress = FileProgress {
+                    current_file: info.folder_name.clone(),
+                    files_remaining: app_state.upload_queue.pending_count() as u64,
+                };
+
+                // Upload the recording
+                let result = upload_single_recording(
+                    &path,
+                    api_client.clone(),
+                    &api_token,
+                    unreliable_connection,
+                    delete_uploaded,
+                    unreliable_tx.clone(),
+                    cancel_flag.clone(),
+                    file_progress,
+                )
+                .await;
+
+                match result {
+                    Ok(_) => {
+                        tracing::info!("Auto-upload completed successfully: {}", path.display());
+                        app_state.upload_queue.complete_current();
+
+                        // Reload stats and local recordings
+                        app_state
+                            .async_request_tx
+                            .send(AsyncRequest::LoadUploadStats)
+                            .await
+                            .ok();
+                        app_state
+                            .async_request_tx
+                            .send(AsyncRequest::LoadLocalRecordings)
+                            .await
+                            .ok();
+                    }
+                    Err(e) => {
+                        tracing::error!("Auto-upload failed for {}: {:?}", path.display(), e);
+                        app_state.upload_queue.complete_current();
+
+                        // Send error to UI
+                        app_state
+                            .ui_update_tx
+                            .send(UiUpdate::UploadFailed(format!(
+                                "Auto-upload failed for {}: {}",
+                                info.folder_name, e
+                            )))
+                            .ok();
+
+                        // Reload local recordings to show updated state
+                        app_state
+                            .async_request_tx
+                            .send(AsyncRequest::LoadLocalRecordings)
+                            .await
+                            .ok();
+                    }
+                }
+            }
+            _ => {
+                // Recording no longer exists or is already uploaded/invalid
+                tracing::debug!(
+                    "Recording at {} is no longer available for upload, skipping",
+                    path.display()
+                );
+                app_state.upload_queue.complete_current();
+            }
+        }
+
+        // Clear progress indicator when queue is empty
+        if app_state.upload_queue.is_empty() {
+            unreliable_tx
+                .send(UiUpdateUnreliable::UpdateUploadProgress(None))
+                .ok();
+        }
+    }
+
+    // Clear progress indicator when worker stops
+    unreliable_tx
+        .send(UiUpdateUnreliable::UpdateUploadProgress(None))
+        .ok();
+
+    tracing::info!("Auto-upload worker stopped");
 }
 
 pub async fn start(
@@ -134,46 +280,32 @@ async fn run(
             eyre::bail!("Upload cancelled by user");
         }
 
-        let path = &info.folder_path;
-
         let file_progress = FileProgress {
             current_file: info.folder_name.clone(),
             files_remaining: total_files_to_upload.saturating_sub(stats.total_files_uploaded),
         };
 
-        let recording_stats = match upload_folder(
-            path,
+        match upload_single_recording(
+            &info.folder_path,
             api_client.clone(),
             &api_token,
             unreliable_connection,
+            delete_uploaded,
             unreliable_tx.clone(),
             cancel_flag.clone(),
             file_progress,
         )
         .await
         {
-            Ok(recording_stats) => recording_stats,
+            Ok(recording_stats) => {
+                stats.total_duration_uploaded += recording_stats.duration;
+                stats.total_files_uploaded += 1;
+                stats.total_bytes_uploaded += recording_stats.bytes;
+            }
             Err(e) => {
-                tracing::error!("Error uploading folder {}: {:?}", path.display(), e);
+                tracing::error!("Error uploading folder {}: {:?}", info.folder_path.display(), e);
                 reliable_tx.send(UiUpdate::UploadFailed(e.to_string())).ok();
                 continue;
-            }
-        };
-
-        stats.total_duration_uploaded += recording_stats.duration;
-        stats.total_files_uploaded += 1;
-        stats.total_bytes_uploaded += recording_stats.bytes;
-
-        // delete the uploaded recording directory if the preference is enabled
-        if delete_uploaded {
-            if let Err(e) = tokio::fs::remove_dir_all(path).await {
-                tracing::error!(
-                    "Failed to delete uploaded directory {}: {:?}",
-                    path.display(),
-                    e
-                );
-            } else {
-                tracing::info!("Deleted uploaded directory: {}", path.display());
             }
         }
 
@@ -210,6 +342,50 @@ async fn run(
 struct RecordingStats {
     duration: f64,
     bytes: u64,
+}
+
+/// Upload a single recording folder to the server.
+/// Returns recording stats on success.
+pub async fn upload_single_recording(
+    path: &Path,
+    api_client: Arc<ApiClient>,
+    api_token: &str,
+    unreliable_connection: bool,
+    delete_uploaded: bool,
+    unreliable_tx: app_state::UiUpdateUnreliableSender,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
+    file_progress: FileProgress,
+) -> eyre::Result<RecordingStats> {
+    // Check if upload has been cancelled
+    if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+        eyre::bail!("Upload cancelled by user");
+    }
+
+    let recording_stats = upload_folder(
+        path,
+        api_client,
+        api_token,
+        unreliable_connection,
+        unreliable_tx,
+        cancel_flag,
+        file_progress,
+    )
+    .await?;
+
+    // delete the uploaded recording directory if the preference is enabled
+    if delete_uploaded {
+        if let Err(e) = tokio::fs::remove_dir_all(path).await {
+            tracing::error!(
+                "Failed to delete uploaded directory {}: {:?}",
+                path.display(),
+                e
+            );
+        } else {
+            tracing::info!("Deleted uploaded directory: {}", path.display());
+        }
+    }
+
+    Ok(recording_stats)
 }
 
 async fn create_tar_file(validation: &ValidationResult) -> eyre::Result<PathBuf> {
