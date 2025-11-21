@@ -29,7 +29,6 @@ Follow these guidelines. You must be 18 or older!
 >
 > The following behaviors will lead to a ban:
 >
-> - Recording PvP modes.
 > - Falsifying recordings or repeatedly violating guidelines.<br>
 > - Recording games with a focus on nudity and NSFW content.<br>
 > - Tampering with our software system.<br>
@@ -100,13 +99,13 @@ The general vibe we are going for with our data is games that feel like they hav
 - [ULTRAKILL](https://store.steampowered.com/app/1229490/ULTRAKILL/)
 - [VOIDBREAKER](https://store.steampowered.com/app/2615540/VOIDBREAKER/)
 - [White Knuckle](https://store.steampowered.com/app/3195790/White_Knuckle/)
+- [Apex Legends](https://store.steampowered.com/app/1172470/Apex_Legends/)
 
 ### Open‑world / Sandbox (long‑horizon planning, navigation, vehicles)
 
 - [Avowed](https://store.steampowered.com/app/2457220/Avowed/)
 - [Cyberpunk 2077](https://store.steampowered.com/app/1091500/Cyberpunk_2077/)
 - [Fallout 4](https://store.steampowered.com/app/377160/Fallout_4/)
-- [Fallout: New Vegas](https://store.steampowered.com/app/22380/Fallout_New_Vegas/)
 - [Green Hell](https://store.steampowered.com/app/815370/Green_Hell/)
 - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
 - [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
@@ -190,7 +189,7 @@ The general vibe we are going for with our data is games that feel like they hav
 - [Ghost Janitors](https://store.steampowered.com/app/2772990/Ghost_Janitors/)
 - [Ghost Watchers](https://store.steampowered.com/app/1850740/Ghost_Watchers/)
 - [GTFO](https://store.steampowered.com/app/493520/GTFO/)
-- [Killing Floor 3](https://store.steampowered.com/app/232090/Killing_Floor_2/)
+- [Killing Floor 2](https://store.steampowered.com/app/232090/Killing_Floor_2/)
 - [Mortuary Assistant](https://store.steampowered.com/app/1295920/The_Mortuary_Assistant/)
 - [Murky Divers](https://store.steampowered.com/app/2963880/Murky_Divers/)
 - [Outlast 2](https://store.steampowered.com/app/414700/Outlast_2/)
@@ -217,20 +216,15 @@ The general vibe we are going for with our data is games that feel like they hav
 - [Battlefield Hardline](https://store.steampowered.com/app/1238880/Battlefield_Hardline/)
 - [Battlefield V](https://store.steampowered.com/app/1238810/Battlefield_V/)
 - [Battlefield 6](https://store.steampowered.com/app/2807960/Battlefield_6/)
-- [Call of Duty](https://store.steampowered.com/app/1938090/Call_of_Duty/)
 - [Call of Duty: World at War](https://store.steampowered.com/app/10090/Call_of_Duty_World_at_War/)
 - [Call of Duty: Black Ops](https://store.steampowered.com/app/42700/Call_of_Duty_Black_Ops/)
-- [Call of Duty: Black Ops II](https://store.steampowered.com/app/202970/Call_of_Duty_Black_Ops_II/)
 - [Call of Duty: Black Ops III](https://store.steampowered.com/app/311210/Call_of_Duty_Black_Ops_III/)
 - [Call of Duty: Black Ops Cold War](https://store.steampowered.com/app/1985810/Call_of_Duty_Black_Ops_Cold_War/)
 - [Call of Duty: Black Ops 6](https://store.steampowered.com/app/2933620/Call_of_Duty_Black_Ops_6/)
 - [Call of Duty: Black Ops 7](https://store.steampowered.com/app/3606480/Call_of_Duty_Black_Ops_7/)
-- [Call of Duty: Modern Warfare 2 (2009)](https://store.steampowered.com/app/10180/Call_of_Duty_Modern_Warfare_2_2009/)
-- [Call of Duty: Modern Warfare 3 (2011)](https://store.steampowered.com/app/115300/Call_of_Duty_Modern_Warfare_3_2011/)
 - [Call of Duty: Modern Warfare (2019)](https://store.steampowered.com/app/2000950/Call_of_Duty_Modern_Warfare/)
 - [Call of Duty: Modern Warfare II (2022)](https://store.steampowered.com/app/3595230/Call_of_Duty_Modern_Warfare_II/)
 - [Call of Duty: Modern Warfare III (2023)](https://store.steampowered.com/app/3595270/Call_of_Duty_Modern_Warfare_III/)
-- [Call of Duty: Ghosts](https://store.steampowered.com/app/209160/Call_of_Duty_Ghosts/)
 - [Call of Duty: Advanced Warfare](https://store.steampowered.com/app/209650/Call_of_Duty_Advanced_Warfare)
 - [Call of Duty: Infinite Warfare](https://store.steampowered.com/app/292730/Call_of_Duty_Infinite_Warfare/)
 - [Call of Duty: WWII](https://store.steampowered.com/app/476600/Call_of_Duty_WWII/)
@@ -240,6 +234,7 @@ The general vibe we are going for with our data is games that feel like they hav
 - [Halo 2 Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo 3 (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
+- [Halo: Infinite](https://store.steampowered.com/app/1240440/Halo_Infinite/)
 - [MORDHAU](https://store.steampowered.com/app/629760/MORDHAU/)
 - [Mortal Sin](https://store.steampowered.com/app/1494810/Mortal_Sin/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
