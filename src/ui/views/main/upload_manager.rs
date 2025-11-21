@@ -10,7 +10,7 @@ use crate::{
     config::Preferences,
     output_types::Metadata,
     record::{LocalRecording, LocalRecordingInfo},
-    ui::util,
+    ui::{util, views::main::FOOTER_HEIGHT},
     upload,
 };
 
@@ -630,10 +630,6 @@ fn recordings_view(
     pending_delete_recording: &mut Option<(std::path::PathBuf, String)>,
 ) {
     const FONTSIZE: f32 = 13.0;
-    /// This is just vibed based off footer height + elements below the scrollview
-    /// It's too much of a hassle to make this dynamically update when the height won't ever
-    /// change at runtime anyway.
-    const FOOTER_HEIGHT: f32 = 120.0;
     Frame::new()
         .inner_margin(Margin {
             left: 4,
@@ -643,12 +639,12 @@ fn recordings_view(
         })
         .show(ui, |ui| {
             let button_height = 28.0;
-            let height = ui.available_height() - FOOTER_HEIGHT;
+            let height = (ui.available_height() - FOOTER_HEIGHT).max(button_height);
 
-            // Show spinner if still loading, capped at 120px height
+            // Show spinner if still loading
             if !recordings.any_available() {
                 ui.vertical_centered(|ui| {
-                    ui.add(Spinner::new().size(height.min(120.0)));
+                    ui.add(Spinner::new().size(height));
                 });
                 return;
             };
