@@ -20,7 +20,7 @@ Follow these guidelines. You must be 18 or older!
 
 > [!IMPORTANT]
 >
-> - Singleplayer game recordings give best results.
+> - Singleplayer game recordings are preferred but multiplayer games are permitted.
 > - We buy games from `Top-priority` for veteran contributors.
 > - We don't capture your microphone or anything outside the active game.
 > - MSI Afterburner or similar stats programs should be disabled and substituted with [Steam Overlay stats](https://help.steampowered.com/en/faqs/view/3462-CD4C-36BD5767)
@@ -39,7 +39,7 @@ Questions? Chat in the [Discord #owl-control channel](https://discord.gg/ZgCWTGY
 
 ## The Vibe
 
-The general vibe we are going for with our data is games that feel like they have their own unique *world*. The best games are immersive first person experiences that put you in a world and allow you to explore it, discovering and interacting with your environment, characters, and enemies as you go. The most exemplary games for this would be Cyberpunk 2077, Skyrim, Fallout, Outer Wilds, No Mans Sky. We intend for these games to teach our models to create large and interesting worlds. Secondly, we are also interested in games that display unique movement and environments that may be more linear or closed form (think multiplayer FPS games like Battlefield, Call of Duty and Ghostrunner). These games can teach our models how one might move around and look around in closed spaces, while being easier to learn than larger complex games. First person puzzle or adventure games are also permissible. 
+The general vibe we are going for with our data is games that feel like they have their own unique *world*. The best games are immersive first person experiences that put you in a world and allow you to explore it, discovering and interacting with your environment, characters, and enemies as you go. The most exemplary games for this would be Cyberpunk 2077, Skyrim, Fallout, Outer Wilds, No Mans Sky, Myst. We intend for these games to teach our models to create large and interesting worlds. Secondly, we are also interested in games that display unique movement and environments that may be more linear or closed form or multiplayer (think games like Battlefield, Call of Duty, Ghostrunner, or Talos Principle 1). These games can teach our models how one might move around and look around in closed spaces, while being easier to learn than larger complex games. First person puzzle or adventure games are also permissible. In order to end up with a realistic model, we are generally not permitting games that came out before 2010, though there is some wiggle room for graphically advanced games.
 
 ## Top-Priority Games
 
@@ -183,9 +183,6 @@ The general vibe we are going for with our data is games that feel like they hav
   - [Amnesia: Rebirth](https://store.steampowered.com/app/999220/Amnesia_Rebirth/)
   - [Amnesia: The Bunker](https://store.steampowered.com/app/1944430/Amnesia_The_Bunker/)
 - [Back 4 Blood](https://store.steampowered.com/app/924970/Back_4_Blood/)
-- [Bigfoot](https://store.steampowered.com/app/509980/BIGFOOT/)
-- [Blood: Fresh Supply](https://store.steampowered.com/app/1010750/Blood_Fresh_Supply/)
-- [Condemned: Criminal Origins](https://store.steampowered.com/app/4720/Condemned_Criminal_Origins/)
 - [Content Warning](https://store.steampowered.com/app/2881650/Content_Warning/) (no voice chat)
 - [Dark Hours](https://store.steampowered.com/app/2208570/Dark_Hours/)
 - [Dead Island 2](https://store.steampowered.com/app/934700/Dead_Island_2/)
@@ -193,10 +190,7 @@ The general vibe we are going for with our data is games that feel like they hav
 - [Ghost Janitors](https://store.steampowered.com/app/2772990/Ghost_Janitors/)
 - [Ghost Watchers](https://store.steampowered.com/app/1850740/Ghost_Watchers/)
 - [GTFO](https://store.steampowered.com/app/493520/GTFO/)
-- [Killing Floor](https://store.steampowered.com/app/1250/Killing_Floor/)
-- [Left 4 Dead 2](https://store.steampowered.com/app/550/Left_4_Dead_2)
-- [Lethal Company](https://store.steampowered.com/app/1966720/Lethal_Company) (no voice chat)
-- [Miside](https://store.steampowered.com/app/2527500/MiSide/)
+- [Killing Floor 3](https://store.steampowered.com/app/232090/Killing_Floor_2/)
 - [Mortuary Assistant](https://store.steampowered.com/app/1295920/The_Mortuary_Assistant/)
 - [Murky Divers](https://store.steampowered.com/app/2963880/Murky_Divers/)
 - [Outlast 2](https://store.steampowered.com/app/414700/Outlast_2/)
@@ -208,7 +202,6 @@ The general vibe we are going for with our data is games that feel like they hav
 - [Resident Evil Village](https://store.steampowered.com/app/1196590/Resident_Evil_Village/)
 - [SCP: 5K](https://store.steampowered.com/app/872670/SCP_5K/)
 - [SCP: Nine Tailed Fox](https://store.steampowered.com/app/1304510/SCP_NineTailed_Fox/) (free)
-- [SCP: Secret Laboratory](https://store.steampowered.com/app/700330/SCP_Secret_Laboratory/)
 - [Soma](https://store.steampowered.com/app/282140/SOMA/)
 - [The Beast Inside](https://store.steampowered.com/app/792300/The_Beast_Inside/)
 - [The Darkness II](https://store.steampowered.com/app/67370/The_Darkness_II/)
@@ -247,7 +240,7 @@ We have already collected sufficient data for these games, or they are not suppo
 Any data submitted for these games will be rejected by our system.
 Please do not submit data for these games.
 
-## Sufficient data captured
+## Banned Games (or sufficient data captured)
 
 - Fortnite
 - Rust
