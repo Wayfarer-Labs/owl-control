@@ -51,6 +51,7 @@ pub struct ApiClient {
 }
 impl ApiClient {
     pub fn new() -> Self {
+        tracing::debug!("ApiClient::new() called");
         Self {
             client: reqwest::Client::new(),
         }

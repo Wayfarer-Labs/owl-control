@@ -45,10 +45,14 @@ pub fn start(
     stopped_tx: tokio::sync::broadcast::Sender<()>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
+    tracing::debug!("UI start() called");
+    tracing::debug!("Initializing tray icon");
     let tray_icon = tray_icon::TrayIconState::new()?;
+    tracing::debug!("Tray icon initialized");
     let visible = Arc::new(AtomicBool::new(true));
 
     // launch overlay on separate thread so non-blocking
+    tracing::debug!("Spawning overlay thread");
     std::thread::spawn({
         let app_state = app_state.clone();
         let stopped_rx = stopped_rx.resubscribe();
@@ -57,11 +61,13 @@ pub fn start(
         }
     });
 
+    tracing::debug!("Creating winit event loop");
     let event_loop = EventLoop::new().unwrap();
     // setting controlflow::wait is important. This means that once minimized to tray,
     // unlike eframe, it will no longer poll for updates - massively saving CPU.
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
+    tracing::debug!("Creating WinitApp");
     let mut app = WinitApp::new(
         wgpu_instance,
         app_state,
@@ -72,9 +78,11 @@ pub fn start(
         ui_update_unreliable_rx,
         tray_icon,
     )?;
+    tracing::debug!("WinitApp created, starting event loop");
 
     event_loop.run_app(&mut app).unwrap();
 
+    tracing::debug!("Event loop exited");
     Ok(())
 }
 
@@ -102,6 +110,8 @@ impl WinitApp {
         ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
         tray_icon: tray_icon::TrayIconState,
     ) -> Result<Self> {
+        tracing::debug!("WinitApp::new() called");
+        tracing::debug!("Creating main app view");
         let main_app = views::App::new(
             app_state,
             visible,
@@ -110,7 +120,9 @@ impl WinitApp {
             ui_update_unreliable_rx,
             tray_icon,
         )?;
+        tracing::debug!("Main app view created");
 
+        tracing::debug!("Loading window icons");
         fn load_icon_from_bytes(bytes: &[u8]) -> winit::window::Icon {
             let (icon_rgb, (icon_width, icon_height)) = assets::load_icon_data_from_bytes(bytes);
             winit::window::Icon::from_rgba(icon_rgb, icon_width, icon_height)
@@ -119,7 +131,9 @@ impl WinitApp {
 
         let default_icon = load_icon_from_bytes(assets::get_logo_default_bytes());
         let recording_icon = load_icon_from_bytes(assets::get_logo_recording_bytes());
+        tracing::debug!("Window icons loaded");
 
+        tracing::debug!("WinitApp::new() complete");
         Ok(Self {
             instance: wgpu_instance,
             wgpu_state: None,
