@@ -32,8 +32,9 @@ fn main() -> Result<()> {
         .append(true)
         .open(&log_path)?;
 
-    let mut env_filter = tracing_subscriber::EnvFilter::from_default_env()
-        .add_directive(tracing_subscriber::filter::LevelFilter::INFO.into());
+    let mut env_filter = tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
+        .from_env()?;
     for crate_name in [
         "wgpu_hal",
         "symphonia_core",
