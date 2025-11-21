@@ -134,11 +134,9 @@ The general vibe we are going for with our data is games that feel like they hav
 ### Immersive‑sim / Tactical / Stealth (line‑of‑sight, deception, planning)
 
 - [BioShock Infinite](https://store.steampowered.com/app/8870/BioShock_Infinite/)
-- [BioShock](https://store.steampowered.com/app/7670/BioShock/)
 - [Deathloop](https://store.steampowered.com/app/1252330/DEATHLOOP/)
 - [Dishonored 2](https://store.steampowered.com/app/403640/Dishonored_2/)
 - [Dishonored](https://store.steampowered.com/app/205100/Dishonored/)
-- [F.E.A.R.](https://store.steampowered.com/app/21090/FEAR/)
 - [PAYDAY 2](https://store.steampowered.com/app/218620/PAYDAY_2/)
 - [PAYDAY 3](https://store.steampowered.com/app/1272080/PAYDAY_3/)
 
@@ -172,6 +170,10 @@ The general vibe we are going for with our data is games that feel like they hav
 - [Painkiller 2025](https://store.steampowered.com/app/2300120/Painkiller/)
 - [The Long Dark](https://store.steampowered.com/app/305620/The_Long_Dark/)
 - [Voidtrain](https://store.steampowered.com/app/1159690/Voidtrain/)
+- [Wolfenstein: The New Order](https://store.steampowered.com/app/201810/Wolfenstein_The_New_Order/)
+- [Wolfenstein: The New Colossus](https://store.steampowered.com/app/612880/Wolfenstein_II_The_New_Colossus/)
+- [Wolfenstein: The Old Blood](https://store.steampowered.com/app/350080/Wolfenstein_The_Old_Blood/)
+- [Wolfenstein: Youngblood](https://store.steampowered.com/app/1056960/Wolfenstein_Youngblood/)
 
 ### Horror / Evasion (resource management, pursuit‑evasion, sensory stress)
 
