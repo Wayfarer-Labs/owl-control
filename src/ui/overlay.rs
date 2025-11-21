@@ -45,6 +45,7 @@ pub struct OverlayApp {
 }
 impl OverlayApp {
     pub fn new(app_state: Arc<AppState>, stopped_rx: tokio::sync::broadcast::Receiver<()>) -> Self {
+        tracing::debug!("OverlayApp::new() called");
         let (overlay_location, overlay_opacity) = {
             let config = app_state.config.read().unwrap();
             (
@@ -53,6 +54,7 @@ impl OverlayApp {
             )
         };
         let rec_status = app_state.state.read().unwrap().clone();
+        tracing::debug!("OverlayApp::new() complete");
         Self {
             initialized: false,
             app_state,
@@ -75,6 +77,7 @@ impl OverlayApp {
         _curr_location: OverlayLocation,
         curr_opacity: u8,
     ) {
+        tracing::debug!("OverlayApp::first_frame_init() called");
         // install image loaders
         egui_extras::install_image_loaders(egui_context);
 

@@ -41,6 +41,7 @@ pub fn run(
     async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
+    tracing::debug!("Creating tokio runtime");
     tokio::runtime::Runtime::new().unwrap().block_on(main(
         app_state,
         log_path,
@@ -55,12 +56,15 @@ async fn main(
     mut async_request_rx: tokio::sync::mpsc::Receiver<AsyncRequest>,
     mut stopped_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
+    tracing::debug!("Tokio async main started");
+    tracing::debug!("Initializing audio stream");
     let stream_handle =
         rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
     let sink = Sink::connect_new(stream_handle.mixer());
     // Cache for audio cues
     let mut cue_cache: HashMap<String, Vec<u8>> = HashMap::new();
 
+    tracing::debug!("Initializing recorder");
     let mut recorder = Recorder::new(
         Box::new({
             let app_state = app_state.clone();
@@ -109,7 +113,9 @@ async fn main(
     // the relevant methods, but this caused the Windows event loop to hang.
     //
     // Absolutely no idea why, but I'm willing to accept this as-is for now.
+    tracing::debug!("Initializing input capture");
     let (input_capture, mut input_rx) = InputCapture::new()?;
+    tracing::debug!("Input capture initialized");
 
     let mut ctrlc_rx = wait_for_ctrl_c();
 
@@ -120,15 +126,20 @@ async fn main(
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
+    tracing::debug!("Initializing event debouncer");
     let mut debouncer = EventDebouncer::new();
 
+    tracing::debug!("Initializing API client");
     let api_client = Arc::new(ApiClient::new());
     let mut valid_api_key_and_user_id: Option<(String, String)> = None;
 
+    tracing::debug!("Loading unsupported games list");
     let mut unsupported_games = UnsupportedGames::load_from_embedded();
 
     // Initial async requests to GitHub/server
+    tracing::debug!("Spawning startup requests task");
     tokio::spawn(startup_requests(app_state.clone()));
+    tracing::debug!("Tokio thread initialization complete, entering main loop");
 
     loop {
         let (honk, start_key, stop_key) = {
