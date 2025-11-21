@@ -3190,12 +3190,12 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libobs"
 version = "3.0.1+32.0.2"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-logging-crash-handler#98acd849987b6c17ff58f7edce452b5dcfa416d1"
+source = "git+https://github.com/libobs-rs/libobs-rs.git?rev=63f8875851082f70fede4ee088329c83ed1dc470#63f8875851082f70fede4ee088329c83ed1dc470"
 
 [[package]]
 name = "libobs-source-macro"
 version = "5.0.0"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-logging-crash-handler#98acd849987b6c17ff58f7edce452b5dcfa416d1"
+source = "git+https://github.com/libobs-rs/libobs-rs.git?rev=63f8875851082f70fede4ee088329c83ed1dc470#63f8875851082f70fede4ee088329c83ed1dc470"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3205,7 +3205,7 @@ dependencies = [
 [[package]]
 name = "libobs-sources"
 version = "3.3.0+32.0.2"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-logging-crash-handler#98acd849987b6c17ff58f7edce452b5dcfa416d1"
+source = "git+https://github.com/libobs-rs/libobs-rs.git?rev=63f8875851082f70fede4ee088329c83ed1dc470#63f8875851082f70fede4ee088329c83ed1dc470"
 dependencies = [
  "anyhow",
  "display-info",
@@ -3223,7 +3223,7 @@ dependencies = [
 [[package]]
 name = "libobs-window-helper"
 version = "0.1.7"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-logging-crash-handler#98acd849987b6c17ff58f7edce452b5dcfa416d1"
+source = "git+https://github.com/libobs-rs/libobs-rs.git?rev=63f8875851082f70fede4ee088329c83ed1dc470#63f8875851082f70fede4ee088329c83ed1dc470"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
@@ -3232,7 +3232,7 @@ dependencies = [
 [[package]]
 name = "libobs-wrapper"
 version = "5.3.0+32.0.2"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-logging-crash-handler#98acd849987b6c17ff58f7edce452b5dcfa416d1"
+source = "git+https://github.com/libobs-rs/libobs-rs.git?rev=63f8875851082f70fede4ee088329c83ed1dc470#63f8875851082f70fede4ee088329c83ed1dc470"
 dependencies = [
  "anyhow",
  "chrono",

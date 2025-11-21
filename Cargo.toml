@@ -34,13 +34,12 @@ sysinfo = "0.32.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
-# TODO: Go back to mainline libobs-rs once merged: <https://github.com/libobs-rs/libobs-rs/pull/64>
-libobs-wrapper = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "add-logging-crash-handler", features = [
+libobs-wrapper = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470", features = [
     "logging_crash_handler",
     "enable_runtime",
 ], default-features = false }
-libobs-sources = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "add-logging-crash-handler" }
-libobs-window-helper = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "add-logging-crash-handler" }
+libobs-sources = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
+libobs-window-helper = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
 
 [package]
 name = "owl-control"
