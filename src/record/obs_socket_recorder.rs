@@ -297,6 +297,11 @@ impl VideoRecorder for ObsSocketRecorder {
     }
 
     async fn poll(&mut self) {}
+
+    fn is_window_capturable(&self, _hwnd: HWND) -> bool {
+        // Not true in the slightest, but we don't have a better way of checking right now
+        true
+    }
 }
 impl Drop for ObsSocketRecorder {
     fn drop(&mut self) {

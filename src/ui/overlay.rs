@@ -4,7 +4,7 @@ use std::{
 };
 
 use egui::{
-    Align2, Color32, Context, FontFamily, FontId, Image, Margin, RichText, Stroke, TextFormat,
+    Color32, Context, FontFamily, FontId, Image, ImageSource, Margin, RichText, Stroke, TextFormat,
     Vec2, WidgetText, Window, containers::Frame, text::LayoutJob,
 };
 use egui_overlay::EguiOverlay;
@@ -20,10 +20,10 @@ use windows::Win32::{
 
 use crate::{
     app_state::{AppState, RecordingStatus},
-    assets::get_owl_bytes,
+    assets::{get_logo_default_bytes, get_logo_recording_bytes},
     config::OverlayLocation,
     system::hardware_specs::get_primary_monitor_resolution,
-    ui::util,
+    ui::{components, util},
 };
 
 pub struct OverlayApp {
@@ -39,6 +39,9 @@ pub struct OverlayApp {
 
     last_paint_time: Instant,
     stopped_rx: tokio::sync::broadcast::Receiver<()>,
+
+    /// track the last window content size to avoid unnecessary resizing
+    last_content_size: Option<Vec2>,
 }
 impl OverlayApp {
     pub fn new(app_state: Arc<AppState>, stopped_rx: tokio::sync::broadcast::Receiver<()>) -> Self {
@@ -60,6 +63,7 @@ impl OverlayApp {
 
             last_paint_time: Instant::now(),
             stopped_rx,
+            last_content_size: None,
         }
     }
 }
@@ -68,7 +72,7 @@ impl OverlayApp {
         &mut self,
         egui_context: &Context,
         glfw_backend: &mut egui_window_glfw_passthrough::GlfwBackend,
-        curr_location: OverlayLocation,
+        _curr_location: OverlayLocation,
         curr_opacity: u8,
     ) {
         // install image loaders
@@ -76,8 +80,9 @@ impl OverlayApp {
 
         // don't show transparent window outline
         glfw_backend.window.set_decorated(false);
-        glfw_backend.set_window_size([600.0, 50.0]);
-        update_overlay_position_based_on_location(&mut glfw_backend.window, curr_location);
+        // Set initial window opacity (0-255 -> 0.0-1.0)
+        let opacity_normalized = curr_opacity as f32 / 255.0;
+        glfw_backend.window.set_opacity(opacity_normalized);
         // always allow input to passthrough
         glfw_backend.set_passthrough(true);
 
@@ -170,18 +175,22 @@ impl EguiOverlay for OverlayApp {
             egui_context.request_repaint();
 
             self.set_window_visible(glfw_backend, curr_opacity > 0);
+
+            // Set window opacity (0-255 -> 0.0-1.0)
+            let opacity_normalized = curr_opacity as f32 / 255.0;
+            glfw_backend.window.set_opacity(opacity_normalized);
         }
         if curr_location != self.overlay_location {
             self.overlay_location = curr_location;
             update_overlay_position_based_on_location(&mut glfw_backend.window, curr_location);
         }
         let frame = Frame {
-            fill: Color32::from_black_alpha(self.overlay_opacity), // Transparent background
-            stroke: Stroke::NONE,                                  // No border
-            corner_radius: 0.0.into(),                             // No rounded corners
-            shadow: Default::default(),                            // Default shadow settings
-            inner_margin: Margin::same(8),                         // Inner padding
-            outer_margin: Margin::ZERO,                            // No outer margin
+            fill: Color32::BLACK, // Solid black background (opacity controlled by window)
+            stroke: Stroke::NONE, // No border
+            corner_radius: 0.0.into(), // No rounded corners
+            shadow: Default::default(), // Default shadow settings
+            inner_margin: Margin::same(8), // Inner padding
+            outer_margin: Margin::ZERO, // No outer margin
         };
 
         // only repaint the window every 500ms or when the recording state changes
@@ -193,30 +202,34 @@ impl EguiOverlay for OverlayApp {
             self.last_paint_time = Instant::now();
             egui_context.request_repaint();
         }
-        let (align, pos) = match self.overlay_location {
-            OverlayLocation::TopLeft => (Align2::LEFT_TOP, Vec2 { x: 10.0, y: 10.0 }),
-            OverlayLocation::TopRight => (Align2::RIGHT_TOP, Vec2 { x: -10.0, y: 10.0 }),
-            OverlayLocation::BottomLeft => (Align2::LEFT_BOTTOM, Vec2 { x: 10.0, y: -10.0 }),
-            OverlayLocation::BottomRight => (Align2::RIGHT_BOTTOM, Vec2 { x: -10.0, y: -10.0 }),
-        };
-        Window::new("recording overlay")
+        let window_response = Window::new("recording overlay")
             .title_bar(false) // No title bar
             .resizable(false) // Non-resizable
             .scroll([false, false]) // Non-scrollable (both x and y)
             .collapsible(false) // Non-collapsible (removes collapse button)
-            .anchor(align, pos)
+            .fixed_pos([0.0, 0.0]) // Position at origin, offset handled by window positioning
             .auto_sized()
             .frame(frame)
             .show(egui_context, |ui| {
                 ui.horizontal(|ui| {
                     ui.add(
-                        Image::from_bytes("bytes://", get_owl_bytes())
-                            .fit_to_exact_size(Vec2 { x: 24.0, y: 24.0 })
-                            .tint(Color32::from_white_alpha(self.overlay_opacity)),
+                        Image::new(if self.rec_status.is_recording() {
+                            ImageSource::Bytes {
+                                uri: "bytes://owl-logo-recording.png".into(),
+                                bytes: get_logo_recording_bytes().into(),
+                            }
+                        } else {
+                            ImageSource::Bytes {
+                                uri: "bytes://owl-logo.png".into(),
+                                bytes: get_logo_default_bytes().into(),
+                            }
+                        })
+                        .fit_to_exact_size(Vec2 { x: 32.0, y: 32.0 })
+                        .tint(Color32::WHITE),
                     );
 
                     let font_id = FontId::new(12.0, FontFamily::Proportional);
-                    let color = Color32::from_white_alpha(self.overlay_opacity);
+                    let color = Color32::WHITE;
                     let recording_text: WidgetText =
                         if self.app_state.is_out_of_date.load(Ordering::Relaxed) {
                             RichText::new("Out of date; will not record. Please update!")
@@ -230,24 +243,14 @@ impl EguiOverlay for OverlayApp {
                                 }
                                 RecordingStatus::Recording {
                                     start_time,
-                                    game_exe,
+                                    game_exe: _,
                                 } => {
                                     let mut job = LayoutJob::default();
                                     job.append(
-                                        "Recording ",
+                                        "Recording",
                                         0.0,
                                         TextFormat {
                                             font_id: font_id.clone(),
-                                            color,
-                                            ..Default::default()
-                                        },
-                                    );
-                                    job.append(
-                                        game_exe,
-                                        0.0,
-                                        TextFormat {
-                                            font_id: font_id.clone(),
-                                            italics: true,
                                             color,
                                             ..Default::default()
                                         },
@@ -271,9 +274,41 @@ impl EguiOverlay for OverlayApp {
                                 }
                             }
                         };
-                    ui.label(recording_text);
+                    ui.vertical(|ui| {
+                        let item_spacing = ui.style().spacing.item_spacing;
+                        ui.style_mut().spacing.item_spacing = Vec2::new(0.0, 2.0);
+                        ui.label(recording_text);
+                        ui.style_mut().spacing.item_spacing = item_spacing;
+                        components::foregrounded_game(
+                            ui,
+                            self.app_state
+                                .last_foregrounded_game
+                                .read()
+                                .unwrap()
+                                .as_ref(),
+                            Some(10.0),
+                        );
+                    });
                 });
             });
+
+        // Resize window to match egui content size
+        if let Some(response) = window_response {
+            let window_rect = response.response.rect;
+            let content_size = window_rect.size();
+
+            // Only resize if content size has changed to avoid unnecessary updates
+            if self.last_content_size.is_none_or(|last| {
+                (last.x - content_size.x).abs() > 0.5 || (last.y - content_size.y).abs() > 0.5
+            }) {
+                self.last_content_size = Some(content_size);
+                glfw_backend.set_window_size([content_size.x, content_size.y]);
+                update_overlay_position_based_on_location(
+                    &mut glfw_backend.window,
+                    self.overlay_location,
+                );
+            }
+        }
     }
 }
 
@@ -281,6 +316,7 @@ fn update_overlay_position_based_on_location(
     window: &mut egui_window_glfw_passthrough::glfw::PWindow,
     location: OverlayLocation,
 ) {
+    const OFFSET: i32 = 10; // Offset from screen edges
     let (width, height) = window.get_size();
     let (monitor_width, monitor_height) = match get_primary_monitor_resolution() {
         Some((monitor_width, monitor_height)) => (monitor_width as i32, monitor_height as i32),
@@ -291,16 +327,19 @@ fn update_overlay_position_based_on_location(
     };
     match location {
         OverlayLocation::TopLeft => {
-            window.set_pos(0, 0);
+            window.set_pos(OFFSET, OFFSET);
         }
         OverlayLocation::TopRight => {
-            window.set_pos(monitor_width - width, 0);
+            window.set_pos(monitor_width - width - OFFSET, OFFSET);
         }
         OverlayLocation::BottomLeft => {
-            window.set_pos(0, monitor_height - height);
+            window.set_pos(OFFSET, monitor_height - height - OFFSET);
         }
         OverlayLocation::BottomRight => {
-            window.set_pos(monitor_width - width, monitor_height - height);
+            window.set_pos(
+                monitor_width - width - OFFSET,
+                monitor_height - height - OFFSET,
+            );
         }
     }
 }

@@ -21,8 +21,8 @@ pub struct AppState {
     pub upload_cancel_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
+    pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
 }
-
 impl AppState {
     pub fn new(
         async_request_tx: mpsc::Sender<AsyncRequest>,
@@ -40,7 +40,19 @@ impl AppState {
             upload_cancel_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
+            last_foregrounded_game: RwLock::new(None),
         }
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct ForegroundedGame {
+    pub exe_name: Option<String>,
+    pub unsupported_reason: Option<String>,
+}
+impl ForegroundedGame {
+    pub fn is_recordable(&self) -> bool {
+        self.unsupported_reason.is_none()
     }
 }
 
@@ -52,6 +64,11 @@ pub enum RecordingStatus {
         game_exe: String,
     },
     Paused,
+}
+impl RecordingStatus {
+    pub fn is_recording(&self) -> bool {
+        matches!(self, RecordingStatus::Recording { .. })
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -104,6 +121,7 @@ pub enum AsyncRequest {
     OpenFolder(PathBuf),
     MoveRecordingsFolder { from: PathBuf, to: PathBuf },
     PickRecordingFolder { current_location: PathBuf },
+    PlayCue { cue: String },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
