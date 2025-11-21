@@ -22,7 +22,8 @@ use std::{
 use color_eyre::{Result, eyre::Context};
 
 use constants::{
-    GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, unsupported_games::UnsupportedGames,
+    GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, filename::recording,
+    unsupported_games::UnsupportedGames,
 };
 use game_process::does_process_exist;
 use input_capture::InputCapture;
@@ -113,6 +114,7 @@ async fn main(
 
     let mut ctrlc_rx = wait_for_ctrl_c();
 
+    let mut recording_state = RecordingState::Idle;
     let mut last_active = Instant::now();
     let mut start_on_activity = false;
     let mut actively_recording_window: Option<HWND> = None;
@@ -183,6 +185,7 @@ async fn main(
                                 actively_recording_window = recorder.recording().as_ref().map(|r| r.hwnd());
                                 tracing::info!("Recording started with HWND {actively_recording_window:?}");
                             }
+                            recording_state = recording_state.handle_transition(StateTransition::ToRecording, app_state.clone()).await;
                         } else {
                             error_message_box(
                                 concat!(
@@ -513,6 +516,63 @@ async fn main(
         tracing::error!(e=?e, "Failed to stop recording on shutdown");
     }
     Ok(())
+}
+
+/// State transition events because for some reason you can't just pass enum variants
+/// as function arguments in Rust.
+#[derive(Debug)]
+enum StateTransition {
+    ToRecording,
+    ToIdle,
+    ToPaused,
+}
+/// State machine-esque representation of the recording state. This is only accessible from tokio_thread, and in order
+/// to reflect any state updates it will modify the RecordingStatus in app_state for UI and overlay threads to read.
+#[derive(Clone, PartialEq, Debug)]
+enum RecordingState {
+    Idle,
+    Recording,
+    Paused,
+}
+impl RecordingState {
+    async fn on_input(&mut self) -> Self {
+        match self {
+            RecordingState::Idle => todo!(),
+            RecordingState::Recording => todo!(),
+            RecordingState::Paused => todo!(),
+        }
+    }
+
+    async fn tick(&mut self) {
+        match self {
+            RecordingState::Idle => todo!(),
+            RecordingState::Recording => todo!(),
+            RecordingState::Paused => todo!(),
+        }
+    }
+
+    async fn handle_transition(
+        &mut self,
+        transition: StateTransition,
+        app_state: Arc<AppState>,
+    ) -> Self {
+        match (self.clone(), transition) {
+            (RecordingState::Idle, StateTransition::ToRecording) => {
+                // Update app_state
+                *app_state.state.write().unwrap() = RecordingStatus::Recording {
+                    start_time: Instant::now(),
+                    game_exe,
+                };
+                RecordingState::Recording
+            }
+            (RecordingState::Recording { .. }, StateTransition::ToIdle) => todo!(),
+            (old_state, transition) => {
+                panic!(
+                    "you fucked up, boyo, and now we all pay the price for it: {old_state:?} -> {transition:?}"
+                );
+            }
+        }
+    }
 }
 
 /// Attempts to start the recording.

@@ -56,6 +56,8 @@ impl ForegroundedGame {
     }
 }
 
+/// This is meant to be a read-only reflection of the current recording state that is
+/// only updated by the recorder tokio thread, and read by UI and overlay threads.
 #[derive(Clone, PartialEq)]
 pub enum RecordingStatus {
     Stopped,

@@ -218,6 +218,7 @@ impl Recorder {
         delete_recording_on_exit.disarm();
 
         self.recording = Some(recording);
+        // TODO: remove this once refactor is complete
         *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
             start_time: Instant::now(),
             game_exe,
