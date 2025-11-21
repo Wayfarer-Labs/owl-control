@@ -328,61 +328,8 @@ async fn upload_folder(
 ) -> eyre::Result<RecordingStats> {
     // Check for existing upload progress
     let progress_file_path = path.join(constants::filename::recording::UPLOAD_PROGRESS);
-    let upload_state = if progress_file_path.is_file() {
-        match UploadProgressState::load_from_file(&progress_file_path) {
-            Ok(state) => {
-                // Per Philpax: We should avoid resuming uploads if there's less than 15 minutes remaining on the timer;
-                // we've seen upload speeds of 0.3MB/s, which would take 11 minutes to upload 200MB. 15 minutes is safer.
-                const MIN_TIME_REMAINING_SECONDS: i64 = 15 * 60; // 15 minutes
-                let seconds_left = state.seconds_until_expiration();
-                if state.seconds_until_expiration() > MIN_TIME_REMAINING_SECONDS
-                    && state.tar_path.is_file()
-                {
-                    tracing::info!(
-                        "Resuming upload for {} from chunk {}/{} (expires in {}s)",
-                        path.display(),
-                        state.next_chunk_number(),
-                        state.total_chunks,
-                        seconds_left
-                    );
-                    Some(state)
-                } else {
-                    // if tar file does not exist, we want to restart upload as there is no guarantee the
-                    // recreated tar file will be the same
-                    if !state.tar_path.is_file() {
-                        tracing::warn!(
-                            "Tar file for {} does not exist, starting fresh",
-                            path.display()
-                        );
-                    }
-                    // Also indicate if expired in logs, since expiry and tar files missing both above can happen independently
-                    if state.is_expired() {
-                        tracing::warn!(
-                            "Upload progress for {} has expired, starting fresh",
-                            path.display()
-                        );
-                    } else {
-                        tracing::warn!(
-                            "Upload progress for {} has insufficient time remaining ({}s < 15min), starting fresh",
-                            path.display(),
-                            seconds_left
-                        );
-                    }
-                    // Clean up expired progress and tar file
-                    std::fs::remove_file(&progress_file_path).ok();
-                    std::fs::remove_file(&state.tar_path).ok();
-                    None
-                }
-            }
-            Err(e) => {
-                tracing::error!("Failed to load upload progress: {:?}", e);
-                std::fs::remove_file(&progress_file_path).ok();
-                None
-            }
-        }
-    } else {
-        None
-    };
+    let upload_state =
+        load_upload_progress_state(&progress_file_path, path, &api_client, api_token).await;
 
     tracing::info!("Validating folder {}", path.display());
     let validation = tokio::task::spawn_blocking({
@@ -515,6 +462,76 @@ async fn upload_folder(
         }
         Err(error) => Err(error.into()),
     }
+}
+
+async fn load_upload_progress_state(
+    progress_file_path: &Path,
+    path: &Path,
+    api_client: &ApiClient,
+    api_token: &str,
+) -> Option<UploadProgressState> {
+    if !progress_file_path.is_file() {
+        return None;
+    }
+
+    let state = match UploadProgressState::load_from_file(progress_file_path) {
+        Ok(state) => state,
+        Err(e) => {
+            tracing::error!("Failed to load upload progress: {:?}", e);
+            std::fs::remove_file(progress_file_path).ok();
+            return None;
+        }
+    };
+
+    // Per Philpax: We should avoid resuming uploads if there's less than 15 minutes remaining on the timer;
+    // we've seen upload speeds of 0.3MB/s, which would take 11 minutes to upload 200MB. 15 minutes is safer.
+    const MIN_TIME_REMAINING_SECONDS: i64 = 15 * 60; // 15 minutes
+    let seconds_left = state.seconds_until_expiration();
+    if !(state.seconds_until_expiration() > MIN_TIME_REMAINING_SECONDS && state.tar_path.is_file())
+    {
+        // if tar file does not exist, we want to restart upload as there is no guarantee the
+        // recreated tar file will be the same
+        if !state.tar_path.is_file() {
+            tracing::warn!(
+                "Tar file for {} does not exist, starting fresh",
+                path.display()
+            );
+        }
+        // Also indicate if expired in logs, since expiry and tar files missing both above can happen independently
+        if state.is_expired() {
+            tracing::warn!(
+                "Upload progress for {} has expired, starting fresh",
+                path.display()
+            );
+        } else {
+            tracing::warn!(
+                "Upload progress for {} has insufficient time remaining ({}s < 15min), starting fresh",
+                path.display(),
+                seconds_left
+            );
+        }
+
+        // abort the existing multipart request in the error case here, so that the server isn't left hanging
+        // maybe this will break if the state.is_expired() is true? not quite sure about what the server will respond with.
+        api_client
+            .abort_multipart_upload(api_token, &state.upload_id)
+            .await
+            .ok();
+
+        // Clean up expired progress and tar file
+        std::fs::remove_file(progress_file_path).ok();
+        std::fs::remove_file(&state.tar_path).ok();
+        return None;
+    }
+
+    tracing::info!(
+        "Resuming upload for {} from chunk {}/{} (expires in {}s)",
+        path.display(),
+        state.next_chunk_number(),
+        state.total_chunks,
+        seconds_left
+    );
+    Some(state)
 }
 
 #[derive(Debug)]
