@@ -10,7 +10,7 @@ use crate::{
     config::Preferences,
     output_types::Metadata,
     record::{LocalRecording, LocalRecordingInfo},
-    ui::util,
+    ui::{util, views::main::FOOTER_HEIGHT},
     upload,
 };
 
@@ -639,7 +639,7 @@ fn recordings_view(
         })
         .show(ui, |ui| {
             let button_height = 28.0;
-            let height = 120.0;
+            let height = (ui.available_height() - FOOTER_HEIGHT).max(button_height);
 
             // Show spinner if still loading
             if !recordings.any_available() {
