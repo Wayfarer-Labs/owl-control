@@ -544,8 +544,10 @@ impl State {
                         "Recording started with HWND {:?}",
                         self.actively_recording_window
                     );
+                    RecordingState::Recording
+                } else {
+                    self.recording_state.clone()
                 }
-                RecordingState::Recording
             }
             (RecordingState::Recording, RecordingState::Idle) => {
                 // Stop recording and return to Idle
@@ -606,6 +608,7 @@ impl State {
 /// If it fails, it will emit an error and stop the current recording, in whatever state it may be in.
 ///
 /// If `notification_state` is `Some`, it will be used to notify of the recording state change.
+/// TODO: refactor the function signature to match the Result<()> pattern used in stop_recording
 async fn start_recording_safely(
     recorder: &mut Recorder,
     input_capture: &InputCapture,
