@@ -57,7 +57,9 @@ impl ForegroundedGame {
 }
 
 /// This is meant to be a read-only reflection of the current recording state that is
-/// only updated by the recorder tokio thread, and read by UI and overlay threads.
+/// only updated by the recorder.rs object (not tokio_thread RecordingState), and read by UI and overlay threads.
+/// We want the RecordingStatus to reflect ground truth, and its also more accurate to get ::Recording info
+/// directly from the recorder object. Desync between RecordingStatus and RecordingState shouldn't occur either way.
 #[derive(Clone, PartialEq)]
 pub enum RecordingStatus {
     Stopped,
