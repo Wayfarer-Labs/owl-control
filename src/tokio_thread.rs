@@ -57,11 +57,8 @@ async fn main(
 ) -> Result<()> {
     let stream_handle =
         rodio::OutputStreamBuilder::open_default_stream().expect("open default audio stream");
-    let sink = Sink::connect_new(stream_handle.mixer());
-    // Cache for audio cues
-    let mut cue_cache: HashMap<String, Vec<u8>> = HashMap::new();
 
-    let mut recorder = Recorder::new(
+    let recorder = Recorder::new(
         Box::new({
             let app_state = app_state.clone();
             move || {
@@ -113,11 +110,6 @@ async fn main(
 
     let mut ctrlc_rx = wait_for_ctrl_c();
 
-    let mut recording_state = RecordingState::Idle;
-    let mut last_active = Instant::now();
-    let mut start_on_activity = false;
-    let mut actively_recording_window: Option<HWND> = None;
-
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
     perform_checks.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
@@ -126,18 +118,16 @@ async fn main(
     let api_client = Arc::new(ApiClient::new());
     let mut valid_api_key_and_user_id: Option<(String, String)> = None;
 
-    let mut unsupported_games = UnsupportedGames::load_from_embedded();
-
-    let state = State {
-        recording_state,
+    let mut state = State {
+        recording_state: RecordingState::Idle,
         recorder,
         input_capture,
-        sink,
+        sink: Sink::connect_new(stream_handle.mixer()),
         app_state: app_state.clone(),
-        cue_cache,
-        last_active,
-        actively_recording_window,
-        unsupported_games,
+        cue_cache: HashMap::new(),
+        last_active: Instant::now(),
+        actively_recording_window: None,
+        unsupported_games: UnsupportedGames::load_from_embedded(),
     };
 
     // Initial async requests to GitHub/server
@@ -162,7 +152,8 @@ async fn main(
                     continue;
                 }
 
-                match *app_state.listening_for_new_hotkey.read().unwrap() {
+                let listening_for_new_hotkey = *app_state.listening_for_new_hotkey.read().unwrap();
+                match listening_for_new_hotkey {
                     ListeningForNewHotkey::Listening { target } => {
                         if let Some(key) = e.key_press_keycode() { *app_state.listening_for_new_hotkey.write().unwrap() = ListeningForNewHotkey::Captured { target, key } }
                     },
@@ -221,11 +212,11 @@ async fn main(
                         opener::open(&path).ok();
                     }
                     AsyncRequest::UpdateUnsupportedGames(new_games) => {
-                        let old_game_count = unsupported_games.games.len();
-                        unsupported_games = new_games.clone();
+                        let old_game_count = state.unsupported_games.games.len();
+                        state.unsupported_games = new_games.clone();
                         tracing::info!(
                             "Updated unsupported games, old count: {old_game_count}, new count: {}",
-                            unsupported_games.games.len()
+                            state.unsupported_games.games.len()
                         );
                     }
                     AsyncRequest::LoadUploadStats => {
@@ -343,60 +334,31 @@ async fn main(
                         tokio::spawn(pick_recording_folder(app_state.clone(), current_location));
                     }
                     AsyncRequest::PlayCue { cue } => {
-                        play_cue(&sink, &app_state, &cue, &mut cue_cache);
+                        play_cue(&state.sink, &app_state, &cue, &mut state.cue_cache);
                     }
                 }
             },
             _ = perform_checks.tick() => {
                 // Flush pending input events to disk
-                if let Err(e) = recorder.flush_input_events().await {
+                if let Err(e) = state.recorder.flush_input_events().await {
                     tracing::error!(e=?e, "Failed to flush input events");
                 }
-
                 // Check foregrounded game
-                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&unsupported_games, &recorder);
-
+                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&state.unsupported_games, &state.recorder);
+                // Tick state machine
                 state.tick().await;
-
-                // Update recording state
-                if let Some(recording) = recorder.recording() {
-
-                } else if let Some(window) = actively_recording_window && is_window_focused(window) && !start_on_activity {
-                    // If we're not currently in a recording, but we were actively recording this window, and this window
-                    // is now focused, and we're not waiting on input, let's restart the recording.
-                    tracing::info!("Window {window:?} regained focus, restarting recording");
-                    start_recording_safely(
-                        &mut recorder,
-                        &input_capture,
-                        &unsupported_games,
-                        Some((&sink, honk, &app_state)),
-                        &mut cue_cache,
-                    )
-                    .await;
-                }
-
-                recorder.poll().await;
-
                 // Periodically force the UI to rerender so that it will process events, even if not visible
                 app_state.ui_update_tx.send(UiUpdate::ForceUpdate).ok();
             },
         }
     }
 
-    if let Err(e) = recorder.stop(&input_capture).await {
+    if let Err(e) = state.recorder.stop(&state.input_capture).await {
         tracing::error!(e=?e, "Failed to stop recording on shutdown");
     }
     Ok(())
 }
 
-/// State transition events because for some reason you can't just pass enum variants
-/// as function arguments in Rust.
-#[derive(Debug)]
-enum StateTransition {
-    ToRecording,
-    ToIdle,
-    ToPaused,
-}
 /// State machine-esque representation of the recording state. This is only accessible from tokio_thread.
 /// We want to somehow be able to manipulate the recording state with appropriate transitions, however its
 /// not trivial to handle diff function signatures for on_input, tick, etc. for every state. This would indicate
@@ -408,8 +370,12 @@ enum StateTransition {
 /// then match statements within the fn itself to handle the diff states.
 #[derive(Clone, PartialEq, Debug)]
 enum RecordingState {
+    /// Waiting for user to start recording
     Idle,
+    /// In process of recording
     Recording,
+    /// Recording paused due to idle or unfocused window, and will restart
+    /// upon both input & window focus detected
     Paused,
 }
 struct State {
@@ -450,19 +416,20 @@ impl State {
                     ));
                     return;
                 }
-                self.handle_transition(StateTransition::ToRecording).await
+                self.handle_transition(RecordingState::Recording).await
             }
             (RecordingState::Recording, key) if key == stop_key => {
-                self.handle_transition(StateTransition::ToIdle).await
+                self.handle_transition(RecordingState::Idle).await
             }
             (RecordingState::Paused, _) => {
-                // key_press_keycode returned None, meaning some other input event that isn't keypress was detected
-                tracing::info!("Input detected, restarting recording");
+                // key_press_keycode returned None, meaning some other input event that isn't keypress was detected,
+                // then check that window is also focused before resuming recording
                 if self
                     .actively_recording_window
                     .is_some_and(is_window_focused)
                 {
-                    self.handle_transition(StateTransition::ToRecording).await
+                    tracing::info!("Input detected for focused window, restarting recording");
+                    self.handle_transition(RecordingState::Recording).await
                 } else {
                     return;
                 }
@@ -475,7 +442,6 @@ impl State {
 
     async fn tick(&mut self) {
         match self.recording_state {
-            RecordingState::Idle => todo!(),
             RecordingState::Recording => {
                 let recording = match self.recorder.recording() {
                     Some(recording) => recording,
@@ -488,28 +454,30 @@ impl State {
                 };
 
                 if !does_process_exist(recording.pid()).unwrap_or_default() {
+                    // game closed
                     tracing::info!(
                         pid = recording.pid().0,
                         "Game process no longer exists, stopping recording"
                     );
-                    if let Err(e) = self.handle_transition(StateTransition::ToIdle).await {
+                    if let Err(e) = self.handle_transition(RecordingState::Idle).await {
                         tracing::error!(e=?e, "Failed to stop recording on game process exit");
                     }
                 } else if self.last_active.elapsed() > MAX_IDLE_DURATION {
+                    // idle timeout
                     tracing::info!(
                         "No input detected for {} seconds, stopping recording",
                         MAX_IDLE_DURATION.as_secs()
                     );
-                    if let Err(e) = self.handle_transition(StateTransition::ToPaused).await {
+                    if let Err(e) = self.handle_transition(RecordingState::Paused).await {
                         tracing::error!(e=?e, "Failed to stop recording on idle timeout");
                     }
-                    *self.app_state.state.write().unwrap() = RecordingStatus::Paused;
                 } else if recording.elapsed() > MAX_FOOTAGE {
+                    // restart recording once max duration met
                     tracing::info!(
                         "Recording duration exceeded {} s, restarting recording",
                         MAX_FOOTAGE.as_secs()
                     );
-                    if let Err(e) = self.handle_transition(StateTransition::ToRecording).await {
+                    if let Err(e) = self.handle_transition(RecordingState::Recording).await {
                         tracing::error!(e=?e, "Failed to restart recording on recording duration exceeded");
                     }
                     self.last_active = Instant::now();
@@ -517,12 +485,13 @@ impl State {
                     .actively_recording_window
                     .is_some_and(|window| !is_window_focused(window))
                 {
+                    // user alt-tabbed out
                     tracing::info!(
-                        "Window {:?} lost focus, stopping recording",
+                        "Window {:?} lost focus, pausing recording",
                         self.actively_recording_window
                     );
-                    if let Err(e) = self.handle_transition(StateTransition::ToIdle).await {
-                        tracing::error!(e=?e, "Failed to stop recording on window lost focus");
+                    if let Err(e) = self.handle_transition(RecordingState::Paused).await {
+                        tracing::error!(e=?e, "Failed to pause recording on window lost focus");
                     }
                 } else if let Ok(current_resolution) =
                     get_recording_base_resolution(recording.hwnd())
@@ -534,34 +503,31 @@ impl State {
                             new_resolution=?current_resolution,
                             "Window resolution changed, restarting recording"
                         );
-                        // We intentionally do not notify of recording state change here because we're restarting the recording
-                        if let Err(e) = recorder.stop(&input_capture).await {
-                            tracing::error!(e=?e, "Failed to stop recording on resolution change");
+                        if let Err(e) = self.handle_transition(RecordingState::Recording).await {
+                            tracing::error!(e=?e, "Failed to restart recording on recording duration exceeded");
                         }
-                        start_recording_safely(
-                            &mut recorder,
-                            &input_capture,
-                            &unsupported_games,
-                            None,
-                            &mut cue_cache,
-                        )
-                        .await;
                         self.last_active = Instant::now();
                     }
                 }
             }
-            RecordingState::Paused => todo!(),
+            // Surprisingly no checks to do when idle or paused
+            RecordingState::Idle | RecordingState::Paused => {}
         }
+
+        // Remember to poll the recorder for its own internal work
+        self.recorder.poll().await;
     }
 
-    async fn handle_transition(&mut self, transition: StateTransition) -> Result<()> {
+    async fn handle_transition(&mut self, to_state: RecordingState) -> Result<()> {
         tracing::info!(
-            "Recording state changing: {:?} + {:?}",
+            "Recording state changing: {:?} -> {:?}",
             self.recording_state,
-            transition
+            to_state
         );
-        self.recording_state = match (&self.recording_state, transition) {
-            (RecordingState::Idle | RecordingState::Paused, StateTransition::ToRecording) => {
+
+        self.recording_state = match (&self.recording_state, to_state) {
+            (RecordingState::Idle | RecordingState::Paused, RecordingState::Recording) => {
+                // Start recording from Idle or Paused state
                 let honk = self.app_state.config.read().unwrap().preferences.honk;
                 if start_recording_safely(
                     &mut self.recorder,
@@ -581,7 +547,8 @@ impl State {
                 }
                 RecordingState::Recording
             }
-            (RecordingState::Recording, StateTransition::ToIdle) => {
+            (RecordingState::Recording, RecordingState::Idle) => {
+                // Stop recording and return to Idle
                 let honk = self.app_state.config.read().unwrap().preferences.honk;
                 stop_recording_with_notification(
                     &mut self.recorder,
@@ -592,10 +559,21 @@ impl State {
                 .await?;
                 RecordingState::Idle
             }
-            (RecordingState::Recording, StateTransition::ToRecording) => {
-                // Restart the currently existing recording
-                // It might be debatable to expose a transition from Recording -> Recording,
-                // since it might be occuring because of state desync or some recorder failure
+            (RecordingState::Recording, RecordingState::Paused) => {
+                // Pause recording (due to idle or unfocused window)
+                let honk = self.app_state.config.read().unwrap().preferences.honk;
+                stop_recording_with_notification(
+                    &mut self.recorder,
+                    &self.input_capture,
+                    Some((&self.sink, honk, &self.app_state)),
+                    &mut self.cue_cache,
+                )
+                .await?;
+                *self.app_state.state.write().unwrap() = RecordingStatus::Paused;
+                RecordingState::Paused
+            }
+            (RecordingState::Recording, RecordingState::Recording) => {
+                // Restart the currently active recording
                 // Here we intentionally set honk to false, we don't want audio cue to occur
                 // on an intended recording restart and confuse the user
                 stop_recording_with_notification(
@@ -615,8 +593,9 @@ impl State {
                 .await;
                 RecordingState::Recording
             }
-            (old_state, transition) => {
-                panic!("some state fucked up: {old_state:?} -> {transition:?}");
+            (old_state, new_state) => {
+                // ????
+                panic!("Invalid state transition: {old_state:?} -> {new_state:?}");
             }
         };
         Ok(())
