@@ -418,7 +418,7 @@ impl State {
                 }
                 self.handle_transition(RecordingState::Recording).await
             }
-            (RecordingState::Recording, key) if key == stop_key => {
+            (RecordingState::Recording | RecordingState::Paused, key) if key == stop_key => {
                 self.handle_transition(RecordingState::Idle).await
             }
             (RecordingState::Paused, _) => {
@@ -573,6 +573,11 @@ impl State {
                 .await?;
                 *self.app_state.state.write().unwrap() = RecordingStatus::Paused;
                 RecordingState::Paused
+            }
+            (RecordingState::Paused, RecordingState::Idle) => {
+                // When user stop keys recording while paused
+                *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
+                RecordingState::Idle
             }
             (RecordingState::Recording, RecordingState::Recording) => {
                 // Restart the currently active recording
