@@ -135,6 +135,7 @@ async fn main(
         sink,
         app_state: app_state.clone(),
         cue_cache,
+        last_active,
         actively_recording_window,
         unsupported_games,
     };
@@ -170,7 +171,6 @@ async fn main(
                     },
                     _ => {},
                 }
-                last_active = Instant::now();
             },
             e = async_request_rx.recv() => {
                 let e = e.expect("async request reader was closed early");
@@ -419,6 +419,7 @@ struct State {
     sink: Sink,
     app_state: Arc<AppState>,
     cue_cache: HashMap<String, Vec<u8>>,
+    last_active: Instant,
     actively_recording_window: Option<HWND>,
     unsupported_games: UnsupportedGames,
 }
@@ -434,7 +435,7 @@ impl State {
         if let Err(e) = self.recorder.seen_input(e).await {
             tracing::error!(e=?e, "Failed to seen input");
         }
-
+        self.last_active = Instant::now();
         if let Err(e) = match (&self.recording_state, e.key_press_keycode()) {
             (RecordingState::Idle, key) if key == start_key => {
                 if self
@@ -476,47 +477,66 @@ impl State {
         match self.recording_state {
             RecordingState::Idle => todo!(),
             RecordingState::Recording => {
-                if let Some(recording) = self.recorder.recording() {
-                    if !does_process_exist(recording.pid()).unwrap_or_default() {
-                        tracing::info!(
-                            pid = recording.pid().0,
-                            "Game process no longer exists, stopping recording"
+                let recording = match self.recorder.recording() {
+                    Some(recording) => recording,
+                    None => {
+                        tracing::error!(
+                            "Expected recording to exist in Recording state, but found None"
                         );
-                        if let Err(e) = stop_recording_with_notification(
-                            &mut recorder,
-                            &input_capture,
-                            Some((&sink, honk, &app_state)),
-                            &mut cue_cache,
-                        )
-                        .await
-                        {
-                            tracing::error!(e=?e, "Failed to stop recording on game process exit");
-                        }
-                    } else if last_active.elapsed() > MAX_IDLE_DURATION {
+                        return;
+                    }
+                };
+
+                if !does_process_exist(recording.pid()).unwrap_or_default() {
+                    tracing::info!(
+                        pid = recording.pid().0,
+                        "Game process no longer exists, stopping recording"
+                    );
+                    if let Err(e) = self.handle_transition(StateTransition::ToIdle).await {
+                        tracing::error!(e=?e, "Failed to stop recording on game process exit");
+                    }
+                } else if self.last_active.elapsed() > MAX_IDLE_DURATION {
+                    tracing::info!(
+                        "No input detected for {} seconds, stopping recording",
+                        MAX_IDLE_DURATION.as_secs()
+                    );
+                    if let Err(e) = self.handle_transition(StateTransition::ToPaused).await {
+                        tracing::error!(e=?e, "Failed to stop recording on idle timeout");
+                    }
+                    *self.app_state.state.write().unwrap() = RecordingStatus::Paused;
+                } else if recording.elapsed() > MAX_FOOTAGE {
+                    tracing::info!(
+                        "Recording duration exceeded {} s, restarting recording",
+                        MAX_FOOTAGE.as_secs()
+                    );
+                    if let Err(e) = self.handle_transition(StateTransition::ToRecording).await {
+                        tracing::error!(e=?e, "Failed to restart recording on recording duration exceeded");
+                    }
+                    self.last_active = Instant::now();
+                } else if self
+                    .actively_recording_window
+                    .is_some_and(|window| !is_window_focused(window))
+                {
+                    tracing::info!(
+                        "Window {:?} lost focus, stopping recording",
+                        self.actively_recording_window
+                    );
+                    if let Err(e) = self.handle_transition(StateTransition::ToIdle).await {
+                        tracing::error!(e=?e, "Failed to stop recording on window lost focus");
+                    }
+                } else if let Ok(current_resolution) =
+                    get_recording_base_resolution(recording.hwnd())
+                {
+                    // Check if the window resolution has changed and restart the recording
+                    if current_resolution != recording.game_resolution() {
                         tracing::info!(
-                            "No input detected for {} seconds, stopping recording",
-                            MAX_IDLE_DURATION.as_secs()
-                        );
-                        if let Err(e) = stop_recording_with_notification(
-                            &mut recorder,
-                            &input_capture,
-                            Some((&sink, honk, &app_state)),
-                            &mut cue_cache,
-                        )
-                        .await
-                        {
-                            tracing::error!(e=?e, "Failed to stop recording on idle timeout");
-                        }
-                        *app_state.state.write().unwrap() = RecordingStatus::Paused;
-                        start_on_activity = true;
-                    } else if recording.elapsed() > MAX_FOOTAGE {
-                        tracing::info!(
-                            "Recording duration exceeded {} s, restarting recording",
-                            MAX_FOOTAGE.as_secs()
+                            old_resolution=?recording.game_resolution(),
+                            new_resolution=?current_resolution,
+                            "Window resolution changed, restarting recording"
                         );
                         // We intentionally do not notify of recording state change here because we're restarting the recording
                         if let Err(e) = recorder.stop(&input_capture).await {
-                            tracing::error!(e=?e, "Failed to stop recording on recording duration exceeded");
+                            tracing::error!(e=?e, "Failed to stop recording on resolution change");
                         }
                         start_recording_safely(
                             &mut recorder,
@@ -526,45 +546,7 @@ impl State {
                             &mut cue_cache,
                         )
                         .await;
-                        last_active = Instant::now();
-                    } else if let Some(window) = actively_recording_window
-                        && !is_window_focused(window)
-                    {
-                        tracing::info!("Window {window:?} lost focus, stopping recording");
-                        if let Err(e) = stop_recording_with_notification(
-                            &mut recorder,
-                            &input_capture,
-                            Some((&sink, honk, &app_state)),
-                            &mut cue_cache,
-                        )
-                        .await
-                        {
-                            tracing::error!(e=?e, "Failed to stop recording on window lost focus");
-                        }
-                    } else if let Ok(current_resolution) =
-                        get_recording_base_resolution(recording.hwnd())
-                    {
-                        // Check if the window resolution has changed and restart the recording
-                        if current_resolution != recording.game_resolution() {
-                            tracing::info!(
-                                old_resolution=?recording.game_resolution(),
-                                new_resolution=?current_resolution,
-                                "Window resolution changed, restarting recording"
-                            );
-                            // We intentionally do not notify of recording state change here because we're restarting the recording
-                            if let Err(e) = recorder.stop(&input_capture).await {
-                                tracing::error!(e=?e, "Failed to stop recording on resolution change");
-                            }
-                            start_recording_safely(
-                                &mut recorder,
-                                &input_capture,
-                                &unsupported_games,
-                                None,
-                                &mut cue_cache,
-                            )
-                            .await;
-                            last_active = Instant::now();
-                        }
+                        self.last_active = Instant::now();
                     }
                 }
             }
@@ -609,6 +591,29 @@ impl State {
                 )
                 .await?;
                 RecordingState::Idle
+            }
+            (RecordingState::Recording, StateTransition::ToRecording) => {
+                // Restart the currently existing recording
+                // It might be debatable to expose a transition from Recording -> Recording,
+                // since it might be occuring because of state desync or some recorder failure
+                // Here we intentionally set honk to false, we don't want audio cue to occur
+                // on an intended recording restart and confuse the user
+                stop_recording_with_notification(
+                    &mut self.recorder,
+                    &self.input_capture,
+                    Some((&self.sink, false, &self.app_state)),
+                    &mut self.cue_cache,
+                )
+                .await?;
+                start_recording_safely(
+                    &mut self.recorder,
+                    &self.input_capture,
+                    &self.unsupported_games,
+                    Some((&self.sink, false, &self.app_state)),
+                    &mut self.cue_cache,
+                )
+                .await;
+                RecordingState::Recording
             }
             (old_state, transition) => {
                 panic!("some state fucked up: {old_state:?} -> {transition:?}");
