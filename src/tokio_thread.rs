@@ -529,25 +529,21 @@ impl State {
             (RecordingState::Idle | RecordingState::Paused, RecordingState::Recording) => {
                 // Start recording from Idle or Paused state
                 let honk = self.app_state.config.read().unwrap().preferences.honk;
-                if start_recording_safely(
+                start_recording_safely(
                     &mut self.recorder,
                     &self.input_capture,
                     &self.unsupported_games,
                     Some((&self.sink, honk, &self.app_state)),
                     &mut self.cue_cache,
                 )
-                .await
-                {
-                    self.actively_recording_window =
-                        self.recorder.recording().as_ref().map(|r| r.hwnd());
-                    tracing::info!(
-                        "Recording started with HWND {:?}",
-                        self.actively_recording_window
-                    );
-                    RecordingState::Recording
-                } else {
-                    self.recording_state.clone()
-                }
+                .await?;
+                self.actively_recording_window =
+                    self.recorder.recording().as_ref().map(|r| r.hwnd());
+                tracing::info!(
+                    "Recording started with HWND {:?}",
+                    self.actively_recording_window
+                );
+                RecordingState::Recording
             }
             (RecordingState::Recording, RecordingState::Idle) => {
                 // Stop recording and return to Idle
@@ -597,7 +593,7 @@ impl State {
                     Some((&self.sink, false, &self.app_state)),
                     &mut self.cue_cache,
                 )
-                .await;
+                .await?;
                 RecordingState::Recording
             }
             (old_state, new_state) => {
@@ -620,17 +616,17 @@ async fn start_recording_safely(
     unsupported_games: &UnsupportedGames,
     notification_state: Option<(&Sink, bool, &AppState)>,
     cue_cache: &mut HashMap<String, Vec<u8>>,
-) -> bool {
+) -> Result<()> {
     if let Err(e) = recorder.start(input_capture, unsupported_games).await {
         tracing::error!(e=?e, "Failed to start recording");
         error_message_box(&e.to_string());
         recorder.stop(input_capture).await.ok();
-        false
+        Err(e)
     } else {
         if let Some((sink, honk, app_state)) = notification_state {
             notify_of_recording_state_change(sink, honk, app_state, true, cue_cache);
         }
-        true
+        Ok(())
     }
 }
 
