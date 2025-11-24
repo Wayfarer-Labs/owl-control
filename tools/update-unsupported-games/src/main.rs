@@ -22,7 +22,7 @@ fn main() {
     output.push_str("Any data submitted for these games will be rejected by our system.\n");
     output.push_str("Please do not submit data for these games.\n\n");
 
-    output.push_str("## Sufficient data captured\n\n");
+    output.push_str("## Banned games / Sufficient data captured\n\n");
     for game in unsupported_games
         .games
         .iter()
