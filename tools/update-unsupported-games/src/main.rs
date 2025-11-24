@@ -6,7 +6,8 @@ fn main() {
     let path = "GAMES.md";
     let content = fs::read_to_string(path).unwrap_or_else(|_| panic!("Failed to read {path}"));
 
-    let unsupported_games = UnsupportedGames::load_from_embedded();
+    let mut unsupported_games = UnsupportedGames::load_from_embedded();
+    unsupported_games.sort();
 
     // Find the position of "# Unwanted games"
     let Some(pos) = content.find("# Unwanted games") else {

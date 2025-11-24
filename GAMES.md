@@ -96,7 +96,6 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [Dead Island 2](https://store.steampowered.com/app/934700/Dead_Island_2/)
 - [Deadzone: Rogue](https://store.steampowered.com/app/3228590/Deadzone_Rogue)
 - [Deathloop](https://store.steampowered.com/app/1252330/DEATHLOOP/)
-- [Deep Rock Galactic](https://store.steampowered.com/app/548430/Deep_Rock_Galactic/)
 - [Delta Force](https://store.steampowered.com/app/2507950/Delta_Force/)
 - [Devour](https://store.steampowered.com/app/1274570/DEVOUR/)
 - [Dishonored 2](https://store.steampowered.com/app/403640/Dishonored_2/)
@@ -104,8 +103,6 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [Dishonored](https://store.steampowered.com/app/205100/Dishonored/)
 - [DOOM 2016](https://store.steampowered.com/app/379720/DOOM/)
 - [DOOM Eternal](https://store.steampowered.com/app/782330/DOOM_Eternal/)
-- [Dying Light 2](https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human/)
-- [Dying Light](https://store.steampowered.com/app/239140/Dying_Light/)
 - [Earthfall](https://store.steampowered.com/app/415590/Earthfall/)
 - [ELDERBORN](https://store.steampowered.com/app/727850/ELDERBORN/)
 - [Enlisted](https://store.steampowered.com/app/2051620/Enlisted/)
@@ -130,7 +127,6 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [Gone Home](https://store.steampowered.com/app/232430/Gone_Home/)
 - [Green Hell](https://store.steampowered.com/app/815370/Green_Hell/)
 - [GTFO](https://store.steampowered.com/app/493520/GTFO/)
-- [Gunfire Reborn](https://store.steampowered.com/app/1217060/Gunfire_Reborn)
 - [Halo 2 Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo 3 (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
 - [Halo: Combat Evolved Anniversary (MCC)](https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/)
@@ -151,14 +147,12 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [Keep Digging](https://store.steampowered.com/app/3585800/Keep_Digging)
 - [Killing Floor 2](https://store.steampowered.com/app/232090/Killing_Floor_2/)
 - [Kingdom Come: Deliverance II](https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/)
-- [Kingdom Come: Deliverance](https://store.steampowered.com/app/379430/Kingdom_Come_Deliverance/)
 - [Layers of Fear 2](https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019)
 - [Layers of Fear](https://store.steampowered.com/app/391720/Layers_of_Fear/)
 - [Madison](https://store.steampowered.com/app/1670870/MADiSON/)
 - [Manifold Garden](https://store.steampowered.com/app/473950/Manifold_Garden)
 - [Medieval Dynasty](https://store.steampowered.com/app/1129580/Medieval_Dynasty/)
 - [METAL EDEN](https://store.steampowered.com/app/990380/METAL_EDEN/)
-- [Metro 2033 Redux](https://store.steampowered.com/app/286690/Metro_2033_Redux/)
 - [Metro Exodus](https://store.steampowered.com/app/412020/Metro_Exodus/)
 - [Metro: Last Light Redux](https://store.steampowered.com/app/287390/Metro_Last_Light_Redux/)
 - [Mirror's Edge Catalyst](https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/)
@@ -179,20 +173,17 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [PAYDAY 2](https://store.steampowered.com/app/218620/PAYDAY_2/)
 - [PAYDAY 3](https://store.steampowered.com/app/1272080/PAYDAY_3/)
 - [Poppy Playtime](https://store.steampowered.com/app/1721470/Poppy_Playtime/)
-- [Portal 2](https://store.steampowered.com/app/620/Portal_2/)
 - [Prey (2017)](https://store.steampowered.com/app/480490/Prey/)
 - [Q.U.B.E. 2](https://store.steampowered.com/app/359100/QUBE_2/)
 - [Q.U.B.E.](https://store.steampowered.com/app/1564220/QUBE_10th_Anniversary/)
 - [RAGE 2](https://store.steampowered.com/app/548570/RAGE_2/)
 - [Ready or Not](https://store.steampowered.com/app/1144200/Ready_or_Not/)
-- [Red Dead Redemption 2](https://store.steampowered.com/app/1174180/Red_Dead_Redemption_2/) (first-person only!)
 - [Resident Evil 7: Biohazard](https://store.steampowered.com/app/418370/RESIDENT_EVIL_7_biohazard/)
 - [Resident Evil Village](https://store.steampowered.com/app/1196590/Resident_Evil_Village/)
 - [Riven](https://store.steampowered.com/app/1712350/Riven/)
 - [Roboquest](https://store.steampowered.com/app/692890/Roboquest/)
 - [RV There Yet](https://store.steampowered.com/app/3949040/RV_There_Yet/)
 - [Salt 2](https://store.steampowered.com/app/1574900/Salt_2_Shores_of_Gold/)
-- [Satisfactory](https://store.steampowered.com/app/526870/Satisfactory/)
 - [SCP: 5K](https://store.steampowered.com/app/872670/SCP_5K/)
 - [Sea of Thieves](https://store.steampowered.com/app/1172620/Sea_of_Thieves_2025_Edition/)
 - [Severed Steel](https://store.steampowered.com/app/1227690/Severed_Steel/)
@@ -222,7 +213,6 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [The Lightkeeper](https://store.steampowered.com/app/3612850/The_Lightkeeper/)
 - [The Long Dark](https://store.steampowered.com/app/305620/The_Long_Dark/)
 - [The Outlast Trials](https://store.steampowered.com/app/1304930/The_Outlast_Trials)
-- [The Planet Crafter](https://store.steampowered.com/app/1284190/The_Planet_Crafter)
 - [The Stanley Parable: Ultra Deluxe](https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/)
 - [The Stanley Parable](https://store.steampowered.com/app/221910/The_Stanley_Parable/)
 - [The Talos Principle 2](https://store.steampowered.com/app/835960/The_Talos_Principle_2/)
@@ -262,29 +252,48 @@ Please do not submit data for these games.
 
 ## Banned games / Sufficient data captured
 
-- Fortnite
-- Rust
-- DayZ
-- The Finals
-- Minecraft
-- Valorant
-- Counter-Strike: Source
-- Counter-Strike 2
-- Overwatch 2
 - Arena Breakout: Infinite
-- Team Fortress 2
-- Rainbow Six Siege
+- Counter-Strike 2
+- Counter-Strike: Source
+- Cyberpunk 2077
+- DayZ
+- Deep Rock Galactic
+- Deus Ex: Human Revolution
+- Dying Light
+- Dying Light: The Beast
+- Euro Truck Simulator 2
+- Far Cry
+- Far Cry 2
+- Fortnite
 - GTA III
-- GTA: Vice City
-- GTA: San Andreas
 - GTA IV
 - GTA V
 - GTA V Enhanced
-- Far Cry
-- Far Cry 2
+- GTA: San Andreas
+- GTA: Vice City
+- Gunfire Reborn
+- Half-Life 2 + Mods
+- House Flipper
+- House Flipper 2
+- Kingdom Come: Deliverance
+- Left 4 Dead 2
+- Metro 2033
+- Minecraft
+- Overwatch 2
+- Planet Crafter
+- Portal 2
+- PowerWash Simulator
+- PowerWash Simulator 2
+- Rainbow Six Siege
+- Red Dead Redemption 2
+- Rust
+- Satisfactory
+- Team Fortress 2
+- The Finals
+- Valorant
 
 ## Unsupported games
 
-- Roblox: Recorded footage is all-black.
 - Destiny 2: Recorded footage is all-black.
+- Roblox: Recorded footage is all-black.
 - Split Fiction: Split-screen games are unsupported.

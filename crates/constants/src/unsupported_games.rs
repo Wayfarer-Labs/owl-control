@@ -46,6 +46,10 @@ impl UnsupportedGames {
             .expect("Failed to load unsupported games from embedded data")
     }
 
+    pub fn sort(&mut self) {
+        self.games.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+
     pub fn get(&self, game_exe_without_extension_lowercase: String) -> Option<&UnsupportedGame> {
         // TODO: optimize with exe->&(reason, name) hashmap
         self.games

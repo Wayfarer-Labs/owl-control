@@ -100,6 +100,97 @@
     "reason": "EnoughData"
   },
   {
+    "name": "Euro Truck Simulator 2",
+    "binaries": ["eurotrucks2"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "PowerWash Simulator 2",
+    "binaries": ["PowerWash Simulator 2.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "PowerWash Simulator",
+    "binaries": ["PowerWashSimulator.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Cyberpunk 2077",
+    "binaries": ["Cyberpunk2077.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Half-Life 2 + Mods",
+    "binaries": ["hl2.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Left 4 Dead 2",
+    "binaries": ["left4dead2.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Satisfactory",
+    "binaries": ["FactoryGameSteam-Win64-Shipping.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Portal 2",
+    "binaries": ["portal2.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Dying Light",
+    "binaries": ["DyingLightGame_x64_rwdi.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Red Dead Redemption 2",
+    "binaries": ["RDR2.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Dying Light: The Beast",
+    "binaries": ["DyingLightGame_TheBeast_x64_rwdi.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "House Flipper",
+    "binaries": ["HouseFlipper.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "House Flipper 2",
+    "binaries": ["HouseFlipper2.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Kingdom Come: Deliverance",
+    "binaries": ["KingdomCome.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Deep Rock Galactic",
+    "binaries": ["FSD-Win64-Shipping.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Gunfire Reborn",
+    "binaries": ["Gunfire Reborn.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Planet Crafter",
+    "binaries": ["Planet Crafter.exe"],
+    "reason": "EnoughData"
+  },
+  {
+    "name": "Deus Ex: Human Revolution",
+    "binaries": ["DXHRDC.exe"],
+    "reason": "EnoughData"
+  },
+  { "name": "Metro 2033", "binaries": ["metro.exe"], "reason": "EnoughData" },
+  {
     "name": "Roblox",
     "binaries": ["robloxstudiobeta", "robloxplayerbeta"],
     "reason": {
