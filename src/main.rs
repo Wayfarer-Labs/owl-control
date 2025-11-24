@@ -32,8 +32,9 @@ fn main() -> Result<()> {
         .append(true)
         .open(&log_path)?;
 
-    let mut env_filter = tracing_subscriber::EnvFilter::from_default_env()
-        .add_directive(tracing_subscriber::filter::LevelFilter::INFO.into());
+    let mut env_filter = tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
+        .from_env()?;
     for crate_name in [
         "wgpu_hal",
         "symphonia_core",
@@ -59,6 +60,8 @@ fn main() -> Result<()> {
         )
         .init();
 
+    tracing::debug!("Logging initialized, writing to {:?}", log_path);
+
     tracing::info!(
         "OWL Control v{} ({})",
         env!("CARGO_PKG_VERSION"),
@@ -68,8 +71,11 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     // Ensure only one instance is running
+    tracing::debug!("Checking for single instance");
     ensure_single_instance()?;
+    tracing::debug!("Single instance check passed");
 
+    tracing::debug!("Creating WGPU instance and enumerating adapters");
     let wgpu_instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
     let adapter_infos = wgpu_instance
         .enumerate_adapters(wgpu::Backends::DX12)
@@ -78,18 +84,22 @@ fn main() -> Result<()> {
         .collect::<Vec<_>>();
     tracing::info!("Available adapters: {adapter_infos:?}");
 
+    tracing::debug!("Creating communication channels");
     let (async_request_tx, async_request_rx) = tokio::sync::mpsc::channel(200);
     let (ui_update_tx, ui_update_rx) = app_state::UiUpdateSender::build();
     // A broadcast channel is used as older entries will be dropped if the channel is full.
     let (ui_update_unreliable_tx, ui_update_unreliable_rx) = tokio::sync::broadcast::channel(200);
+    tracing::debug!("Initializing app state");
     let app_state = Arc::new(app_state::AppState::new(
         async_request_tx,
         ui_update_tx,
         ui_update_unreliable_tx,
         adapter_infos,
     ));
+    tracing::debug!("App state initialized");
 
     // launch tokio (which hosts the recorder) on seperate thread
+    tracing::debug!("Spawning tokio thread");
     let (stopped_tx, stopped_rx) = tokio::sync::broadcast::channel(1);
     let tokio_thread = std::thread::spawn({
         let app_state = app_state.clone();
@@ -121,6 +131,7 @@ fn main() -> Result<()> {
         }
     });
 
+    tracing::debug!("Starting UI");
     ui::start(
         wgpu_instance,
         app_state,

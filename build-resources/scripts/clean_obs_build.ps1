@@ -19,6 +19,9 @@ Write-Host "Removed all .pdb files"
 
 # Remove specific files and folders
 $itemsToRemove = @(
+    # Crashes on some users' machines, not necessary for our use case
+    "$TargetFolder" + "obs-plugins\64bit\win-dshow.dll"
+    # Not necessary for our use case
     "$TargetFolder" + "obs-plugins\64bit\aja-output-ui.dll"
     "$TargetFolder" + "obs-plugins\64bit\aja.dll"
     "$TargetFolder" + "obs-plugins\64bit\rtmp-services.dll"

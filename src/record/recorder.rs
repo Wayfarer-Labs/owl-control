@@ -62,12 +62,14 @@ impl Recorder {
         recording_dir: Box<dyn FnMut() -> PathBuf>,
         app_state: Arc<AppState>,
     ) -> Result<Self> {
+        tracing::debug!("Recorder::new() called");
         let backend = app_state
             .config
             .read()
             .unwrap()
             .preferences
             .recording_backend;
+        tracing::debug!("Recording backend: {:?}", backend);
 
         // Incredibly ugly hack: assume that the first dGPU is the one we want,
         // and that this list agrees with OBS's. There's no real guarantee that
@@ -89,12 +91,14 @@ impl Recorder {
             app_state.adapter_infos[adapter_index]
         );
 
+        tracing::debug!("Creating video recorder backend");
         let video_recorder: Box<dyn VideoRecorder> = match backend {
             RecordingBackend::Embedded => Box::new(ObsEmbeddedRecorder::new(adapter_index).await?),
             RecordingBackend::Socket => Box::new(ObsSocketRecorder::new().await?),
         };
 
         tracing::info!("Using {} as video recorder", video_recorder.id());
+        tracing::debug!("Recorder::new() complete");
         Ok(Self {
             recording_dir,
             recording: None,
