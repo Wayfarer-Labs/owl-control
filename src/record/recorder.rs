@@ -22,9 +22,7 @@ use crate::{
         recording::Recording,
     },
 };
-use constants::{
-    MIN_FREE_SPACE_MB, encoding::VideoEncoderType, unsupported_games::UnsupportedGames,
-};
+use constants::{MIN_FREE_SPACE_MB, encoding::VideoEncoderType, supported_games::SupportedGames};
 
 #[async_trait::async_trait(?Send)]
 pub trait VideoRecorder {
@@ -118,7 +116,7 @@ impl Recorder {
     pub async fn start(
         &mut self,
         input_capture: &InputCapture,
-        unsupported_games: &UnsupportedGames,
+        supported_games: &SupportedGames,
     ) -> Result<()> {
         if self.recording.is_some() {
             return Ok(());
@@ -168,13 +166,8 @@ impl Recorder {
             .next()
             .unwrap_or(&game_exe)
             .to_lowercase();
-        if let Some(unsupported_game) = unsupported_games.get(game_exe_without_extension) {
-            bail!(
-                "{} ({}) is not supported! Reason: {}",
-                unsupported_game.name,
-                game_exe,
-                unsupported_game.reason
-            );
+        if supported_games.get(&game_exe_without_extension).is_none() {
+            bail!("{game_exe} is not supported!");
         }
 
         if let Err(error) = is_process_game_shaped(pid) {

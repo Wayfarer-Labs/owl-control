@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames};
+use constants::{encoding::VideoEncoderType, supported_games::SupportedGames};
 use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
@@ -117,7 +117,7 @@ pub enum AsyncRequest {
     CancelUpload,
     OpenDataDump,
     OpenLog,
-    UpdateUnsupportedGames(UnsupportedGames),
+    UpdateSupportedGames(SupportedGames),
     LoadUploadStats,
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,

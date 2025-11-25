@@ -1,5 +1,10 @@
 [
   {
+    "name": "COMMENT: This file is kept for backwards compatibility. It will be removed in the near-future.",
+    "binaries": ["comment-not-a-real-executable"],
+    "reason": "EnoughData"
+  },
+  {
     "name": "Fortnite",
     "binaries": ["fortnite", "fortniteclient-win64-shipping"],
     "reason": "EnoughData"

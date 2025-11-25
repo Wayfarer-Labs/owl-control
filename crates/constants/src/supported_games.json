@@ -1,685 +1,867 @@
 [
   {
     "game": "A Story About My Uncle",
-    "url": "https://store.steampowered.com/app/278360/A_Story_About_My_Uncle/"
+    "url": "https://store.steampowered.com/app/278360/A_Story_About_My_Uncle/",
+    "binaries": ["asamu.exe"]
   },
   {
     "game": "Abyssus",
-    "url": "https://store.steampowered.com/app/1721110/Abyssus/"
+    "url": "https://store.steampowered.com/app/1721110/Abyssus/",
+    "binaries": ["abyssus.exe"]
   },
   {
     "game": "Alien: Isolation",
-    "url": "https://store.steampowered.com/app/214490/Alien_Isolation/"
+    "url": "https://store.steampowered.com/app/214490/Alien_Isolation/",
+    "binaries": ["ai.exe"]
   },
   {
     "game": "Amenti",
-    "url": "https://store.steampowered.com/app/3292260/Amenti/"
+    "url": "https://store.steampowered.com/app/3292260/Amenti/",
+    "binaries": ["amenti.exe"]
   },
   {
     "game": "Apex Legends",
-    "url": "https://store.steampowered.com/app/1172470/Apex_Legends/"
+    "url": "https://store.steampowered.com/app/1172470/Apex_Legends/",
+    "binaries": ["r5apex.exe", "r5apex_dx12.exe"]
   },
   {
     "game": "ARMA 3",
-    "url": "https://store.steampowered.com/app/107410/Arma_3/"
+    "url": "https://store.steampowered.com/app/107410/Arma_3/",
+    "binaries": ["arma3.exe", "arma3_x64.exe"]
   },
   {
     "game": "Atomic Heart",
-    "url": "https://store.steampowered.com/app/668580/Atomic_Heart/"
+    "url": "https://store.steampowered.com/app/668580/Atomic_Heart/",
+    "binaries": ["atomicheart.exe"]
   },
   {
     "game": "Avowed",
-    "url": "https://store.steampowered.com/app/2457220/Avowed/"
+    "url": "https://store.steampowered.com/app/2457220/Avowed/",
+    "binaries": ["avowed.exe"]
   },
   {
     "game": "Back 4 Blood",
-    "url": "https://store.steampowered.com/app/924970/Back_4_Blood/"
+    "url": "https://store.steampowered.com/app/924970/Back_4_Blood/",
+    "binaries": ["back4blood.exe"]
   },
   {
     "game": "Battlefield 1",
-    "url": "https://store.steampowered.com/app/1238840/Battlefield_1/"
+    "url": "https://store.steampowered.com/app/1238840/Battlefield_1/",
+    "binaries": ["bf1.exe"]
   },
   {
     "game": "Battlefield 3",
-    "url": "https://store.steampowered.com/app/1238820/Battlefield_3/"
+    "url": "https://store.steampowered.com/app/1238820/Battlefield_3/",
+    "binaries": ["bf3.exe"]
   },
   {
     "game": "Battlefield 4",
-    "url": "https://store.steampowered.com/app/1238860/Battlefield_4/"
+    "url": "https://store.steampowered.com/app/1238860/Battlefield_4/",
+    "binaries": ["bf4.exe"]
   },
   {
     "game": "Battlefield 6",
-    "url": "https://store.steampowered.com/app/2807960/Battlefield_6/"
+    "url": "https://store.steampowered.com/app/2807960/Battlefield_6/",
+    "binaries": ["bf6.exe"]
   },
   {
     "game": "Battlefield REDSEC",
-    "url": "https://store.steampowered.com/app/3028330/Battlefield_REDSEC/"
+    "url": "https://store.steampowered.com/app/3028330/Battlefield_REDSEC/",
+    "binaries": ["battlefieldredsec.exe"]
   },
   {
     "game": "Battlefield Hardline",
-    "url": "https://store.steampowered.com/app/1238880/Battlefield_Hardline/"
+    "url": "https://store.steampowered.com/app/1238880/Battlefield_Hardline/",
+    "binaries": ["bfh.exe"]
   },
   {
     "game": "Battlefield V",
-    "url": "https://store.steampowered.com/app/1238810/Battlefield_V/"
+    "url": "https://store.steampowered.com/app/1238810/Battlefield_V/",
+    "binaries": ["bfv.exe"]
   },
   {
     "game": "BioShock Infinite",
-    "url": "https://store.steampowered.com/app/8870/BioShock_Infinite/"
+    "url": "https://store.steampowered.com/app/8870/BioShock_Infinite/",
+    "binaries": ["bioshockinfinite.exe"]
   },
   {
     "game": "Blacktail",
-    "url": "https://store.steampowered.com/app/1532690/BLACKTAIL/"
+    "url": "https://store.steampowered.com/app/1532690/BLACKTAIL/",
+    "binaries": ["blacktail.exe"]
   },
   {
     "game": "Blair Witch",
-    "url": "https://store.steampowered.com/app/1092660/Blair_Witch/"
+    "url": "https://store.steampowered.com/app/1092660/Blair_Witch/",
+    "binaries": ["blairwitch.exe"]
   },
   {
     "game": "Borderlands 1",
-    "url": "https://store.steampowered.com/app/729040/Borderlands_Game_of_the_Year_Enhanced/"
+    "url": "https://store.steampowered.com/app/729040/Borderlands_Game_of_the_Year_Enhanced/",
+    "binaries": ["borderlands.exe"]
   },
   {
     "game": "Borderlands 2",
-    "url": "https://store.steampowered.com/app/49520/Borderlands_2/"
+    "url": "https://store.steampowered.com/app/49520/Borderlands_2/",
+    "binaries": ["borderlands2.exe"]
   },
   {
     "game": "Borderlands 3",
-    "url": "https://store.steampowered.com/app/397540/Borderlands_3/"
+    "url": "https://store.steampowered.com/app/397540/Borderlands_3/",
+    "binaries": ["borderlands3.exe"]
   },
   {
     "game": "Borderlands 4",
-    "url": "https://store.steampowered.com/app/1285190/Borderlands_4"
+    "url": "https://store.steampowered.com/app/1285190/Borderlands_4",
+    "binaries": ["borderlands4.exe"]
   },
   {
     "game": "Borderlands: The Pre-Sequel",
-    "url": "https://store.steampowered.com/app/261640/Borderlands_The_PreSequel/"
+    "url": "https://store.steampowered.com/app/261640/Borderlands_The_PreSequel/",
+    "binaries": ["borderlandspresequel.exe"]
   },
   {
     "game": "BPM: Bullets Per Minute",
-    "url": "https://store.steampowered.com/app/1286350/BPM_BULLETS_PER_MINUTE/"
+    "url": "https://store.steampowered.com/app/1286350/BPM_BULLETS_PER_MINUTE/",
+    "binaries": ["bpm.exe"]
   },
   {
     "game": "Call of Duty: Advanced Warfare",
-    "url": "https://store.steampowered.com/app/209650/Call_of_Duty_Advanced_Warfare"
+    "url": "https://store.steampowered.com/app/209650/Call_of_Duty_Advanced_Warfare",
+    "binaries": ["s1_sp64_ship.exe", "s1_mp64_ship.exe"]
   },
   {
     "game": "Call of Duty: Black Ops 6",
-    "url": "https://store.steampowered.com/app/2933620/Call_of_Duty_Black_Ops_6/"
+    "url": "https://store.steampowered.com/app/2933620/Call_of_Duty_Black_Ops_6/",
+    "binaries": ["sp24-cod.exe", "mp24-cod.exe", "cod.exe"]
   },
   {
     "game": "Call of Duty: Black Ops 7",
-    "url": "https://store.steampowered.com/app/3606480/Call_of_Duty_Black_Ops_7/"
+    "url": "https://store.steampowered.com/app/3606480/Call_of_Duty_Black_Ops_7/",
+    "binaries": ["cod.exe"]
   },
   {
     "game": "Call of Duty: Black Ops Cold War",
-    "url": "https://store.steampowered.com/app/1985810/Call_of_Duty_Black_Ops_Cold_War/"
+    "url": "https://store.steampowered.com/app/1985810/Call_of_Duty_Black_Ops_Cold_War/",
+    "binaries": ["blackopscoldwar.exe"]
   },
   {
     "game": "Call of Duty: Black Ops III",
-    "url": "https://store.steampowered.com/app/311210/Call_of_Duty_Black_Ops_III/"
+    "url": "https://store.steampowered.com/app/311210/Call_of_Duty_Black_Ops_III/",
+    "binaries": ["blackops3.exe"]
   },
   {
     "game": "Call of Duty: Infinite Warfare",
-    "url": "https://store.steampowered.com/app/292730/Call_of_Duty_Infinite_Warfare/"
+    "url": "https://store.steampowered.com/app/292730/Call_of_Duty_Infinite_Warfare/",
+    "binaries": ["iw7_ship.exe"]
   },
   {
     "game": "Call of Duty: Modern Warfare (2019)",
-    "url": "https://store.steampowered.com/app/2000950/Call_of_Duty_Modern_Warfare/"
+    "url": "https://store.steampowered.com/app/2000950/Call_of_Duty_Modern_Warfare/",
+    "binaries": ["modernwarfare.exe"]
   },
   {
     "game": "Call of Duty: Modern Warfare II (2022)",
-    "url": "https://store.steampowered.com/app/3595230/Call_of_Duty_Modern_Warfare_II/"
+    "url": "https://store.steampowered.com/app/3595230/Call_of_Duty_Modern_Warfare_II/",
+    "binaries": ["cod.exe"]
   },
   {
     "game": "Call of Duty: Modern Warfare III (2023)",
-    "url": "https://store.steampowered.com/app/3595270/Call_of_Duty_Modern_Warfare_III/"
+    "url": "https://store.steampowered.com/app/3595270/Call_of_Duty_Modern_Warfare_III/",
+    "binaries": ["cod.exe"]
   },
   {
     "game": "Call of Duty: Vanguard",
-    "url": "https://store.steampowered.com/app/1985820/Call_of_Duty_Vanguard/"
+    "url": "https://store.steampowered.com/app/1985820/Call_of_Duty_Vanguard/",
+    "binaries": ["vanguard.exe"]
   },
   {
     "game": "Call of Duty: WWII",
-    "url": "https://store.steampowered.com/app/476600/Call_of_Duty_WWII/"
+    "url": "https://store.steampowered.com/app/476600/Call_of_Duty_WWII/",
+    "binaries": ["s2_sp64_ship.exe", "s2_mp64_ship.exe"]
   },
   {
     "game": "Close to the Sun",
-    "url": "https://store.steampowered.com/app/968870/Close_to_the_Sun/"
+    "url": "https://store.steampowered.com/app/968870/Close_to_the_Sun/",
+    "binaries": ["closetothesun.exe"]
   },
   {
     "game": "Conundrum",
-    "url": "https://store.steampowered.com/app/1744140/Conundrum/"
+    "url": "https://store.steampowered.com/app/1744140/Conundrum/",
+    "binaries": ["conundrum.exe"]
   },
   {
     "game": "Crysis 1 Remastered",
-    "url": "https://store.steampowered.com/app/1715130/Crysis_Remastered/"
+    "url": "https://store.steampowered.com/app/1715130/Crysis_Remastered/",
+    "binaries": ["crysis.exe"]
   },
   {
     "game": "Crysis 2",
-    "url": "https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/"
+    "url": "https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/",
+    "binaries": ["crysis2.exe"]
   },
   {
     "game": "Crysis 3",
-    "url": "https://store.steampowered.com/app/2096610/Crysis_3_Remastered/"
+    "url": "https://store.steampowered.com/app/2096610/Crysis_3_Remastered/",
+    "binaries": ["crysis3.exe"]
   },
   {
     "game": "Dark Hours",
-    "url": "https://store.steampowered.com/app/2208570/Dark_Hours/"
+    "url": "https://store.steampowered.com/app/2208570/Dark_Hours/",
+    "binaries": ["darkhours.exe"]
   },
   {
     "game": "Dead Island 2",
-    "url": "https://store.steampowered.com/app/934700/Dead_Island_2/"
+    "url": "https://store.steampowered.com/app/934700/Dead_Island_2/",
+    "binaries": ["deadisland2.exe"]
   },
   {
     "game": "Deadzone: Rogue",
-    "url": "https://store.steampowered.com/app/3228590/Deadzone_Rogue"
+    "url": "https://store.steampowered.com/app/3228590/Deadzone_Rogue",
+    "binaries": ["deadzonerogue.exe"]
   },
   {
     "game": "Deathloop",
-    "url": "https://store.steampowered.com/app/1252330/DEATHLOOP/"
+    "url": "https://store.steampowered.com/app/1252330/DEATHLOOP/",
+    "binaries": ["deathloop.exe"]
   },
   {
     "game": "Delta Force",
-    "url": "https://store.steampowered.com/app/2507950/Delta_Force/"
+    "url": "https://store.steampowered.com/app/2507950/Delta_Force/",
+    "binaries": ["deltaforce.exe"]
   },
   {
     "game": "Dishonored 2",
-    "url": "https://store.steampowered.com/app/403640/Dishonored_2/"
+    "url": "https://store.steampowered.com/app/403640/Dishonored_2/",
+    "binaries": ["dishonored2.exe"]
   },
   {
     "game": "Dishonored: Death of the Outsider",
-    "url": "https://store.steampowered.com/app/614570/Dishonored_Death_of_the_Outsider/"
+    "url": "https://store.steampowered.com/app/614570/Dishonored_Death_of_the_Outsider/",
+    "binaries": ["dishonored_doto.exe"]
   },
   {
     "game": "Dishonored",
-    "url": "https://store.steampowered.com/app/205100/Dishonored/"
+    "url": "https://store.steampowered.com/app/205100/Dishonored/",
+    "binaries": ["dishonored.exe"]
   },
   {
     "game": "DOOM 2016",
-    "url": "https://store.steampowered.com/app/379720/DOOM/"
+    "url": "https://store.steampowered.com/app/379720/DOOM/",
+    "binaries": ["doomx64.exe", "doomx64vk.exe"]
   },
   {
     "game": "DOOM Eternal",
-    "url": "https://store.steampowered.com/app/782330/DOOM_Eternal/"
+    "url": "https://store.steampowered.com/app/782330/DOOM_Eternal/",
+    "binaries": ["doometernalx64vk.exe"]
   },
   {
     "game": "Earthfall",
-    "url": "https://store.steampowered.com/app/415590/Earthfall/"
+    "url": "https://store.steampowered.com/app/415590/Earthfall/",
+    "binaries": ["earthfall.exe"]
   },
   {
     "game": "ELDERBORN",
-    "url": "https://store.steampowered.com/app/727850/ELDERBORN/"
+    "url": "https://store.steampowered.com/app/727850/ELDERBORN/",
+    "binaries": ["elderborn.exe"]
   },
   {
     "game": "Enlisted",
-    "url": "https://store.steampowered.com/app/2051620/Enlisted/"
+    "url": "https://store.steampowered.com/app/2051620/Enlisted/",
+    "binaries": ["enlisted.exe"]
   },
   {
     "game": "Escape from Tarkov",
-    "url": "https://store.steampowered.com/app/3932890/Escape_from_Tarkov/"
+    "url": "https://store.steampowered.com/app/3932890/Escape_from_Tarkov/",
+    "binaries": ["escapefromtarkov.exe"]
   },
   {
     "game": "Everyone's Gone to the Rapture",
-    "url": "https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/"
+    "url": "https://store.steampowered.com/app/417880/Everybodys_Gone_to_the_Rapture/",
+    "binaries": ["rapture.exe"]
   },
   {
     "game": "Fallout 4",
-    "url": "https://store.steampowered.com/app/377160/Fallout_4/"
+    "url": "https://store.steampowered.com/app/377160/Fallout_4/",
+    "binaries": ["fallout4.exe"]
   },
   {
     "game": "Far Cry 3: Blood Dragon",
-    "url": "https://store.steampowered.com/app/233270/Far_Cry_3__Blood_Dragon/"
+    "url": "https://store.steampowered.com/app/233270/Far_Cry_3__Blood_Dragon/",
+    "binaries": ["fc3bdgame.exe"]
   },
   {
     "game": "Far Cry 3",
-    "url": "https://store.steampowered.com/app/220240/Far_Cry_3/"
+    "url": "https://store.steampowered.com/app/220240/Far_Cry_3/",
+    "binaries": ["farcry3.exe", "farcry3_d3d11.exe"]
   },
   {
     "game": "Far Cry 4",
-    "url": "https://store.steampowered.com/app/298110/Far_Cry_4/"
+    "url": "https://store.steampowered.com/app/298110/Far_Cry_4/",
+    "binaries": ["farcry4.exe"]
   },
   {
     "game": "Far Cry 5",
-    "url": "https://store.steampowered.com/app/552520/Far_Cry_5/"
+    "url": "https://store.steampowered.com/app/552520/Far_Cry_5/",
+    "binaries": ["farcry5.exe"]
   },
   {
     "game": "Far Cry 6",
-    "url": "https://store.steampowered.com/app/2369390/Far_Cry_6/"
+    "url": "https://store.steampowered.com/app/2369390/Far_Cry_6/",
+    "binaries": ["farcry6.exe"]
   },
   {
     "game": "Far Cry: New Dawn",
-    "url": "https://store.steampowered.com/app/939960/Far_Cry_New_Dawn/"
+    "url": "https://store.steampowered.com/app/939960/Far_Cry_New_Dawn/",
+    "binaries": ["farcrynewdawn.exe"]
   },
   {
     "game": "Far Cry: Primal",
-    "url": "https://store.steampowered.com/app/371660/Far_Cry_Primal/"
+    "url": "https://store.steampowered.com/app/371660/Far_Cry_Primal/",
+    "binaries": ["fcprimal.exe"]
   },
   {
     "game": "Firewatch",
-    "url": "https://store.steampowered.com/app/383870/Firewatch/"
+    "url": "https://store.steampowered.com/app/383870/Firewatch/",
+    "binaries": ["firewatch.exe"]
   },
   {
     "game": "Fobia - St. Dinfna Hotel",
-    "url": "https://store.steampowered.com/app/1298140/Fobia__St_Dinfna_Hotel/"
+    "url": "https://store.steampowered.com/app/1298140/Fobia__St_Dinfna_Hotel/",
+    "binaries": ["fobia.exe"]
   },
   {
     "game": "Generation Zero",
-    "url": "https://store.steampowered.com/app/704270/Generation_Zero/"
+    "url": "https://store.steampowered.com/app/704270/Generation_Zero/",
+    "binaries": ["generationzero.exe"]
   },
   {
     "game": "Ghost Watchers",
-    "url": "https://store.steampowered.com/app/1850740/Ghost_Watchers/"
+    "url": "https://store.steampowered.com/app/1850740/Ghost_Watchers/",
+    "binaries": ["ghostwatchers.exe"]
   },
   {
     "game": "Ghostrunner 2",
-    "url": "https://store.steampowered.com/app/2144740/Ghostrunner_2"
+    "url": "https://store.steampowered.com/app/2144740/Ghostrunner_2",
+    "binaries": ["ghostrunner2.exe"]
   },
   {
     "game": "Ghostrunner",
-    "url": "https://store.steampowered.com/app/1139900/Ghostrunner/"
+    "url": "https://store.steampowered.com/app/1139900/Ghostrunner/",
+    "binaries": ["ghostrunner.exe"]
   },
   {
     "game": "Ghostwire: Tokyo",
-    "url": "https://store.steampowered.com/app/1475810/Ghostwire_Tokyo/"
+    "url": "https://store.steampowered.com/app/1475810/Ghostwire_Tokyo/",
+    "binaries": ["ghostwiretokyo.exe"]
   },
   {
     "game": "Green Hell",
-    "url": "https://store.steampowered.com/app/815370/Green_Hell/"
+    "url": "https://store.steampowered.com/app/815370/Green_Hell/",
+    "binaries": ["gh.exe"]
   },
-  { "game": "GTFO", "url": "https://store.steampowered.com/app/493520/GTFO/" },
+  {
+    "game": "GTFO",
+    "url": "https://store.steampowered.com/app/493520/GTFO/",
+    "binaries": ["gtfo.exe"]
+  },
   {
     "game": "Halo 2 Anniversary (MCC)",
-    "url": "https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/"
+    "url": "https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/",
+    "binaries": ["mcc-win64-shipping.exe", "mccwinstore-win64-shipping.exe"]
   },
   {
     "game": "Halo 3 (MCC)",
-    "url": "https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/"
+    "url": "https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/",
+    "binaries": ["mcc-win64-shipping.exe", "mccwinstore-win64-shipping.exe"]
   },
   {
     "game": "Halo: Combat Evolved Anniversary (MCC)",
-    "url": "https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/"
+    "url": "https://store.steampowered.com/app/976730/Halo_The_Master_Chief_Collection/",
+    "binaries": ["mcc-win64-shipping.exe", "mccwinstore-win64-shipping.exe"]
   },
   {
     "game": "Halo: Infinite",
-    "url": "https://store.steampowered.com/app/1240440/Halo_Infinite/"
+    "url": "https://store.steampowered.com/app/1240440/Halo_Infinite/",
+    "binaries": ["haloinfinite.exe"]
   },
   {
     "game": "Hard Reset Redux",
-    "url": "https://store.steampowered.com/app/407810/Hard_Reset_Redux/"
+    "url": "https://store.steampowered.com/app/407810/Hard_Reset_Redux/",
+    "binaries": ["hardresetredux.exe"]
   },
   {
     "game": "Hardspace: Shipbreaker",
-    "url": "https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker"
+    "url": "https://store.steampowered.com/app/1161580/Hardspace_Shipbreaker",
+    "binaries": ["hardspace.exe"]
   },
   {
     "game": "Hell Let Loose",
-    "url": "https://store.steampowered.com/app/686810/Hell_Let_Loose/"
+    "url": "https://store.steampowered.com/app/686810/Hell_Let_Loose/",
+    "binaries": ["hll.exe"]
   },
   {
     "game": "High on Life",
-    "url": "https://store.steampowered.com/app/1583230/High_On_Life"
+    "url": "https://store.steampowered.com/app/1583230/High_On_Life",
+    "binaries": ["highonlife.exe"]
   },
   {
     "game": "Home Sweet Home 2",
-    "url": "https://store.steampowered.com/app/1098940/Home_Sweet_Home_EP2/"
+    "url": "https://store.steampowered.com/app/1098940/Home_Sweet_Home_EP2/",
+    "binaries": ["hsh2.exe"]
   },
   {
     "game": "Home Sweet Home",
-    "url": "https://store.steampowered.com/app/617160/Home_Sweet_Home/"
+    "url": "https://store.steampowered.com/app/617160/Home_Sweet_Home/",
+    "binaries": ["homesweethome.exe"]
   },
   {
     "game": "ICARUS",
-    "url": "https://store.steampowered.com/app/1149460/ICARUS/"
+    "url": "https://store.steampowered.com/app/1149460/ICARUS/",
+    "binaries": ["icarus.exe"]
   },
   {
     "game": "Immortals of Aveum",
-    "url": "https://store.steampowered.com/app/2009100/Immortals_of_Aveum/"
+    "url": "https://store.steampowered.com/app/2009100/Immortals_of_Aveum/",
+    "binaries": ["maine.exe"]
   },
   {
     "game": "In Sound Mind",
-    "url": "https://store.steampowered.com/app/1119980/In_Sound_Mind/"
+    "url": "https://store.steampowered.com/app/1119980/In_Sound_Mind/",
+    "binaries": ["insoundmind.exe"]
   },
   {
     "game": "Indiana Jones and the Great Circle",
-    "url": "https://store.steampowered.com/app/2677660/Indiana_Jones_and_the_Great_Circle/"
+    "url": "https://store.steampowered.com/app/2677660/Indiana_Jones_and_the_Great_Circle/",
+    "binaries": ["indianajones.exe"]
   },
   {
     "game": "Journey to the Savage Planet",
-    "url": "https://store.steampowered.com/app/973810/Journey_To_The_Savage_Planet/"
+    "url": "https://store.steampowered.com/app/973810/Journey_To_The_Savage_Planet/",
+    "binaries": ["orion.exe"]
   },
   {
     "game": "Keep Digging",
-    "url": "https://store.steampowered.com/app/3585800/Keep_Digging"
+    "url": "https://store.steampowered.com/app/3585800/Keep_Digging",
+    "binaries": ["keepdigging.exe"]
   },
   {
     "game": "Killing Floor 2",
-    "url": "https://store.steampowered.com/app/232090/Killing_Floor_2/"
+    "url": "https://store.steampowered.com/app/232090/Killing_Floor_2/",
+    "binaries": ["kfgame.exe"]
   },
   {
     "game": "Kingdom Come: Deliverance II",
-    "url": "https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/"
+    "url": "https://store.steampowered.com/app/1771300/Kingdom_Come_Deliverance_II/",
+    "binaries": ["kingdomcome2.exe"]
   },
   {
     "game": "Layers of Fear 2",
-    "url": "https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019"
+    "url": "https://store.steampowered.com/app/1029890/Layers_of_Fear_2_2019",
+    "binaries": ["lof2.exe"]
   },
   {
     "game": "Layers of Fear",
-    "url": "https://store.steampowered.com/app/391720/Layers_of_Fear/"
+    "url": "https://store.steampowered.com/app/391720/Layers_of_Fear/",
+    "binaries": ["layersoffear.exe"]
   },
   {
     "game": "Madison",
-    "url": "https://store.steampowered.com/app/1670870/MADiSON/"
+    "url": "https://store.steampowered.com/app/1670870/MADiSON/",
+    "binaries": ["madison.exe"]
   },
   {
     "game": "Medieval Dynasty",
-    "url": "https://store.steampowered.com/app/1129580/Medieval_Dynasty/"
+    "url": "https://store.steampowered.com/app/1129580/Medieval_Dynasty/",
+    "binaries": ["medievaldynasty.exe"]
   },
   {
     "game": "METAL EDEN",
-    "url": "https://store.steampowered.com/app/990380/METAL_EDEN/"
+    "url": "https://store.steampowered.com/app/990380/METAL_EDEN/",
+    "binaries": ["metaleden.exe"]
   },
   {
     "game": "Metro Exodus",
-    "url": "https://store.steampowered.com/app/412020/Metro_Exodus/"
+    "url": "https://store.steampowered.com/app/412020/Metro_Exodus/",
+    "binaries": ["metroexodus.exe"]
   },
   {
     "game": "Metro: Last Light Redux",
-    "url": "https://store.steampowered.com/app/287390/Metro_Last_Light_Redux/"
+    "url": "https://store.steampowered.com/app/287390/Metro_Last_Light_Redux/",
+    "binaries": ["metroll.exe"]
   },
   {
     "game": "Mirror's Edge Catalyst",
-    "url": "https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/"
+    "url": "https://store.steampowered.com/app/1233570/Mirrors_Edge_Catalyst/",
+    "binaries": ["mirrorsedgecatalyst.exe"]
   },
   {
     "game": "Mirror's Edge",
-    "url": "https://store.steampowered.com/app/17410/Mirrors_Edge/"
+    "url": "https://store.steampowered.com/app/17410/Mirrors_Edge/",
+    "binaries": ["mirrorsedge.exe"]
   },
   {
     "game": "MORDHAU",
-    "url": "https://store.steampowered.com/app/629760/MORDHAU/"
+    "url": "https://store.steampowered.com/app/629760/MORDHAU/",
+    "binaries": ["mordhau.exe"]
   },
   {
     "game": "Neon White",
-    "url": "https://store.steampowered.com/app/1533420/Neon_White/"
+    "url": "https://store.steampowered.com/app/1533420/Neon_White/",
+    "binaries": ["neon white.exe"]
   },
   {
     "game": "No Man's Sky",
-    "url": "https://store.steampowered.com/app/275850/No_Mans_Sky"
+    "url": "https://store.steampowered.com/app/275850/No_Mans_Sky",
+    "binaries": ["nms.exe"]
   },
   {
     "game": "Observer: System Redux",
-    "url": "https://store.steampowered.com/app/1386900/Observer_System_Redux/"
+    "url": "https://store.steampowered.com/app/1386900/Observer_System_Redux/",
+    "binaries": ["observer.exe"]
   },
   {
     "game": "Outer Wilds",
-    "url": "https://store.steampowered.com/app/753640/Outer_Wilds/"
+    "url": "https://store.steampowered.com/app/753640/Outer_Wilds/",
+    "binaries": ["outerwilds.exe"]
   },
   {
     "game": "Outer Worlds 2",
-    "url": "https://store.steampowered.com/app/1449110/The_Outer_Worlds_2/"
+    "url": "https://store.steampowered.com/app/1449110/The_Outer_Worlds_2/",
+    "binaries": ["outerworlds2.exe"]
   },
   {
     "game": "Outer Worlds",
-    "url": "https://store.steampowered.com/app/578650/The_Outer_Worlds/"
+    "url": "https://store.steampowered.com/app/578650/The_Outer_Worlds/",
+    "binaries": ["indianaepicgamestore.exe", "indianawindowsstore.exe"]
   },
   {
     "game": "Outlast 2",
-    "url": "https://store.steampowered.com/app/414700/Outlast_2/"
+    "url": "https://store.steampowered.com/app/414700/Outlast_2/",
+    "binaries": ["outlast2.exe"]
   },
   {
     "game": "Painkiller 2025",
-    "url": "https://store.steampowered.com/app/2300120/Painkiller/"
+    "url": "https://store.steampowered.com/app/2300120/Painkiller/",
+    "binaries": ["painkiller.exe"]
   },
   {
     "game": "Painkiller Hell & Damnation",
-    "url": "https://store.steampowered.com/app/214870/Painkiller_Hell__Damnation/"
+    "url": "https://store.steampowered.com/app/214870/Painkiller_Hell__Damnation/",
+    "binaries": ["pk-win32-shipping.exe"]
   },
   {
     "game": "Panicore",
-    "url": "https://store.steampowered.com/app/2695940/PANICORE/"
+    "url": "https://store.steampowered.com/app/2695940/PANICORE/",
+    "binaries": ["panicore.exe"]
   },
   {
     "game": "PAYDAY 2",
-    "url": "https://store.steampowered.com/app/218620/PAYDAY_2/"
+    "url": "https://store.steampowered.com/app/218620/PAYDAY_2/",
+    "binaries": ["payday2_win32_release.exe"]
   },
   {
     "game": "PAYDAY 3",
-    "url": "https://store.steampowered.com/app/1272080/PAYDAY_3/"
+    "url": "https://store.steampowered.com/app/1272080/PAYDAY_3/",
+    "binaries": ["payday3.exe"]
   },
   {
     "game": "Poppy Playtime",
-    "url": "https://store.steampowered.com/app/1721470/Poppy_Playtime/"
+    "url": "https://store.steampowered.com/app/1721470/Poppy_Playtime/",
+    "binaries": ["poppyplaytime.exe"]
   },
   {
     "game": "Prey (2017)",
-    "url": "https://store.steampowered.com/app/480490/Prey/"
+    "url": "https://store.steampowered.com/app/480490/Prey/",
+    "binaries": ["prey.exe"]
   },
   {
     "game": "Q.U.B.E. 2",
-    "url": "https://store.steampowered.com/app/359100/QUBE_2/"
+    "url": "https://store.steampowered.com/app/359100/QUBE_2/",
+    "binaries": ["qube2.exe"]
   },
   {
     "game": "Q.U.B.E.",
-    "url": "https://store.steampowered.com/app/1564220/QUBE_10th_Anniversary/"
+    "url": "https://store.steampowered.com/app/1564220/QUBE_10th_Anniversary/",
+    "binaries": ["qube.exe"]
   },
   {
     "game": "RAGE 2",
-    "url": "https://store.steampowered.com/app/548570/RAGE_2/"
+    "url": "https://store.steampowered.com/app/548570/RAGE_2/",
+    "binaries": ["rage2.exe"]
   },
   {
     "game": "Ready or Not",
-    "url": "https://store.steampowered.com/app/1144200/Ready_or_Not/"
+    "url": "https://store.steampowered.com/app/1144200/Ready_or_Not/",
+    "binaries": ["readyornot.exe"]
   },
   {
     "game": "Resident Evil 7: Biohazard",
-    "url": "https://store.steampowered.com/app/418370/RESIDENT_EVIL_7_biohazard/"
+    "url": "https://store.steampowered.com/app/418370/RESIDENT_EVIL_7_biohazard/",
+    "binaries": ["re7.exe"]
   },
   {
     "game": "Resident Evil Village",
-    "url": "https://store.steampowered.com/app/1196590/Resident_Evil_Village/"
+    "url": "https://store.steampowered.com/app/1196590/Resident_Evil_Village/",
+    "binaries": ["re8.exe"]
   },
   {
     "game": "Riven",
-    "url": "https://store.steampowered.com/app/1712350/Riven/"
+    "url": "https://store.steampowered.com/app/1712350/Riven/",
+    "binaries": ["riven.exe"]
   },
   {
     "game": "Salt 2",
-    "url": "https://store.steampowered.com/app/1574900/Salt_2_Shores_of_Gold/"
+    "url": "https://store.steampowered.com/app/1574900/Salt_2_Shores_of_Gold/",
+    "binaries": ["salt2.exe"]
   },
   {
     "game": "SCP: 5K",
-    "url": "https://store.steampowered.com/app/872670/SCP_5K/"
+    "url": "https://store.steampowered.com/app/872670/SCP_5K/",
+    "binaries": ["scp5k.exe"]
   },
   {
     "game": "Sea of Thieves",
-    "url": "https://store.steampowered.com/app/1172620/Sea_of_Thieves_2025_Edition/"
+    "url": "https://store.steampowered.com/app/1172620/Sea_of_Thieves_2025_Edition/",
+    "binaries": ["sotgame.exe"]
   },
   {
     "game": "Severed Steel",
-    "url": "https://store.steampowered.com/app/1227690/Severed_Steel/"
+    "url": "https://store.steampowered.com/app/1227690/Severed_Steel/",
+    "binaries": ["severedsteel.exe"]
   },
   {
     "game": "Shadow Warrior 2",
-    "url": "https://store.steampowered.com/app/324800/Shadow_Warrior_2/"
+    "url": "https://store.steampowered.com/app/324800/Shadow_Warrior_2/",
+    "binaries": ["shadowwarrior2.exe"]
   },
   {
     "game": "Shadow Warrior 3",
-    "url": "https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition"
+    "url": "https://store.steampowered.com/app/1036890/Shadow_Warrior_3_Definitive_Edition",
+    "binaries": ["shadowwarrior3.exe"]
   },
   {
     "game": "Slime Rancher 2",
-    "url": "https://store.steampowered.com/app/1657630/Slime_Rancher_2/"
+    "url": "https://store.steampowered.com/app/1657630/Slime_Rancher_2/",
+    "binaries": ["slimerancher2.exe"]
   },
   {
     "game": "Slime Rancher",
-    "url": "https://store.steampowered.com/app/433340/Slime_Rancher/"
+    "url": "https://store.steampowered.com/app/433340/Slime_Rancher/",
+    "binaries": ["slimerancher.exe"]
   },
-  { "game": "Soma", "url": "https://store.steampowered.com/app/282140/SOMA/" },
+  {
+    "game": "Soma",
+    "url": "https://store.steampowered.com/app/282140/SOMA/",
+    "binaries": ["soma.exe"]
+  },
   {
     "game": "Sons of the Forest",
-    "url": "https://store.steampowered.com/app/1326470/Sons_Of_The_Forest"
+    "url": "https://store.steampowered.com/app/1326470/Sons_Of_The_Forest",
+    "binaries": ["sonsoftheforest.exe"]
   },
   {
     "game": "Splitgate",
-    "url": "https://store.steampowered.com/app/677620/Splitgate/"
+    "url": "https://store.steampowered.com/app/677620/Splitgate/",
+    "binaries": ["splitgate.exe"]
   },
   {
     "game": "Squad",
-    "url": "https://store.steampowered.com/app/393380/Squad/"
+    "url": "https://store.steampowered.com/app/393380/Squad/",
+    "binaries": ["squad.exe"]
   },
   {
     "game": "Subnautica",
-    "url": "https://store.steampowered.com/app/264710/Subnautica/"
+    "url": "https://store.steampowered.com/app/264710/Subnautica/",
+    "binaries": ["subnautica.exe"]
   },
   {
     "game": "Superliminal",
-    "url": "https://store.steampowered.com/app/1049410/Superliminal/"
+    "url": "https://store.steampowered.com/app/1049410/Superliminal/",
+    "binaries": ["superliminal.exe"]
   },
   {
     "game": "Tacoma",
-    "url": "https://store.steampowered.com/app/343860/Tacoma/"
+    "url": "https://store.steampowered.com/app/343860/Tacoma/",
+    "binaries": ["tacoma.exe"]
   },
   {
     "game": "Teardown",
-    "url": "https://store.steampowered.com/app/1167630/Teardown"
+    "url": "https://store.steampowered.com/app/1167630/Teardown",
+    "binaries": ["teardown.exe"]
   },
   {
     "game": "The Beast Inside",
-    "url": "https://store.steampowered.com/app/792300/The_Beast_Inside/"
+    "url": "https://store.steampowered.com/app/792300/The_Beast_Inside/",
+    "binaries": ["thebeastinside.exe"]
   },
   {
     "game": "The Darkness II",
-    "url": "https://store.steampowered.com/app/67370/The_Darkness_II/"
+    "url": "https://store.steampowered.com/app/67370/The_Darkness_II/",
+    "binaries": ["darkness2.exe"]
   },
   {
     "game": "The Elder Scrolls IV: Oblivion Remastered",
-    "url": "https://store.steampowered.com/app/2623190/The_Elder_Scrolls_IV_Oblivion_Remastered/"
+    "url": "https://store.steampowered.com/app/2623190/The_Elder_Scrolls_IV_Oblivion_Remastered/",
+    "binaries": ["oblivion.exe"]
   },
   {
     "game": "The Elder Scrolls V: Skyrim",
-    "url": "https://store.steampowered.com/app/489830/The_Elder_Scrolls_V_Skyrim_Special_Edition/"
+    "url": "https://store.steampowered.com/app/489830/The_Elder_Scrolls_V_Skyrim_Special_Edition/",
+    "binaries": ["skyrimse.exe"]
   },
   {
     "game": "The Exit 8",
-    "url": "https://store.steampowered.com/app/2653790/The_Exit_8/"
+    "url": "https://store.steampowered.com/app/2653790/The_Exit_8/",
+    "binaries": ["theexit8.exe"]
   },
   {
     "game": "The Forest",
-    "url": "https://store.steampowered.com/app/242760/The_Forest/"
+    "url": "https://store.steampowered.com/app/242760/The_Forest/",
+    "binaries": ["theforest.exe"]
   },
   {
     "game": "The Lightkeeper",
-    "url": "https://store.steampowered.com/app/3612850/The_Lightkeeper/"
+    "url": "https://store.steampowered.com/app/3612850/The_Lightkeeper/",
+    "binaries": ["thelightkeeper.exe"]
   },
   {
     "game": "The Long Dark",
-    "url": "https://store.steampowered.com/app/305620/The_Long_Dark/"
+    "url": "https://store.steampowered.com/app/305620/The_Long_Dark/",
+    "binaries": ["tld.exe"]
   },
   {
     "game": "The Outlast Trials",
-    "url": "https://store.steampowered.com/app/1304930/The_Outlast_Trials"
+    "url": "https://store.steampowered.com/app/1304930/The_Outlast_Trials",
+    "binaries": ["outlasttrials.exe"]
   },
   {
     "game": "The Stanley Parable: Ultra Deluxe",
-    "url": "https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/"
+    "url": "https://store.steampowered.com/app/1703340/The_Stanley_Parable_Ultra_Deluxe/",
+    "binaries": ["stanleyparable.exe"]
   },
   {
     "game": "The Stanley Parable",
-    "url": "https://store.steampowered.com/app/221910/The_Stanley_Parable/"
+    "url": "https://store.steampowered.com/app/221910/The_Stanley_Parable/",
+    "binaries": ["stanley.exe"]
   },
   {
     "game": "The Talos Principle 2",
-    "url": "https://store.steampowered.com/app/835960/The_Talos_Principle_2/"
+    "url": "https://store.steampowered.com/app/835960/The_Talos_Principle_2/",
+    "binaries": ["talos2.exe"]
   },
   {
     "game": "The Talos Principle",
-    "url": "https://store.steampowered.com/app/257510/The_Talos_Principle/"
+    "url": "https://store.steampowered.com/app/257510/The_Talos_Principle/",
+    "binaries": ["talos.exe"]
   },
   {
     "game": "The Vanishing of Ethan Carter",
-    "url": "https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter"
+    "url": "https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter",
+    "binaries": ["ethancarter.exe"]
   },
   {
     "game": "The Witness",
-    "url": "https://store.steampowered.com/app/210970/The_Witness/"
+    "url": "https://store.steampowered.com/app/210970/The_Witness/",
+    "binaries": ["witness64.exe", "witness_d3d11.exe"]
   },
   {
     "game": "Thief Simulator",
-    "url": "https://store.steampowered.com/app/704850/Thief_Simulator/"
+    "url": "https://store.steampowered.com/app/704850/Thief_Simulator/",
+    "binaries": ["thiefsimulator.exe"]
   },
   {
     "game": "Thief",
-    "url": "https://store.steampowered.com/app/239160/Thief/"
+    "url": "https://store.steampowered.com/app/239160/Thief/",
+    "binaries": ["thief.exe"]
   },
   {
     "game": "Tiny Tina's Wonderlands",
-    "url": "https://store.steampowered.com/app/1286680/Tiny_Tinas_Wonderlands/"
+    "url": "https://store.steampowered.com/app/1286680/Tiny_Tinas_Wonderlands/",
+    "binaries": ["wonderlands.exe"]
   },
   {
     "game": "Titanfall 2",
-    "url": "https://store.steampowered.com/app/1237970/Titanfall_2/"
+    "url": "https://store.steampowered.com/app/1237970/Titanfall_2/",
+    "binaries": ["titanfall2.exe"]
   },
   {
     "game": "Trepang2",
-    "url": "https://store.steampowered.com/app/1164940/Trepang2/"
+    "url": "https://store.steampowered.com/app/1164940/Trepang2/",
+    "binaries": ["trepang2.exe"]
   },
   {
     "game": "Visage",
-    "url": "https://store.steampowered.com/app/594330/Visage/"
+    "url": "https://store.steampowered.com/app/594330/Visage/",
+    "binaries": ["visage.exe"]
   },
   {
     "game": "Viscera Cleanup Detail",
-    "url": "https://store.steampowered.com/app/246900/Viscera_Cleanup_Detail/"
+    "url": "https://store.steampowered.com/app/246900/Viscera_Cleanup_Detail/",
+    "binaries": ["visceracleaupdetail.exe"]
   },
   {
     "game": "VOIDBREAKER",
-    "url": "https://store.steampowered.com/app/2615540/VOIDBREAKER/"
+    "url": "https://store.steampowered.com/app/2615540/VOIDBREAKER/",
+    "binaries": ["voidbreaker.exe"]
   },
   {
     "game": "Voidtrain",
-    "url": "https://store.steampowered.com/app/1159690/Voidtrain/"
+    "url": "https://store.steampowered.com/app/1159690/Voidtrain/",
+    "binaries": ["voidtrain.exe"]
   },
-  { "game": "VOIN", "url": "https://store.steampowered.com/app/2464530/VOIN/" },
+  {
+    "game": "VOIN",
+    "url": "https://store.steampowered.com/app/2464530/VOIN/",
+    "binaries": ["voin.exe"]
+  },
   {
     "game": "Warhammer 40,000: Darktide",
-    "url": "https://store.steampowered.com/app/1361210/Warhammer_40000_Darktide/"
+    "url": "https://store.steampowered.com/app/1361210/Warhammer_40000_Darktide/",
+    "binaries": ["darktide.exe"]
   },
   {
     "game": "Warhammer: Vermintide 2",
-    "url": "https://store.steampowered.com/app/552500/Warhammer_Vermintide_2/"
+    "url": "https://store.steampowered.com/app/552500/Warhammer_Vermintide_2/",
+    "binaries": ["vermintide2.exe"]
   },
   {
     "game": "What Remains of Edith Finch",
-    "url": "https://store.steampowered.com/app/501300/What_Remains_of_Edith_Finch/"
+    "url": "https://store.steampowered.com/app/501300/What_Remains_of_Edith_Finch/",
+    "binaries": ["finchgame.exe"]
   },
   {
     "game": "Witchfire",
-    "url": "https://store.steampowered.com/app/3156770/Witchfire/"
+    "url": "https://store.steampowered.com/app/3156770/Witchfire/",
+    "binaries": ["witchfire.exe"]
   },
   {
     "game": "Wolfenstein: The New Colossus",
-    "url": "https://store.steampowered.com/app/612880/Wolfenstein_II_The_New_Colossus/"
+    "url": "https://store.steampowered.com/app/612880/Wolfenstein_II_The_New_Colossus/",
+    "binaries": ["newcolossus_x64vk.exe"]
   },
   {
     "game": "Wolfenstein: The New Order",
-    "url": "https://store.steampowered.com/app/201810/Wolfenstein_The_New_Order/"
+    "url": "https://store.steampowered.com/app/201810/Wolfenstein_The_New_Order/",
+    "binaries": ["wolfneworder_x64.exe"]
   },
   {
     "game": "Wolfenstein: The Old Blood",
-    "url": "https://store.steampowered.com/app/350080/Wolfenstein_The_Old_Blood/"
+    "url": "https://store.steampowered.com/app/350080/Wolfenstein_The_Old_Blood/",
+    "binaries": ["wolfoldblood_x64.exe"]
   },
   {
     "game": "Wolfenstein: Youngblood",
-    "url": "https://store.steampowered.com/app/1056960/Wolfenstein_Youngblood/"
+    "url": "https://store.steampowered.com/app/1056960/Wolfenstein_Youngblood/",
+    "binaries": ["youngblood_x64vk.exe"]
   },
   {
     "game": "Zero Hour",
-    "url": "https://store.steampowered.com/app/1359090/Zero_Hour/"
+    "url": "https://store.steampowered.com/app/1359090/Zero_Hour/",
+    "binaries": ["zerohour.exe"]
   },
   {
     "game": "Ziggurat 2",
-    "url": "https://store.steampowered.com/app/1159560/Ziggurat_2/"
+    "url": "https://store.steampowered.com/app/1159560/Ziggurat_2/",
+    "binaries": ["ziggurat2.exe"]
   }
 ]
