@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 pub mod encoding;
+pub mod supported_games;
 pub mod unsupported_games;
 
 // Keep in sync with vg_control/constants.py (for now!)
