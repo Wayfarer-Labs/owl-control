@@ -449,46 +449,37 @@ impl State {
     }
 
     async fn tick(&mut self) {
-        match self.recording_state {
-            RecordingState::Recording => {
-                let recording = match self.recorder.recording() {
-                    Some(recording) => recording,
-                    None => {
-                        tracing::error!(
-                            "Expected recording to exist in Recording state, but found None"
-                        );
-                        return;
-                    }
-                };
+        if let RecordingState::Recording = self.recording_state {
+            let Some(recording) = self.recorder.recording() else {
+                tracing::error!("Expected recording to exist in Recording state, but found None");
+                return;
+            };
 
+            let state_request: Option<(RecordingState, &str)> =
                 if !does_process_exist(recording.pid()).unwrap_or_default() {
                     // game closed
                     tracing::info!(
                         pid = recording.pid().0,
                         "Game process no longer exists, stopping recording"
                     );
-                    if let Err(e) = self.handle_transition(RecordingState::Idle).await {
-                        tracing::error!(e=?e, "Failed to stop recording on game process exit");
-                    }
+                    Some((RecordingState::Idle, "stop recording on game process exit"))
                 } else if self.last_active.elapsed() > MAX_IDLE_DURATION {
                     // idle timeout
                     tracing::info!(
                         "No input detected for {} seconds, stopping recording",
                         MAX_IDLE_DURATION.as_secs()
                     );
-                    if let Err(e) = self.handle_transition(RecordingState::Paused).await {
-                        tracing::error!(e=?e, "Failed to stop recording on idle timeout");
-                    }
+                    Some((RecordingState::Paused, "stop recording on idle timeout"))
                 } else if recording.elapsed() > MAX_FOOTAGE {
                     // restart recording once max duration met
                     tracing::info!(
                         "Recording duration exceeded {} s, restarting recording",
                         MAX_FOOTAGE.as_secs()
                     );
-                    if let Err(e) = self.handle_transition(RecordingState::Recording).await {
-                        tracing::error!(e=?e, "Failed to restart recording on recording duration exceeded");
-                    }
-                    self.last_active = Instant::now();
+                    Some((
+                        RecordingState::Recording,
+                        "restart recording on recording duration exceeded",
+                    ))
                 } else if self
                     .actively_recording_window
                     .is_some_and(|window| !is_window_focused(window))
@@ -498,28 +489,34 @@ impl State {
                         "Window {:?} lost focus, pausing recording",
                         self.actively_recording_window
                     );
-                    if let Err(e) = self.handle_transition(RecordingState::Paused).await {
-                        tracing::error!(e=?e, "Failed to pause recording on window lost focus");
-                    }
+                    Some((
+                        RecordingState::Paused,
+                        "pause recording on window lost focus",
+                    ))
                 } else if let Ok(current_resolution) =
                     get_recording_base_resolution(recording.hwnd())
+                    && current_resolution != recording.game_resolution()
                 {
                     // Check if the window resolution has changed and restart the recording
-                    if current_resolution != recording.game_resolution() {
-                        tracing::info!(
-                            old_resolution=?recording.game_resolution(),
-                            new_resolution=?current_resolution,
-                            "Window resolution changed, restarting recording"
-                        );
-                        if let Err(e) = self.handle_transition(RecordingState::Recording).await {
-                            tracing::error!(e=?e, "Failed to restart recording on recording duration exceeded");
-                        }
-                        self.last_active = Instant::now();
-                    }
-                }
+                    tracing::info!(
+                        old_resolution=?recording.game_resolution(),
+                        new_resolution=?current_resolution,
+                        "Window resolution changed, restarting recording"
+                    );
+                    Some((
+                        RecordingState::Recording,
+                        "restart recording on window resolution changed",
+                    ))
+                } else {
+                    None
+                };
+            if let Some((to_state, task)) = state_request
+                && let Err(e) = self.handle_transition(to_state).await
+            {
+                tracing::error!(e=?e, "Failed to {task}");
             }
+        } else {
             // Surprisingly no checks to do when idle or paused
-            RecordingState::Idle | RecordingState::Paused => {}
         }
 
         // Remember to poll the recorder for its own internal work
@@ -551,6 +548,7 @@ impl State {
                     "Recording started with HWND {:?}",
                     self.actively_recording_window
                 );
+                self.last_active = Instant::now();
                 RecordingState::Recording
             }
             (RecordingState::Recording, RecordingState::Idle) => {
@@ -602,6 +600,7 @@ impl State {
                     &mut self.cue_cache,
                 )
                 .await?;
+                self.last_active = Instant::now();
                 RecordingState::Recording
             }
             (old_state, new_state) => {
