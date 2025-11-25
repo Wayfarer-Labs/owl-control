@@ -6,6 +6,7 @@ Follow these guidelines. You must be 18 or older!
 ❌ Idling during recording. No standing still, camping, afk, etc.<br>
 ❌ Play or voice chat of real people not recording with our software in any Co-Op/PvE games.<br>
 ❌ Controls other than keyboard, mouse and gamepad.<br>
+❌ Recording other people's gameplay (e.g. please don't spectate others playing; we want to see _your_ gameplay!)<br>
 
 ✅ First-person view.<br>
 ✅ Steady 60 FPS (aka frames per second/framerate) or more. Lower resolution or cap framerate if necessary.<br>
@@ -49,6 +50,8 @@ In order to end up with a realistic model, we are generally not permitting games
 This is a whitelist: if you see your game here, you can play it, but you cannot play anything outside of this list.
 Recordings of games not on this list will be rejected, and you will not be paid for your time.
 
+We will not be adding any additional games to this list until the end of 2025. However, please note that we may remove games if we have captured sufficient data for them.
+
 - [A Story About My Uncle](https://store.steampowered.com/app/278360/A_Story_About_My_Uncle/)
 - [Abyssus](https://store.steampowered.com/app/1721110/Abyssus/)
 - [Alien: Isolation](https://store.steampowered.com/app/214490/Alien_Isolation/)
@@ -62,6 +65,7 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [Battlefield 3](https://store.steampowered.com/app/1238820/Battlefield_3/)
 - [Battlefield 4](https://store.steampowered.com/app/1238860/Battlefield_4/)
 - [Battlefield 6](https://store.steampowered.com/app/2807960/Battlefield_6/)
+- [Battlefield REDSEC](https://store.steampowered.com/app/3028330/Battlefield_REDSEC/)
 - [Battlefield Hardline](https://store.steampowered.com/app/1238880/Battlefield_Hardline/)
 - [Battlefield V](https://store.steampowered.com/app/1238810/Battlefield_V/)
 - [BioShock Infinite](https://store.steampowered.com/app/8870/BioShock_Infinite/)
@@ -220,61 +224,5 @@ Recordings of games not on this list will be rejected, and you will not be paid 
 - [Wolfenstein: The New Order](https://store.steampowered.com/app/201810/Wolfenstein_The_New_Order/)
 - [Wolfenstein: The Old Blood](https://store.steampowered.com/app/350080/Wolfenstein_The_Old_Blood/)
 - [Wolfenstein: Youngblood](https://store.steampowered.com/app/1056960/Wolfenstein_Youngblood/)
-- [Zero Hour](https://store.steampowered.com/app/1359090/Zero_Hour/) (co-op PvE only)
+- [Zero Hour](https://store.steampowered.com/app/1359090/Zero_Hour/)
 - [Ziggurat 2](https://store.steampowered.com/app/1159560/Ziggurat_2/)
-
-# Unwanted games
-
-<!-- This list is sourced from `crates/constants/src/unsupported_games.json`. If you update that file, please run `cargo run -p update-unsupported-games` to update this list. -->
-
-We have already collected sufficient data for these games, or they are not supported by OWL Control.
-Any data submitted for these games will be rejected by our system.
-Please do not submit data for these games.
-
-## Banned games / Sufficient data captured
-
-- Arena Breakout: Infinite
-- Counter-Strike 2
-- Counter-Strike: Source
-- Cyberpunk 2077
-- DayZ
-- Deep Rock Galactic
-- Deus Ex: Human Revolution
-- Dying Light
-- Dying Light: The Beast
-- Euro Truck Simulator 2
-- Far Cry
-- Far Cry 2
-- Fortnite
-- GTA III
-- GTA IV
-- GTA V
-- GTA V Enhanced
-- GTA: San Andreas
-- GTA: Vice City
-- Gunfire Reborn
-- Half-Life 2 + Mods
-- House Flipper
-- House Flipper 2
-- Kingdom Come: Deliverance
-- Left 4 Dead 2
-- Metro 2033
-- Minecraft
-- Overwatch 2
-- Planet Crafter
-- Portal 2
-- PowerWash Simulator
-- PowerWash Simulator 2
-- Rainbow Six Siege
-- Red Dead Redemption 2
-- Rust
-- Satisfactory
-- Team Fortress 2
-- The Finals
-- Valorant
-
-## Unsupported games
-
-- Destiny 2: Recorded footage is all-black.
-- Roblox: Recorded footage is all-black.
-- Split Fiction: Split-screen games are unsupported.
