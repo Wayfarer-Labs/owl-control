@@ -24,7 +24,7 @@ use color_eyre::{Result, eyre::Context};
 use constants::{GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, supported_games::SupportedGames};
 use game_process::does_process_exist;
 use input_capture::{Event, InputCapture};
-use rodio::{Decoder, Sink};
+use rodio::{Decoder, Sink, Source};
 use tokio::{sync::oneshot, time::MissedTickBehavior};
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::GetForegroundWindow};
 
@@ -342,7 +342,7 @@ async fn main(
                         tokio::spawn(pick_recording_folder(app_state.clone(), current_location));
                     }
                     AsyncRequest::PlayCue { cue } => {
-                        play_cue(&state.sink, &app_state, &cue, &mut state.cue_cache);
+                        play_cue(&state.sink, &app_state, &cue, &mut state.cue_cache, |s| s);
                     }
                 }
             },
@@ -579,6 +579,25 @@ impl State {
             (RecordingState::Paused, RecordingState::Idle) => {
                 // When user stop keys recording while paused
                 *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
+                // Play a mild version of the stop recording cue to signal we're done
+                let stop_recording_cue = self
+                    .app_state
+                    .config
+                    .read()
+                    .unwrap()
+                    .preferences
+                    .audio_cues
+                    .stop_recording
+                    .clone();
+                play_cue(
+                    &self.sink,
+                    &self.app_state,
+                    &stop_recording_cue,
+                    &mut self.cue_cache,
+                    // TODO: find a better effect / sound for this. I wanted to use a reversed-start cue,
+                    // but that doesn't seem to be something that can be easily done with rodio
+                    |s| Box::new(s.low_pass(500).amplify(1.5)),
+                );
                 RecordingState::Idle
             }
             (RecordingState::Recording, RecordingState::Recording) => {
@@ -668,7 +687,7 @@ fn notify_of_recording_state_change(
         .send(UiUpdate::UpdateRecordingState(is_recording))
         .ok();
     if should_play_sound {
-        // Apply configured honk volume (0-255 -> 0.0-1.0) and get selected cue filenames
+        // Get selected cue filenames
         let cue_filename = {
             let cfg = app_state.config.read().unwrap();
             if is_recording {
@@ -677,7 +696,7 @@ fn notify_of_recording_state_change(
                 cfg.preferences.audio_cues.stop_recording.clone()
             }
         };
-        play_cue(sink, app_state, &cue_filename, cue_cache);
+        play_cue(sink, app_state, &cue_filename, cue_cache, |s| s);
     }
 }
 
@@ -686,8 +705,11 @@ fn play_cue(
     app_state: &AppState,
     filename: &str,
     cue_cache: &mut HashMap<String, Vec<u8>>,
+    source_transformer: impl FnOnce(
+        Box<dyn Source + Send + 'static>,
+    ) -> Box<dyn Source + Send + 'static>,
 ) {
-    // Apply configured honk volume (0-255 -> 0.0-1.0) and get selected cue filenames
+    // Apply configured honk volume (0-255 -> 0.0-1.0)
     let volume =
         (app_state.config.read().unwrap().preferences.honk_volume as f32 / 255.0).clamp(0.0, 1.0);
 
@@ -698,19 +720,19 @@ fn play_cue(
         .entry(filename.to_string())
         .or_insert_with(|| load_cue_bytes(filename))
         .clone();
-    let source = Decoder::new_mp3(Cursor::new(cue_bytes));
-
-    match source {
-        Ok(source) => {
-            // Stop any currently playing audio and clear the queue, then play new audio cue immediately
-            sink.stop();
-            sink.append(source);
-            sink.play();
-        }
+    let source = match Decoder::new_mp3(Cursor::new(cue_bytes)) {
+        Ok(source) => source,
         Err(e) => {
             tracing::error!(e=?e, "Failed to decode recording notification sound");
+            return;
         }
-    }
+    };
+    let source = source_transformer(Box::new(source));
+
+    // Stop any currently playing audio and clear the queue, then play new audio cue immediately
+    sink.stop();
+    sink.append(source);
+    sink.play();
 }
 
 fn wait_for_ctrl_c() -> oneshot::Receiver<()> {
