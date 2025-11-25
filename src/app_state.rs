@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames};
+use constants::{encoding::VideoEncoderType, supported_games::SupportedGames};
 use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
@@ -30,7 +30,9 @@ impl AppState {
         ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
         adapter_infos: Vec<wgpu::AdapterInfo>,
     ) -> Self {
-        Self {
+        tracing::debug!("AppState::new() called");
+        tracing::debug!("Loading configuration");
+        let state = Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
             async_request_tx,
@@ -41,7 +43,9 @@ impl AppState {
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
             last_foregrounded_game: RwLock::new(None),
-        }
+        };
+        tracing::debug!("AppState::new() complete");
+        state
     }
 }
 
@@ -117,7 +121,7 @@ pub enum AsyncRequest {
     CancelUpload,
     OpenDataDump,
     OpenLog,
-    UpdateUnsupportedGames(UnsupportedGames),
+    UpdateSupportedGames(SupportedGames),
     LoadUploadStats,
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,

@@ -24,13 +24,16 @@ pub struct TrayIconState {
 }
 impl TrayIconState {
     pub fn new() -> eyre::Result<Self> {
+        tracing::debug!("TrayIconState::new() called");
         // tray icon right click menu for quit option
+        tracing::debug!("Creating tray menu");
         let quit_item = MenuItem::new("Quit", true, None);
         let quit_item_id = quit_item.id().clone();
         let tray_menu = Menu::new();
         let _ = tray_menu.append(&quit_item);
 
         // create tray icon
+        tracing::debug!("Loading tray icon data");
         fn create_tray_icon_data_from_bytes(bytes: &[u8]) -> eyre::Result<tray_icon::Icon> {
             let (rgba, (width, height)) = assets::load_icon_data_from_bytes(bytes);
             Ok(tray_icon::Icon::from_rgba(rgba, width, height)?)
@@ -42,12 +45,15 @@ impl TrayIconState {
             create_tray_icon_data_from_bytes(assets::get_logo_recording_bytes())
                 .context("Failed to create recording tray icon")?;
 
+        tracing::debug!("Building tray icon");
         let tray_icon = TrayIconBuilder::new()
             .with_icon(default_tray_icon_data.clone())
             .with_tooltip("OWL Control")
             .with_menu(Box::new(tray_menu))
             .build()?;
+        tracing::debug!("Tray icon built successfully");
 
+        tracing::debug!("TrayIconState::new() complete");
         Ok(TrayIconState {
             icon: tray_icon,
             quit_item_id,
@@ -65,6 +71,7 @@ impl TrayIconState {
         stopped_tx: tokio::sync::broadcast::Sender<()>,
         ui_update_tx: UiUpdateSender,
     ) {
+        tracing::debug!("TrayIconState::post_initialize() called");
         MenuEvent::set_event_handler({
             let quit_item_id = self.quit_item_id.clone();
             let window = window.clone();

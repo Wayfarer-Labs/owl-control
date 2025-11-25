@@ -63,12 +63,22 @@ impl ObsEmbeddedRecorder {
     where
         Self: Sized,
     {
+        tracing::debug!(
+            "ObsEmbeddedRecorder::new() called with adapter_index={}",
+            adapter_index
+        );
         let (obs_tx, obs_rx) = tokio::sync::mpsc::channel(100);
         let (init_success_tx, init_success_rx) = tokio::sync::oneshot::channel();
+        tracing::debug!("Spawning OBS recorder thread");
         let obs_thread =
             std::thread::spawn(move || recorder_thread(adapter_index, obs_rx, init_success_tx));
         // Wait for the OBS context to be initialized, and bail out if it fails
+        tracing::debug!("Waiting for OBS context initialization");
         let available_encoders = init_success_rx.await??;
+        tracing::debug!(
+            "OBS context initialized successfully with {} encoders",
+            available_encoders.len()
+        );
 
         Ok(Self {
             _obs_thread: obs_thread,
@@ -194,19 +204,24 @@ fn recorder_thread(
         Result<Vec<VideoEncoderType>, libobs_wrapper::utils::ObsError>,
     >,
 ) {
+    tracing::debug!("OBS recorder thread started");
     let skipped_frames = Arc::new(Mutex::new(None));
 
+    tracing::debug!("Creating OBS recorder state");
     let mut state = match RecorderState::new(adapter_index, skipped_frames.clone()) {
         Ok((state, available_encoders)) => {
+            tracing::debug!("OBS recorder state created successfully");
             init_success_tx.send(Ok(available_encoders)).unwrap();
             state
         }
         Err(e) => {
+            tracing::error!("Failed to create OBS recorder state: {}", e);
             init_success_tx.send(Err(e)).unwrap();
             return;
         }
     };
 
+    tracing::debug!("OBS recorder thread entering message loop");
     let mut last_shutdown_tx = None;
     while let Some(message) = rx.blocking_recv() {
         match message {
@@ -256,7 +271,9 @@ impl RecorderState {
         adapter_index: usize,
         skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
     ) -> Result<(Self, Vec<VideoEncoderType>), libobs_wrapper::utils::ObsError> {
+        tracing::debug!("RecorderState::new() called");
         // Create OBS context
+        tracing::debug!("Creating OBS context");
         let mut obs_context = ObsContext::new(
             ObsContext::builder()
                 .set_logger(Box::new(TracingObsLogger {
@@ -267,15 +284,23 @@ impl RecorderState {
                     (RECORDING_WIDTH, RECORDING_HEIGHT),
                 )),
         )?;
+        tracing::debug!("OBS context created successfully");
 
         // Get available encoders
+        tracing::debug!("Querying available video encoders");
         let available_encoders = obs_context.available_video_encoders().map(|es| {
             es.into_iter()
                 .filter_map(|e| obs_vet_to_vet(e.get_encoder_id()))
                 .collect::<Vec<_>>()
         });
         let available_encoders = match available_encoders {
-            Ok(available_encoders) => available_encoders,
+            Ok(available_encoders) => {
+                tracing::debug!(
+                    "Found {} available video encoders",
+                    available_encoders.len()
+                );
+                available_encoders
+            }
             Err(e) => {
                 tracing::error!("Failed to get available video encoders, assuming x264 only: {e}");
                 vec![VideoEncoderType::X264]
@@ -297,6 +322,7 @@ impl RecorderState {
         let audio_encoder =
             ObsAudioEncoder::new_from_info(audio_info, 0, obs_context.runtime().clone())?;
 
+        tracing::debug!("RecorderState::new() complete");
         Ok((
             Self {
                 adapter_index,

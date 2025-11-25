@@ -170,10 +170,12 @@ impl Credentials {
 
 /// The directory in which all persistent config data should be stored.
 pub fn get_persistent_dir() -> Result<PathBuf> {
+    tracing::debug!("get_persistent_dir() called");
     let dir = dirs::data_dir()
         .ok_or_else(|| eyre!("Could not find user data directory"))?
         .join("OWL Control");
     fs::create_dir_all(&dir)?;
+    tracing::debug!("Persistent dir: {:?}", dir);
     Ok(dir)
 }
 
@@ -187,13 +189,16 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
+        tracing::debug!("Config::load() called");
         let config_path = match (Self::get_path(), Self::get_legacy_path()) {
             (Ok(path), _) if path.exists() => {
                 tracing::info!("Loading from standard config path");
+                tracing::debug!("Config path: {:?}", path);
                 path
             }
             (_, Ok(path)) if path.exists() => {
                 tracing::info!("Loading from legacy config path");
+                tracing::debug!("Config path: {:?}", path);
                 path
             }
             _ => {
@@ -202,7 +207,9 @@ impl Config {
             }
         };
 
+        tracing::debug!("Reading config file");
         let contents = fs::read_to_string(&config_path).context("Failed to read config file")?;
+        tracing::debug!("Parsing config file");
         let mut config =
             serde_json::from_str::<Config>(&contents).context("Failed to parse config file")?;
 
@@ -214,6 +221,7 @@ impl Config {
             config.preferences.stop_recording_key = default_stop_key();
         }
 
+        tracing::debug!("Config::load() complete");
         Ok(config)
     }
 

@@ -40,6 +40,14 @@ pub(crate) struct MainViewState {
 const SETTINGS_TEXT_WIDTH: f32 = 150.0;
 const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
 
+/// Used by the upload manager's scrollview to leave enough space for the post-upload-manager
+/// footer. Increase this if adding content below the upload manager.
+///
+/// This is just vibed based off footer height + elements below the scrollview
+/// It's too much of a hassle to make this dynamically update when the height won't ever
+/// change at runtime anyway.
+const FOOTER_HEIGHT: f32 = 120.0;
+
 impl App {
     pub fn main_view(&mut self, ctx: &Context) {
         if self.main_view_state.last_obs_check.is_none()

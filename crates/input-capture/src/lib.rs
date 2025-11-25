@@ -74,8 +74,10 @@ pub struct InputCapture {
 }
 impl InputCapture {
     pub fn new() -> Result<(Self, mpsc::Receiver<Event>)> {
+        tracing::debug!("InputCapture::new() called");
         let (input_tx, input_rx) = mpsc::channel(10);
 
+        tracing::debug!("Spawning raw input thread for keyboard/mouse capture");
         let active_keys = Arc::new(Mutex::new(kbm_capture::ActiveKeys::default()));
         let _raw_input_thread = std::thread::spawn({
             let input_tx = input_tx.clone();
@@ -94,10 +96,12 @@ impl InputCapture {
             }
         });
 
+        tracing::debug!("Initializing gamepad capture threads");
         let active_gamepad = Arc::new(Mutex::new(gamepad_capture::ActiveGamepads::default()));
         let gamepads = Arc::new(RwLock::new(HashMap::new()));
         let _gamepad_threads =
             gamepad_capture::initialize_thread(input_tx, active_gamepad.clone(), gamepads.clone());
+        tracing::debug!("InputCapture::new() complete");
 
         Ok((
             Self {
