@@ -4,14 +4,14 @@ Follow these guidelines. You must be 18 or older!
 
 ❌ Cutscenes or menus. We need input data, not movies.<br>
 ❌ Idling during recording. No standing still, camping, afk, etc.<br>
-❌ Play or voice chat of real people not recording with our software in any Co-Op/PvE games.<br>
+❌ Play or voice chat of real people not recording with our software in any Co-Op/PvE/PvP games.<br>
 ❌ Controls other than keyboard, mouse and gamepad.<br>
 ❌ Recording other people's gameplay (e.g. please don't spectate others playing; we want to see _your_ gameplay!)<br>
 
 ✅ First-person view.<br>
 ✅ Steady 60 FPS (aka frames per second/framerate) or more. Lower resolution or cap framerate if necessary.<br>
 ✅ Display sizes from 640x360 up to ultrawide.<br>
-✅ XBOX and PS5 controllers. PS5 controllers should be be wired to the computer.<br>
+✅ XBOX and PS5 controllers. PS5 controllers should be wired to the computer. PS4 and wireless PS5 controllers will work if using DS4Windows, but will not otherwise work.<br>
 ✅ Stopping recording in menus, cutscenes, and when not playing.<br>
 ✅ Repeat playthroughs. Do new things each time!<br>
 ✅ Game mods.<br>
@@ -25,6 +25,7 @@ Follow these guidelines. You must be 18 or older!
 > - We buy games from `Top-priority` for veteran contributors.
 > - We don't capture your microphone or anything outside the active game.
 > - MSI Afterburner or similar stats programs should be disabled and substituted with [Steam Overlay stats](https://help.steampowered.com/en/faqs/view/3462-CD4C-36BD5767)
+> - **Playing PvP games with anticheat is at your own risk.** Our key recording may trip anticheat systems, potentially resulting in bans or other penalties.
 
 > [!WARNING]
 >
