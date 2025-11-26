@@ -9,7 +9,7 @@ use crate::{
     app_state::{AppState, AsyncRequest},
     config::Preferences,
     output_types::Metadata,
-    record::{LocalRecording, LocalRecordingInfo},
+    record::{LocalRecording, LocalRecordingInfo, LocalRecordingPaused},
     ui::{util, views::main::FOOTER_HEIGHT},
     upload,
 };
@@ -500,7 +500,7 @@ fn upload_stats_view(ui: &mut Ui, recordings: &Recordings) {
             }
             Recording::Local(
                 LocalRecording::Unuploaded { info, metadata }
-                | LocalRecording::Paused { info, metadata },
+                | LocalRecording::Paused(LocalRecordingPaused { metadata, info, .. }),
             ) => {
                 unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
                 unuploaded_count += 1;
@@ -953,7 +953,7 @@ fn render_recording_entry(
                     });
                 });
             }
-            LocalRecording::Paused { info, metadata } => {
+            LocalRecording::Paused(LocalRecordingPaused { metadata, info, .. }) => {
                 // Paused upload entry
                 frame(ui, Color32::from_rgb(70, 60, 90), |ui| {
                     ui.horizontal(|ui| {

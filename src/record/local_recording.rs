@@ -4,13 +4,96 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre};
 use egui_wgpu::wgpu;
+use serde::{Deserialize, Serialize};
 
 use crate::{
+    api::{ApiClient, CompleteMultipartUploadChunk},
     output_types::Metadata,
     system::{hardware_id, hardware_specs},
 };
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UploadProgressState {
+    pub upload_id: String,
+    pub game_control_id: String,
+    pub tar_path: PathBuf,
+    pub chunk_etags: Vec<CompleteMultipartUploadChunk>,
+    pub total_chunks: u64,
+    pub chunk_size_bytes: u64,
+    /// Unix timestamp when the upload session expires
+    pub expires_at: u64,
+}
+
+impl UploadProgressState {
+    /// Create a new upload progress state from a fresh upload session
+    pub fn new(
+        upload_id: String,
+        game_control_id: String,
+        tar_path: PathBuf,
+        total_chunks: u64,
+        chunk_size_bytes: u64,
+        expires_at: u64,
+    ) -> Self {
+        Self {
+            upload_id,
+            game_control_id,
+            tar_path,
+            chunk_etags: vec![],
+            total_chunks,
+            chunk_size_bytes,
+            expires_at,
+        }
+    }
+
+    /// Check if the upload session has expired
+    pub fn is_expired(&self) -> bool {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        now >= self.expires_at
+    }
+
+    /// Get the number of seconds until expiration
+    pub fn seconds_until_expiration(&self) -> i64 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        self.expires_at as i64 - now as i64
+    }
+
+    /// Load progress state from a file
+    pub fn load_from_file(path: &Path) -> eyre::Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let state: Self = serde_json::from_str(&content)?;
+        Ok(state)
+    }
+
+    /// Save progress state to a file
+    pub fn save_to_file(&self, path: &Path) -> eyre::Result<()> {
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+
+    /// Get the next chunk number to upload (after the last completed chunk)
+    pub fn next_chunk_number(&self) -> u64 {
+        self.chunk_etags
+            .iter()
+            .map(|c| c.chunk_number)
+            .max()
+            .map(|n| n + 1)
+            .unwrap_or(1)
+    }
+
+    /// Cleans up the tar file associated with this upload progress.
+    pub fn cleanup_tar_file(&self) {
+        std::fs::remove_file(&self.tar_path).ok();
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct LocalRecordingInfo {
@@ -18,6 +101,75 @@ pub struct LocalRecordingInfo {
     pub folder_path: PathBuf,
     pub folder_size: u64,
     pub timestamp: Option<std::time::SystemTime>,
+}
+
+impl std::fmt::Display for LocalRecordingInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ({})", self.folder_name, self.folder_path.display())
+    }
+}
+
+/// A recording that has a paused upload in progress.
+/// This struct guarantees that the upload state has been validated and is ready to resume.
+#[derive(Debug, Clone)]
+pub struct LocalRecordingPaused {
+    pub info: LocalRecordingInfo,
+    pub metadata: Option<Box<Metadata>>,
+    pub upload_progress: UploadProgressState,
+}
+
+impl LocalRecordingPaused {
+    /// Cleans up upload artifacts (progress file and tar file).
+    pub fn cleanup_upload_artifacts(&self) {
+        std::fs::remove_file(self.upload_progress_path()).ok();
+        self.upload_progress.cleanup_tar_file();
+    }
+
+    /// Save upload progress state to .upload-progress file.
+    pub fn save_upload_progress(&self) -> eyre::Result<()> {
+        self.upload_progress
+            .save_to_file(&self.upload_progress_path())
+    }
+
+    /// Mark recording as uploaded, writing .uploaded marker file.
+    /// Consumes self and returns Uploaded LocalRecording variant.
+    pub fn mark_as_uploaded(self, game_control_id: String) -> std::io::Result<LocalRecording> {
+        self.cleanup_upload_artifacts();
+        std::fs::write(
+            self.info
+                .folder_path
+                .join(constants::filename::recording::UPLOADED),
+            &game_control_id,
+        )?;
+        Ok(LocalRecording::Uploaded {
+            info: self.info,
+            game_control_id,
+        })
+    }
+
+    /// Mark recording as server-invalid, writing .server_invalid marker.
+    /// Consumes self and returns Invalid LocalRecording variant.
+    pub fn mark_as_server_invalid(self, message: &str) -> std::io::Result<LocalRecording> {
+        self.cleanup_upload_artifacts();
+        std::fs::write(
+            self.info
+                .folder_path
+                .join(constants::filename::recording::SERVER_INVALID),
+            message,
+        )?;
+        Ok(LocalRecording::Invalid {
+            info: self.info,
+            metadata: self.metadata,
+            error_reasons: message.lines().map(String::from).collect(),
+            by_server: true,
+        })
+    }
+
+    fn upload_progress_path(&self) -> PathBuf {
+        self.info
+            .folder_path
+            .join(constants::filename::recording::UPLOAD_PROGRESS)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -32,10 +184,7 @@ pub enum LocalRecording {
         info: LocalRecordingInfo,
         metadata: Option<Box<Metadata>>,
     },
-    Paused {
-        info: LocalRecordingInfo,
-        metadata: Option<Box<Metadata>>,
-    },
+    Paused(LocalRecordingPaused),
     Uploaded {
         info: LocalRecordingInfo,
         #[allow(dead_code)]
@@ -45,8 +194,8 @@ pub enum LocalRecording {
 
 impl LocalRecording {
     /// Creates the recording folder at the given path if it doesn't already exist.
-    /// Returns basic info about the folder. Called at .start() of recording.
-    pub fn create_at(path: &Path) -> Result<LocalRecordingInfo> {
+    /// Returns a LocalRecording::Unuploaded variant. Called at .start() of recording.
+    pub fn create_at(path: &Path) -> Result<LocalRecording> {
         std::fs::create_dir_all(path)?;
 
         // Build info similar to from_path
@@ -63,19 +212,22 @@ impl LocalRecording {
 
         let info = LocalRecordingInfo {
             folder_name,
-            folder_size: folder_size(path).unwrap_or_default(),
+            folder_size: 0, // New folder, no content yet
             folder_path: path.to_path_buf(),
             timestamp,
         };
 
-        Ok(info)
+        Ok(LocalRecording::Unuploaded {
+            info,
+            metadata: None,
+        })
     }
     /// Get the common info for any recording variant
     pub fn info(&self) -> &LocalRecordingInfo {
         match self {
             LocalRecording::Invalid { info, .. } => info,
             LocalRecording::Unuploaded { info, .. } => info,
-            LocalRecording::Paused { info, .. } => info,
+            LocalRecording::Paused(paused) => &paused.info,
             LocalRecording::Uploaded { info, .. } => info,
         }
     }
@@ -94,9 +246,31 @@ impl LocalRecording {
     pub fn metadata(&self) -> Option<&Metadata> {
         match self {
             LocalRecording::Unuploaded { metadata, .. } => metadata.as_deref(),
-            LocalRecording::Paused { metadata, .. } => metadata.as_deref(),
+            LocalRecording::Paused(paused) => paused.metadata.as_deref(),
             _ => None,
         }
+    }
+
+    /// Deletes the recording folder and cleans up server state.
+    /// For Paused uploads, aborts the multipart upload on the server.
+    pub async fn delete(self, api_client: &ApiClient, api_token: &str) -> std::io::Result<()> {
+        let folder_path = self.info().folder_path.clone();
+
+        // For Paused variant, abort the upload on the server first
+        if let LocalRecording::Paused(ref paused) = self {
+            api_client
+                .abort_multipart_upload(api_token, &paused.upload_progress.upload_id)
+                .await
+                .ok(); // Best effort
+        }
+
+        tokio::fs::remove_dir_all(&folder_path).await
+    }
+
+    /// Deletes the recording folder synchronously. Use this only in Drop handlers
+    /// where async is not available. Does NOT abort server uploads.
+    pub fn delete_without_abort_sync(&self) -> std::io::Result<()> {
+        std::fs::remove_dir_all(&self.info().folder_path)
     }
 
     /// Scans a single recording folder and returns its state
@@ -179,7 +353,22 @@ impl LocalRecording {
                 })
             } else if upload_progress_file_path.is_file() {
                 // Upload was paused - there's a .upload-progress file
-                Some(LocalRecording::Paused { info, metadata })
+                match UploadProgressState::load_from_file(&upload_progress_file_path) {
+                    Ok(upload_progress) => Some(LocalRecording::Paused(LocalRecordingPaused {
+                        info,
+                        metadata,
+                        upload_progress,
+                    })),
+                    Err(e) => {
+                        // Corrupted progress file - treat as unuploaded so fresh upload can be attempted
+                        tracing::warn!(
+                            "Failed to load upload progress for {}, treating as unuploaded: {:?}",
+                            info.folder_name,
+                            e
+                        );
+                        Some(LocalRecording::Unuploaded { info, metadata })
+                    }
+                }
             } else {
                 Some(LocalRecording::Unuploaded { info, metadata })
             }
