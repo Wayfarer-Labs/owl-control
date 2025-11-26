@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct SupportedGame {
     pub game: String,
     pub url: String,
+    pub binaries: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,10 +30,12 @@ impl SupportedGames {
             .sort_by(|a, b| a.game.to_lowercase().cmp(&b.game.to_lowercase()));
     }
 
-    pub fn get(&self, game_name: &str) -> Option<&SupportedGame> {
-        let game_name_lower = game_name.to_lowercase();
-        self.games
-            .iter()
-            .find(|g| g.game.to_lowercase() == game_name_lower)
+    pub fn get(&self, game_exe_without_ext: &str) -> Option<&SupportedGame> {
+        let game_exe_without_ext = game_exe_without_ext.to_lowercase();
+        self.games.iter().find(|g| {
+            g.binaries
+                .iter()
+                .any(|b| b.to_lowercase() == game_exe_without_ext)
+        })
     }
 }
