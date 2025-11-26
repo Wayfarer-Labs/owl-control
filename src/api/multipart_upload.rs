@@ -5,6 +5,9 @@ use crate::api::{API_BASE_URL, ApiClient, ApiError, check_for_response_success};
 #[derive(Default, Debug, Clone)]
 #[allow(unused)]
 pub struct InitMultipartUploadArgs<'a> {
+    pub filename: &'a str,
+    pub total_size_bytes: u64,
+    pub hardware_id: &'a str,
     pub tags: Option<&'a [String]>,
     pub video_filename: Option<&'a str>,
     pub control_filename: Option<&'a str>,
@@ -66,9 +69,6 @@ impl ApiClient {
     pub async fn init_multipart_upload<'a>(
         &self,
         api_key: &str,
-        archive_filename: &str,
-        total_size_bytes: u64,
-        hardware_id: &str,
         args: InitMultipartUploadArgs<'a>,
     ) -> Result<InitMultipartUploadResponse, ApiError> {
         #[derive(Serialize, Debug)]
@@ -116,9 +116,9 @@ impl ApiClient {
             .header("Content-Type", "application/json")
             .header("X-API-Key", api_key)
             .json(&InitMultipartUploadRequest {
-                filename: archive_filename,
+                filename: args.filename,
                 content_type: "application/x-tar",
-                total_size_bytes,
+                total_size_bytes: args.total_size_bytes,
                 chunk_size_bytes: args.chunk_size_bytes,
 
                 tags: args.tags,
@@ -136,7 +136,7 @@ impl ApiClient {
 
                 uploading_owl_control_version: args.uploading_owl_control_version,
 
-                uploader_hwid: hardware_id,
+                uploader_hwid: args.hardware_id,
                 upload_timestamp: &chrono::Local::now().to_rfc3339(),
             })
             .send()

@@ -202,7 +202,7 @@ async fn main(
                         tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
                     }
                     AsyncRequest::CancelUpload => {
-                        app_state.upload_cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                        app_state.upload_pause_flag.store(true, std::sync::atomic::Ordering::SeqCst);
                         tracing::info!("Upload cancellation requested");
                     }
                     AsyncRequest::OpenDataDump => {

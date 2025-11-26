@@ -419,7 +419,7 @@ pub fn view(
         // Show Pause/Cancel button when uploading
         ui.add_enabled_ui(
             !app_state
-                .upload_cancel_flag
+                .upload_pause_flag
                 .load(std::sync::atomic::Ordering::Relaxed),
             |ui| {
                 let response = ui
