@@ -4,8 +4,8 @@ use std::{
 };
 
 use egui::{
-    Color32, Context, FontFamily, FontId, Image, Margin, RichText, Stroke, TextFormat, Vec2,
-    WidgetText, Window, containers::Frame, text::LayoutJob,
+    Color32, Context, FontFamily, FontId, Image, ImageSource, Margin, RichText, Stroke, TextFormat,
+    Vec2, WidgetText, Window, containers::Frame, text::LayoutJob,
 };
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
@@ -20,7 +20,7 @@ use windows::Win32::{
 
 use crate::{
     app_state::{AppState, RecordingStatus},
-    assets::get_owl_bytes,
+    assets::{get_logo_default_bytes, get_logo_recording_bytes},
     config::OverlayLocation,
     system::hardware_specs::get_primary_monitor_resolution,
     ui::{components, util},
@@ -48,6 +48,7 @@ pub struct OverlayApp {
 }
 impl OverlayApp {
     pub fn new(app_state: Arc<AppState>, stopped_rx: tokio::sync::broadcast::Receiver<()>) -> Self {
+        tracing::debug!("OverlayApp::new() called");
         let (overlay_location, overlay_opacity) = {
             let config = app_state.config.read().unwrap();
             (
@@ -56,6 +57,7 @@ impl OverlayApp {
             )
         };
         let rec_status = app_state.state.read().unwrap().clone();
+        tracing::debug!("OverlayApp::new() complete");
         Self {
             initialized: false,
             app_state,
@@ -79,6 +81,7 @@ impl OverlayApp {
         _curr_location: OverlayLocation,
         curr_opacity: u8,
     ) {
+        tracing::debug!("OverlayApp::first_frame_init() called");
         // install image loaders
         egui_extras::install_image_loaders(egui_context);
 
@@ -243,9 +246,19 @@ impl EguiOverlay for OverlayApp {
             .show(egui_context, |ui| {
                 ui.horizontal(|ui| {
                     ui.add(
-                        Image::from_bytes("bytes://", get_owl_bytes())
-                            .fit_to_exact_size(Vec2 { x: 32.0, y: 32.0 })
-                            .tint(Color32::WHITE),
+                        Image::new(if self.rec_status.is_recording() {
+                            ImageSource::Bytes {
+                                uri: "bytes://owl-logo-recording.png".into(),
+                                bytes: get_logo_recording_bytes().into(),
+                            }
+                        } else {
+                            ImageSource::Bytes {
+                                uri: "bytes://owl-logo.png".into(),
+                                bytes: get_logo_default_bytes().into(),
+                            }
+                        })
+                        .fit_to_exact_size(Vec2 { x: 32.0, y: 32.0 })
+                        .tint(Color32::WHITE),
                     );
 
                     let font_id = FontId::new(12.0, FontFamily::Proportional);

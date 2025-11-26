@@ -9,6 +9,7 @@
 ### **Help train the next generation of AI by sharing your gameplay!**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 </div>
 OWL Control is a high-performance Windows app that captures control data from games. These datasets are fundamental to training world models that power sophisticated robots and simulations.
 
@@ -63,6 +64,7 @@ Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps 
 > [!TIP]
 >
 > For a LIMITED TIME, we are compensating per hour for game data under these circumstances:
+>
 > - You must be 18 years old, or older.
 > - You must play a game on [the games list](./GAMES.md)
 > - You must only play PvE or Co-op PvE (ie: gameplay against in-game, non-human opponents). We do not allow PvP recordings.
@@ -70,7 +72,6 @@ Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps 
 > - You must record active and human play. No camping, bots, idling, etc.
 > - You must use [Wise](https://wise.com/) or [Fiverr](https://www.fiverr.com/). We do not use other payment providers. If you need help setting up ask [our Discord community](https://discord.gg/ZgCWTGYf4E).
 >   - Due to legal and technical restrictions, residents of MENA countries, .PK, or .VN must use Fiverr.
->
 
 ## Troubleshooting
 
@@ -101,58 +102,13 @@ Scrubbed and filtered data will be made publicly available for research purposes
 
 ### OWL Control is open source!
 
-If you're interested in the technical details or want to contribute:
-
-### Building from Source
-
-Using _powershell_:
-
-1. Install [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-
-2. Clone the repo
-> ```powershell
-> git clone https://github.com/Wayfarer-Labs/owl-control.git
-> cd owl-control
-> ```
-
-3. Build the application to create the target directory
-> ```powershell
-> cargo build
-> ```
-
-4. Install `cargo-obs-build`
-> ```powershell
-> cargo install cargo-obs-build
-> ```
-
-5. Install the dependencies
-> ```powershell
-> cargo obs-build --out-dir target\x86_64-pc-windows-msvc\debug
-> ```
-
-6. Run OWL Control with:
-
-> ```powershell
-> cargo run
-> ```
-
-
-To build a production-ready release with an installer:
-
-- Install [NSIS](https://sourceforge.net/projects/nsis/) to default location
-
-- Run the build script
-```powershell
-build-resources\scripts\build.ps1
-```
-
-If you'd like to collaborate on this project, please visit our [contributor guidelines](./CONTRIBUTING.md).
+If you're interested in the technical details or want to contribute, please visit our [contributor guidelines](./CONTRIBUTING.md).
 
 |       Need Help?       | Where to Go                                                                                  |
 | :--------------------: | :------------------------------------------------------------------------------------------- |
 | 🐛 **Issues or Bugs?** | Report them on our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page |
 |   ❓ **Questions?**    | Visit our [GitHub Issues](https://github.com/Wayfarer-Labs/owl-control/issues) page          |
-|     **💬Discord**      | [Discord Community](https://discord.gg/dX4HW9Pt7Z)                                              |
+|     **💬Discord**      | [Discord Community](https://discord.gg/dX4HW9Pt7Z)                                           |
 
 <div align="center">
 

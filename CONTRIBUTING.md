@@ -2,16 +2,65 @@
 
 Thanks for your interest in contributing to OWL Control! 🦉
 
-## General Information
+## Building from Source
 
-For setup information, including building from source, system requirements please see the [README.md](README.md).
+Using PowerShell or Command Prompt:
 
-Code Formatting
+1. Install [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+
+2. Clone the repo:
+
+```powershell
+git clone https://github.com/Wayfarer-Labs/owl-control.git
+cd owl-control
+```
+
+3. Build the application to create the target directory (this only needs to be done once; `cargo run` will rebuild afterwards):
+
+```powershell
+cargo build
+```
+
+4. Install `cargo-obs-build`:
+
+```powershell
+cargo install cargo-obs-build
+```
+
+5. Install the OBS binaries (this only needs to be done when the OBS version is updated):
+
+```powershell
+cargo obs-build --out-dir target\x86_64-pc-windows-msvc\debug
+```
+
+6. Run OWL Control with:
+
+```powershell
+cargo run
+```
+
+To build a production-ready release with an installer:
+
+- Install [NSIS](https://sourceforge.net/projects/nsis/) to default location
+- Run the build script
+
+```powershell
+build-resources\scripts\build.ps1
+```
+
+## Code Quality
 
 This project uses automated code formatting tools to maintain consistent code style:
 
-# Format Rust code
+```bash
 cargo fmt
+```
+
+and automated linting tools to ensure code quality:
+
+```bash
+cargo clippy
+```
 
 ## Data Structure Changes
 

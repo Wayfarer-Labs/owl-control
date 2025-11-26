@@ -37,6 +37,7 @@ impl ObsSocketRecorder {
     where
         Self: Sized,
     {
+        tracing::debug!("ObsSocketRecorder::new() called");
         Ok(Self { client: None })
     }
 }

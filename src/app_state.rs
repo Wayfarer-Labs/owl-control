@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames};
+use constants::{encoding::VideoEncoderType, supported_games::SupportedGames};
 use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
@@ -34,7 +34,9 @@ impl AppState {
         ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
         adapter_infos: Vec<wgpu::AdapterInfo>,
     ) -> Self {
-        Self {
+        tracing::debug!("AppState::new() called");
+        tracing::debug!("Loading configuration");
+        let state = Self {
             state: RwLock::new(RecordingStatus::Stopped),
             config: RwLock::new(Config::load().expect("failed to init configs")),
             async_request_tx,
@@ -46,7 +48,9 @@ impl AppState {
             is_out_of_date: AtomicBool::new(false),
             play_time_state: RwLock::new(PlayTimeState::load()),
             last_foregrounded_game: RwLock::new(None),
-        }
+        };
+        tracing::debug!("AppState::new() complete");
+        state
     }
 }
 
@@ -61,6 +65,10 @@ impl ForegroundedGame {
     }
 }
 
+/// This is meant to be a read-only reflection of the current recording state that is
+/// only updated by the recorder.rs object (not tokio_thread RecordingState), and read by UI and overlay threads.
+/// We want the RecordingStatus to reflect ground truth, and its also more accurate to get ::Recording info
+/// directly from the recorder object. Desync between RecordingStatus and RecordingState shouldn't occur either way.
 #[derive(Clone, PartialEq)]
 pub enum RecordingStatus {
     Stopped,
@@ -69,6 +77,11 @@ pub enum RecordingStatus {
         game_exe: String,
     },
     Paused,
+}
+impl RecordingStatus {
+    pub fn is_recording(&self) -> bool {
+        matches!(self, RecordingStatus::Recording { .. })
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -113,7 +126,7 @@ pub enum AsyncRequest {
     CancelUpload,
     OpenDataDump,
     OpenLog,
-    UpdateUnsupportedGames(UnsupportedGames),
+    UpdateSupportedGames(SupportedGames),
     LoadUploadStats,
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,

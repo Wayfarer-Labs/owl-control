@@ -22,9 +22,7 @@ use crate::{
         recording::Recording,
     },
 };
-use constants::{
-    MIN_FREE_SPACE_MB, encoding::VideoEncoderType, unsupported_games::UnsupportedGames,
-};
+use constants::{MIN_FREE_SPACE_MB, encoding::VideoEncoderType, supported_games::SupportedGames};
 
 #[async_trait::async_trait(?Send)]
 pub trait VideoRecorder {
@@ -62,12 +60,14 @@ impl Recorder {
         recording_dir: Box<dyn FnMut() -> PathBuf>,
         app_state: Arc<AppState>,
     ) -> Result<Self> {
+        tracing::debug!("Recorder::new() called");
         let backend = app_state
             .config
             .read()
             .unwrap()
             .preferences
             .recording_backend;
+        tracing::debug!("Recording backend: {:?}", backend);
 
         // Incredibly ugly hack: assume that the first dGPU is the one we want,
         // and that this list agrees with OBS's. There's no real guarantee that
@@ -89,12 +89,14 @@ impl Recorder {
             app_state.adapter_infos[adapter_index]
         );
 
+        tracing::debug!("Creating video recorder backend");
         let video_recorder: Box<dyn VideoRecorder> = match backend {
             RecordingBackend::Embedded => Box::new(ObsEmbeddedRecorder::new(adapter_index).await?),
             RecordingBackend::Socket => Box::new(ObsSocketRecorder::new().await?),
         };
 
         tracing::info!("Using {} as video recorder", video_recorder.id());
+        tracing::debug!("Recorder::new() complete");
         Ok(Self {
             recording_dir,
             recording: None,
@@ -114,7 +116,7 @@ impl Recorder {
     pub async fn start(
         &mut self,
         input_capture: &InputCapture,
-        unsupported_games: &UnsupportedGames,
+        supported_games: &SupportedGames,
     ) -> Result<()> {
         if self.recording.is_some() {
             return Ok(());
@@ -164,13 +166,8 @@ impl Recorder {
             .next()
             .unwrap_or(&game_exe)
             .to_lowercase();
-        if let Some(unsupported_game) = unsupported_games.get(game_exe_without_extension) {
-            bail!(
-                "{} ({}) is not supported! Reason: {}",
-                unsupported_game.name,
-                game_exe,
-                unsupported_game.reason
-            );
+        if supported_games.get(&game_exe_without_extension).is_none() {
+            bail!("{game_exe} is not supported!");
         }
 
         if let Err(error) = is_process_game_shaped(pid) {

@@ -21,6 +21,8 @@ impl WgpuState {
         width: u32,
         height: u32,
     ) -> Self {
+        tracing::debug!("WgpuState::new() called");
+        tracing::debug!("Requesting WGPU adapter");
         let power_pref = wgpu::PowerPreference::default();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -30,7 +32,9 @@ impl WgpuState {
             })
             .await
             .expect("Failed to find an appropriate adapter");
+        tracing::debug!("WGPU adapter acquired");
 
+        tracing::debug!("Requesting WGPU device and queue");
         let features = wgpu::Features::empty();
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -40,7 +44,9 @@ impl WgpuState {
             })
             .await
             .expect("Failed to create device");
+        tracing::debug!("WGPU device and queue created");
 
+        tracing::debug!("Configuring surface");
         let swapchain_capabilities = surface.get_capabilities(&adapter);
         let selected_format = wgpu::TextureFormat::Bgra8UnormSrgb;
         let swapchain_format = swapchain_capabilities
@@ -62,9 +68,13 @@ impl WgpuState {
         };
 
         surface.configure(&device, &surface_config);
+        tracing::debug!("Surface configured");
 
+        tracing::debug!("Creating egui renderer");
         let egui_renderer = EguiRenderer::new(&device, surface_config.format, None, 1, window);
+        tracing::debug!("Egui renderer created");
 
+        tracing::debug!("WgpuState::new() complete");
         Self {
             device,
             queue,

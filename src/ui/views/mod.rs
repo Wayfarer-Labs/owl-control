@@ -78,13 +78,17 @@ impl App {
         ui_update_unreliable_rx: tokio::sync::broadcast::Receiver<UiUpdateUnreliable>,
         tray_icon: TrayIconState,
     ) -> Result<Self> {
+        tracing::debug!("views::App::new() called");
+        tracing::debug!("Loading credentials and preferences");
         let (local_credentials, local_preferences) = {
             let configs = app_state.config.read().unwrap();
             (configs.credentials.clone(), configs.preferences.clone())
         };
 
         // If we're fully authenticated, submit a request to validate our existing API key
+        tracing::debug!("Checking if API key validation needed");
         if !local_credentials.api_key.is_empty() && local_credentials.has_consented {
+            tracing::debug!("Submitting API key validation request");
             app_state
                 .async_request_tx
                 .blocking_send(AsyncRequest::ValidateApiKey {
@@ -93,6 +97,8 @@ impl App {
                 .ok();
         }
 
+        tracing::debug!("Loading available audio cues");
+        tracing::debug!("views::App::new() complete");
         Ok(Self {
             app_state,
             ui_update_unreliable_rx,

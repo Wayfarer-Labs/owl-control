@@ -22,13 +22,6 @@ impl AssetData {
     }
 }
 
-// lazy static init of the bytes, will be initialized from png assets once at startup, then ref'd as bytes after
-// helper fn cuz i don't want to call bytes.get().unwrap() everytime
-pub fn get_owl_bytes() -> &'static [u8] {
-    static DATA: AssetData = AssetData::new();
-    DATA.get("owl.png")
-}
-
 pub fn get_logo_default_bytes() -> &'static [u8] {
     static DATA: AssetData = AssetData::new();
     DATA.get("owl-logo.png")
