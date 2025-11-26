@@ -9,7 +9,7 @@ use egui_wgpu::wgpu;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    api::{ApiClient, CompleteMultipartUploadChunk},
+    api::{ApiClient, ApiError, CompleteMultipartUploadChunk},
     output_types::Metadata,
     system::{hardware_id, hardware_specs},
 };
@@ -115,14 +115,41 @@ impl std::fmt::Display for LocalRecordingInfo {
 pub struct LocalRecordingPaused {
     pub info: LocalRecordingInfo,
     pub metadata: Option<Box<Metadata>>,
-    pub upload_progress: UploadProgressState,
+    upload_progress: UploadProgressState,
 }
 
 impl LocalRecordingPaused {
+    pub fn new(
+        info: LocalRecordingInfo,
+        metadata: Option<Box<Metadata>>,
+        upload_progress: UploadProgressState,
+    ) -> Self {
+        Self {
+            info,
+            metadata,
+            upload_progress,
+        }
+    }
+
     /// Cleans up upload artifacts (progress file and tar file).
-    pub fn cleanup_upload_artifacts(&self) {
+    pub fn cleanup_upload_artifacts(self) {
         std::fs::remove_file(self.upload_progress_path()).ok();
         self.upload_progress.cleanup_tar_file();
+    }
+
+    /// Get a reference to the upload progress state.
+    pub fn upload_progress(&self) -> &UploadProgressState {
+        &self.upload_progress
+    }
+
+    /// Mutate the upload progress state and save to file.
+    pub fn mutate_upload_progress<R>(
+        &mut self,
+        f: impl FnOnce(&mut UploadProgressState) -> R,
+    ) -> R {
+        let r = f(&mut self.upload_progress);
+        self.save_upload_progress().ok();
+        r
     }
 
     /// Save upload progress state to .upload-progress file.
@@ -131,18 +158,30 @@ impl LocalRecordingPaused {
             .save_to_file(&self.upload_progress_path())
     }
 
+    pub async fn abort_and_cleanup(
+        self,
+        api_client: &ApiClient,
+        api_token: &str,
+    ) -> Result<(), ApiError> {
+        let response = api_client
+            .abort_multipart_upload(api_token, &self.upload_progress.upload_id)
+            .await;
+        self.cleanup_upload_artifacts();
+        response.map(|_| ())
+    }
+
     /// Mark recording as uploaded, writing .uploaded marker file.
     /// Consumes self and returns Uploaded LocalRecording variant.
     pub fn mark_as_uploaded(self, game_control_id: String) -> std::io::Result<LocalRecording> {
+        let info = self.info.clone();
         self.cleanup_upload_artifacts();
         std::fs::write(
-            self.info
-                .folder_path
+            info.folder_path
                 .join(constants::filename::recording::UPLOADED),
             &game_control_id,
         )?;
         Ok(LocalRecording::Uploaded {
-            info: self.info,
+            info,
             game_control_id,
         })
     }
@@ -150,16 +189,17 @@ impl LocalRecordingPaused {
     /// Mark recording as server-invalid, writing .server_invalid marker.
     /// Consumes self and returns Invalid LocalRecording variant.
     pub fn mark_as_server_invalid(self, message: &str) -> std::io::Result<LocalRecording> {
+        let info = self.info.clone();
+        let metadata = self.metadata.clone();
         self.cleanup_upload_artifacts();
         std::fs::write(
-            self.info
-                .folder_path
+            info.folder_path
                 .join(constants::filename::recording::SERVER_INVALID),
             message,
         )?;
         Ok(LocalRecording::Invalid {
-            info: self.info,
-            metadata: self.metadata,
+            info,
+            metadata,
             error_reasons: message.lines().map(String::from).collect(),
             by_server: true,
         })
@@ -222,6 +262,7 @@ impl LocalRecording {
             metadata: None,
         })
     }
+
     /// Get the common info for any recording variant
     pub fn info(&self) -> &LocalRecordingInfo {
         match self {
@@ -229,6 +270,16 @@ impl LocalRecording {
             LocalRecording::Unuploaded { info, .. } => info,
             LocalRecording::Paused(paused) => &paused.info,
             LocalRecording::Uploaded { info, .. } => info,
+        }
+    }
+
+    /// Get the metadata for any recording variant
+    pub fn metadata(&self) -> Option<&Metadata> {
+        match self {
+            LocalRecording::Invalid { metadata, .. } => metadata.as_deref(),
+            LocalRecording::Unuploaded { metadata, .. } => metadata.as_deref(),
+            LocalRecording::Paused(paused) => paused.metadata.as_deref(),
+            LocalRecording::Uploaded { .. } => None,
         }
     }
 
@@ -241,27 +292,14 @@ impl LocalRecording {
         }
     }
 
-    /// Convenience accessor for metadata (only for Unuploaded and Paused variants)
-    #[allow(dead_code)]
-    pub fn metadata(&self) -> Option<&Metadata> {
-        match self {
-            LocalRecording::Unuploaded { metadata, .. } => metadata.as_deref(),
-            LocalRecording::Paused(paused) => paused.metadata.as_deref(),
-            _ => None,
-        }
-    }
-
     /// Deletes the recording folder and cleans up server state.
     /// For Paused uploads, aborts the multipart upload on the server.
     pub async fn delete(self, api_client: &ApiClient, api_token: &str) -> std::io::Result<()> {
         let folder_path = self.info().folder_path.clone();
 
         // For Paused variant, abort the upload on the server first
-        if let LocalRecording::Paused(ref paused) = self {
-            api_client
-                .abort_multipart_upload(api_token, &paused.upload_progress.upload_id)
-                .await
-                .ok(); // Best effort
+        if let LocalRecording::Paused(paused) = self {
+            paused.abort_and_cleanup(api_client, api_token).await.ok();
         }
 
         tokio::fs::remove_dir_all(&folder_path).await

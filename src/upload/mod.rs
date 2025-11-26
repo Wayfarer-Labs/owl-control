@@ -274,96 +274,82 @@ async fn upload_folder(
     file_progress: FileProgress,
 ) -> Result<UploadTarOutput, UploadFolderError> {
     // Validate paused recording (may convert to Unuploaded if expired/invalid)
-    let recording = validate_potentially_paused_recording(recording, &api_client, api_token).await;
-    let path = recording.info().folder_path.clone();
+    let info = recording.info().clone();
+    let metadata = recording.metadata().cloned().map(Box::new);
+    let paused = if let LocalRecording::Paused(paused) = recording
+        && let Some(paused) = validate_recording_paused(paused, &api_client, api_token).await
+    {
+        paused
+    } else {
+        // Fresh: validate, create tar, init upload
+        let path = info.folder_path.clone();
+        tracing::info!("Validating folder {}", path.display());
+        let validation = tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || validate_folder(&path)
+        })
+        .await?
+        .map_err(UploadFolderError::Validation)?;
 
-    // Branch on variant - two paths: resume existing or start fresh
-    let paused = match recording {
-        LocalRecording::Paused(paused) => {
-            // Resume: use existing tar and state directly (skip folder validation)
-            tracing::info!("Resuming upload from saved state");
-            tracing::info!(
-                "Using existing tar file: {}",
-                paused.upload_progress.tar_path.display()
-            );
+        tracing::info!("Creating tar file for {}", path.display());
+        let tar_path = create_tar_file(&path, &validation).await?;
 
-            paused
+        // Initialize new upload session
+        let file_size = std::fs::metadata(&tar_path)
+            .map(|m| m.len())
+            .map_err(|e| UploadFolderError::FailedToGetFileSize(tar_path.to_owned(), e))?;
+
+        fn get_filename(path: &Path) -> Result<String, UploadFolderError> {
+            Ok(path
+                .file_name()
+                .ok_or_else(|| UploadFolderError::MissingFilename(path.to_owned()))?
+                .to_string_lossy()
+                .as_ref()
+                .to_string())
         }
-        LocalRecording::Unuploaded { info, metadata } => {
-            // Fresh: validate, create tar, init upload
-            tracing::info!("Validating folder {}", path.display());
-            let validation = tokio::task::spawn_blocking({
-                let path = path.clone();
-                move || validate_folder(&path)
-            })
-            .await?
-            .map_err(UploadFolderError::Validation)?;
 
-            tracing::info!("Creating tar file for {}", path.display());
-            let tar_path = create_tar_file(&path, &validation).await?;
-
-            // Initialize new upload session
-            let file_size = std::fs::metadata(&tar_path)
-                .map(|m| m.len())
-                .map_err(|e| UploadFolderError::FailedToGetFileSize(tar_path.to_owned(), e))?;
-
-            fn get_filename(path: &Path) -> Result<String, UploadFolderError> {
-                Ok(path
+        let init_response = api_client
+            .init_multipart_upload(
+                api_token,
+                tar_path
                     .file_name()
-                    .ok_or_else(|| UploadFolderError::MissingFilename(path.to_owned()))?
+                    .ok_or_else(|| UploadTarError::FailedToGetTarFilename(tar_path.to_owned()))?
                     .to_string_lossy()
-                    .as_ref()
-                    .to_string())
-            }
-
-            let init_response = api_client
-                .init_multipart_upload(
-                    api_token,
-                    tar_path
-                        .file_name()
-                        .ok_or_else(|| UploadTarError::FailedToGetTarFilename(tar_path.to_owned()))?
-                        .to_string_lossy()
-                        .as_ref(),
-                    file_size,
-                    &crate::system::hardware_id::get()
-                        .map_err(|e| UploadTarError::FailedToGetHardwareId(e.to_string()))?,
-                    InitMultipartUploadArgs {
-                        tags: None,
-                        video_filename: Some(&get_filename(&validation.mp4_path)?),
-                        control_filename: Some(&get_filename(&validation.csv_path)?),
-                        video_duration_seconds: Some(validation.metadata.duration),
-                        video_width: Some(constants::RECORDING_WIDTH),
-                        video_height: Some(constants::RECORDING_HEIGHT),
-                        video_fps: Some(constants::FPS as f32),
-                        video_codec: None,
-                        chunk_size_bytes: if unreliable_connection {
-                            Some(5 * 1024 * 1024)
-                        } else {
-                            None
-                        },
-                        additional_metadata: serde_json::to_value(&validation.metadata)?,
-                        uploading_owl_control_version: Some(env!("CARGO_PKG_VERSION")),
+                    .as_ref(),
+                file_size,
+                &crate::system::hardware_id::get()
+                    .map_err(|e| UploadTarError::FailedToGetHardwareId(e.to_string()))?,
+                InitMultipartUploadArgs {
+                    tags: None,
+                    video_filename: Some(&get_filename(&validation.mp4_path)?),
+                    control_filename: Some(&get_filename(&validation.csv_path)?),
+                    video_duration_seconds: Some(validation.metadata.duration),
+                    video_width: Some(constants::RECORDING_WIDTH),
+                    video_height: Some(constants::RECORDING_HEIGHT),
+                    video_fps: Some(constants::FPS as f32),
+                    video_codec: None,
+                    chunk_size_bytes: if unreliable_connection {
+                        Some(5 * 1024 * 1024)
+                    } else {
+                        None
                     },
-                )
-                .await
-                .map_err(UploadFolderError::InitMultipartUpload)?;
+                    additional_metadata: serde_json::to_value(&validation.metadata)?,
+                    uploading_owl_control_version: Some(env!("CARGO_PKG_VERSION")),
+                },
+            )
+            .await
+            .map_err(UploadFolderError::InitMultipartUpload)?;
 
-            let upload_progress = UploadProgressState::new(
-                init_response.upload_id,
-                init_response.game_control_id,
-                tar_path.to_path_buf(),
-                init_response.total_chunks,
-                init_response.chunk_size_bytes,
-                init_response.expires_at,
-            );
+        let upload_progress = UploadProgressState::new(
+            init_response.upload_id,
+            init_response.game_control_id,
+            tar_path.to_path_buf(),
+            init_response.total_chunks,
+            init_response.chunk_size_bytes,
+            init_response.expires_at,
+        );
 
-            LocalRecordingPaused {
-                info,
-                metadata,
-                upload_progress,
-            }
-        }
-        _ => unreachable!("only Paused and Unuploaded recordings should reach upload_folder"),
+        LocalRecordingPaused::new(info, metadata, upload_progress)
     };
 
     Ok(upload_tar(
@@ -380,17 +366,13 @@ async fn upload_folder(
 /// Validates a potentially paused recording to determine if its upload can be resumed.
 /// For Paused recordings: checks if valid (tar exists, >15min remaining). If invalid, cleans up and returns as Unuploaded.
 /// For Unuploaded recordings: returns as-is.
-async fn validate_potentially_paused_recording(
-    recording: LocalRecording,
+async fn validate_recording_paused(
+    paused: LocalRecordingPaused,
     api_client: &ApiClient,
     api_token: &str,
-) -> LocalRecording {
-    let LocalRecording::Paused(paused) = recording else {
-        return recording;
-    };
-
+) -> Option<LocalRecordingPaused> {
     let path = &paused.info.folder_path;
-    let state = &paused.upload_progress;
+    let state = paused.upload_progress();
 
     // Per Philpax: We should avoid resuming uploads if there's less than 15 minutes remaining on the timer;
     // we've seen upload speeds of 0.3MB/s, which would take 11 minutes to upload 200MB. 15 minutes is safer.
@@ -420,20 +402,9 @@ async fn validate_potentially_paused_recording(
             );
         }
 
-        // abort the existing multipart request in the error case here, so that the server isn't left hanging
-        // maybe this will break if the state.is_expired() is true? not quite sure about what the server will respond with.
-        api_client
-            .abort_multipart_upload(api_token, &state.upload_id)
-            .await
-            .ok();
+        paused.abort_and_cleanup(api_client, api_token).await.ok();
 
-        // Clean up expired progress and tar file
-        paused.cleanup_upload_artifacts();
-
-        return LocalRecording::Unuploaded {
-            info: paused.info,
-            metadata: paused.metadata,
-        };
+        return None;
     }
 
     tracing::info!(
@@ -443,7 +414,7 @@ async fn validate_potentially_paused_recording(
         state.total_chunks,
         seconds_left
     );
-    LocalRecording::Paused(paused)
+    Some(paused)
 }
 
 #[derive(Debug)]
@@ -510,6 +481,9 @@ enum UploadTarError {
     FailedToGetTarFilename(PathBuf),
     FailedToGetHardwareId(String),
     Serde(serde_json::Error),
+    UploadSessionExpired {
+        upload_id: String,
+    },
     Api {
         api_request: &'static str,
         error: ApiError,
@@ -534,6 +508,9 @@ impl std::fmt::Display for UploadTarError {
             }
             UploadTarError::Serde(e) => {
                 write!(f, "Serde error: {e}")
+            }
+            UploadTarError::UploadSessionExpired { upload_id } => {
+                write!(f, "Upload session expired: {upload_id}")
             }
             UploadTarError::Api { api_request, error } => {
                 write!(f, "API error for {api_request}: {error}")
@@ -585,7 +562,18 @@ async fn upload_tar(
     pause_flag: Arc<std::sync::atomic::AtomicBool>,
     file_progress: FileProgress,
 ) -> Result<UploadTarOutput, UploadTarError> {
-    let tar_path = paused.upload_progress.tar_path.clone();
+    let (tar_path, chunk_size_bytes, total_chunks, upload_id, game_control_id, expires_at) = {
+        let progress = paused.upload_progress();
+        (
+            progress.tar_path.clone(),
+            progress.chunk_size_bytes,
+            progress.total_chunks,
+            progress.upload_id.clone(),
+            progress.game_control_id.clone(),
+            progress.expires_at,
+        )
+    };
+
     let file_size = std::fs::metadata(&tar_path).map(|m| m.len())?;
     unreliable_tx
         .send(UiUpdateUnreliable::UpdateUploadProgress(Some(
@@ -593,16 +581,10 @@ async fn upload_tar(
         )))
         .ok();
 
-    let mut chunk_etags = paused.upload_progress.chunk_etags.clone();
-    let start_chunk = paused.upload_progress.next_chunk_number();
+    let start_chunk = paused.upload_progress().next_chunk_number();
 
     tracing::info!(
-        "Starting upload of {} bytes in {} chunks of {} bytes each; upload_id={}, game_control_id={}",
-        file_size,
-        paused.upload_progress.total_chunks,
-        paused.upload_progress.chunk_size_bytes,
-        paused.upload_progress.upload_id,
-        paused.upload_progress.game_control_id
+        "Starting upload of {file_size} bytes in {total_chunks} chunks of {chunk_size_bytes} bytes each; upload_id={upload_id}, game_control_id={game_control_id}"
     );
 
     // Auto-abort guard: on unexpected drop, abort the upload and save progress for resume.
@@ -647,31 +629,23 @@ async fn upload_tar(
     impl Drop for AbortUploadOnDrop {
         fn drop(&mut self) {
             // Only runs if paused recording wasn't taken (unexpected drop)
-            if let Some(ref paused) = self.paused {
-                tracing::info!(
-                    "Aborting upload of {} (guard drop / unexpected failure)",
-                    paused.upload_progress.upload_id
-                );
+            let Some(paused) = self.paused.take() else {
+                return;
+            };
+            tracing::info!(
+                "Aborting upload of {} (guard drop / unexpected failure)",
+                paused.upload_progress().upload_id
+            );
 
-                paused.cleanup_upload_artifacts();
-
-                // Abort server upload
-                let api_client = self.api_client.clone();
-                let api_token = self.api_token.clone();
-                let upload_id = paused.upload_progress.upload_id.clone();
-                tokio::spawn(async move {
-                    api_client
-                        .abort_multipart_upload(&api_token, &upload_id)
-                        .await
-                        .ok();
-                });
-            }
+            // Abort server upload
+            let api_client = self.api_client.clone();
+            let api_token = self.api_token.clone();
+            tokio::spawn(async move {
+                paused.abort_and_cleanup(&api_client, &api_token).await.ok();
+            });
         }
     }
 
-    let chunk_size_bytes = paused.upload_progress.chunk_size_bytes;
-    let total_chunks = paused.upload_progress.total_chunks;
-    let upload_id = paused.upload_progress.upload_id.clone();
     let mut guard = AbortUploadOnDrop::new(api_client.clone(), api_token.to_string(), paused);
 
     {
@@ -722,13 +696,10 @@ async fn upload_tar(
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-            if now >= guard.paused().upload_progress.expires_at {
-                return Err(UploadTarError::Io(std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    "Upload session has expired",
-                )));
+            if now >= expires_at {
+                return Err(UploadTarError::UploadSessionExpired { upload_id });
             }
-            let seconds_left = guard.paused().upload_progress.expires_at as i64 - now as i64;
+            let seconds_left = expires_at as i64 - now as i64;
             if seconds_left < 60 && chunk_number % 10 == 0 {
                 tracing::warn!("Upload session expires in {} seconds!", seconds_left);
             }
@@ -775,13 +746,12 @@ async fn upload_tar(
                     Ok(etag) => {
                         progress_sender.lock().unwrap().send();
 
-                        chunk_etags.push(CompleteMultipartUploadChunk { chunk_number, etag });
-
                         // Update progress state with new chunk and save to file
-                        guard.paused_mut().upload_progress.chunk_etags = chunk_etags.clone();
-                        if let Err(e) = guard.paused().save_upload_progress() {
-                            tracing::error!("Failed to save upload progress: {:?}", e);
-                        }
+                        guard.paused_mut().mutate_upload_progress(|progress| {
+                            progress
+                                .chunk_etags
+                                .push(CompleteMultipartUploadChunk { chunk_number, etag });
+                        });
 
                         tracing::info!(
                             "Uploaded chunk {chunk_number}/{total_chunks} for upload_id {upload_id}"
@@ -817,7 +787,11 @@ async fn upload_tar(
         }
     }
     let completion_result = match api_client
-        .complete_multipart_upload(api_token, &upload_id, &chunk_etags)
+        .complete_multipart_upload(
+            api_token,
+            &upload_id,
+            &guard.paused().upload_progress().chunk_etags,
+        )
         .await
     {
         Ok(result) => result,
