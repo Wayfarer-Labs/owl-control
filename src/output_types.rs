@@ -32,6 +32,8 @@ pub struct Metadata {
     pub recorder: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub recorder_extra: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub average_fps: Option<f64>,
 }
 
 #[derive(Debug)]

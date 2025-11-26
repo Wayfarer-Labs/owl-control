@@ -652,6 +652,7 @@ fn recording_notice(ui: &mut Ui, app_state: &AppState) {
                     RecordingStatus::Recording {
                         start_time,
                         game_exe,
+                        current_fps,
                     } => {
                         let mut job = LayoutJob::default();
                         job.append(
@@ -673,6 +674,17 @@ fn recording_notice(ui: &mut Ui, app_state: &AppState) {
                                 ..Default::default()
                             },
                         );
+                        if let Some(fps) = current_fps {
+                            job.append(
+                                &format!(" @ {:.1} FPS", fps),
+                                0.0,
+                                TextFormat {
+                                    font_id: font_id.clone(),
+                                    color,
+                                    ..Default::default()
+                                },
+                            );
+                        }
                         job.append(
                             &format!(
                                 " ({})",

@@ -34,6 +34,7 @@ sysinfo = "0.32.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
+libobs = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
 libobs-wrapper = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470", features = [
     "logging_crash_handler",
     "enable_runtime",
@@ -62,6 +63,7 @@ uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sysinfo.workspace = true
+libobs.workspace = true
 libobs-wrapper.workspace = true
 libobs-sources.workspace = true
 libobs-window-helper.workspace = true

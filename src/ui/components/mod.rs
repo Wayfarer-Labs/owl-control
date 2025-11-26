@@ -45,7 +45,10 @@ pub fn foregrounded_game(
         );
         if !fg.is_recordable() {
             job.append(
-                "(unsupported)",
+                &format!(
+                    "(unsupported: {})",
+                    fg.unsupported_reason.as_deref().unwrap_or("Unknown")
+                ),
                 4.0,
                 TextFormat {
                     font_id: body_font.clone(),
@@ -67,8 +70,5 @@ pub fn foregrounded_game(
     }
     job.wrap = TextWrapping::no_max_width();
 
-    let r = ui.add(Label::new(job).wrap_mode(TextWrapMode::Extend));
-    if let Some(reason) = foregrounded_game.and_then(|fg| fg.unsupported_reason.as_ref()) {
-        r.on_hover_text(reason);
-    }
+    ui.add(Label::new(job).wrap_mode(TextWrapMode::Extend));
 }

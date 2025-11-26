@@ -39,6 +39,9 @@ pub enum Event {
     },
 }
 impl Event {
+    /// Slightly unintuitive, but None being returned does not mean key was not pressed,
+    /// just means that another event that is not exactly a key being pressed was recorded.
+    /// e.g. unpressed key, mouse movement, etc.
     pub fn key_press_keycode(&self) -> Option<u16> {
         match self {
             Event::KeyPress {
