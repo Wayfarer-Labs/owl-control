@@ -17,6 +17,10 @@ pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
 
+/// Minimum average FPS. We allow some leeway below 60 FPS, but we want to make sure
+/// we aren't getting 30-40 FPS data.
+pub const MIN_AVERAGE_FPS: f64 = FPS as f64 * 0.9;
+
 /// GitHub organization
 pub const GH_ORG: &str = "Wayfarer-Labs";
 /// GitHub repository

@@ -208,12 +208,14 @@ impl LocalRecording {
     /// Write metadata to disk and validate the recording.
     /// Creates a [`constants::filename::recording::INVALID`] file if validation fails.
     #[allow(clippy::too_many_arguments)]
+    // TODO: refactor all of these arguments into a single struct
     pub(crate) async fn write_metadata_and_validate(
         recording_location: PathBuf,
         game_exe: String,
         game_resolution: (u32, u32),
         start_instant: Instant,
         start_time: SystemTime,
+        average_fps: Option<f64>,
         window_name: Option<String>,
         adapter_infos: &[wgpu::AdapterInfo],
         gamepads: HashMap<input_capture::GamepadId, input_capture::GamepadMetadata>,
@@ -272,6 +274,7 @@ impl LocalRecording {
             recorder: Some(recorder_id.to_string()),
             recorder_extra,
             window_name,
+            average_fps,
         };
 
         // Write metadata to disk

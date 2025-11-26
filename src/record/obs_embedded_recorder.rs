@@ -42,7 +42,10 @@ use libobs_wrapper::{
 use crate::{
     config::EncoderSettings,
     output_types::InputEventType,
-    record::{input_recorder::InputEventStream, recorder::VideoRecorder},
+    record::{
+        input_recorder::InputEventStream,
+        recorder::{PollUpdate, VideoRecorder},
+    },
 };
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
@@ -149,8 +152,11 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         Ok(result)
     }
 
-    async fn poll(&mut self) {
+    async fn poll(&mut self) -> PollUpdate {
         self.obs_tx.send(RecorderMessage::Poll).await.ok();
+        PollUpdate {
+            active_fps: Some(unsafe { libobs::obs_get_active_fps() }),
+        }
     }
 
     fn is_window_capturable(&self, hwnd: HWND) -> bool {

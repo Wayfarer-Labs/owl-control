@@ -44,9 +44,13 @@ pub trait VideoRecorder {
     /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
     /// Called periodically for any work the recorder might need to do
-    async fn poll(&mut self);
+    async fn poll(&mut self) -> PollUpdate;
     /// Returns true if the window is capturable by the recorder
     fn is_window_capturable(&self, hwnd: HWND) -> bool;
+}
+#[derive(Default)]
+pub struct PollUpdate {
+    pub active_fps: Option<f64>,
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
@@ -218,6 +222,7 @@ impl Recorder {
         *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
             start_time: Instant::now(),
             game_exe,
+            current_fps: None,
         };
         Ok(())
     }
@@ -259,7 +264,16 @@ impl Recorder {
     }
 
     pub async fn poll(&mut self) {
-        self.video_recorder.poll().await;
+        let update = self.video_recorder.poll().await;
+        if let Some(fps) = update.active_fps {
+            let mut state = self.app_state.state.write().unwrap();
+            if let RecordingStatus::Recording { current_fps, .. } = &mut *state {
+                *current_fps = Some(fps);
+            }
+            if let Some(recording) = self.recording.as_mut() {
+                recording.update_fps(fps);
+            }
+        }
     }
 
     pub fn is_window_capturable(&self, hwnd: HWND) -> bool {
