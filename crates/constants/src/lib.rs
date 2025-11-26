@@ -16,6 +16,8 @@ pub const MIN_FOOTAGE: Duration = Duration::from_secs(20);
 pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
+/// Maximum time to wait for OBS to hook into the application before stopping recording
+pub const HOOK_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// GitHub organization
 pub const GH_ORG: &str = "Wayfarer-Labs";

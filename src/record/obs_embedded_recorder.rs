@@ -156,6 +156,19 @@ impl VideoRecorder for ObsEmbeddedRecorder {
     fn is_window_capturable(&self, hwnd: HWND) -> bool {
         find_game_capture_window(None, hwnd).is_ok()
     }
+
+    async fn check_hook_timeout(&mut self) -> bool {
+        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+        if self
+            .obs_tx
+            .send(RecorderMessage::CheckHookTimeout { result_tx })
+            .await
+            .is_err()
+        {
+            return false;
+        }
+        result_rx.await.unwrap_or(false)
+    }
 }
 
 enum RecorderMessage {
@@ -167,6 +180,9 @@ enum RecorderMessage {
         result_tx: tokio::sync::oneshot::Sender<Result<serde_json::Value>>,
     },
     Poll,
+    CheckHookTimeout {
+        result_tx: tokio::sync::oneshot::Sender<bool>,
+    },
 }
 
 struct RecordingRequest {
@@ -243,6 +259,9 @@ fn recorder_thread(
                     tracing::error!("Failed to poll OBS embedded recorder: {e}");
                 }
             }
+            RecorderMessage::CheckHookTimeout { result_tx } => {
+                result_tx.send(state.check_hook_timeout()).ok();
+            }
         }
     }
 }
@@ -257,6 +276,7 @@ struct RecorderState {
     last_video_encoder_type: Option<VideoEncoderType>,
     last_application: Option<(String, SendableComp<HWND>)>,
     is_recording: bool,
+    recording_start_time: Option<Instant>,
 
     // Store video encoders by type to reuse them
     video_encoders: HashMap<VideoEncoderType, Arc<ObsVideoEncoder>>,
@@ -334,6 +354,7 @@ impl RecorderState {
                 last_video_encoder_type: None,
                 last_application: None,
                 is_recording: false,
+                recording_start_time: None,
                 video_encoders: HashMap::new(),
                 audio_encoder,
                 obs_context,
@@ -515,6 +536,7 @@ impl RecorderState {
         self.source = Some(source);
         self.last_application = Some((request.game_exe.clone(), request.hwnd));
         self.is_recording = true;
+        self.recording_start_time = Some(Instant::now());
 
         Ok(())
     }
@@ -527,6 +549,7 @@ impl RecorderState {
             self.output.stop().wrap_err("Failed to stop OBS output")?;
             tracing::debug!("OBS recording stopped");
             self.is_recording = false;
+            self.recording_start_time = None;
         } else {
             tracing::warn!("No active recording to stop");
         }
@@ -583,6 +606,29 @@ impl RecorderState {
         }
 
         Ok(())
+    }
+
+    fn check_hook_timeout(&mut self) -> bool {
+        if !self.is_recording {
+            return false;
+        }
+
+        // If we're already hooked, no timeout
+        if self.was_hooked.load(Ordering::Relaxed) {
+            return false;
+        }
+
+        // Check if we've exceeded the timeout
+        if let Some(start_time) = self.recording_start_time
+            && start_time.elapsed() > constants::HOOK_TIMEOUT
+        {
+            // it is very important we reset the last_application, otherwise on the next recording restart
+            // it will assume that the application was previously successfully hooked, skipping this hook check entirely
+            self.last_application = None;
+            true
+        } else {
+            false
+        }
     }
 }
 

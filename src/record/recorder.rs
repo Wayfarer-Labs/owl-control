@@ -47,6 +47,8 @@ pub trait VideoRecorder {
     async fn poll(&mut self);
     /// Returns true if the window is capturable by the recorder
     fn is_window_capturable(&self, hwnd: HWND) -> bool;
+    /// Returns true if the recording has failed to hook after the timeout period
+    async fn check_hook_timeout(&mut self) -> bool;
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
@@ -264,6 +266,10 @@ impl Recorder {
 
     pub fn is_window_capturable(&self, hwnd: HWND) -> bool {
         self.video_recorder.is_window_capturable(hwnd)
+    }
+
+    pub async fn check_hook_timeout(&mut self) -> bool {
+        self.video_recorder.check_hook_timeout().await
     }
 }
 
