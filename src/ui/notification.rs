@@ -1,5 +1,8 @@
 use windows::{
-    Win32::UI::WindowsAndMessaging::{GetForegroundWindow, MB_ICONERROR, MB_ICONWARNING, MB_SETFOREGROUND, MB_TOPMOST, MessageBoxW, SetForegroundWindow},
+    Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, MB_ICONERROR, MB_ICONWARNING, MB_SETFOREGROUND, MB_TOPMOST,
+        MessageBoxW, SetForegroundWindow,
+    },
     core::HSTRING,
 };
 
