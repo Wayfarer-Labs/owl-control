@@ -194,7 +194,9 @@ async fn run(
     let recordings_to_upload: Vec<_> = LocalRecording::scan_directory(recording_location)
         .into_iter()
         .filter_map(|rec| match rec {
-            LocalRecording::Unuploaded { info, .. } => Some(info),
+            LocalRecording::Paused { info, .. } | LocalRecording::Unuploaded { info, .. } => {
+                Some(info)
+            }
             _ => None,
         })
         .collect();
@@ -277,6 +279,27 @@ async fn run(
                 .ok();
         }
         last_upload_time = std::time::Instant::now();
+    }
+
+    // at the end of uploading all the files clear any remaining .tar files
+    // this should be unnecessary in most cases, but covers the edge case where a paused
+    // recording folder is removed and their .tar file is never cleaned up
+    // in addition, instantiating an api_client just to kill the waiting api endpoint
+    // when a paused recording is deleted in the app is too complicated and doesn't
+    // cover the edge case where it is directly deleted through file explorer,
+    // so it is probably fine to just let the api endpoint timeout
+    if let Ok(entries) = std::fs::read_dir(".") {
+        for entry in entries.flatten() {
+            if let Ok(file_name) = entry.file_name().into_string()
+                && file_name.ends_with(".tar")
+            {
+                if let Err(e) = std::fs::remove_file(&file_name) {
+                    tracing::warn!("Failed to clean up tar file {}: {:?}", file_name, e);
+                } else {
+                    tracing::info!("Cleaned up tar file: {}", file_name);
+                }
+            }
+        }
     }
 
     Ok(stats)

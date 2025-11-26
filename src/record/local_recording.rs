@@ -32,6 +32,10 @@ pub enum LocalRecording {
         info: LocalRecordingInfo,
         metadata: Option<Box<Metadata>>,
     },
+    Paused {
+        info: LocalRecordingInfo,
+        metadata: Option<Box<Metadata>>,
+    },
     Uploaded {
         info: LocalRecordingInfo,
         #[allow(dead_code)]
@@ -71,6 +75,7 @@ impl LocalRecording {
         match self {
             LocalRecording::Invalid { info, .. } => info,
             LocalRecording::Unuploaded { info, .. } => info,
+            LocalRecording::Paused { info, .. } => info,
             LocalRecording::Uploaded { info, .. } => info,
         }
     }
@@ -84,11 +89,12 @@ impl LocalRecording {
         }
     }
 
-    /// Convenience accessor for metadata (only for Unuploaded variant)
+    /// Convenience accessor for metadata (only for Unuploaded and Paused variants)
     #[allow(dead_code)]
     pub fn metadata(&self) -> Option<&Metadata> {
         match self {
             LocalRecording::Unuploaded { metadata, .. } => metadata.as_deref(),
+            LocalRecording::Paused { metadata, .. } => metadata.as_deref(),
             _ => None,
         }
     }
@@ -102,6 +108,7 @@ impl LocalRecording {
         let invalid_file_path = path.join(constants::filename::recording::INVALID);
         let server_invalid_file_path = path.join(constants::filename::recording::SERVER_INVALID);
         let uploaded_file_path = path.join(constants::filename::recording::UPLOADED);
+        let upload_progress_file_path = path.join(constants::filename::recording::UPLOAD_PROGRESS);
         let metadata_path = path.join(constants::filename::recording::METADATA);
 
         // Get the folder name
@@ -170,6 +177,9 @@ impl LocalRecording {
                     error_reasons,
                     by_server: true,
                 })
+            } else if upload_progress_file_path.is_file() {
+                // Upload was paused - there's a .upload-progress file
+                Some(LocalRecording::Paused { info, metadata })
             } else {
                 Some(LocalRecording::Unuploaded { info, metadata })
             }
