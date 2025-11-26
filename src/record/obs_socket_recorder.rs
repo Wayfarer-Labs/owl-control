@@ -303,6 +303,11 @@ impl VideoRecorder for ObsSocketRecorder {
         // Not true in the slightest, but we don't have a better way of checking right now
         true
     }
+
+    async fn check_hook_timeout(&mut self) -> bool {
+        // Socket recorder doesn't support hook detection
+        false
+    }
 }
 impl Drop for ObsSocketRecorder {
     fn drop(&mut self) {
