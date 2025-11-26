@@ -766,9 +766,12 @@ fn get_foregrounded_game(
 
     let supported_game = supported_games.get(&exe_without_ext.clone());
     let unsupported_reason = if supported_game.is_none() {
-        Some("This game is not supported.".to_string())
+        Some("Not on the games list.".to_string())
     } else if !recorder.is_window_capturable(hwnd) {
-        Some("The recorder cannot capture this window.".to_string())
+        Some(
+            "Recorder cannot capture this window. Try running OWL Control in admin mode."
+                .to_string(),
+        )
     } else {
         None
     };
