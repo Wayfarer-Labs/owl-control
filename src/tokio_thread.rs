@@ -392,6 +392,65 @@ async fn main(
                             }
                         });
                     }
+                    AsyncRequest::DeleteAllUploadedLocalRecordings => {
+                        tokio::spawn({
+                            let app_state = app_state.clone();
+                            async move {
+                                // Get current list of local recordings
+                                let local_recordings = tokio::task::spawn_blocking({
+                                    let recording_location = recording_location.clone();
+                                    move || LocalRecording::scan_directory(&recording_location)
+                                }).await.unwrap_or_default();
+
+                                // Filter only uploaded recordings and collect paths to delete
+                                let uploaded_folders_to_delete: Vec<_> = local_recordings.iter()
+                                    .filter_map(|r| {
+                                        match r {
+                                            LocalRecording::Uploaded { info, .. } => {
+                                                Some((info.folder_name.clone(), info.folder_path.clone()))
+                                            }
+                                            _ => None,
+                                        }
+                                    })
+                                    .collect();
+
+                                if uploaded_folders_to_delete.is_empty() {
+                                    tracing::info!("No uploaded recordings to delete");
+                                    return;
+                                }
+
+                                let total_count = uploaded_folders_to_delete.len();
+                                tracing::info!("Deleting {} uploaded recordings", total_count);
+
+                                // Delete all uploaded recording folders
+                                let mut errors = vec![];
+                                for (folder_name, folder_path) in uploaded_folders_to_delete.iter() {
+                                    if let Err(e) = tokio::fs::remove_dir_all(folder_path).await {
+                                        tracing::error!(
+                                            "Failed to delete uploaded recording folder {}: {:?}",
+                                            folder_path.display(),
+                                            e
+                                        );
+                                        errors.push(folder_name.clone());
+                                    } else {
+                                        tracing::info!(
+                                            "Deleted uploaded recording folder: {}",
+                                            folder_path.display()
+                                        );
+                                    }
+                                }
+
+                                if errors.is_empty() {
+                                    tracing::info!("Successfully deleted all {} uploaded recordings", total_count);
+                                } else {
+                                    tracing::warn!("Failed to delete {} recordings: {:?}", errors.len(), errors);
+                                }
+
+
+                                app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
+                            }
+                        });
+                    }
                     AsyncRequest::DeleteRecording(path) => {
                         if let Err(e) = tokio::fs::remove_dir_all(&path).await {
                             tracing::error!(e=?e, "Failed to delete recording folder {}: {:?}", path.display(), e);
