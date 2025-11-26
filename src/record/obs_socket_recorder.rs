@@ -19,7 +19,10 @@ use windows::Win32::Foundation::HWND;
 
 use crate::{
     config::EncoderSettings,
-    record::{input_recorder::InputEventStream, recorder::VideoRecorder},
+    record::{
+        input_recorder::InputEventStream,
+        recorder::{PollUpdate, VideoRecorder},
+    },
 };
 
 const OWL_PROFILE_NAME: &str = "owl_data_recorder";
@@ -297,7 +300,9 @@ impl VideoRecorder for ObsSocketRecorder {
         Ok(serde_json::Value::Null)
     }
 
-    async fn poll(&mut self) {}
+    async fn poll(&mut self) -> PollUpdate {
+        PollUpdate::default()
+    }
 
     fn is_window_capturable(&self, _hwnd: HWND) -> bool {
         // Not true in the slightest, but we don't have a better way of checking right now

@@ -4315,6 +4315,7 @@ dependencies = [
  "git-version",
  "image",
  "input-capture",
+ "libobs",
  "libobs-sources",
  "libobs-window-helper",
  "libobs-wrapper",
