@@ -135,6 +135,10 @@ impl LocalRecordingPaused {
     pub fn cleanup_upload_artifacts(self) {
         std::fs::remove_file(self.upload_progress_path()).ok();
         self.upload_progress.cleanup_tar_file();
+        tracing::info!(
+            "Cleaned up upload artifacts for upload_id={}",
+            self.upload_progress.upload_id
+        );
     }
 
     /// Get a reference to the upload progress state.
@@ -166,6 +170,10 @@ impl LocalRecordingPaused {
         let response = api_client
             .abort_multipart_upload(api_token, &self.upload_progress.upload_id)
             .await;
+        tracing::info!(
+            "Aborted multipart upload for upload_id={}",
+            self.upload_progress.upload_id
+        );
         self.cleanup_upload_artifacts();
         response.map(|_| ())
     }
@@ -180,6 +188,11 @@ impl LocalRecordingPaused {
                 .join(constants::filename::recording::UPLOADED),
             &game_control_id,
         )?;
+        tracing::info!(
+            "Marked recording as uploaded: game_control_id={}, folder_path={}",
+            game_control_id,
+            info.folder_path.display()
+        );
         Ok(LocalRecording::Uploaded {
             info,
             game_control_id,
@@ -197,6 +210,11 @@ impl LocalRecordingPaused {
                 .join(constants::filename::recording::SERVER_INVALID),
             message,
         )?;
+        tracing::info!(
+            "Marked recording as server-invalid: message={}, folder_path={}",
+            message,
+            info.folder_path.display()
+        );
         Ok(LocalRecording::Invalid {
             info,
             metadata,
