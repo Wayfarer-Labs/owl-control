@@ -9,7 +9,7 @@ use crate::{
     app_state::{AppState, AsyncRequest},
     config::Preferences,
     output_types::Metadata,
-    record::{LocalRecording, LocalRecordingInfo},
+    record::{LocalRecording, LocalRecordingInfo, LocalRecordingPaused},
     ui::{util, views::main::FOOTER_HEIGHT},
     upload,
 };
@@ -416,30 +416,30 @@ pub fn view(
     // Upload Button
     ui.add_space(5.0);
     if upload_manager.current_upload_progress.is_some() {
-        // Show Cancel button when uploading
+        // Show Pause button when uploading
         ui.add_enabled_ui(
             !app_state
-                .upload_cancel_flag
+                .upload_pause_flag
                 .load(std::sync::atomic::Ordering::Relaxed),
             |ui| {
                 let response = ui
                     .add_sized(
                         vec2(ui.available_width(), 32.0),
                         Button::new(
-                            RichText::new("Cancel Upload")
+                            RichText::new("Pause Upload")
                                 .size(12.0)
                                 .color(Color32::WHITE),
                         )
                         .fill(Color32::from_rgb(180, 60, 60)),
                     )
                     .on_hover_text(concat!(
-                        "Cancel the current upload. ",
-                        "This upload will be restarted the next time you click the Upload button."
+                        "Pause the uploading process. ",
+                        "The next upload will resume where the current one left off."
                     ));
                 if response.clicked() {
                     app_state
                         .async_request_tx
-                        .blocking_send(AsyncRequest::CancelUpload)
+                        .blocking_send(AsyncRequest::PauseUpload)
                         .ok();
                 }
             },
@@ -498,7 +498,10 @@ fn upload_stats_view(ui: &mut Ui, recordings: &Recordings) {
                     last_upload = Some(recording.created_at);
                 }
             }
-            Recording::Local(LocalRecording::Unuploaded { info, metadata }) => {
+            Recording::Local(
+                LocalRecording::Unuploaded { info, metadata }
+                | LocalRecording::Paused(LocalRecordingPaused { metadata, info, .. }),
+            ) => {
                 unuploaded_duration += metadata.as_ref().map(|m| m.duration).unwrap_or(0.0);
                 unuploaded_count += 1;
                 unuploaded_size += info.folder_size;
@@ -922,6 +925,60 @@ fn render_recording_entry(
                             RichText::new("(pending upload)")
                                 .size(font_size - 1.0)
                                 .color(Color32::from_rgb(200, 180, 100))
+                                .italics(),
+                        );
+
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            // Timestamp if available
+                            if let Some(timestamp) = info.timestamp {
+                                datetime(
+                                    ui,
+                                    chrono::DateTime::<chrono::Utc>::from(timestamp),
+                                    font_size,
+                                );
+                            }
+
+                            if delete_button(ui, font_size).clicked() {
+                                // Show confirmation dialog
+                                *pending_delete_recording =
+                                    Some((info.folder_path.clone(), info.folder_name.clone()));
+                            }
+
+                            filesize(ui, info.folder_size as f64 / 1024.0 / 1024.0, font_size);
+
+                            if let Some(md) = metadata.as_deref() {
+                                duration(ui, md.duration, font_size);
+                            }
+                        });
+                    });
+                });
+            }
+            LocalRecording::Paused(LocalRecordingPaused { metadata, info, .. }) => {
+                // Paused upload entry
+                frame(ui, Color32::from_rgb(70, 60, 90), |ui| {
+                    ui.horizontal(|ui| {
+                        // Paused indicator
+                        ui.label(
+                            RichText::new("⏸")
+                                .size(font_size)
+                                .color(Color32::from_rgb(150, 150, 255)),
+                        );
+
+                        // Folder name (clickable to open folder)
+                        local_recording_link(
+                            ui,
+                            info,
+                            metadata.as_deref(),
+                            &app_state.async_request_tx,
+                            font_size,
+                            Color32::from_rgb(200, 200, 255),
+                        );
+
+                        // "Upload paused" label
+                        ui.label(
+                            RichText::new("(upload paused)")
+                                .size(font_size - 1.0)
+                                .color(Color32::from_rgb(170, 170, 220))
                                 .italics(),
                         );
 

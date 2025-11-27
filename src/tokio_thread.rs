@@ -201,9 +201,9 @@ async fn main(
                     AsyncRequest::UploadData => {
                         tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
                     }
-                    AsyncRequest::CancelUpload => {
-                        app_state.upload_cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
-                        tracing::info!("Upload cancellation requested");
+                    AsyncRequest::PauseUpload => {
+                        app_state.upload_pause_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::info!("Upload pause requested");
                     }
                     AsyncRequest::OpenDataDump => {
                         if !recording_location.exists() {
@@ -268,8 +268,14 @@ async fn main(
                         });
                     }
                     AsyncRequest::DeleteAllInvalidRecordings => {
+                        let Some((api_key, _)) = valid_api_key_and_user_id.clone() else {
+                            tracing::error!("Cannot delete invalid recordings without valid API key");
+                            continue;
+                        };
+
                         tokio::spawn({
                             let app_state = app_state.clone();
+                            let api_client = api_client.clone();
                             async move {
                                 // Get current list of local recordings
                                 let local_recordings = tokio::task::spawn_blocking({
@@ -277,41 +283,29 @@ async fn main(
                                     move || LocalRecording::scan_directory(&recording_location)
                                 }).await.unwrap_or_default();
 
-                                // Filter only invalid recordings and collect paths to delete
-                                let invalid_folders_to_delete: Vec<_> = local_recordings.iter()
-                                    .filter_map(|r| {
-                                        match r {
-                                            LocalRecording::Invalid { info, .. } => {
-                                                Some((info.folder_name.clone(), info.folder_path.clone()))
-                                            }
-                                            _ => None,
-                                        }
-                                    })
+                                // Filter only invalid recordings
+                                let invalid_recordings: Vec<_> = local_recordings
+                                    .into_iter()
+                                    .filter(|r| matches!(r, LocalRecording::Invalid { .. }))
                                     .collect();
 
-                                if invalid_folders_to_delete.is_empty() {
+                                if invalid_recordings.is_empty() {
                                     tracing::info!("No invalid recordings to delete");
                                     return;
                                 }
 
-                                let total_count = invalid_folders_to_delete.len();
+                                let total_count = invalid_recordings.len();
                                 tracing::info!("Deleting {} invalid recordings", total_count);
 
                                 // Delete all invalid recording folders
                                 let mut errors = vec![];
-                                for (folder_name, folder_path) in invalid_folders_to_delete.iter() {
-                                    if let Err(e) = tokio::fs::remove_dir_all(folder_path).await {
-                                        tracing::error!(
-                                            "Failed to delete invalid recording folder {}: {:?}",
-                                            folder_path.display(),
-                                            e
-                                        );
-                                        errors.push(folder_name.clone());
+                                for recording in invalid_recordings {
+                                    let info = recording.info().clone();
+                                    if let Err(e) = recording.delete(&api_client, &api_key).await {
+                                        tracing::error!("Failed to delete {}: {:?}", info, e);
+                                        errors.push(info.folder_name);
                                     } else {
-                                        tracing::info!(
-                                            "Deleted invalid recording folder: {}",
-                                            folder_path.display()
-                                        );
+                                        tracing::info!("Deleted invalid recording: {}", info);
                                     }
                                 }
 
@@ -327,10 +321,20 @@ async fn main(
                         });
                     }
                     AsyncRequest::DeleteRecording(path) => {
-                        if let Err(e) = tokio::fs::remove_dir_all(&path).await {
-                            tracing::error!(e=?e, "Failed to delete recording folder {}: {:?}", path.display(), e);
+                        let Some((api_key, _)) = valid_api_key_and_user_id.as_ref() else {
+                            tracing::error!("Cannot delete recording without valid API key: {}", path.display());
+                            app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
+                            continue;
+                        };
+
+                        if let Some(recording) = LocalRecording::from_path(&path) {
+                            if let Err(e) = recording.delete(&api_client, api_key).await {
+                                tracing::error!(e=?e, "Failed to delete recording: {}", path.display());
+                            } else {
+                                tracing::info!("Deleted recording: {}", path.display());
+                            }
                         } else {
-                            tracing::info!("Deleted recording folder: {}", path.display());
+                            tracing::error!("Cannot delete non-recording folder: {}", path.display());
                         }
 
                         app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
