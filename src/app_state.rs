@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use constants::{encoding::VideoEncoderType, unsupported_games::UnsupportedGames};
+use constants::{encoding::VideoEncoderType, supported_games::SupportedGames};
 use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
@@ -18,7 +18,7 @@ pub struct AppState {
     pub ui_update_tx: UiUpdateSender,
     pub ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
-    pub upload_cancel_flag: Arc<AtomicBool>,
+    pub upload_pause_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
     pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
@@ -39,7 +39,7 @@ impl AppState {
             ui_update_tx,
             ui_update_unreliable_tx,
             adapter_infos,
-            upload_cancel_flag: Arc::new(AtomicBool::new(false)),
+            upload_pause_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
             last_foregrounded_game: RwLock::new(None),
@@ -60,12 +60,17 @@ impl ForegroundedGame {
     }
 }
 
+/// This is meant to be a read-only reflection of the current recording state that is
+/// only updated by the recorder.rs object (not tokio_thread RecordingState), and read by UI and overlay threads.
+/// We want the RecordingStatus to reflect ground truth, and its also more accurate to get ::Recording info
+/// directly from the recorder object. Desync between RecordingStatus and RecordingState shouldn't occur either way.
 #[derive(Clone, PartialEq)]
 pub enum RecordingStatus {
     Stopped,
     Recording {
         start_time: Instant,
         game_exe: String,
+        current_fps: Option<f64>,
     },
     Paused,
 }
@@ -114,10 +119,10 @@ pub struct GitHubRelease {
 pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
     UploadData,
-    CancelUpload,
+    PauseUpload,
     OpenDataDump,
     OpenLog,
-    UpdateUnsupportedGames(UnsupportedGames),
+    UpdateSupportedGames(SupportedGames),
     LoadUploadStats,
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,
