@@ -42,9 +42,6 @@ pub struct OverlayApp {
 
     /// track the last window content size to avoid unnecessary resizing
     last_content_size: Option<Vec2>,
-
-    /// cached play-time display text
-    play_time_text: Option<String>,
 }
 impl OverlayApp {
     pub fn new(app_state: Arc<AppState>, stopped_rx: tokio::sync::broadcast::Receiver<()>) -> Self {
@@ -69,7 +66,6 @@ impl OverlayApp {
             last_paint_time: Instant::now(),
             stopped_rx,
             last_content_size: None,
-            play_time_text: None,
         }
     }
 }
@@ -210,31 +206,6 @@ impl EguiOverlay for OverlayApp {
             egui_context.request_repaint();
         }
 
-        // Update play-time tracker display
-        {
-            // Copy the state with a brief read lock
-            let play_time = self.app_state.play_time_state.read().unwrap();
-            let total_time = play_time.get_total_active_time();
-
-            // Show if past threshold
-            if total_time >= constants::PLAY_TIME_THRESHOLD {
-                // Round to nearest display increment and format
-                let formatted_duration =
-                    format_rounded_duration(total_time, constants::PLAY_TIME_DISPLAY_GRANULARITY);
-                let message =
-                    constants::PLAY_TIME_MESSAGE.replace("{duration}", &formatted_duration);
-
-                // Update display only if text changed
-                if self.play_time_text.as_ref() != Some(&message) {
-                    self.play_time_text = Some(message);
-                    egui_context.request_repaint();
-                }
-            } else if self.play_time_text.is_some() {
-                // Below threshold - hide
-                self.play_time_text = None;
-                egui_context.request_repaint();
-            }
-        }
         let window_response = Window::new("recording overlay")
             .title_bar(false) // No title bar
             .resizable(false) // Non-resizable
@@ -307,11 +278,34 @@ impl EguiOverlay for OverlayApp {
                                         ),
                                         0.0,
                                         TextFormat {
-                                            font_id,
+                                            font_id: font_id.clone(),
                                             color,
                                             ..Default::default()
                                         },
                                     );
+                                    // Add play time if above threshold
+                                    let total_time = self.app_state.play_time_state.read().unwrap().get_total_active_time();
+                                    if total_time >= constants::PLAY_TIME_THRESHOLD {
+                                        let amber = Color32::from_rgb(255, 191, 0);
+                                        job.append(
+                                            " | ",
+                                            0.0,
+                                            TextFormat {
+                                                font_id: font_id.clone(),
+                                                color,
+                                                ..Default::default()
+                                            },
+                                        );
+                                        job.append(
+                                            &format!("Active {}", util::format_minutes(total_time)),
+                                            0.0,
+                                            TextFormat {
+                                                font_id,
+                                                color: amber,
+                                                ..Default::default()
+                                            },
+                                        );
+                                    }
                                     job.into()
                                 }
                                 RecordingStatus::Paused => {
@@ -335,20 +329,6 @@ impl EguiOverlay for OverlayApp {
                         );
                     });
                 });
-
-                // Play-time tracker display (below recording indicator)
-                if let Some(play_time_text) = &self.play_time_text {
-                    ui.horizontal(|ui| {
-                        // Add spacing to align with the text (skip icon width + spacing)
-                        ui.add_space(32.0);
-
-                        // Amber color (255, 191, 0)
-                        let amber = Color32::from_rgb(255, 191, 0);
-                        let font_id = FontId::new(12.0, FontFamily::Proportional);
-
-                        ui.label(RichText::new(play_time_text).color(amber).font(font_id));
-                    });
-                }
             });
 
         // Resize window to match egui content size
@@ -400,26 +380,5 @@ fn update_overlay_position_based_on_location(
                 monitor_height - height - OFFSET,
             );
         }
-    }
-}
-
-/// Round `duration` down to the nearest `increment` and format as "Xh Ym" or "Xm"
-fn format_rounded_duration(duration: Duration, increment: Duration) -> String {
-    let secs = duration.as_secs();
-    let inc_secs = increment.as_secs().max(1); // avoid div-by-zero
-    let rounded_secs = (secs / inc_secs) * inc_secs;
-
-    let total_mins = rounded_secs / 60;
-    let hours = total_mins / 60;
-    let mins = total_mins % 60;
-
-    if hours > 0 {
-        if mins > 0 {
-            format!("{}h {}m", hours, mins)
-        } else {
-            format!("{}h", hours)
-        }
-    } else {
-        format!("{}m", mins)
     }
 }

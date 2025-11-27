@@ -27,6 +27,23 @@ pub fn format_seconds(total_seconds: u64) -> String {
     }
 }
 
+/// Formats a duration rounded to minutes as "Xh Ym" or "Xm".
+pub fn format_minutes(duration: std::time::Duration) -> String {
+    let total_mins = duration.as_secs() / 60;
+    let hours = total_mins / 60;
+    let mins = total_mins % 60;
+
+    if hours > 0 {
+        if mins > 0 {
+            format!("{}h {}m", hours, mins)
+        } else {
+            format!("{}h", hours)
+        }
+    } else {
+        format!("{}m", mins.max(1)) // Show at least 1m
+    }
+}
+
 /// Give a datetime, formats it into a human-readable string (e.g., "2025-03-10 10:00:00").
 pub fn format_datetime(dt: chrono::DateTime<chrono::Local>) -> String {
     dt.format("%Y-%m-%d %H:%M:%S").to_string()

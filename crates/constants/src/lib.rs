@@ -31,11 +31,12 @@ pub const PLAY_TIME_THRESHOLD: Duration = Duration::from_secs(60);
 // pub const PLAY_TIME_DISPLAY_GRANULARITY: Duration = Duration::from_secs(30 * 60);
 pub const PLAY_TIME_DISPLAY_GRANULARITY: Duration = Duration::from_secs(60);
 /// Break threshold - reset after this much idle time
-pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(4 * 60 * 60);
+// pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(4 * 60 * 60);
+pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(6 * 60);
 /// Rolling window - reset after this much time since last break
 pub const PLAY_TIME_ROLLING_WINDOW: Duration = Duration::from_secs(8 * 60 * 60);
-/// Display message
-pub const PLAY_TIME_MESSAGE: &str = "Active {duration}";
+/// Save interval for play time state
+pub const PLAY_TIME_SAVE_INTERVAL: Duration = Duration::from_secs(5 * 60);
 
 /// GitHub organization
 pub const GH_ORG: &str = "Wayfarer-Labs";

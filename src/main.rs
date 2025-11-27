@@ -15,6 +15,7 @@ mod ui;
 mod upload;
 mod util;
 mod validation;
+mod play_time;
 
 use color_eyre::Result;
 use egui_wgpu::wgpu;
@@ -132,7 +133,6 @@ fn main() -> Result<()> {
     });
 
     tracing::debug!("Starting UI");
-    let app_state_for_shutdown = app_state.clone();
     ui::start(
         wgpu_instance,
         app_state,
@@ -143,16 +143,8 @@ fn main() -> Result<()> {
     )?;
     tracing::info!("UI thread shut down, joining tokio thread");
     tokio_thread.join().unwrap();
-    tracing::info!("Tokio thread joined, saving final play time state");
 
-    // Save final play time state before shutdown
-    {
-        let play_time = app_state_for_shutdown.play_time_state.read().unwrap();
-        if let Err(e) = play_time.save() {
-            tracing::error!("Failed to save play time state on shutdown: {}", e);
-        }
-    }
-
+    // Play time state is saved automatically via Drop implementation
     tracing::info!("Shutting down");
 
     Ok(())

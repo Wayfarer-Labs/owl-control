@@ -21,7 +21,10 @@ use std::{
 
 use color_eyre::{Result, eyre::Context};
 
-use constants::{GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, supported_games::SupportedGames};
+use constants::{
+    GH_ORG, GH_REPO, MAX_FOOTAGE, MAX_IDLE_DURATION, PLAY_TIME_SAVE_INTERVAL,
+    supported_games::SupportedGames,
+};
 use game_process::does_process_exist;
 use input_capture::{Event, InputCapture};
 use rodio::{Decoder, Sink, Source};
@@ -114,9 +117,6 @@ async fn main(
 
     let mut ctrlc_rx = wait_for_ctrl_c();
 
-    let mut last_active = Instant::now();
-    let mut start_on_activity = false;
-    let mut actively_recording_window: Option<HWND> = None;
     let mut last_play_time_save = Instant::now();
 
     let mut perform_checks = tokio::time::interval(Duration::from_secs(1));
@@ -408,44 +408,14 @@ async fn main(
                 {
                     let mut play_time = app_state.play_time_state.write().unwrap();
                     let recording_status = app_state.state.read().unwrap();
-
-                    // Check for breaks (4 hours idle) or rolling window (8 hours)
-                    // We only check for resets if we aren't currently playing
-                    if !play_time.is_active() && play_time.should_reset() {
-                        play_time.reset();
-                    }
-
-                    match *recording_status {
-                        RecordingStatus::Recording { .. } => {
-                            // We are recording, so the user is active.
-                            if !play_time.is_active() {
-                                play_time.start_session();
-                                if let Err(e) = play_time.save() {
-                                    tracing::warn!("Failed to save play time after start: {}", e);
-                                    }
-                            }
-                            // Mark that the user is still here right now
-                            play_time.tick_activity();
-                        },
-                        RecordingStatus::Paused | RecordingStatus::Stopped => {
-                            // We are not recording.
-                            if play_time.is_active() {
-                                play_time.pause_session();
-                                if let Err(e) = play_time.save() {
-                                    tracing::warn!("Failed to save play time after pause: {}", e);
-                                }
-                            }
-                        }
-                    }
+                    play_time.tick(&recording_status);
                 }
 
-                // Periodically save play time state (every 5 minutes)
-                if last_play_time_save.elapsed() >= Duration::from_secs(5 * 60) {
-                    let play_time = app_state.play_time_state.read().unwrap();
-                    if let Err(e) = play_time.save() {
+                // Periodically save play time state
+                if last_play_time_save.elapsed() >= PLAY_TIME_SAVE_INTERVAL {
+                    if let Err(e) = app_state.play_time_state.read().unwrap().save() {
                         tracing::warn!("Failed to save play time state: {}", e);
                     }
-                    drop(play_time);
                     last_play_time_save = Instant::now();
                 }
 
@@ -677,6 +647,11 @@ impl State {
                     self.actively_recording_window
                 );
                 self.last_active = Instant::now();
+                // Notify play time tracker of recording start
+                {
+                    let mut play_time = self.app_state.play_time_state.write().unwrap();
+                    play_time.handle_transition(true, false);
+                }
                 RecordingState::Recording
             }
             (RecordingState::Recording, RecordingState::Idle) => {
@@ -689,10 +664,17 @@ impl State {
                     &mut self.cue_cache,
                 )
                 .await?;
+                // Notify play time tracker of recording stop
+                {
+                    let mut play_time = self.app_state.play_time_state.write().unwrap();
+                    play_time.handle_transition(false, false);
+                }
                 RecordingState::Idle
             }
             (RecordingState::Recording, RecordingState::Paused) => {
                 // Pause recording (due to idle or unfocused window)
+                // Check if this was due to idle timeout before we stop
+                let due_to_idle = self.last_active.elapsed() > MAX_IDLE_DURATION;
                 let honk = self.app_state.config.read().unwrap().preferences.honk;
                 stop_recording_with_notification(
                     &mut self.recorder,
@@ -702,6 +684,11 @@ impl State {
                 )
                 .await?;
                 *self.app_state.state.write().unwrap() = RecordingStatus::Paused;
+                // Notify play time tracker of pause (with idle buffer cancellation if due to idle)
+                {
+                    let mut play_time = self.app_state.play_time_state.write().unwrap();
+                    play_time.handle_transition(false, due_to_idle);
+                }
                 RecordingState::Paused
             }
             (RecordingState::Paused, RecordingState::Idle) => {
@@ -726,6 +713,11 @@ impl State {
                     // but that doesn't seem to be something that can be easily done with rodio
                     |s| Box::new(s.low_pass(500).amplify(1.5)),
                 );
+                // Notify play time tracker (already paused, just confirming stop)
+                {
+                    let mut play_time = self.app_state.play_time_state.write().unwrap();
+                    play_time.handle_transition(false, false);
+                }
                 RecordingState::Idle
             }
             (RecordingState::Recording, RecordingState::Recording) => {

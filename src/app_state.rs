@@ -9,8 +9,8 @@ use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
 use crate::{
-    api::UserUploads, config::Config, record::LocalRecording, upload::ProgressData,
-    util::play_time::PlayTimeState,
+    api::UserUploads, config::Config, play_time::PlayTimeTracker, record::LocalRecording,
+    upload::ProgressData,
 };
 
 pub struct AppState {
@@ -24,7 +24,7 @@ pub struct AppState {
     pub upload_pause_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
-    pub play_time_state: RwLock<PlayTimeState>,
+    pub play_time_state: RwLock<PlayTimeTracker>,
     pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
 }
 impl AppState {
@@ -46,7 +46,7 @@ impl AppState {
             upload_pause_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
-            play_time_state: RwLock::new(PlayTimeState::load()),
+            play_time_state: RwLock::new(PlayTimeTracker::load()),
             last_foregrounded_game: RwLock::new(None),
         };
         tracing::debug!("AppState::new() complete");
