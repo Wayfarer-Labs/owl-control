@@ -310,11 +310,59 @@ async fn main(
                                 }
 
                                 if errors.is_empty() {
-                                    tracing::info!("Successfully deleted all {} invalid recordings", total_count);
+                                    tracing::info!("Successfully deleted all {total_count} invalid recordings");
                                 } else {
                                     tracing::warn!("Failed to delete {} recordings: {:?}", errors.len(), errors);
                                 }
 
+
+                                app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
+                            }
+                        });
+                    }
+                    AsyncRequest::DeleteAllUploadedLocalRecordings => {
+                        let Some((api_key, _)) = valid_api_key_and_user_id.clone() else {
+                            tracing::error!("Cannot delete invalid recordings without valid API key");
+                            continue;
+                        };
+
+                        tokio::spawn({
+                            let app_state = app_state.clone();
+                            let api_client = api_client.clone();
+                            async move {
+                                // Get current list of local recordings
+                                let mut local_recordings = tokio::task::spawn_blocking({
+                                    let recording_location = recording_location.clone();
+                                    move || LocalRecording::scan_directory(&recording_location)
+                                }).await.unwrap_or_default();
+
+                                local_recordings.retain(|r| matches!(r, LocalRecording::Uploaded { .. }));
+
+                                if local_recordings.is_empty() {
+                                    tracing::info!("No uploaded recordings to delete");
+                                    return;
+                                }
+
+                                let total_count = local_recordings.len();
+                                tracing::info!("Deleting {total_count} uploaded recordings");
+
+                                // Delete all uploaded recording folders
+                                let mut errors = vec![];
+                                for recording in local_recordings {
+                                    let info = recording.info().clone();
+                                    if let Err(e) = recording.delete(&api_client, &api_key).await {
+                                        tracing::error!(e=?e, "Failed to delete uploaded recording: {info}");
+                                        errors.push(info.folder_name);
+                                    } else {
+                                        tracing::info!("Deleted uploaded recording: {info}");
+                                    }
+                                }
+
+                                if errors.is_empty() {
+                                    tracing::info!("Successfully deleted all {total_count} uploaded recordings");
+                                } else {
+                                    tracing::warn!("Failed to delete {} recordings: {:?}", errors.len(), errors);
+                                }
 
                                 app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
                             }

@@ -126,6 +126,7 @@ pub enum AsyncRequest {
     LoadUploadStats,
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,
+    DeleteAllUploadedLocalRecordings,
     DeleteRecording(PathBuf),
     OpenFolder(PathBuf),
     MoveRecordingsFolder { from: PathBuf, to: PathBuf },

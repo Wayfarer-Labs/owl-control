@@ -411,6 +411,30 @@ pub fn view(
             "Automatically delete local recordings after they have been successfully uploaded. ",
             "Invalid uploads, as well as existing uploads, will not be deleted."
         ), None);
+
+        // Check if there are any uploaded local recordings
+        let any_uploaded_local = upload_manager
+            .recordings
+            .iter_filtered()
+            .any(|r| matches!(r, Recording::Local(LocalRecording::Uploaded { .. })));
+
+        if any_uploaded_local {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if ui
+                    .button(RichText::new("Clear Uploaded").size(11.0))
+                    .on_hover_text(concat!(
+                        "Delete all local recordings that have been successfully uploaded. ",
+                        "This will free up disk space while keeping your uploaded recordings in the cloud."
+                    ))
+                    .clicked()
+                {
+                    app_state
+                        .async_request_tx
+                        .blocking_send(AsyncRequest::DeleteAllUploadedLocalRecordings)
+                        .ok();
+                }
+            });
+        }
     });
 
     // Upload Button
