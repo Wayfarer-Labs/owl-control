@@ -414,7 +414,7 @@ async fn main(
                 // Periodically save play time state
                 if last_play_time_save.elapsed() >= PLAY_TIME_SAVE_INTERVAL {
                     if let Err(e) = app_state.play_time_state.read().unwrap().save() {
-                        tracing::warn!("Failed to save play time state: {}", e);
+                        tracing::warn!("Failed to save play time state: {e}");
                     }
                     last_play_time_save = Instant::now();
                 }
