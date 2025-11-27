@@ -16,6 +16,12 @@ pub const MIN_FOOTAGE: Duration = Duration::from_secs(20);
 pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
+/// Maximum time to wait for OBS to hook into the application before stopping recording
+pub const HOOK_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Minimum average FPS. We allow some leeway below 60 FPS, but we want to make sure
+/// we aren't getting 30-40 FPS data.
+pub const MIN_AVERAGE_FPS: f64 = FPS as f64 * 0.9;
 
 /// Play-time tracker
 /// Threshold before showing overlay

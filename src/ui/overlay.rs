@@ -5,7 +5,7 @@ use std::{
 
 use egui::{
     Color32, Context, FontFamily, FontId, Image, ImageSource, Margin, RichText, Stroke, TextFormat,
-    Vec2, WidgetText, Window, containers::Frame, text::LayoutJob,
+    TextWrapMode, Vec2, WidgetText, Window, containers::Frame, text::LayoutJob,
 };
 use egui_overlay::EguiOverlay;
 use egui_render_three_d::ThreeDBackend as DefaultGfxBackend;
@@ -277,6 +277,7 @@ impl EguiOverlay for OverlayApp {
                                 RecordingStatus::Recording {
                                     start_time,
                                     game_exe: _,
+                                    current_fps,
                                 } => {
                                     let mut job = LayoutJob::default();
                                     job.append(
@@ -288,6 +289,17 @@ impl EguiOverlay for OverlayApp {
                                             ..Default::default()
                                         },
                                     );
+                                    if let Some(fps) = current_fps {
+                                        job.append(
+                                            &format!(" @ {:.1} FPS", fps),
+                                            0.0,
+                                            TextFormat {
+                                                font_id: font_id.clone(),
+                                                color,
+                                                ..Default::default()
+                                            },
+                                        );
+                                    }
                                     job.append(
                                         &format!(
                                             " ({})",
@@ -310,7 +322,7 @@ impl EguiOverlay for OverlayApp {
                     ui.vertical(|ui| {
                         let item_spacing = ui.style().spacing.item_spacing;
                         ui.style_mut().spacing.item_spacing = Vec2::new(0.0, 2.0);
-                        ui.label(recording_text);
+                        ui.add(egui::Label::new(recording_text).wrap_mode(TextWrapMode::Extend));
                         ui.style_mut().spacing.item_spacing = item_spacing;
                         components::foregrounded_game(
                             ui,

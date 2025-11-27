@@ -28,6 +28,7 @@ pub(crate) struct Recording {
     game_resolution: (u32, u32),
     start_time: SystemTime,
     start_instant: Instant,
+    average_fps: Option<f64>,
 
     pid: Pid,
     hwnd: HWND,
@@ -74,6 +75,7 @@ impl Recording {
             game_resolution,
             start_time,
             start_instant,
+            average_fps: None,
 
             pid,
             hwnd,
@@ -143,6 +145,10 @@ impl Recording {
         self.input_writer.flush().await
     }
 
+    pub(crate) fn update_fps(&mut self, fps: f64) {
+        self.average_fps = self.average_fps.map(|f| (f + fps) / 2.0).or(Some(fps));
+    }
+
     pub(crate) async fn stop(
         self,
         recorder: &mut dyn VideoRecorder,
@@ -150,8 +156,21 @@ impl Recording {
         input_capture: &InputCapture,
     ) -> Result<()> {
         let window_name = self.get_window_name();
-        let result = recorder.stop_recording().await;
+        let mut result = recorder.stop_recording().await;
         self.input_writer.stop(input_capture).await?;
+
+        #[allow(clippy::collapsible_if)]
+        if result.is_ok() {
+            // Conditions that need to be met, even if the recording is otherwise valid
+            if let Some(average_fps) = self.average_fps
+                && average_fps < constants::MIN_AVERAGE_FPS
+            {
+                result = Err(color_eyre::eyre::eyre!(
+                    "Average FPS {average_fps:.1} is below required minimum of {:.1}",
+                    constants::MIN_AVERAGE_FPS
+                ));
+            }
+        }
 
         if let Err(e) = result {
             tracing::error!("Error while stopping recording, invalidating recording: {e}");
@@ -161,22 +180,24 @@ impl Recording {
                 e.to_string(),
             )
             .await?;
-        } else {
-            let gamepads = input_capture.gamepads();
-            LocalRecording::write_metadata_and_validate(
-                self.recording_location,
-                self.game_exe,
-                self.game_resolution,
-                self.start_instant,
-                self.start_time,
-                window_name,
-                adapter_infos,
-                gamepads,
-                recorder.id(),
-                result.as_ref().ok().cloned(),
-            )
-            .await?;
+            return Ok(());
         }
+
+        let gamepads = input_capture.gamepads();
+        LocalRecording::write_metadata_and_validate(
+            self.recording_location,
+            self.game_exe,
+            self.game_resolution,
+            self.start_instant,
+            self.start_time,
+            self.average_fps,
+            window_name,
+            adapter_infos,
+            gamepads,
+            recorder.id(),
+            result.as_ref().ok().cloned(),
+        )
+        .await?;
 
         Ok(())
     }

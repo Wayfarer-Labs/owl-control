@@ -505,6 +505,9 @@ impl State {
                 return;
             };
 
+            // Extract game name early to avoid borrow issues later
+            let game_name = recording.game_exe().to_string();
+
             let state_request: Option<(RecordingState, &str)> =
                 if !does_process_exist(recording.pid()).unwrap_or_default() {
                     // game closed
@@ -557,6 +560,29 @@ impl State {
                         RecordingState::Recording,
                         "restart recording on window resolution changed",
                     ))
+                } else if self.recorder.check_hook_timeout().await {
+                    // OBS failed to hook the application
+                    tracing::error!(
+                        "OBS failed to hook application after {} seconds, stopping recording",
+                        constants::HOOK_TIMEOUT.as_secs()
+                    );
+
+                    let message = format!(
+                        "Failed to hook into {}.\n\n\
+                     OWL Control was unable to capture the game window after {} seconds.\n\n\
+                     This may happen if:\n\
+                     - The game has anti-cheat software\n\
+                     - The game is running with elevated privileges\n\
+                     - The game uses a rendering method that OBS cannot capture\n\n\
+                     Please try:\n\
+                     - Running OWL Control as administrator\n\
+                     - Checking if the game is on the supported games list\n\
+                     - Testing a different game on the supported games list",
+                        game_name,
+                        constants::HOOK_TIMEOUT.as_secs()
+                    );
+                    crate::ui::notification::warning_message_box(&message);
+                    Some((RecordingState::Idle, "stop recording on hook timeout"))
                 } else {
                     None
                 };

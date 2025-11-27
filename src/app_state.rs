@@ -75,6 +75,7 @@ pub enum RecordingStatus {
     Recording {
         start_time: Instant,
         game_exe: String,
+        current_fps: Option<f64>,
     },
     Paused,
 }
