@@ -44,9 +44,15 @@ pub trait VideoRecorder {
     /// If this returns an error, the recording will be invalidated with the error message
     async fn stop_recording(&mut self) -> Result<serde_json::Value>;
     /// Called periodically for any work the recorder might need to do
-    async fn poll(&mut self);
+    async fn poll(&mut self) -> PollUpdate;
     /// Returns true if the window is capturable by the recorder
     fn is_window_capturable(&self, hwnd: HWND) -> bool;
+    /// Returns true if the recording has failed to hook after the timeout period
+    async fn check_hook_timeout(&mut self) -> bool;
+}
+#[derive(Default)]
+pub struct PollUpdate {
+    pub active_fps: Option<f64>,
 }
 pub struct Recorder {
     recording_dir: Box<dyn FnMut() -> PathBuf>,
@@ -124,16 +130,16 @@ impl Recorder {
 
         let recording_location = (self.recording_dir)();
 
-        LocalRecording::create_at(&recording_location)
+        let local_recording = LocalRecording::create_at(&recording_location)
             .wrap_err("Failed to create directory for recording. Did you install OWL Control to a location where your account is allowed to write files?")?;
 
-        struct DeleteRecordingOnExit(Option<PathBuf>);
+        struct DeleteRecordingOnExit(Option<LocalRecording>);
         impl Drop for DeleteRecordingOnExit {
             fn drop(&mut self) {
-                if let Some(path) = self.0.take()
-                    && let Err(e) = std::fs::remove_dir_all(&path)
+                if let Some(recording) = self.0.take()
+                    && let Err(e) = recording.delete_without_abort_sync()
                 {
-                    tracing::error!(e=?e, "Failed to delete recording folder on failure to start recording: {}: {:?}", path.display(), e);
+                    tracing::error!(e=?e, "Failed to delete recording folder on failure to start recording: {}: {:?}", recording.info().folder_path.display(), e);
                 }
             }
         }
@@ -142,7 +148,7 @@ impl Recorder {
                 self.0 = None;
             }
         }
-        let mut delete_recording_on_exit = DeleteRecordingOnExit(Some(recording_location.clone()));
+        let mut delete_recording_on_exit = DeleteRecordingOnExit(Some(local_recording));
 
         let free_space_mb = get_free_space_in_mb(&recording_location);
         if let Some(free_space_mb) = free_space_mb
@@ -218,6 +224,7 @@ impl Recorder {
         *self.app_state.state.write().unwrap() = RecordingStatus::Recording {
             start_time: Instant::now(),
             game_exe,
+            current_fps: None,
         };
         Ok(())
     }
@@ -259,11 +266,24 @@ impl Recorder {
     }
 
     pub async fn poll(&mut self) {
-        self.video_recorder.poll().await;
+        let update = self.video_recorder.poll().await;
+        if let Some(fps) = update.active_fps {
+            let mut state = self.app_state.state.write().unwrap();
+            if let RecordingStatus::Recording { current_fps, .. } = &mut *state {
+                *current_fps = Some(fps);
+            }
+            if let Some(recording) = self.recording.as_mut() {
+                recording.update_fps(fps);
+            }
+        }
     }
 
     pub fn is_window_capturable(&self, hwnd: HWND) -> bool {
         self.video_recorder.is_window_capturable(hwnd)
+    }
+
+    pub async fn check_hook_timeout(&mut self) -> bool {
+        self.video_recorder.check_hook_timeout().await
     }
 }
 

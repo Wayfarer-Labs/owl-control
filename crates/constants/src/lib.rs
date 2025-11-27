@@ -16,6 +16,12 @@ pub const MIN_FOOTAGE: Duration = Duration::from_secs(20);
 pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
+/// Maximum time to wait for OBS to hook into the application before stopping recording
+pub const HOOK_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Minimum average FPS. We allow some leeway below 60 FPS, but we want to make sure
+/// we aren't getting 30-40 FPS data.
+pub const MIN_AVERAGE_FPS: f64 = FPS as f64 * 0.9;
 
 /// Play-time tracker
 /// Threshold before showing overlay
@@ -44,6 +50,8 @@ pub mod filename {
         pub const SERVER_INVALID: &str = ".server_invalid";
         /// Indicates the file was uploaded; contains information about the upload
         pub const UPLOADED: &str = ".uploaded";
+        /// Stores upload progress state for pause/resume functionality
+        pub const UPLOAD_PROGRESS: &str = ".upload-progress";
         /// The video recording file
         pub const VIDEO: &str = "recording.mp4";
         /// The input recording file

@@ -21,7 +21,7 @@ pub struct AppState {
     pub ui_update_tx: UiUpdateSender,
     pub ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
-    pub upload_cancel_flag: Arc<AtomicBool>,
+    pub upload_pause_flag: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
     pub play_time_state: RwLock<PlayTimeState>,
@@ -43,7 +43,7 @@ impl AppState {
             ui_update_tx,
             ui_update_unreliable_tx,
             adapter_infos,
-            upload_cancel_flag: Arc::new(AtomicBool::new(false)),
+            upload_pause_flag: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
             play_time_state: RwLock::new(PlayTimeState::load()),
@@ -75,6 +75,7 @@ pub enum RecordingStatus {
     Recording {
         start_time: Instant,
         game_exe: String,
+        current_fps: Option<f64>,
     },
     Paused,
 }
@@ -123,7 +124,7 @@ pub struct GitHubRelease {
 pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
     UploadData,
-    CancelUpload,
+    PauseUpload,
     OpenDataDump,
     OpenLog,
     UpdateSupportedGames(SupportedGames),
