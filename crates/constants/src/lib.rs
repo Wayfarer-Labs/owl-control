@@ -50,6 +50,8 @@ pub mod filename {
         pub const SERVER_INVALID: &str = ".server_invalid";
         /// Indicates the file was uploaded; contains information about the upload
         pub const UPLOADED: &str = ".uploaded";
+        /// Stores upload progress state for pause/resume functionality
+        pub const UPLOAD_PROGRESS: &str = ".upload-progress";
         /// The video recording file
         pub const VIDEO: &str = "recording.mp4";
         /// The input recording file
