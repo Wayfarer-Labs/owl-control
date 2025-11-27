@@ -30,7 +30,7 @@ pub async fn start(
     let unreliable_tx = app_state.ui_update_unreliable_tx.clone();
     let pause_flag = app_state.upload_pause_flag.clone();
 
-    // Reset cancel flag at start of upload
+    // Reset pause flag at start of upload
     pause_flag.store(false, std::sync::atomic::Ordering::SeqCst);
 
     let (api_token, unreliable_connection, delete_uploaded) = {

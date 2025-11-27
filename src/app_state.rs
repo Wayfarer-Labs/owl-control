@@ -119,7 +119,7 @@ pub struct GitHubRelease {
 pub enum AsyncRequest {
     ValidateApiKey { api_key: String },
     UploadData,
-    CancelUpload,
+    PauseUpload,
     OpenDataDump,
     OpenLog,
     UpdateSupportedGames(SupportedGames),

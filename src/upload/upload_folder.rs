@@ -82,7 +82,7 @@ pub async fn upload_folder(
     api_token: &str,
     unreliable_connection: bool,
     unreliable_tx: UiUpdateUnreliableSender,
-    cancel_flag: Arc<std::sync::atomic::AtomicBool>,
+    pause_flag: Arc<std::sync::atomic::AtomicBool>,
     file_progress: FileProgress,
 ) -> Result<UploadTarOutput, UploadFolderError> {
     // Validate paused recording (may convert to Unuploaded if expired/invalid)
@@ -171,7 +171,7 @@ pub async fn upload_folder(
         api_client.clone(),
         api_token,
         unreliable_tx,
-        cancel_flag,
+        pause_flag,
         file_progress,
     )
     .await?)

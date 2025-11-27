@@ -416,7 +416,7 @@ pub fn view(
     // Upload Button
     ui.add_space(5.0);
     if upload_manager.current_upload_progress.is_some() {
-        // Show Pause/Cancel button when uploading
+        // Show Pause button when uploading
         ui.add_enabled_ui(
             !app_state
                 .upload_pause_flag
@@ -439,7 +439,7 @@ pub fn view(
                 if response.clicked() {
                     app_state
                         .async_request_tx
-                        .blocking_send(AsyncRequest::CancelUpload)
+                        .blocking_send(AsyncRequest::PauseUpload)
                         .ok();
                 }
             },

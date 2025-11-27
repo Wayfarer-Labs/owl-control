@@ -210,7 +210,7 @@ pub async fn run(
         }));
 
         for chunk_number in start_chunk..=total_chunks {
-            // Check if upload has been cancelled (user-initiated pause)
+            // Check if upload has been paused (user-initiated pause)
             if pause_flag.load(std::sync::atomic::Ordering::SeqCst) {
                 // Ensure the latest progress is saved for resume
                 if let Err(e) = guard.paused().save_upload_progress() {
