@@ -192,9 +192,6 @@ name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
-dependencies = [
- "derive_arbitrary",
-]
 
 [[package]]
 name = "arboard"
@@ -1255,17 +1252,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive_arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e567bd82dcff979e4b03460c307b3cdc9e96fde3d73bed1496d2bc75d9dd62a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.106",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1609,7 +1595,7 @@ checksum = "59a81c221a1e4dad06cb9c9deb19aea1193a5eea084e8cd42d869068132bf876"
 dependencies = [
  "document-features",
  "js-sys",
- "ureq 2.12.1",
+ "ureq",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -1855,19 +1841,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ffmpeg-sidecar"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "869812b38b887a5fb7291e5551677476c4696a395ae6676955f42f01e6a5d1c1"
-dependencies = [
- "anyhow",
- "tar",
- "ureq 3.1.2",
- "xz2",
- "zip",
-]
-
-[[package]]
 name = "field-offset"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1902,7 +1875,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a3d7db9596fecd151c5f638c0ee5d5bd487b6e0ea232e5dc96d5250f6f94b1d"
 dependencies = [
  "crc32fast",
- "libz-rs-sys",
  "miniz_oxide",
 ]
 
@@ -3368,8 +3340,9 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "libobs"
-version = "4.0.0+32.0.2"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-game-capture-audio-property#4924ce13b176224ec2ab5f1671ad3c2ecdd0bcb9"
+version = "4.0.2+32.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f9fd901794bd8d9c472d8ca9d0296f2bc10ea48b80564e18aaa4a1cb2af5294"
 dependencies = [
  "bindgen",
  "pkg-config",
@@ -3377,12 +3350,12 @@ dependencies = [
 
 [[package]]
 name = "libobs-simple"
-version = "5.0.0+32.0.2"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-game-capture-audio-property#4924ce13b176224ec2ab5f1671ad3c2ecdd0bcb9"
+version = "5.0.5+32.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ce32d3f9eb8caa1b85e5d973c242445ef5084f13a36c93cf31ac1d4a739290f"
 dependencies = [
  "anyhow",
  "display-info",
- "ffmpeg-sidecar",
  "libobs",
  "libobs-simple-macro",
  "libobs-window-helper",
@@ -3395,8 +3368,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-simple-macro"
-version = "6.0.0"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-game-capture-audio-property#4924ce13b176224ec2ab5f1671ad3c2ecdd0bcb9"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "592bd19bbd7ba1482ad92ab1bddb3632d5498a2a2830c8a5f4eb6d04d3cc1903"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3405,8 +3379,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-window-helper"
-version = "0.2.0"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-game-capture-audio-property#4924ce13b176224ec2ab5f1671ad3c2ecdd0bcb9"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78b4213ea3b6092c442a0f55cc22dc5c09aed9e7caf8043911ee735e9cd18028"
 dependencies = [
  "anyhow",
  "windows 0.61.3",
@@ -3414,8 +3389,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "6.0.0+32.0.2"
-source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=add-game-capture-audio-property#4924ce13b176224ec2ab5f1671ad3c2ecdd0bcb9"
+version = "6.0.3+32.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14a79291f1b03e7bf21cfab946ac28116da3250c6436fe93b1c2771222dd70ef"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3478,15 +3454,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libz-rs-sys"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "840db8cf39d9ec4dd794376f38acc40d0fc65eec2a8f484f7fd375b84602becd"
-dependencies = [
- "zlib-rs",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3532,17 +3499,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fae87c125b03c1d2c0150c90365d7d6bcc53fb73a9acaef207d2d065860f062"
 dependencies = [
  "imgref",
-]
-
-[[package]]
-name = "lzma-sys"
-version = "0.1.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fda04ab3764e6cde78b9974eec4f779acaba7c4e84b36eca3cf77c581b85d27"
-dependencies = [
- "cc",
- "libc",
- "pkg-config",
 ]
 
 [[package]]
@@ -5409,15 +5365,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-pemfile"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
-dependencies = [
- "rustls-pki-types",
-]
-
-[[package]]
 name = "rustls-pki-types"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6771,36 +6718,6 @@ dependencies = [
  "rustls-pki-types",
  "url",
  "webpki-roots 0.26.11",
-]
-
-[[package]]
-name = "ureq"
-version = "3.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99ba1025f18a4a3fc3e9b48c868e9beb4f24f4b4b1a325bada26bd4119f46537"
-dependencies = [
- "base64",
- "flate2",
- "log",
- "percent-encoding",
- "rustls",
- "rustls-pemfile",
- "rustls-pki-types",
- "ureq-proto",
- "utf-8",
- "webpki-roots 1.0.2",
-]
-
-[[package]]
-name = "ureq-proto"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60b4531c118335662134346048ddb0e54cc86bd7e81866757873055f0e38f5d2"
-dependencies = [
- "base64",
- "http",
- "httparse",
- "log",
 ]
 
 [[package]]
@@ -8300,15 +8217,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
-name = "xz2"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "388c44dc09d76f1536602ead6d325eb532f5c122f17782bd57fb47baeeb767e2"
-dependencies = [
- "lzma-sys",
-]
-
-[[package]]
 name = "yansi"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8538,38 +8446,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "zip"
-version = "4.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1"
-dependencies = [
- "arbitrary",
- "crc32fast",
- "flate2",
- "indexmap 2.12.0",
- "memchr",
- "zopfli",
-]
-
-[[package]]
-name = "zlib-rs"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f06ae92f42f5e5c42443fd094f245eb656abf56dd7cce9b8b263236565e00f2"
-
-[[package]]
-name = "zopfli"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edfc5ee405f504cd4984ecc6f14d02d55cfda60fa4b689434ef4102aae150cd7"
-dependencies = [
- "bumpalo",
- "crc32fast",
- "log",
- "simd-adler32",
 ]
 
 [[package]]

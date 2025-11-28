@@ -693,6 +693,7 @@ fn prepare_source(
                 .create_updater::<WindowCaptureSourceUpdater>()?
                 .set_window(&window)
                 .set_capture_audio(capture_audio)
+                .map_err(|e| eyre!(e))?
                 .set_client_area(client_area)
                 .update()?;
             Ok(source)
@@ -702,6 +703,7 @@ fn prepare_source(
                 .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)?
                 .set_window(&window)
                 .set_capture_audio(capture_audio)
+                .map_err(|e| eyre!(e))?
                 .set_client_area(client_area)
                 .add_to_scene(scene)
         }
@@ -723,6 +725,7 @@ fn prepare_source(
                 .set_capture_mode(capture_mode)
                 .set_window_raw(window.obs_id.as_str())
                 .set_capture_audio(capture_audio)
+                .map_err(|e| eyre!(e))?
                 .update()?;
             Ok(source)
         } else {
@@ -740,6 +743,7 @@ fn prepare_source(
                 .set_capture_mode(capture_mode)
                 .set_window(&window)
                 .set_capture_audio(capture_audio)
+                .map_err(|e| eyre!(e))?
                 .add_to_scene(scene)
         }
     };

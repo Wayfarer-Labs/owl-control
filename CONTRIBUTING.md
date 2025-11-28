@@ -30,7 +30,7 @@ cargo install cargo-obs-build
 5. Install the OBS binaries (this only needs to be done when the OBS version is updated):
 
 ```powershell
-cargo obs-build --out-dir target\x86_64-pc-windows-msvc\debug
+cargo obs-build build --out-dir target\x86_64-pc-windows-msvc\debug
 ```
 
 6. Run OWL Control with:
