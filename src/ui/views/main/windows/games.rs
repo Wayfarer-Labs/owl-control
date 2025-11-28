@@ -23,6 +23,8 @@ pub fn window(ctx: &Context, state: &mut GamesWindowState, supported_games: &Sup
     let (installed, uninstalled): (Vec<_>, Vec<_>) =
         supported_games.games.iter().partition(|g| g.installed);
 
+    let mut should_close = false;
+
     egui::Window::new("Games")
         .default_size([DEFAULT_WIDTH, DEFAULT_HEIGHT])
         .resizable(true)
@@ -39,7 +41,9 @@ pub fn window(ctx: &Context, state: &mut GamesWindowState, supported_games: &Sup
                                 installed.len(),
                                 |ui, index| {
                                     if let Some(game) = installed.get(index) {
-                                        game_entry(ui, game);
+                                        if game_entry(ui, game) {
+                                            should_close = true;
+                                        }
                                         1
                                     } else {
                                         0
@@ -61,7 +65,9 @@ pub fn window(ctx: &Context, state: &mut GamesWindowState, supported_games: &Sup
                             uninstalled.len(),
                             |ui, index| {
                                 if let Some(game) = uninstalled.get(index) {
-                                    game_entry(ui, game);
+                                    if game_entry(ui, game) {
+                                        should_close = true;
+                                    }
                                     1
                                 } else {
                                     0
@@ -72,10 +78,15 @@ pub fn window(ctx: &Context, state: &mut GamesWindowState, supported_games: &Sup
                 }
             });
         });
+
+    if should_close {
+        state.open = false;
+    }
 }
 
-fn game_entry(ui: &mut Ui, game: &SupportedGame) {
+fn game_entry(ui: &mut Ui, game: &SupportedGame) -> bool {
     let alpha = if game.installed { 1.0 } else { 0.7 };
+    let mut launched = false;
 
     Frame::new()
         .fill(ui.visuals().faint_bg_color.gamma_multiply(alpha))
@@ -123,8 +134,11 @@ fn game_entry(ui: &mut Ui, game: &SupportedGame) {
                     if response.clicked() {
                         let steam_launch_url = format!("steam://rungameid/{app_id}");
                         opener::open(&steam_launch_url).ok();
+                        launched = true;
                     }
                 });
             });
         });
+
+    launched
 }
