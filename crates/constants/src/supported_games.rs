@@ -33,9 +33,11 @@ impl SupportedGames {
     pub fn get(&self, game_exe_without_ext: &str) -> Option<&SupportedGame> {
         let game_exe_without_ext = game_exe_without_ext.to_lowercase();
         self.games.iter().find(|g| {
-            g.binaries
-                .iter()
-                .any(|b| b.to_lowercase() == game_exe_without_ext)
+            g.binaries.iter().any(|b| {
+                let b_lower = b.to_lowercase();
+                // Exact match or exe has a suffix (e.g., _dx12, -win64-shipping)
+                game_exe_without_ext == b_lower || game_exe_without_ext.starts_with(&format!("{b_lower}_")) || game_exe_without_ext.starts_with(&format!("{b_lower}-"))
+            })
         })
     }
 }

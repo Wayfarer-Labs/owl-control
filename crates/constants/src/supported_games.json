@@ -732,7 +732,7 @@
   {
     "game": "The Outlast Trials",
     "url": "https://store.steampowered.com/app/1304930/The_Outlast_Trials",
-    "binaries": ["outlasttrials"]
+    "binaries": ["outlasttrials", "totclient"]
   },
   {
     "game": "The Stanley Parable: Ultra Deluxe",
