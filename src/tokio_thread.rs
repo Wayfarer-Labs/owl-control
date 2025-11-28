@@ -133,7 +133,6 @@ async fn main(
         cue_cache: HashMap::new(),
         last_active: Instant::now(),
         actively_recording_window: None,
-        supported_games: SupportedGames::load_from_embedded(),
     };
 
     // Initial async requests to GitHub/server
@@ -220,11 +219,12 @@ async fn main(
                         opener::open(&path).ok();
                     }
                     AsyncRequest::UpdateSupportedGames(new_games) => {
-                        let old_game_count = state.supported_games.games.len();
-                        state.supported_games = new_games.clone();
+                        let mut supported_games = app_state.supported_games.write().unwrap();
+                        let old_game_count = supported_games.games.len();
+                        *supported_games = new_games;
                         tracing::info!(
                             "Updated supported games, old count: {old_game_count}, new count: {}",
-                            state.supported_games.games.len()
+                            supported_games.games.len()
                         );
                     }
                     AsyncRequest::LoadUploadStats => {
@@ -404,7 +404,7 @@ async fn main(
                     tracing::error!(e=?e, "Failed to flush input events");
                 }
                 // Check foregrounded game
-                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&state.supported_games, &state.recorder);
+                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&app_state.supported_games.read().unwrap(), &state.recorder);
                 // Tick state machine
                 state.tick().await;
                 // Periodically force the UI to rerender so that it will process events, even if not visible
@@ -447,7 +447,6 @@ struct State {
     cue_cache: HashMap<String, Vec<u8>>,
     last_active: Instant,
     actively_recording_window: Option<HWND>,
-    supported_games: SupportedGames,
 }
 impl State {
     async fn on_input(&mut self, e: Event) {
@@ -615,7 +614,7 @@ impl State {
                 start_recording_safely(
                     &mut self.recorder,
                     &self.input_capture,
-                    &self.supported_games,
+                    &self.app_state.supported_games.read().unwrap(),
                     Some((&self.sink, honk, &self.app_state)),
                     &mut self.cue_cache,
                 )
@@ -692,7 +691,7 @@ impl State {
                 start_recording_safely(
                     &mut self.recorder,
                     &self.input_capture,
-                    &self.supported_games,
+                    &self.app_state.supported_games.read().unwrap(),
                     Some((&self.sink, false, &self.app_state)),
                     &mut self.cue_cache,
                 )

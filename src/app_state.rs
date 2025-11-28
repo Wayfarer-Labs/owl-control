@@ -22,6 +22,7 @@ pub struct AppState {
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
     pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
+    pub supported_games: RwLock<SupportedGames>,
 }
 impl AppState {
     pub fn new(
@@ -43,6 +44,7 @@ impl AppState {
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
             last_foregrounded_game: RwLock::new(None),
+            supported_games: RwLock::new(SupportedGames::load_from_embedded()),
         };
         tracing::debug!("AppState::new() complete");
         state
