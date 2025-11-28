@@ -432,7 +432,7 @@
   {
     "game": "Indiana Jones and the Great Circle",
     "url": "https://store.steampowered.com/app/2677660/Indiana_Jones_and_the_Great_Circle/",
-    "binaries": ["indianajones"]
+    "binaries": ["indianajones", "thegreatcircle"]
   },
   {
     "game": "Journey to the Savage Planet",
