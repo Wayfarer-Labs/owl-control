@@ -35,13 +35,12 @@ steamlocate = "2.0.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
-libobs-wrapper = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470", features = [
+libobs-wrapper = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "add-game-capture-audio-property", features = [
     "logging_crash_handler",
     "enable_runtime",
 ], default-features = false }
-libobs-sources = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
-libobs-window-helper = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
+libobs-simple = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "add-game-capture-audio-property" }
+libobs-window-helper = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "add-game-capture-audio-property" }
 
 [package]
 name = "owl-control"
@@ -64,9 +63,8 @@ uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sysinfo.workspace = true
-libobs.workspace = true
 libobs-wrapper.workspace = true
-libobs-sources.workspace = true
+libobs-simple.workspace = true
 libobs-window-helper.workspace = true
 async-trait.workspace = true
 obws.workspace = true

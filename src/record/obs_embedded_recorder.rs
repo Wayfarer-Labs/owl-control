@@ -15,7 +15,7 @@ use color_eyre::{
 use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH, encoding::VideoEncoderType};
 use windows::Win32::Foundation::HWND;
 
-use libobs_sources::{
+use libobs_simple::sources::{
     ObsObjectUpdater, ObsSourceBuilder,
     windows::{
         GameCaptureSourceBuilder, GameCaptureSourceUpdater, ObsGameCaptureMode,
@@ -25,6 +25,7 @@ use libobs_sources::{
 use libobs_wrapper::{
     context::ObsContext,
     data::{
+        ObsDataGetters as _,
         output::ObsOutputRef,
         video::{ObsVideoInfo, ObsVideoInfoBuilder},
     },
@@ -155,7 +156,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
     async fn poll(&mut self) -> PollUpdate {
         self.obs_tx.send(RecorderMessage::Poll).await.ok();
         PollUpdate {
-            active_fps: Some(unsafe { libobs::obs_get_active_fps() }),
+            active_fps: Some(unsafe { libobs_wrapper::sys::obs_get_active_fps() }),
         }
     }
 
@@ -402,8 +403,8 @@ impl RecorderState {
         scene.set_to_channel(0)?;
 
         // Ensure the source takes up the entire scene
-        scene.set_source_position(&source, libobs_wrapper::Vec2::new(0.0, 0.0))?;
-        scene.set_source_scale(&source, libobs_wrapper::Vec2::new(1.0, 1.0))?;
+        scene.set_source_position(&source, libobs_wrapper::graphics::Vec2::new(0.0, 0.0))?;
+        scene.set_source_scale(&source, libobs_wrapper::graphics::Vec2::new(1.0, 1.0))?;
 
         // Register the video encoder with encoder-specific settings
         let video_encoder_data = self.obs_context.data()?;
