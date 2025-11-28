@@ -31,6 +31,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 git-version = "0.3"
 sysinfo = "0.32.1"
+steamlocate = "2.0.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
@@ -104,6 +105,7 @@ tar = "0.4.44"
 opener = { version = "0.8", features = ["reveal"] }
 sha256 = "1.6.0"
 rfd = "0.14"
+steamlocate.workspace = true
 
 [build-dependencies]
 embed-manifest = "1.3.1"
