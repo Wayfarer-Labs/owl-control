@@ -36,7 +36,9 @@ impl SupportedGames {
             g.binaries.iter().any(|b| {
                 let b_lower = b.to_lowercase();
                 // Exact match or exe has a suffix (e.g., _dx12, -win64-shipping)
-                game_exe_without_ext == b_lower || game_exe_without_ext.starts_with(&format!("{b_lower}_")) || game_exe_without_ext.starts_with(&format!("{b_lower}-"))
+                game_exe_without_ext == b_lower
+                    || game_exe_without_ext.starts_with(&format!("{b_lower}_"))
+                    || game_exe_without_ext.starts_with(&format!("{b_lower}-"))
             })
         })
     }
