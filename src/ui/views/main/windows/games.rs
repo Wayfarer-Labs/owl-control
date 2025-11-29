@@ -1,7 +1,7 @@
 use constants::supported_games::{SupportedGame, SupportedGames};
 use egui::{
-    Align, Button, CollapsingHeader, Color32, Context, CursorIcon, Frame, Label, Layout, RichText,
-    ScrollArea, Sense, Ui, vec2,
+    Align, Button, CentralPanel, CollapsingHeader, Color32, Context, CursorIcon, Frame, Label,
+    Layout, RichText, ScrollArea, Sense, Ui, Vec2, ViewportBuilder, ViewportId, vec2,
 };
 
 const FONTSIZE: f32 = 13.0;
@@ -23,13 +23,26 @@ pub fn window(ctx: &Context, state: &mut GamesWindowState, supported_games: &Sup
     let (installed, uninstalled): (Vec<_>, Vec<_>) =
         supported_games.games.iter().partition(|g| g.installed);
 
-    let mut should_close = false;
+    ctx.show_viewport_immediate(
+        ViewportId::from_hash_of("games_window"),
+        ViewportBuilder::default()
+            .with_title("Games")
+            .with_inner_size(Vec2::new(DEFAULT_WIDTH, DEFAULT_HEIGHT))
+            .with_min_inner_size(Vec2::new(300.0, 200.0)),
+        |ctx, _class| {
+            render(ctx, state, &installed, &uninstalled);
+        },
+    );
 
-    egui::Window::new("Games")
-        .default_size([DEFAULT_WIDTH, DEFAULT_HEIGHT])
-        .resizable(true)
-        .open(&mut state.open)
-        .show(ctx, |ui| {
+    fn render(
+        ctx: &Context,
+        state: &mut GamesWindowState,
+        installed: &[&SupportedGame],
+        uninstalled: &[&SupportedGame],
+    ) {
+        let mut should_close = false;
+
+        CentralPanel::default().show(ctx, |ui| {
             ScrollArea::vertical().show(ui, |ui| {
                 // Installed games section
                 if !installed.is_empty() {
@@ -79,8 +92,10 @@ pub fn window(ctx: &Context, state: &mut GamesWindowState, supported_games: &Sup
             });
         });
 
-    if should_close {
-        state.open = false;
+        // Check if close was requested (either by user action or window close button)
+        if ctx.input(|i| i.viewport().close_requested()) || should_close {
+            state.open = false;
+        }
     }
 }
 
