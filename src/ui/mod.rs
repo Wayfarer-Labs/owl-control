@@ -87,9 +87,8 @@ pub fn start(
 }
 
 struct WinitApp {
-    instance: wgpu::Instance,
+    instance: Option<wgpu::Instance>,
     wgpu_state: Option<internal::WgpuState>,
-    window: Option<Arc<Window>>,
     main_app: views::App,
     last_repaint_requested: Instant,
     /// Receives commands from various tx in other threads to perform some UI update
@@ -135,9 +134,8 @@ impl WinitApp {
 
         tracing::debug!("WinitApp::new() complete");
         Ok(Self {
-            instance: wgpu_instance,
+            instance: Some(wgpu_instance),
             wgpu_state: None,
-            window: None,
             main_app,
             last_repaint_requested: Instant::now(),
             ui_update_rx,
@@ -150,46 +148,71 @@ impl WinitApp {
         let window = Arc::new(window);
         let _ = window.request_inner_size(inner_size);
 
-        let surface = self
-            .instance
+        let instance = self.instance.take().expect("Instance already consumed");
+
+        let surface = instance
             .create_surface(window.clone())
             .expect("Failed to create surface!");
 
         let state = internal::WgpuState::new(
-            &self.instance,
+            instance,
             surface,
-            &window,
+            window,
             inner_size.width,
             inner_size.height,
         )
         .await;
 
-        self.window.get_or_insert(window);
         self.wgpu_state.get_or_insert(state);
     }
 
-    fn handle_resized(&mut self, width: u32, height: u32) {
+    fn handle_resized(&mut self, viewport_id: egui::ViewportId, width: u32, height: u32) {
         if width > 0
             && height > 0
             && let Some(state) = self.wgpu_state.as_mut()
         {
-            state.resize_surface(width, height);
+            state.resize_viewport(viewport_id, width, height);
         }
     }
 
-    fn handle_redraw(&mut self) {
-        // Attempt to handle minimizing window
-        let Some(window) = self.window.as_ref() else {
-            return;
-        };
-        if window.is_minimized().is_some_and(|v| v) {
-            return;
-        }
+    fn handle_redraw(&mut self, event_loop: &ActiveEventLoop, viewport_id: egui::ViewportId) {
         let Some(state) = self.wgpu_state.as_mut() else {
             return;
         };
 
-        state.render(window, |ctx| self.main_app.render(ctx));
+        // Check if this viewport's window is minimized
+        {
+            let shared = state.shared.borrow();
+            if let Some(viewport) = shared.viewports.get(&viewport_id)
+                && viewport.window.is_minimized().is_some_and(|v| v)
+            {
+                return;
+            }
+        }
+
+        // Set event loop for immediate viewport creation
+        state.set_event_loop(event_loop);
+
+        // Render the viewport and get the full output
+        let full_output = state.render(|ctx| self.main_app.render(ctx));
+
+        // Clear event loop reference
+        state.clear_event_loop();
+
+        // Process viewport output to handle new/closed viewports
+        if let Some(output) = full_output {
+            state.process_viewport_output(event_loop, &output.viewport_output);
+
+            // Request repaints for viewports that need it
+            let shared = state.shared.borrow();
+            for (vp_id, vp_output) in output.viewport_output.iter() {
+                if vp_output.repaint_delay.is_zero()
+                    && let Some(viewport) = shared.viewports.get(vp_id)
+                {
+                    viewport.window.request_redraw();
+                }
+            }
+        }
     }
 
     fn title(recording: bool) -> String {
@@ -204,7 +227,7 @@ impl WinitApp {
 
 impl ApplicationHandler for WinitApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.window.is_some() {
+        if self.wgpu_state.is_some() {
             return;
         }
 
@@ -230,11 +253,12 @@ impl ApplicationHandler for WinitApp {
         futures::executor::block_on(self.set_window(window, inner_size));
 
         // Initialize tray icon and egui context after window is created
-        let Some(ctx) = self.wgpu_state.as_ref().map(|state| state.context()) else {
+        let Some(state) = self.wgpu_state.as_ref() else {
             return;
         };
 
-        if let Some(window) = self.window.clone() {
+        let ctx = state.context();
+        if let Some(window) = state.root_window() {
             self.main_app.resumed(ctx, window.clone());
             ctx.set_request_repaint_callback(move |_info| {
                 // We just ignore the delay for now
@@ -243,7 +267,31 @@ impl ApplicationHandler for WinitApp {
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        let Some(state) = self.wgpu_state.as_ref() else {
+            return;
+        };
+
+        // Look up which viewport this window belongs to
+        let Some(viewport_id) = state.get_viewport_id(window_id) else {
+            return;
+        };
+
+        if viewport_id == egui::ViewportId::ROOT {
+            self.handle_root_window_event(event_loop, event);
+        } else {
+            self.handle_child_window_event(viewport_id, event);
+        }
+    }
+}
+
+impl WinitApp {
+    fn handle_root_window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) {
         let Some(state) = self.wgpu_state.as_mut() else {
             return;
         };
@@ -252,17 +300,17 @@ impl ApplicationHandler for WinitApp {
         // that the UI is using the latest config.
         self.main_app.copy_in_app_config();
 
-        // Let egui renderer process the event first
-        let response = state
-            .renderer()
-            .handle_input(self.window.as_ref().unwrap(), &event);
+        // Let egui handle the input event
+        let response = state.handle_input(egui::ViewportId::ROOT, &event);
 
         // We throttle this so we aren't unnecessarily repainting for what is otherwise a relatively
         // simple UI. 16ms ~= 60fps.
         if response.repaint && self.last_repaint_requested.elapsed() > Duration::from_millis(16) {
-            if let Some(window) = self.window.as_ref() {
-                window.request_redraw();
+            let shared = state.shared.borrow();
+            if let Some(viewport) = shared.viewports.get(&egui::ViewportId::ROOT) {
+                viewport.window.request_redraw();
             }
+            drop(shared);
             self.last_repaint_requested = Instant::now();
         }
 
@@ -270,7 +318,7 @@ impl ApplicationHandler for WinitApp {
         loop {
             match self.ui_update_rx.try_recv() {
                 Ok(update @ UiUpdate::UpdateRecordingState(active)) => {
-                    if let Some(window) = self.window.as_ref() {
+                    if let Some(window) = state.root_window() {
                         window.set_window_icon(Some(if active {
                             self.recording_icon.clone()
                         } else {
@@ -297,21 +345,44 @@ impl ApplicationHandler for WinitApp {
                     event_loop.exit();
                 } else {
                     // Minimize to tray
-                    if let Some(window) = self.window.as_ref() {
+                    if let Some(window) = state.root_window() {
                         window.set_visible(false);
                     }
                 }
             }
             WindowEvent::RedrawRequested => {
-                self.handle_redraw();
+                self.handle_redraw(event_loop, egui::ViewportId::ROOT);
             }
             WindowEvent::Resized(new_size) => {
-                self.handle_resized(new_size.width, new_size.height);
+                self.handle_resized(egui::ViewportId::ROOT, new_size.width, new_size.height);
             }
             _ => (),
         }
 
         // Once the UI has completed its processing, copy out the local config to the AppState.
         self.main_app.copy_out_local_config();
+    }
+
+    fn handle_child_window_event(&mut self, viewport_id: egui::ViewportId, event: WindowEvent) {
+        let Some(state) = self.wgpu_state.as_mut() else {
+            return;
+        };
+
+        // Let egui handle the input event for this viewport
+        let response = state.handle_input(viewport_id, &event);
+
+        if response.repaint {
+            let shared = state.shared.borrow();
+            if let Some(viewport) = shared.viewports.get(&viewport_id) {
+                viewport.window.request_redraw();
+            }
+        }
+
+        // For child viewports, we only handle resize events here.
+        // Close is handled by egui through close_requested() in the viewport callback,
+        // and redraw is handled via the repaint request above.
+        if let WindowEvent::Resized(new_size) = event {
+            state.resize_viewport(viewport_id, new_size.width, new_size.height);
+        }
     }
 }
