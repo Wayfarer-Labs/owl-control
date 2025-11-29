@@ -23,6 +23,18 @@ pub const HOOK_TIMEOUT: Duration = Duration::from_secs(5);
 /// we aren't getting 30-40 FPS data.
 pub const MIN_AVERAGE_FPS: f64 = FPS as f64 * 0.9;
 
+/// Play-time tracker
+/// Threshold before showing overlay (2 hours)
+pub const PLAY_TIME_THRESHOLD: Duration = Duration::from_secs(2 * 60 * 60);
+/// Display granularity - how coarsely to round time values for display (30 minutes)
+pub const PLAY_TIME_DISPLAY_GRANULARITY: Duration = Duration::from_secs(30 * 60);
+/// Break threshold - reset after this much idle time (4 hours)
+pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(4 * 60 * 60);
+/// Rolling window - reset after this much time since last break
+pub const PLAY_TIME_ROLLING_WINDOW: Duration = Duration::from_secs(8 * 60 * 60);
+/// Save interval for play time state
+pub const PLAY_TIME_SAVE_INTERVAL: Duration = Duration::from_secs(5 * 60);
+
 /// GitHub organization
 pub const GH_ORG: &str = "Wayfarer-Labs";
 /// GitHub repository
@@ -49,5 +61,7 @@ pub mod filename {
     pub mod persistent {
         /// The config file, stored in persistent data directory
         pub const CONFIG: &str = "config.json";
+        /// The play time state file, stored in persistent data directory
+        pub const PLAY_TIME_STATE: &str = "play_time.json";
     }
 }

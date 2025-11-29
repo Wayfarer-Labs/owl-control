@@ -15,6 +15,7 @@ mod ui;
 mod upload;
 mod util;
 mod validation;
+mod play_time;
 
 use color_eyre::Result;
 use egui_wgpu::wgpu;
@@ -142,7 +143,9 @@ fn main() -> Result<()> {
     )?;
     tracing::info!("UI thread shut down, joining tokio thread");
     tokio_thread.join().unwrap();
-    tracing::info!("Tokio thread joined, shutting down");
+
+    // Play time state is saved automatically via Drop implementation
+    tracing::info!("Shutting down");
 
     Ok(())
 }
