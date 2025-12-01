@@ -205,6 +205,7 @@ impl EguiOverlay for OverlayApp {
             self.last_paint_time = Instant::now();
             egui_context.request_repaint();
         }
+
         let window_response = Window::new("recording overlay")
             .title_bar(false) // No title bar
             .resizable(false) // Non-resizable
@@ -277,11 +278,39 @@ impl EguiOverlay for OverlayApp {
                                         ),
                                         0.0,
                                         TextFormat {
-                                            font_id,
+                                            font_id: font_id.clone(),
                                             color,
                                             ..Default::default()
                                         },
                                     );
+                                    // Add play time if above threshold
+                                    let total_time = self
+                                        .app_state
+                                        .play_time_state
+                                        .read()
+                                        .unwrap()
+                                        .get_total_active_time();
+                                    if total_time >= constants::PLAY_TIME_THRESHOLD {
+                                        let amber = Color32::from_rgb(255, 191, 0);
+                                        job.append(
+                                            " | ",
+                                            0.0,
+                                            TextFormat {
+                                                font_id: font_id.clone(),
+                                                color,
+                                                ..Default::default()
+                                            },
+                                        );
+                                        job.append(
+                                            &format!("Active {}", util::format_minutes(total_time)),
+                                            0.0,
+                                            TextFormat {
+                                                font_id,
+                                                color: amber,
+                                                ..Default::default()
+                                            },
+                                        );
+                                    }
                                     job.into()
                                 }
                                 RecordingStatus::Paused => {

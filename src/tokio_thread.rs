@@ -5,6 +5,7 @@ use crate::{
         RecordingStatus, UiUpdate,
     },
     assets::load_cue_bytes,
+    play_time::PlayTimeTransition,
     record::LocalRecording,
     system::keycode::name_to_virtual_keycode,
     ui::notification::error_message_box,
@@ -400,6 +401,9 @@ async fn main(
                 }
             },
             _ = perform_checks.tick() => {
+                // Update play-time tracking
+                app_state.play_time_state.write().unwrap().tick(&app_state.state.read().unwrap());
+
                 // Flush pending input events to disk
                 if let Err(e) = state.recorder.flush_input_events().await {
                     tracing::error!(e=?e, "Failed to flush input events");
@@ -628,6 +632,15 @@ impl State {
                     self.actively_recording_window
                 );
                 self.last_active = Instant::now();
+                // Notify play time tracker of recording start
+                self.app_state
+                    .play_time_state
+                    .write()
+                    .unwrap()
+                    .handle_transition(PlayTimeTransition {
+                        is_recording: true,
+                        due_to_idle: false,
+                    });
                 RecordingState::Recording
             }
             (RecordingState::Recording, RecordingState::Idle) => {
@@ -640,10 +653,21 @@ impl State {
                     &mut self.cue_cache,
                 )
                 .await?;
+                // Notify play time tracker of recording stop
+                self.app_state
+                    .play_time_state
+                    .write()
+                    .unwrap()
+                    .handle_transition(PlayTimeTransition {
+                        is_recording: false,
+                        due_to_idle: false,
+                    });
                 RecordingState::Idle
             }
             (RecordingState::Recording, RecordingState::Paused) => {
                 // Pause recording (due to idle or unfocused window)
+                // Check if this was due to idle timeout before we stop
+                let due_to_idle = self.last_active.elapsed() > MAX_IDLE_DURATION;
                 let honk = self.app_state.config.read().unwrap().preferences.honk;
                 stop_recording_with_notification(
                     &mut self.recorder,
@@ -653,6 +677,15 @@ impl State {
                 )
                 .await?;
                 *self.app_state.state.write().unwrap() = RecordingStatus::Paused;
+                // Notify play time tracker of pause (with idle buffer cancellation if due to idle)
+                self.app_state
+                    .play_time_state
+                    .write()
+                    .unwrap()
+                    .handle_transition(PlayTimeTransition {
+                        is_recording: false,
+                        due_to_idle,
+                    });
                 RecordingState::Paused
             }
             (RecordingState::Paused, RecordingState::Idle) => {
@@ -677,6 +710,15 @@ impl State {
                     // but that doesn't seem to be something that can be easily done with rodio
                     |s| Box::new(s.low_pass(500).amplify(1.5)),
                 );
+                // Notify play time tracker (already paused, just confirming stop)
+                self.app_state
+                    .play_time_state
+                    .write()
+                    .unwrap()
+                    .handle_transition(PlayTimeTransition {
+                        is_recording: false,
+                        due_to_idle: false,
+                    });
                 RecordingState::Idle
             }
             (RecordingState::Recording, RecordingState::Recording) => {

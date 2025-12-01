@@ -8,6 +8,7 @@ mod app_state;
 mod assets;
 mod config;
 mod output_types;
+mod play_time;
 mod record;
 mod system;
 mod tokio_thread;
