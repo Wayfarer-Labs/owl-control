@@ -13,7 +13,7 @@ pub const MIN_FREE_SPACE_MB: u64 = 512;
 /// Minimum footage length
 pub const MIN_FOOTAGE: Duration = Duration::from_secs(20);
 /// Maximum footage length
-pub const MAX_FOOTAGE: Duration = Duration::from_secs(10 * 60);
+pub const MAX_FOOTAGE: Duration = duration_from_mins(10);
 /// Maximum idle duration before stopping recording
 pub const MAX_IDLE_DURATION: Duration = Duration::from_secs(30);
 /// Maximum time to wait for OBS to hook into the application before stopping recording
@@ -23,17 +23,39 @@ pub const HOOK_TIMEOUT: Duration = Duration::from_secs(5);
 /// we aren't getting 30-40 FPS data.
 pub const MIN_AVERAGE_FPS: f64 = FPS as f64 * 0.9;
 
-/// Play-time tracker
-/// Threshold before showing overlay (2 hours)
-pub const PLAY_TIME_THRESHOLD: Duration = Duration::from_secs(2 * 60 * 60);
-/// Display granularity - how coarsely to round time values for display (30 minutes)
-pub const PLAY_TIME_DISPLAY_GRANULARITY: Duration = Duration::from_secs(30 * 60);
-/// Break threshold - reset after this much idle time (4 hours)
-pub const PLAY_TIME_BREAK_THRESHOLD: Duration = Duration::from_secs(4 * 60 * 60);
+// Play-time tracker
+/// Whether or not to use testing constants (should always be false in production)
+pub const PLAY_TIME_TESTING: bool = false;
+/// Threshold before showing overlay
+pub const PLAY_TIME_THRESHOLD: Duration = if PLAY_TIME_TESTING {
+    Duration::from_secs(60)
+} else {
+    duration_from_hours(2)
+};
+/// Display granularity - how coarsely to round time values for display
+pub const PLAY_TIME_DISPLAY_GRANULARITY: Duration = if PLAY_TIME_TESTING {
+    Duration::from_secs(60)
+} else {
+    duration_from_mins(30)
+};
+/// Break threshold - reset after this much idle time
+pub const PLAY_TIME_BREAK_THRESHOLD: Duration = if PLAY_TIME_TESTING {
+    Duration::from_secs(60)
+} else {
+    duration_from_hours(4)
+};
 /// Rolling window - reset after this much time since last break
-pub const PLAY_TIME_ROLLING_WINDOW: Duration = Duration::from_secs(8 * 60 * 60);
+pub const PLAY_TIME_ROLLING_WINDOW: Duration = if PLAY_TIME_TESTING {
+    Duration::from_secs(60)
+} else {
+    duration_from_hours(8)
+};
 /// Save interval for play time state
-pub const PLAY_TIME_SAVE_INTERVAL: Duration = Duration::from_secs(5 * 60);
+pub const PLAY_TIME_SAVE_INTERVAL: Duration = if PLAY_TIME_TESTING {
+    Duration::from_secs(60)
+} else {
+    duration_from_mins(5)
+};
 
 /// GitHub organization
 pub const GH_ORG: &str = "Wayfarer-Labs";
@@ -64,4 +86,13 @@ pub mod filename {
         /// The play time state file, stored in persistent data directory
         pub const PLAY_TIME_STATE: &str = "play_time.json";
     }
+}
+
+// This may not be necessary in a future Rust: <https://github.com/rust-lang/rust/issues/120301>
+const fn duration_from_mins(minutes: u64) -> Duration {
+    Duration::from_secs(minutes * 60)
+}
+
+const fn duration_from_hours(hours: u64) -> Duration {
+    duration_from_mins(hours * 60)
 }
