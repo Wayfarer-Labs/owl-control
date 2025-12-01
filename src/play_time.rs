@@ -7,18 +7,18 @@ use chrono::{DateTime, Utc};
 use color_eyre::eyre::Result;
 
 use crate::app_state::RecordingStatus;
-
-/// Returns the path to the play time state file
-fn state_file_path() -> Result<PathBuf> {
-    Ok(crate::config::get_persistent_dir()?.join(constants::filename::persistent::PLAY_TIME_STATE))
-}
-
 /// Tracks cumulative active play time across recording sessions.
 pub struct PlayTimeTracker {
     total_active_duration: Duration,
     current_session_start: Option<Instant>,
     last_activity_time: DateTime<Utc>,
     last_break_end: DateTime<Utc>,
+    last_save_time: Instant,
+}
+
+pub struct PlayTimeTransition {
+    pub is_recording: bool,
+    pub due_to_idle: bool,
 }
 
 impl PlayTimeTracker {
@@ -29,6 +29,7 @@ impl PlayTimeTracker {
             current_session_start: None,
             last_activity_time: now,
             last_break_end: now,
+            last_save_time: Instant::now(),
         }
     }
 
@@ -64,14 +65,22 @@ impl PlayTimeTracker {
                 }
             }
         }
+
+        // Periodically save play time state
+        if self.last_save_time.elapsed() >= constants::PLAY_TIME_SAVE_INTERVAL {
+            if let Err(e) = self.save() {
+                tracing::warn!("Failed to save play time state: {e}");
+            }
+            self.last_save_time = Instant::now();
+        }
     }
 
     /// Called on recording state transitions
-    pub fn handle_transition(&mut self, is_recording: bool, due_to_idle: bool) {
-        if is_recording {
+    pub fn handle_transition(&mut self, transition: PlayTimeTransition) {
+        if transition.is_recording {
             self.start_session();
         } else {
-            if due_to_idle {
+            if transition.due_to_idle {
                 self.total_active_duration = self
                     .total_active_duration
                     .saturating_sub(constants::MAX_IDLE_DURATION);
@@ -84,10 +93,11 @@ impl PlayTimeTracker {
     }
 
     fn start_session(&mut self) {
-        if self.current_session_start.is_none() {
-            self.current_session_start = Some(Instant::now());
-            self.last_activity_time = Utc::now();
+        if self.current_session_start.is_some() {
+            return;
         }
+        self.current_session_start = Some(Instant::now());
+        self.last_activity_time = Utc::now();
     }
 
     fn pause_session(&mut self) {
@@ -110,8 +120,8 @@ impl PlayTimeTracker {
     }
 
     pub fn save(&self) -> Result<()> {
-        let state = SerialState::from(self);
-        std::fs::write(state_file_path()?, serde_json::to_string_pretty(&state)?)?;
+        let state = SerializedState::from(self);
+        std::fs::write(Self::file_path()?, serde_json::to_string_pretty(&state)?)?;
         Ok(())
     }
 
@@ -123,18 +133,25 @@ impl PlayTimeTracker {
     }
 
     fn load_from_file() -> Result<Self> {
-        let state: SerialState =
-            serde_json::from_str(&std::fs::read_to_string(state_file_path()?)?)?;
+        let state: SerializedState =
+            serde_json::from_str(&std::fs::read_to_string(Self::file_path()?)?)?;
         let mut tracker = Self {
             total_active_duration: Duration::from_secs(state.total_active_secs),
             current_session_start: None,
             last_activity_time: state.last_activity_time,
             last_break_end: state.last_break_end,
+            last_save_time: Instant::now(),
         };
         if tracker.should_reset() {
             tracker.reset();
         }
         Ok(tracker)
+    }
+
+    /// Returns the path to the play time state file
+    fn file_path() -> Result<PathBuf> {
+        Ok(crate::config::get_persistent_dir()?
+            .join(constants::filename::persistent::PLAY_TIME_STATE))
     }
 }
 
@@ -153,13 +170,13 @@ impl Drop for PlayTimeTracker {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct SerialState {
+struct SerializedState {
     total_active_secs: u64,
     last_activity_time: DateTime<Utc>,
     last_break_end: DateTime<Utc>,
 }
 
-impl From<&PlayTimeTracker> for SerialState {
+impl From<&PlayTimeTracker> for SerializedState {
     fn from(t: &PlayTimeTracker) -> Self {
         Self {
             total_active_secs: t.total_active_duration.as_secs(),

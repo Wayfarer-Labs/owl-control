@@ -143,9 +143,7 @@ fn main() -> Result<()> {
     )?;
     tracing::info!("UI thread shut down, joining tokio thread");
     tokio_thread.join().unwrap();
-
-    // Play time state is saved automatically via Drop implementation
-    tracing::info!("Shutting down");
+    tracing::info!("Tokio thread joined, shutting down");
 
     Ok(())
 }
