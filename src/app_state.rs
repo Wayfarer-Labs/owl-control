@@ -1,6 +1,9 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, OnceLock, RwLock, atomic::{AtomicBool, AtomicUsize}},
+    sync::{
+        Arc, OnceLock, RwLock,
+        atomic::{AtomicBool, AtomicUsize},
+    },
     time::{Duration, Instant},
 };
 
@@ -130,7 +133,9 @@ pub struct GitHubRelease {
 
 /// A request for some async action to happen. Response will be delivered via [`UiUpdate`].
 pub enum AsyncRequest {
-    ValidateApiKey { api_key: String },
+    ValidateApiKey {
+        api_key: String,
+    },
     UploadData,
     PauseUpload,
     OpenDataDump,
@@ -142,11 +147,20 @@ pub enum AsyncRequest {
     DeleteAllUploadedLocalRecordings,
     DeleteRecording(PathBuf),
     OpenFolder(PathBuf),
-    MoveRecordingsFolder { from: PathBuf, to: PathBuf },
-    PickRecordingFolder { current_location: PathBuf },
-    PlayCue { cue: String },
+    MoveRecordingsFolder {
+        from: PathBuf,
+        to: PathBuf,
+    },
+    PickRecordingFolder {
+        current_location: PathBuf,
+    },
+    PlayCue {
+        cue: String,
+    },
     /// Sent by upload::start() when upload batch completes, with count of recordings processed
-    UploadCompleted { uploaded_count: usize },
+    UploadCompleted {
+        uploaded_count: usize,
+    },
     /// Clear the auto-upload queue (called when unchecking auto-upload preference)
     ClearAutoUploadQueue,
 }
