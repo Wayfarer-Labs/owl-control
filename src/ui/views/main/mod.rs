@@ -50,7 +50,7 @@ const SETTINGS_TEXT_HEIGHT: f32 = 20.0;
 /// This is just vibed based off footer height + elements below the scrollview
 /// It's too much of a hassle to make this dynamically update when the height won't ever
 /// change at runtime anyway.
-const FOOTER_HEIGHT: f32 = 120.0;
+const FOOTER_HEIGHT: f32 = 140.0;
 
 impl App {
     pub fn main_view(&mut self, ctx: &Context) {

@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, OnceLock, RwLock, atomic::AtomicBool},
+    sync::{Arc, OnceLock, RwLock, atomic::{AtomicBool, AtomicUsize}},
     time::{Duration, Instant},
 };
 
@@ -22,6 +22,10 @@ pub struct AppState {
     pub ui_update_unreliable_tx: broadcast::Sender<UiUpdateUnreliable>,
     pub adapter_infos: Vec<wgpu::AdapterInfo>,
     pub upload_pause_flag: Arc<AtomicBool>,
+    /// Number of pending auto-upload requests queued (recordings completed while upload in progress)
+    pub auto_upload_queue_count: Arc<AtomicUsize>,
+    /// Flag indicating an upload is currently in progress
+    pub upload_in_progress: Arc<AtomicBool>,
     pub listening_for_new_hotkey: RwLock<ListeningForNewHotkey>,
     pub is_out_of_date: AtomicBool,
     pub play_time_state: RwLock<PlayTimeTracker>,
@@ -45,6 +49,8 @@ impl AppState {
             ui_update_unreliable_tx,
             adapter_infos,
             upload_pause_flag: Arc::new(AtomicBool::new(false)),
+            auto_upload_queue_count: Arc::new(AtomicUsize::new(0)),
+            upload_in_progress: Arc::new(AtomicBool::new(false)),
             listening_for_new_hotkey: RwLock::new(ListeningForNewHotkey::NotListening),
             is_out_of_date: AtomicBool::new(false),
             play_time_state: RwLock::new(PlayTimeTracker::load()),
@@ -139,6 +145,10 @@ pub enum AsyncRequest {
     MoveRecordingsFolder { from: PathBuf, to: PathBuf },
     PickRecordingFolder { current_location: PathBuf },
     PlayCue { cue: String },
+    /// Sent by upload::start() when upload batch completes, with count of recordings processed
+    UploadCompleted { uploaded_count: usize },
+    /// Clear the auto-upload queue (called when unchecking auto-upload preference)
+    ClearAutoUploadQueue,
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
@@ -156,6 +166,8 @@ pub enum UiUpdate {
         old_path: PathBuf,
         new_path: PathBuf,
     },
+    /// Update the auto-upload queue count displayed in the UI
+    UpdateAutoUploadQueueCount(usize),
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread

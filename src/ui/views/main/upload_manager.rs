@@ -20,6 +20,10 @@ pub struct UploadManager {
     virtual_list: egui_virtual_list::VirtualList,
     current_upload_progress: Option<upload::ProgressData>,
     last_upload_error: Option<String>,
+    /// Number of recordings queued for auto-upload
+    auto_upload_queue_count: usize,
+    /// Previous state of auto_upload_on_completion preference (for detecting toggle-off)
+    prev_auto_upload_enabled: bool,
 }
 impl UploadManager {
     pub fn update_user_uploads(&mut self, user_uploads: Vec<UserUpload>) {
@@ -38,6 +42,10 @@ impl UploadManager {
 
     pub fn update_last_upload_error(&mut self, last_upload_error: Option<String>) {
         self.last_upload_error = last_upload_error;
+    }
+
+    pub fn update_auto_upload_queue_count(&mut self, count: usize) {
+        self.auto_upload_queue_count = count;
     }
 }
 
@@ -382,6 +390,23 @@ pub fn view(
             progress.speed_mbps,
             util::format_seconds(progress.eta_seconds as u64),
         ));
+
+        // Show queued recordings count if any
+        if upload_manager.auto_upload_queue_count > 0 {
+            ui.label(
+                RichText::new(format!(
+                    "(+{} more recording{} queued for auto-upload)",
+                    upload_manager.auto_upload_queue_count,
+                    if upload_manager.auto_upload_queue_count == 1 {
+                        ""
+                    } else {
+                        "s"
+                    }
+                ))
+                .size(11.0)
+                .color(Color32::from_rgb(150, 200, 255)),
+            );
+        }
     }
 
     // Unreliable Connection Setting
@@ -399,6 +424,31 @@ pub fn view(
             ),
             None,
         );
+    });
+
+    // Auto-upload on completion setting
+    ui.horizontal(|ui| {
+        ui.add(Checkbox::new(
+            &mut local_preferences.auto_upload_on_completion,
+            "Automatically upload recordings when complete",
+        ));
+        util::tooltip(
+            ui,
+            concat!(
+                "Automatically start uploading recordings when they finish. ",
+                "If an upload is already in progress, new recordings will be queued."
+            ),
+            None,
+        );
+
+        // Detect when auto-upload is turned off and clear the queue
+        if upload_manager.prev_auto_upload_enabled && !local_preferences.auto_upload_on_completion {
+            app_state
+                .async_request_tx
+                .blocking_send(AsyncRequest::ClearAutoUploadQueue)
+                .ok();
+        }
+        upload_manager.prev_auto_upload_enabled = local_preferences.auto_upload_on_completion;
     });
 
     // Delete Uploaded Recordings Setting

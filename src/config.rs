@@ -22,6 +22,8 @@ pub struct Preferences {
     #[serde(default)]
     pub delete_uploaded_files: bool,
     #[serde(default)]
+    pub auto_upload_on_completion: bool,
+    #[serde(default)]
     pub honk: bool,
     #[serde(default = "default_honk_volume")]
     pub honk_volume: u8,
@@ -47,6 +49,7 @@ impl Default for Preferences {
             overlay_location: Default::default(),
             overlay_opacity: default_opacity(),
             delete_uploaded_files: Default::default(),
+            auto_upload_on_completion: Default::default(),
             honk: Default::default(),
             honk_volume: default_honk_volume(),
             audio_cues: Default::default(),

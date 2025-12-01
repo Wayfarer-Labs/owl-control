@@ -190,6 +190,11 @@ impl App {
                     self.local_preferences.recording_location = new_path;
                 }
             }
+            UiUpdate::UpdateAutoUploadQueueCount(count) => {
+                self.main_view_state
+                    .upload_manager
+                    .update_auto_upload_queue_count(count);
+            }
         }
     }
 

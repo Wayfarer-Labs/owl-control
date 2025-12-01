@@ -203,7 +203,14 @@ async fn main(
                     }
                     AsyncRequest::PauseUpload => {
                         app_state.upload_pause_flag.store(true, std::sync::atomic::Ordering::SeqCst);
-                        tracing::info!("Upload pause requested");
+                        // Clear the auto-upload queue when pausing
+                        let prev_queue_count = app_state
+                            .auto_upload_queue_count
+                            .load(std::sync::atomic::Ordering::SeqCst);
+                        tracing::info!(
+                            "Upload pause requested, auto-upload queue cleared (was {prev_queue_count} recordings)"
+                        );
+                        set_auto_upload_queue_count(&app_state, 0);
                     }
                     AsyncRequest::OpenDataDump => {
                         if !recording_location.exists() {
@@ -397,6 +404,45 @@ async fn main(
                     }
                     AsyncRequest::PlayCue { cue } => {
                         play_cue(&state.sink, &app_state, &cue, &mut state.cue_cache, |s| s);
+                    }
+                    AsyncRequest::UploadCompleted { uploaded_count } => {
+                        // Subtract the number of recordings that were just uploaded from the queue
+                        let prev_count = app_state
+                            .auto_upload_queue_count
+                            .load(std::sync::atomic::Ordering::SeqCst);
+                        let new_count = prev_count.saturating_sub(uploaded_count);
+
+                        tracing::info!(
+                            "Upload completed: {} recordings uploaded, queue count {} -> {}",
+                            uploaded_count,
+                            prev_count,
+                            new_count
+                        );
+
+                        // If there are still queued recordings, start another upload batch
+                        if new_count > 0 {
+                            tracing::info!(
+                                "Auto-upload queue has {} remaining, starting next upload batch",
+                                new_count
+                            );
+                            app_state
+                                .async_request_tx
+                                .send(AsyncRequest::UploadData)
+                                .await
+                                .ok();
+                        }
+
+                        set_auto_upload_queue_count(&app_state, new_count);
+                    }
+                    AsyncRequest::ClearAutoUploadQueue => {
+                        let prev_count = app_state
+                            .auto_upload_queue_count
+                            .load(std::sync::atomic::Ordering::SeqCst);
+                        tracing::info!(
+                            "Auto-upload queue cleared (was {} recordings)",
+                            prev_count
+                        );
+                        set_auto_upload_queue_count(&app_state, 0);
                     }
                 }
             },
@@ -662,6 +708,8 @@ impl State {
                         is_recording: false,
                         due_to_idle: false,
                     });
+                // Trigger auto-upload if enabled
+                self.maybe_trigger_auto_upload().await;
                 RecordingState::Idle
             }
             (RecordingState::Recording, RecordingState::Paused) => {
@@ -686,6 +734,8 @@ impl State {
                         is_recording: false,
                         due_to_idle,
                     });
+                // Trigger auto-upload if enabled (recording was saved)
+                self.maybe_trigger_auto_upload().await;
                 RecordingState::Paused
             }
             (RecordingState::Paused, RecordingState::Idle) => {
@@ -750,6 +800,49 @@ impl State {
             }
         };
         Ok(())
+    }
+
+    /// Triggers auto-upload if the preference is enabled.
+    /// Should be called after a recording is completed/saved.
+    async fn maybe_trigger_auto_upload(&self) {
+        let auto_upload_enabled = self
+            .app_state
+            .config
+            .read()
+            .unwrap()
+            .preferences
+            .auto_upload_on_completion;
+
+        if !auto_upload_enabled {
+            return;
+        }
+
+        let upload_in_progress = self
+            .app_state
+            .upload_in_progress
+            .load(std::sync::atomic::Ordering::SeqCst);
+
+        if upload_in_progress {
+            // Upload already in progress, queue this one
+            let current_count = self
+                .app_state
+                .auto_upload_queue_count
+                .load(std::sync::atomic::Ordering::SeqCst);
+            let new_count = current_count + 1;
+            tracing::info!(
+                "Auto-upload: upload in progress, queued recording (queue count: {})",
+                new_count
+            );
+            set_auto_upload_queue_count(&self.app_state, new_count);
+        } else {
+            // No upload in progress, start one now
+            tracing::info!("Auto-upload: starting upload for completed recording");
+            self.app_state
+                .async_request_tx
+                .send(AsyncRequest::UploadData)
+                .await
+                .ok();
+        }
     }
 }
 
@@ -855,6 +948,18 @@ fn play_cue(
     sink.stop();
     sink.append(source);
     sink.play();
+}
+
+/// Helper to update the auto-upload queue count in AppState and notify the UI.
+/// Always use this instead of directly modifying `auto_upload_queue_count` to keep them in sync.
+fn set_auto_upload_queue_count(app_state: &AppState, count: usize) {
+    app_state
+        .auto_upload_queue_count
+        .store(count, std::sync::atomic::Ordering::SeqCst);
+    app_state
+        .ui_update_tx
+        .send(UiUpdate::UpdateAutoUploadQueueCount(count))
+        .ok();
 }
 
 fn wait_for_ctrl_c() -> oneshot::Receiver<()> {

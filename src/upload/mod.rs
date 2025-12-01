@@ -33,6 +33,11 @@ pub async fn start(
     // Reset pause flag at start of upload
     pause_flag.store(false, std::sync::atomic::Ordering::SeqCst);
 
+    // Mark upload as in progress
+    app_state
+        .upload_in_progress
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+
     let (api_token, unreliable_connection, delete_uploaded) = {
         let config = app_state.config.read().unwrap();
         (
@@ -49,7 +54,7 @@ pub async fn start(
         )))
         .ok();
 
-    if let Err(e) = run(
+    let uploaded_count = match run(
         &recording_location,
         api_client,
         api_token,
@@ -62,8 +67,17 @@ pub async fn start(
     )
     .await
     {
-        tracing::error!(e=?e, "Error uploading recordings");
-    }
+        Ok(count) => count,
+        Err(e) => {
+            tracing::error!(e=?e, "Error uploading recordings");
+            0
+        }
+    };
+
+    // Mark upload as no longer in progress
+    app_state
+        .upload_in_progress
+        .store(false, std::sync::atomic::Ordering::SeqCst);
 
     for req in [
         AsyncRequest::LoadUploadStats,
@@ -74,9 +88,17 @@ pub async fn start(
     unreliable_tx
         .send(UiUpdateUnreliable::UpdateUploadProgress(None))
         .ok();
+
+    // Notify that upload batch completed with the count of recordings processed
+    app_state
+        .async_request_tx
+        .send(AsyncRequest::UploadCompleted { uploaded_count })
+        .await
+        .ok();
 }
 
-/// Separate function to allow for fallibility
+/// Separate function to allow for fallibility.
+/// Returns the number of recordings successfully uploaded.
 #[allow(clippy::too_many_arguments)]
 async fn run(
     recording_location: &Path,
@@ -88,7 +110,7 @@ async fn run(
     unreliable_tx: app_state::UiUpdateUnreliableSender,
     async_req_tx: mpsc::Sender<AsyncRequest>,
     pause_flag: Arc<std::sync::atomic::AtomicBool>,
-) -> Result<(), upload_folder::UploadFolderError> {
+) -> Result<usize, upload_folder::UploadFolderError> {
     // Scan all local recordings and filter to only Paused and Unuploaded
     let recordings_to_upload: Vec<_> = LocalRecording::scan_directory(recording_location)
         .into_iter()
@@ -190,5 +212,5 @@ async fn run(
         last_upload_time = std::time::Instant::now();
     }
 
-    Ok(())
+    Ok(files_uploaded as usize)
 }
