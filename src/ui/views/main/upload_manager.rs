@@ -60,7 +60,10 @@ pub struct Recordings {
 
     // Updated on changes
     all: Vec<RecordingIndex>,
+    /// All recordings that meet the date filter
     filtered: Vec<RecordingIndex>,
+    /// Same as [`Self::filtered`], but excluding local uploaded recordings
+    filtered_excluding_local_uploaded: Vec<RecordingIndex>,
     latest_upload_timestamp: Option<chrono::DateTime<chrono::Utc>>,
     invalid_count_filtered: usize,
 }
@@ -85,8 +88,11 @@ impl Recordings {
         self.storage.get(index)
     }
 
-    pub fn get_by_index_filtered(&self, index: usize) -> Option<Recording<'_>> {
-        self.filtered
+    pub fn get_by_index_filtered_excluding_local_uploaded(
+        &self,
+        index: usize,
+    ) -> Option<Recording<'_>> {
+        self.filtered_excluding_local_uploaded
             .get(index)
             .and_then(|ri| self.storage.get(*ri))
     }
@@ -95,12 +101,12 @@ impl Recordings {
         self.filtered.is_empty()
     }
 
-    pub fn len_filtered(&self) -> usize {
-        self.filtered.len()
-    }
-
     pub fn invalid_count_filtered(&self) -> usize {
         self.invalid_count_filtered
+    }
+
+    pub fn len_filtered_excluding_local_uploaded(&self) -> usize {
+        self.filtered_excluding_local_uploaded.len()
     }
 
     pub fn any_available(&self) -> bool {
@@ -194,6 +200,18 @@ impl Recordings {
                 let after_start = self.filter_start_date.is_none_or(|start| date >= start);
                 let before_end = self.filter_end_date.is_none_or(|end| date <= end);
                 after_start && before_end
+            })
+            .collect::<Vec<_>>();
+
+        self.filtered_excluding_local_uploaded = self
+            .filtered
+            .iter()
+            .copied()
+            .filter(|entry| {
+                let Some(recording) = self.get(*entry) else {
+                    return false;
+                };
+                !matches!(recording, Recording::Local(LocalRecording::Uploaded { .. }))
             })
             .collect::<Vec<_>>();
 
@@ -789,9 +807,11 @@ fn recordings_view(
 
                     recordings_virtual_list.ui_custom_layout(
                         ui,
-                        recordings.len_filtered(),
+                        recordings.len_filtered_excluding_local_uploaded(),
                         |ui, index| {
-                            let Some(recording) = recordings.get_by_index_filtered(index) else {
+                            let Some(recording) =
+                                recordings.get_by_index_filtered_excluding_local_uploaded(index)
+                            else {
                                 return 0;
                             };
 
@@ -1115,6 +1135,7 @@ fn render_recording_entry(
                 // Uploaded recordings are not shown in the local recordings UI
                 // They're already displayed in the successful uploads section as we pull
                 // them from the api endpoint.
+                unreachable!();
             }
         },
     }
