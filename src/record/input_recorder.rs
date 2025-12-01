@@ -91,7 +91,7 @@ impl InputEventWriter {
     }
 
     async fn write_entry(&mut self, event: InputEvent) -> Result<()> {
-        let line = format!("{}\n", event);
+        let line = format!("{event}\n");
         self.file
             .write_all(line.as_bytes())
             .await

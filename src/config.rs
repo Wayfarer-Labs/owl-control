@@ -158,7 +158,7 @@ where
         serde_json::Value::String(s) => match s.as_str() {
             "true" => Ok(true),
             "false" => Ok(false),
-            _ => Err(Error::custom(format!("Invalid boolean string: {}", s))),
+            _ => Err(Error::custom(format!("Invalid boolean string: {s}"))),
         },
         _ => Err(Error::custom("Expected boolean or string")),
     }

@@ -943,7 +943,7 @@ fn render_recording_entry(
                                     ui.set_width(ui.available_width());
                                     for reason in error_reasons {
                                         ui.label(
-                                            RichText::new(format!("• {}", reason))
+                                            RichText::new(format!("• {reason}"))
                                                 .size(font_size - 1.0)
                                                 .color(Color32::from_rgb(255, 200, 200)),
                                         );

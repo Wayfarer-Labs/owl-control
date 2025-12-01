@@ -262,7 +262,7 @@ impl EguiOverlay for OverlayApp {
                                     );
                                     if let Some(fps) = current_fps {
                                         job.append(
-                                            &format!(" @ {:.1} FPS", fps),
+                                            &format!(" @ {fps:.1} FPS"),
                                             0.0,
                                             TextFormat {
                                                 font_id: font_id.clone(),

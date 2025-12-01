@@ -2,6 +2,7 @@
     all(target_os = "windows", not(debug_assertions),),
     windows_subsystem = "windows"
 )]
+#![deny(clippy::uninlined_format_args)]
 
 mod api;
 mod app_state;

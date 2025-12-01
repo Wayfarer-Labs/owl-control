@@ -35,9 +35,9 @@ pub fn format_minutes(duration: std::time::Duration) -> String {
 
     if hours > 0 {
         if mins > 0 {
-            format!("{}h {}m", hours, mins)
+            format!("{hours}h {mins}m")
         } else {
-            format!("{}h", hours)
+            format!("{hours}h")
         }
     } else {
         format!("{}m", mins.max(1)) // Show at least 1m
