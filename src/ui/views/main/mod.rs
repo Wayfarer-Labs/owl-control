@@ -24,6 +24,7 @@ use egui::{
 };
 
 mod upload_manager;
+mod windows;
 
 #[derive(Default)]
 pub(crate) struct MainViewState {
@@ -35,6 +36,9 @@ pub(crate) struct MainViewState {
 
     /// Upload manager state
     pub(crate) upload_manager: upload_manager::UploadManager,
+
+    /// Games window state
+    pub(crate) games_window: windows::games::GamesWindowState,
 }
 
 const SETTINGS_TEXT_WIDTH: f32 = 150.0;
@@ -131,6 +135,9 @@ impl App {
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                        if ui.button("Games").clicked() {
+                            self.main_view_state.games_window.open = true;
+                        }
                         if ui.button("FAQ").clicked() {
                             opener::open_browser(format!(
                                 "https://github.com/{GH_ORG}/{GH_REPO}/blob/main/GAMES.md"
@@ -176,6 +183,13 @@ impl App {
             &mut self.main_view_state.pending_move_location,
             &mut self.local_preferences.recording_location,
             &self.app_state,
+        );
+
+        // Games Window
+        windows::games::window(
+            ctx,
+            &mut self.main_view_state.games_window,
+            &self.app_state.supported_games.read().unwrap(),
         );
     }
 }

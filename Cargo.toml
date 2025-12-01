@@ -4,7 +4,7 @@ members = ["crates/*", "tools/*"]
 default-members = ["."]
 
 [workspace.package]
-version = "1.3.1"
+version = "1.4.0-rc2"
 
 [workspace.dependencies]
 input-capture = { path = "crates/input-capture" }
@@ -31,16 +31,16 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 git-version = "0.3"
 sysinfo = "0.32.1"
+steamlocate = "2.0.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
-libobs-wrapper = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470", features = [
+libobs-wrapper = { version = "6.0.3", features = [
     "logging_crash_handler",
     "enable_runtime",
 ], default-features = false }
-libobs-sources = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
-libobs-window-helper = { git = "https://github.com/libobs-rs/libobs-rs.git", rev = "63f8875851082f70fede4ee088329c83ed1dc470" }
+libobs-simple = { version = "5.0.5" }
+libobs-window-helper = { version = "0.2.0" }
 
 [package]
 name = "owl-control"
@@ -63,9 +63,8 @@ uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sysinfo.workspace = true
-libobs.workspace = true
 libobs-wrapper.workspace = true
-libobs-sources.workspace = true
+libobs-simple.workspace = true
 libobs-window-helper.workspace = true
 async-trait.workspace = true
 obws.workspace = true
@@ -104,6 +103,7 @@ tar = "0.4.44"
 opener = { version = "0.8", features = ["reveal"] }
 sha256 = "1.6.0"
 rfd = "0.14"
+steamlocate.workspace = true
 
 [build-dependencies]
 embed-manifest = "1.3.1"

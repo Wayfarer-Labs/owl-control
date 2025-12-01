@@ -30,7 +30,7 @@ cargo install cargo-obs-build
 5. Install the OBS binaries (this only needs to be done when the OBS version is updated):
 
 ```powershell
-cargo obs-build --out-dir target\x86_64-pc-windows-msvc\debug
+cargo obs-build build --out-dir target\x86_64-pc-windows-msvc\debug
 ```
 
 6. Run OWL Control with:
@@ -61,6 +61,15 @@ and automated linting tools to ensure code quality:
 ```bash
 cargo clippy
 ```
+
+## Updating the Games List
+
+Before updating the games list, please check with the data team to ensure that the changes are valid. In this phase, we are primarily pruning games and not adding new ones.
+
+Please update `crates/constants/src/supported_games.json` and run `cargo run --bin update-games` to update `GAMES.md`. To find the executable names for each game, you can use:
+
+- SteamDB: You can look at the depots for a game and find the `exe` files. This requires some discernment, and is hard to automate. It is the most reliable approach, however.
+- Rely on Discord's hard work, and use their list instead: <https://discord.com/api/v10/applications/detectable>
 
 ## Data Structure Changes
 

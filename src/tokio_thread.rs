@@ -138,7 +138,6 @@ async fn main(
         cue_cache: HashMap::new(),
         last_active: Instant::now(),
         actively_recording_window: None,
-        supported_games: SupportedGames::load_from_embedded(),
     };
 
     // Initial async requests to GitHub/server
@@ -225,11 +224,13 @@ async fn main(
                         opener::open(&path).ok();
                     }
                     AsyncRequest::UpdateSupportedGames(new_games) => {
-                        let old_game_count = state.supported_games.games.len();
-                        state.supported_games = new_games.clone();
+                        let mut supported_games = app_state.supported_games.write().unwrap();
+                        let old_game_count = supported_games.games.len();
+                        *supported_games = new_games;
                         tracing::info!(
-                            "Updated supported games, old count: {old_game_count}, new count: {}",
-                            state.supported_games.games.len()
+                            "Updated supported games: {old_game_count} -> {} total, {} installed",
+                            supported_games.games.len(),
+                            supported_games.installed().count()
                         );
                     }
                     AsyncRequest::LoadUploadStats => {
@@ -424,7 +425,7 @@ async fn main(
                     tracing::error!(e=?e, "Failed to flush input events");
                 }
                 // Check foregrounded game
-                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&state.supported_games, &state.recorder);
+                *app_state.last_foregrounded_game.write().unwrap() = get_foregrounded_game(&app_state.supported_games.read().unwrap(), &state.recorder);
                 // Tick state machine
                 state.tick().await;
                 // Periodically force the UI to rerender so that it will process events, even if not visible
@@ -467,7 +468,6 @@ struct State {
     cue_cache: HashMap<String, Vec<u8>>,
     last_active: Instant,
     actively_recording_window: Option<HWND>,
-    supported_games: SupportedGames,
 }
 impl State {
     async fn on_input(&mut self, e: Event) {
@@ -632,10 +632,11 @@ impl State {
             (RecordingState::Idle | RecordingState::Paused, RecordingState::Recording) => {
                 // Start recording from Idle or Paused state
                 let honk = self.app_state.config.read().unwrap().preferences.honk;
+                let supported_games = self.app_state.supported_games.read().unwrap().clone();
                 start_recording_safely(
                     &mut self.recorder,
                     &self.input_capture,
-                    &self.supported_games,
+                    &supported_games,
                     Some((&self.sink, honk, &self.app_state)),
                     &mut self.cue_cache,
                 )
@@ -724,6 +725,7 @@ impl State {
                 // Restart the currently active recording
                 // Here we intentionally set honk to false, we don't want audio cue to occur
                 // on an intended recording restart and confuse the user
+                let supported_games = self.app_state.supported_games.read().unwrap().clone();
                 stop_recording_with_notification(
                     &mut self.recorder,
                     &self.input_capture,
@@ -734,7 +736,7 @@ impl State {
                 start_recording_safely(
                     &mut self.recorder,
                     &self.input_capture,
-                    &self.supported_games,
+                    &supported_games,
                     Some((&self.sink, false, &self.app_state)),
                     &mut self.cue_cache,
                 )
@@ -1062,7 +1064,13 @@ async fn get_supported_games() -> Result<SupportedGames> {
         .text()
         .await
         .context("Failed to get text of supported games from GitHub")?;
-    SupportedGames::load_from_str(&text).context("Failed to parse supported games from GitHub")
+
+    // Use spawn_blocking since load_from_str now does Steam detection (blocking I/O)
+    tokio::task::spawn_blocking(move || {
+        SupportedGames::load_from_str(&text).context("Failed to parse supported games from GitHub")
+    })
+    .await
+    .unwrap()
 }
 
 async fn check_for_updates(app_state: Arc<AppState>) -> Result<()> {

@@ -121,7 +121,7 @@ else {
     exit 1
 }
 
-cargo obs-build --out-dir dist\
+cargo obs-build build --out-dir dist\
 if ($LASTEXITCODE -eq 0) {
     Write-Status "OBS dependencies installed successfully"
 }
