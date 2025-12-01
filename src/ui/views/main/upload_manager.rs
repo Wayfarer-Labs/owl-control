@@ -412,16 +412,17 @@ pub fn view(
             "Invalid uploads, as well as existing uploads, will not be deleted."
         ), None);
 
-        // Check if there are any uploaded local recordings
-        let any_uploaded_local = upload_manager
+        // Check how many uploaded local recordings there are
+        let uploaded_local_count = upload_manager
             .recordings
             .iter_filtered()
-            .any(|r| matches!(r, Recording::Local(LocalRecording::Uploaded { .. })));
+            .filter(|r| matches!(r, Recording::Local(LocalRecording::Uploaded { .. })))
+            .count();
 
-        if any_uploaded_local {
+        if uploaded_local_count > 0 {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui
-                    .button(RichText::new("Clear Uploaded").size(11.0))
+                    .button(RichText::new(format!("Clear {uploaded_local_count} Uploaded Recordings")).size(11.0))
                     .on_hover_text(concat!(
                         "Delete all local recordings that have been successfully uploaded. ",
                         "This will free up disk space while keeping your uploaded recordings in the cloud."
@@ -470,20 +471,49 @@ pub fn view(
         );
     } else {
         // Show Upload button when not uploading
-        ui.add_enabled_ui(!is_newer_release_available, |ui| {
-            if ui
-                .add_sized(
-                    vec2(ui.available_width(), 32.0),
-                    Button::new(RichText::new("Upload Recordings").size(12.0)),
+        // Count uploadable recordings (unuploaded + paused)
+        let uploadable_count = upload_manager
+            .recordings
+            .iter_filtered()
+            .filter(|r| {
+                matches!(
+                    r,
+                    Recording::Local(
+                        LocalRecording::Unuploaded { .. } | LocalRecording::Paused { .. }
+                    )
                 )
-                .clicked()
-            {
+            })
+            .count();
+
+        let enabled = !is_newer_release_available && uploadable_count > 0;
+        ui.add_enabled_ui(enabled, |ui| {
+            let mut response = ui.add_sized(
+                vec2(ui.available_width(), 32.0),
+                Button::new(
+                    RichText::new(format!("Upload {uploadable_count} Recordings")).size(12.0),
+                ),
+            );
+
+            // Add hover text explaining why uploads are disabled
+            if !enabled {
+                let hover_text = if is_newer_release_available {
+                    "Please update to the latest version before uploading."
+                } else if uploadable_count == 0 {
+                    "No recordings available to upload."
+                } else {
+                    "Unknown error."
+                };
+                response = response.on_disabled_hover_text(hover_text);
+            }
+
+            if response.clicked() {
                 upload_manager.last_upload_error = None;
                 app_state
                     .async_request_tx
                     .blocking_send(AsyncRequest::UploadData)
                     .ok();
             }
+
             if let Some(error) = &upload_manager.last_upload_error {
                 ui.label(
                     RichText::new(error)
