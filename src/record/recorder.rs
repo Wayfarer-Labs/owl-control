@@ -14,12 +14,14 @@ use windows::Win32::Foundation::HWND;
 
 use crate::{
     app_state::{AppState, RecordingStatus},
-    config::{EncoderSettings, RecordingBackend},
+    config::{EncoderSettings, GameConfig, RecordingBackend},
     output_types::InputEventType,
     record::{
-        LocalRecording, input_recorder::InputEventStream,
-        obs_embedded_recorder::ObsEmbeddedRecorder, obs_socket_recorder::ObsSocketRecorder,
-        recording::Recording,
+        LocalRecording,
+        input_recorder::InputEventStream,
+        obs_embedded_recorder::ObsEmbeddedRecorder,
+        obs_socket_recorder::ObsSocketRecorder,
+        recording::{Recording, RecordingParams},
     },
 };
 use constants::{MIN_FREE_SPACE_MB, encoding::VideoEncoderType, supported_games::SupportedGames};
@@ -37,6 +39,7 @@ pub trait VideoRecorder {
         hwnd: HWND,
         game_exe: &str,
         video_settings: EncoderSettings,
+        game_config: GameConfig,
         game_resolution: (u32, u32),
         event_stream: InputEventStream,
     ) -> Result<()>;
@@ -190,25 +193,24 @@ impl Recorder {
             "Starting recording"
         );
 
-        let video_settings = self
-            .app_state
-            .config
-            .read()
-            .unwrap()
-            .preferences
-            .encoder
-            .clone();
+        let params = {
+            let config = self.app_state.config.read().unwrap();
+            RecordingParams {
+                recording_location: recording_location.clone(),
+                game_exe: game_exe.clone(),
+                pid,
+                hwnd,
+                video_settings: config.preferences.encoder.clone(),
+                game_config: config
+                    .preferences
+                    .games
+                    .get(&game_exe_without_extension)
+                    .cloned()
+                    .unwrap_or_default(),
+            }
+        };
 
-        let recording = Recording::start(
-            self.video_recorder.as_mut(),
-            recording_location.clone(),
-            game_exe.clone(),
-            pid,
-            hwnd,
-            video_settings,
-            input_capture,
-        )
-        .await;
+        let recording = Recording::start(self.video_recorder.as_mut(), params, input_capture).await;
 
         let recording = match recording {
             Ok(recording) => recording,

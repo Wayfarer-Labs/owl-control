@@ -9,7 +9,7 @@ use game_process::{Pid, windows::Win32::Foundation::HWND};
 use input_capture::InputCapture;
 
 use crate::{
-    config::EncoderSettings,
+    config::{EncoderSettings, GameConfig},
     record::{
         input_recorder::{InputEventStream, InputEventWriter},
         recorder::VideoRecorder,
@@ -18,6 +18,16 @@ use crate::{
 };
 
 use super::local_recording::LocalRecording;
+
+/// Parameters for starting a recording
+pub(crate) struct RecordingParams {
+    pub recording_location: PathBuf,
+    pub game_exe: String,
+    pub pid: Pid,
+    pub hwnd: HWND,
+    pub video_settings: EncoderSettings,
+    pub game_config: GameConfig,
+}
 
 pub(crate) struct Recording {
     input_writer: InputEventWriter,
@@ -37,13 +47,18 @@ pub(crate) struct Recording {
 impl Recording {
     pub(crate) async fn start(
         video_recorder: &mut dyn VideoRecorder,
-        recording_location: PathBuf,
-        game_exe: String,
-        pid: Pid,
-        hwnd: HWND,
-        video_settings: EncoderSettings,
+        params: RecordingParams,
         input_capture: &InputCapture,
     ) -> Result<Self> {
+        let RecordingParams {
+            recording_location,
+            game_exe,
+            pid,
+            hwnd,
+            video_settings,
+            game_config,
+        } = params;
+
         let start_time = SystemTime::now();
         let start_instant = Instant::now();
 
@@ -62,6 +77,7 @@ impl Recording {
                 hwnd,
                 &game_exe,
                 video_settings,
+                game_config,
                 game_resolution,
                 input_stream.clone(),
             )

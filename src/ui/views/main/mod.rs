@@ -190,6 +190,7 @@ impl App {
             ctx,
             &mut self.main_view_state.games_window,
             &self.app_state.supported_games.read().unwrap(),
+            &mut self.local_preferences,
         );
     }
 }

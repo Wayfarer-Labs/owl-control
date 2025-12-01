@@ -61,6 +61,7 @@ impl VideoRecorder for ObsSocketRecorder {
         hwnd: HWND,
         game_exe: &str,
         _video_settings: EncoderSettings,
+        _game_config: crate::config::GameConfig,
         (base_width, base_height): (u32, u32),
         // TODO: hook / start events
         _event_stream: InputEventStream,

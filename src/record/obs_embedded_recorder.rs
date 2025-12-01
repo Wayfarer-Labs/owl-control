@@ -41,7 +41,7 @@ use libobs_wrapper::{
 };
 
 use crate::{
-    config::EncoderSettings,
+    config::{EncoderSettings, GameConfig},
     output_types::InputEventType,
     record::{
         input_recorder::InputEventStream,
@@ -50,12 +50,8 @@ use crate::{
 };
 
 const OWL_SCENE_NAME: &str = "owl_data_collection_scene";
-const OWL_CAPTURE_NAME: &str = "owl_game_capture";
-
-// Untested! Added for testing purposes, but will probably not be used as
-// we want to ensure we're capturing a game and WindowCapture will capture
-// non-game content.
-const USE_WINDOW_CAPTURE: bool = false;
+const OWL_WINDOW_CAPTURE_NAME: &str = "owl_window_capture";
+const OWL_GAME_CAPTURE_NAME: &str = "owl_game_capture";
 
 pub struct ObsEmbeddedRecorder {
     _obs_thread: std::thread::JoinHandle<()>,
@@ -108,6 +104,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
         hwnd: HWND,
         game_exe: &str,
         video_settings: EncoderSettings,
+        game_config: GameConfig,
         (base_width, base_height): (u32, u32),
         event_stream: InputEventStream,
     ) -> Result<()> {
@@ -124,6 +121,7 @@ impl VideoRecorder for ObsEmbeddedRecorder {
                 request: Box::new(RecordingRequest {
                     game_resolution: (base_width, base_height),
                     video_settings,
+                    game_config,
                     recording_path,
                     game_exe: game_exe.to_string(),
                     hwnd: SendableComp(hwnd),
@@ -195,6 +193,7 @@ enum RecorderMessage {
 struct RecordingRequest {
     game_resolution: (u32, u32),
     video_settings: EncoderSettings,
+    game_config: GameConfig,
     recording_path: String,
     game_exe: String,
     hwnd: SendableComp<HWND>,
@@ -221,6 +220,22 @@ pub fn obs_vet_to_vet(vet: &ObsVideoEncoderType) -> Option<VideoEncoderType> {
 }
 
 fn recorder_thread(
+    adapter_index: usize,
+    rx: tokio::sync::mpsc::Receiver<RecorderMessage>,
+    init_success_tx: tokio::sync::oneshot::Sender<
+        Result<Vec<VideoEncoderType>, libobs_wrapper::utils::ObsError>,
+    >,
+) {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        recorder_thread_impl(adapter_index, rx, init_success_tx);
+    }));
+    if let Err(e) = result {
+        tracing::error!("OBS recorder thread panicked: {e:?}");
+        std::panic::resume_unwind(e);
+    }
+}
+
+fn recorder_thread_impl(
     adapter_index: usize,
     mut rx: tokio::sync::mpsc::Receiver<RecorderMessage>,
     init_success_tx: tokio::sync::oneshot::Sender<
@@ -282,6 +297,8 @@ struct RecorderState {
     was_hooked: Arc<AtomicBool>,
     last_video_encoder_type: Option<VideoEncoderType>,
     last_application: Option<(String, SendableComp<HWND>)>,
+    /// Track the last source creation state to force recreation when it changes
+    last_source_creation_state: Option<SourceCreationState>,
     is_recording: bool,
     recording_start_time: Option<Instant>,
 
@@ -292,6 +309,11 @@ struct RecorderState {
 
     // This needs to be last as it needs to be dropped last
     obs_context: ObsContext,
+}
+/// State that affects source creation - if any field changes, we must recreate the source
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct SourceCreationState {
+    use_window_capture: bool,
 }
 impl RecorderState {
     fn new(
@@ -360,6 +382,7 @@ impl RecorderState {
                 was_hooked: Arc::new(AtomicBool::new(false)),
                 last_video_encoder_type: None,
                 last_application: None,
+                last_source_creation_state: None,
                 is_recording: false,
                 recording_start_time: None,
                 video_encoders: HashMap::new(),
@@ -391,12 +414,17 @@ impl RecorderState {
         self.obs_context
             .reset_video(video_info(self.adapter_index, request.game_resolution))?;
 
+        let source_creation_state = SourceCreationState {
+            use_window_capture: request.game_config.use_window_capture,
+        };
         let source = prepare_source(
             &mut self.obs_context,
             &request.game_exe,
             request.hwnd.0,
             &mut scene,
             self.source.take(),
+            &source_creation_state,
+            self.last_source_creation_state.as_ref(),
         )?;
 
         // Register the source
@@ -530,6 +558,10 @@ impl RecorderState {
                     "encoder".to_string(),
                     request.video_settings.encoder.id().into(),
                 );
+                object.insert(
+                    "window_capture".to_string(),
+                    request.game_config.use_window_capture.into(),
+                );
             }
             tracing::info!("Recording starting with video settings: {encoder_settings_json:?}");
         }
@@ -541,6 +573,7 @@ impl RecorderState {
 
         self.source = Some(source);
         self.last_application = Some((request.game_exe.clone(), request.hwnd));
+        self.last_source_creation_state = Some(source_creation_state);
         self.is_recording = true;
         self.recording_start_time = Some(Instant::now());
 
@@ -676,10 +709,28 @@ fn prepare_source(
     hwnd: HWND,
     scene: &mut ObsSceneRef,
     mut last_source: Option<ObsSourceRef>,
+    state: &SourceCreationState,
+    last_state: Option<&SourceCreationState>,
 ) -> Result<ObsSourceRef> {
     let capture_audio = true;
 
-    let result = if USE_WINDOW_CAPTURE {
+    // Check if source creation state changed - if so, we can't reuse the old source
+    if let Some(last) = last_state
+        && last != state
+        && last_source.is_some()
+    {
+        tracing::info!(
+            "Source creation state changed ({last:?} -> {state:?}), discarding old source",
+        );
+        if let Some(source) = last_source.take() {
+            tracing::info!("Removing old source");
+            dbg!(scene.remove_source(&source))?;
+            tracing::info!("Old source removed");
+        }
+    }
+
+    let result = if state.use_window_capture {
+        tracing::info!("Using window capture mode (per-game setting)");
         let window =
             libobs_wrapper::unsafe_send::Sendable(find_game_capture_window(Some(game_exe), hwnd)?);
 
@@ -699,7 +750,7 @@ fn prepare_source(
         } else {
             tracing::info!("Creating new window capture source");
             obs_context
-                .source_builder::<WindowCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)?
+                .source_builder::<WindowCaptureSourceBuilder, _>(OWL_WINDOW_CAPTURE_NAME)?
                 .set_window(&window)
                 .set_capture_audio(capture_audio)
                 .map_err(|e| eyre!(e))?
@@ -738,7 +789,7 @@ fn prepare_source(
             }
 
             obs_context
-                .source_builder::<GameCaptureSourceBuilder, _>(OWL_CAPTURE_NAME)?
+                .source_builder::<GameCaptureSourceBuilder, _>(OWL_GAME_CAPTURE_NAME)?
                 .set_capture_mode(capture_mode)
                 .set_window(&window)
                 .set_capture_audio(capture_audio)

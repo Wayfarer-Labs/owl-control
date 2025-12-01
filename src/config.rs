@@ -1,7 +1,7 @@
 use color_eyre::eyre::{Context, Result, eyre};
 use constants::encoding::VideoEncoderType;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 // camel case renames are legacy from old existing configs, we want it to be backwards-compatible with previous owl releases that used electron
@@ -33,6 +33,9 @@ pub struct Preferences {
     pub encoder: EncoderSettings,
     #[serde(default = "default_recording_location")]
     pub recording_location: std::path::PathBuf,
+    /// Per-game configuration settings, keyed by executable name (e.g., "hl2")
+    #[serde(default)]
+    pub games: HashMap<String, GameConfig>,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -50,6 +53,7 @@ impl Default for Preferences {
             recording_backend: Default::default(),
             encoder: Default::default(),
             recording_location: default_recording_location(),
+            games: Default::default(),
         }
     }
 }
@@ -107,7 +111,6 @@ pub struct AudioCues {
     pub start_recording: String,
     pub stop_recording: String,
 }
-
 impl Default for AudioCues {
     fn default() -> Self {
         Self {
@@ -115,6 +118,14 @@ impl Default for AudioCues {
             stop_recording: "default_end.mp3".to_string(),
         }
     }
+}
+
+/// Per-game configuration settings
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct GameConfig {
+    /// Use window capture instead of game capture for this game
+    pub use_window_capture: bool,
 }
 
 /// by default now start and stop recording are mapped to same key

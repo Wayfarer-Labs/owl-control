@@ -3341,8 +3341,7 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "libobs"
 version = "4.0.2+32.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f9fd901794bd8d9c472d8ca9d0296f2bc10ea48b80564e18aaa4a1cb2af5294"
+source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=fix-scene-remove-source-deadlock#9330d381ab74da055e2ea6aab5c6623bdc85d4cd"
 dependencies = [
  "bindgen",
  "pkg-config",
@@ -3350,11 +3349,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-simple"
-version = "5.0.5+32.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ce32d3f9eb8caa1b85e5d973c242445ef5084f13a36c93cf31ac1d4a739290f"
+version = "5.0.6+32.0.2"
+source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=fix-scene-remove-source-deadlock#9330d381ab74da055e2ea6aab5c6623bdc85d4cd"
 dependencies = [
- "anyhow",
  "display-info",
  "libobs",
  "libobs-simple-macro",
@@ -3369,8 +3366,7 @@ dependencies = [
 [[package]]
 name = "libobs-simple-macro"
 version = "6.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "592bd19bbd7ba1482ad92ab1bddb3632d5498a2a2830c8a5f4eb6d04d3cc1903"
+source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=fix-scene-remove-source-deadlock#9330d381ab74da055e2ea6aab5c6623bdc85d4cd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3380,20 +3376,16 @@ dependencies = [
 [[package]]
 name = "libobs-window-helper"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78b4213ea3b6092c442a0f55cc22dc5c09aed9e7caf8043911ee735e9cd18028"
+source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=fix-scene-remove-source-deadlock#9330d381ab74da055e2ea6aab5c6623bdc85d4cd"
 dependencies = [
- "anyhow",
  "windows 0.61.3",
 ]
 
 [[package]]
 name = "libobs-wrapper"
-version = "6.0.3+32.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14a79291f1b03e7bf21cfab946ac28116da3250c6436fe93b1c2771222dd70ef"
+version = "6.0.4+32.0.2"
+source = "git+https://github.com/Wayfarer-Labs/libobs-rs.git?branch=fix-scene-remove-source-deadlock#9330d381ab74da055e2ea6aab5c6623bdc85d4cd"
 dependencies = [
- "anyhow",
  "chrono",
  "display-info",
  "duplicate",
