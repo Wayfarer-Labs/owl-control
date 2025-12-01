@@ -8,6 +8,7 @@ mod app_state;
 mod assets;
 mod config;
 mod output_types;
+mod play_time;
 mod record;
 mod system;
 mod tokio_thread;
@@ -15,7 +16,6 @@ mod ui;
 mod upload;
 mod util;
 mod validation;
-mod play_time;
 
 use color_eyre::Result;
 use egui_wgpu::wgpu;

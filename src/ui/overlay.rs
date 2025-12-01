@@ -284,7 +284,12 @@ impl EguiOverlay for OverlayApp {
                                         },
                                     );
                                     // Add play time if above threshold
-                                    let total_time = self.app_state.play_time_state.read().unwrap().get_total_active_time();
+                                    let total_time = self
+                                        .app_state
+                                        .play_time_state
+                                        .read()
+                                        .unwrap()
+                                        .get_total_active_time();
                                     if total_time >= constants::PLAY_TIME_THRESHOLD {
                                         let amber = Color32::from_rgb(255, 191, 0);
                                         job.append(

@@ -35,7 +35,9 @@ impl PlayTimeTracker {
     /// Returns the total active time including any current session
     pub fn get_total_active_time(&self) -> Duration {
         self.total_active_duration
-            + self.current_session_start.map_or(Duration::ZERO, |s| s.elapsed())
+            + self
+                .current_session_start
+                .map_or(Duration::ZERO, |s| s.elapsed())
     }
 
     /// Returns true if currently in an active session
@@ -121,7 +123,8 @@ impl PlayTimeTracker {
     }
 
     fn load_from_file() -> Result<Self> {
-        let state: SerialState = serde_json::from_str(&std::fs::read_to_string(state_file_path()?)?)?;
+        let state: SerialState =
+            serde_json::from_str(&std::fs::read_to_string(state_file_path()?)?)?;
         let mut tracker = Self {
             total_active_duration: Duration::from_secs(state.total_active_secs),
             current_session_start: None,
