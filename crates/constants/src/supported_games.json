@@ -127,7 +127,7 @@
   {
     "game": "Call of Duty: Black Ops 6",
     "url": "https://store.steampowered.com/app/2933620/Call_of_Duty_Black_Ops_6/",
-    "binaries": ["sp24-cod", "mp24-cod", "cod"]
+    "binaries": ["sp24-cod", "mp24-cod", "cod", "cod24-cod"]
   },
   {
     "game": "Call of Duty: Black Ops 7",
