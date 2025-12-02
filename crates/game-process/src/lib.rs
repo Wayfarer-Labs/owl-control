@@ -63,7 +63,7 @@ pub fn foreground_window() -> Result<(HWND, Pid), Error> {
         let hwnd = GetForegroundWindow();
         let mut pid = 0;
         if GetWindowThreadProcessId(hwnd, Some(&mut pid)) == 0 {
-            return Err(Error::from_win32());
+            return Err(Error::from_thread());
         }
         Ok((hwnd, Pid(pid)))
     }

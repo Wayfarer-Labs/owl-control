@@ -18,7 +18,7 @@ tokio = { version = "1.45.1", features = ["full"] }
 tokio-util = { version = "0.7.15", features = ["rt"] }
 futures = "0.3"
 color-eyre = "0.6.5"
-windows = { version = "0.61.3", features = [
+windows = { version = "0.62.2", features = [
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
@@ -35,12 +35,12 @@ steamlocate = "2.0.1"
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "fix-scene-remove-source-deadlock", features = [
+libobs-wrapper = { git = "https://github.com/libobs-rs/libobs-rs.git", features = [
     "logging_crash_handler",
     "enable_runtime",
 ], default-features = false }
-libobs-simple = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "fix-scene-remove-source-deadlock" }
-libobs-window-helper = { git = "https://github.com/Wayfarer-Labs/libobs-rs.git", branch = "fix-scene-remove-source-deadlock" }
+libobs-simple = { git = "https://github.com/libobs-rs/libobs-rs.git" }
+libobs-window-helper = { git = "https://github.com/libobs-rs/libobs-rs.git" }
 
 [package]
 name = "owl-control"
@@ -95,7 +95,8 @@ egui_virtual_list = "0.9.0"
 image = { version = "0.25", features = ["jpeg", "png"] }
 dirs = "6.0.0"
 
-rodio = "0.21.1"
+rodio = { git = "https://github.com/philpax/rodio.git", branch = "latest-cpal-fixes" }
+
 chrono = { version = "0.4.42", features = ["serde"] }
 reqwest = { version = "0.12.23", features = ["json", "stream"] }
 
@@ -107,3 +108,6 @@ steamlocate.workspace = true
 
 [build-dependencies]
 embed-manifest = "1.3.1"
+
+[patch.'https://github.com/RustAudio/cpal']
+cpal = { git = "https://github.com/philpax/cpal.git", branch = "audio-device-fix-updated" }
