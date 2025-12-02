@@ -486,8 +486,9 @@ enum RecordingState {
     /// In process of recording
     Recording,
     /// Recording paused due to idle or unfocused window, and will restart
-    /// upon both input & window focus detected
-    Paused,
+    /// upon both input & window focus detected. Stores the PID of the paused
+    /// application to detect if it closes while paused.
+    Paused { pid: game_process::Pid },
 }
 struct State {
     recording_state: RecordingState,
@@ -528,10 +529,10 @@ impl State {
                 }
                 self.handle_transition(RecordingState::Recording).await
             }
-            (RecordingState::Recording | RecordingState::Paused, key) if key == stop_key => {
+            (RecordingState::Recording | RecordingState::Paused { .. }, key) if key == stop_key => {
                 self.handle_transition(RecordingState::Idle).await
             }
-            (RecordingState::Paused, _) => {
+            (RecordingState::Paused { .. }, _) => {
                 // key_press_keycode returned None, meaning some other input event that isn't keypress was detected,
                 // then check that window is also focused before resuming recording
                 if self
@@ -574,7 +575,12 @@ impl State {
                         "No input detected for {} seconds, stopping recording",
                         MAX_IDLE_DURATION.as_secs()
                     );
-                    Some((RecordingState::Paused, "stop recording on idle timeout"))
+                    Some((
+                        RecordingState::Paused {
+                            pid: recording.pid(),
+                        },
+                        "stop recording on idle timeout",
+                    ))
                 } else if recording.elapsed() > MAX_FOOTAGE {
                     // restart recording once max duration met
                     tracing::info!(
@@ -595,7 +601,9 @@ impl State {
                         self.actively_recording_window
                     );
                     Some((
-                        RecordingState::Paused,
+                        RecordingState::Paused {
+                            pid: recording.pid(),
+                        },
                         "pause recording on window lost focus",
                     ))
                 } else if let Ok(current_resolution) =
@@ -643,8 +651,17 @@ impl State {
             {
                 tracing::error!(e=?e, "Failed to {task}");
             }
-        } else {
-            // Surprisingly no checks to do when idle or paused
+        } else if let RecordingState::Paused { pid } = self.recording_state {
+            // Check if the paused application has closed
+            if !does_process_exist(pid).unwrap_or_default() {
+                tracing::info!(
+                    pid = pid.0,
+                    "Paused game process no longer exists, transitioning to idle"
+                );
+                if let Err(e) = self.handle_transition(RecordingState::Idle).await {
+                    tracing::error!(e=?e, "Failed to transition from paused to idle on process exit");
+                }
+            }
         }
 
         // Remember to poll the recorder for its own internal work
@@ -659,7 +676,7 @@ impl State {
         );
 
         self.recording_state = match (&self.recording_state, to_state) {
-            (RecordingState::Idle | RecordingState::Paused, RecordingState::Recording) => {
+            (RecordingState::Idle | RecordingState::Paused { .. }, RecordingState::Recording) => {
                 // Start recording from Idle or Paused state
                 let honk = self.app_state.config.read().unwrap().preferences.honk;
                 let supported_games = self.app_state.supported_games.read().unwrap().clone();
@@ -712,7 +729,7 @@ impl State {
                 self.maybe_trigger_auto_upload().await;
                 RecordingState::Idle
             }
-            (RecordingState::Recording, RecordingState::Paused) => {
+            (RecordingState::Recording, RecordingState::Paused { pid }) => {
                 // Pause recording (due to idle or unfocused window)
                 // Check if this was due to idle timeout before we stop
                 let due_to_idle = self.last_active.elapsed() > MAX_IDLE_DURATION;
@@ -736,10 +753,10 @@ impl State {
                     });
                 // Trigger auto-upload if enabled (recording was saved)
                 self.maybe_trigger_auto_upload().await;
-                RecordingState::Paused
+                RecordingState::Paused { pid }
             }
-            (RecordingState::Paused, RecordingState::Idle) => {
-                // When user stop keys recording while paused
+            (RecordingState::Paused { .. }, RecordingState::Idle) => {
+                // When user stop keys recording while paused, or when the paused app closes
                 *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
                 // Play a mild version of the stop recording cue to signal we're done
                 let stop_recording_cue = self
