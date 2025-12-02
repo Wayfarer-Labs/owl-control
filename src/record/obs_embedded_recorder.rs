@@ -742,8 +742,7 @@ fn prepare_source(
             source
                 .create_updater::<WindowCaptureSourceUpdater>()?
                 .set_window(&window)
-                .set_capture_audio(capture_audio)
-                .map_err(|e| eyre!(e))?
+                .set_capture_audio(capture_audio)?
                 .set_client_area(client_area)
                 .update()?;
             Ok(source)
@@ -752,8 +751,7 @@ fn prepare_source(
             obs_context
                 .source_builder::<WindowCaptureSourceBuilder, _>(OWL_WINDOW_CAPTURE_NAME)?
                 .set_window(&window)
-                .set_capture_audio(capture_audio)
-                .map_err(|e| eyre!(e))?
+                .set_capture_audio(capture_audio)?
                 .set_client_area(client_area)
                 .add_to_scene(scene)
         }
@@ -774,8 +772,7 @@ fn prepare_source(
                 .create_updater::<GameCaptureSourceUpdater>()?
                 .set_capture_mode(capture_mode)
                 .set_window_raw(window.obs_id.as_str())
-                .set_capture_audio(capture_audio)
-                .map_err(|e| eyre!(e))?
+                .set_capture_audio(capture_audio)?
                 .update()?;
             Ok(source)
         } else {
@@ -792,8 +789,7 @@ fn prepare_source(
                 .source_builder::<GameCaptureSourceBuilder, _>(OWL_GAME_CAPTURE_NAME)?
                 .set_capture_mode(capture_mode)
                 .set_window(&window)
-                .set_capture_audio(capture_audio)
-                .map_err(|e| eyre!(e))?
+                .set_capture_audio(capture_audio)?
                 .add_to_scene(scene)
         }
     };
