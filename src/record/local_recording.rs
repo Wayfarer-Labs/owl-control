@@ -89,6 +89,11 @@ impl UploadProgressState {
             .unwrap_or(1)
     }
 
+    /// Get the total number of bytes uploaded so far
+    pub fn uploaded_bytes(&self) -> u64 {
+        self.chunk_etags.len() as u64 * self.chunk_size_bytes
+    }
+
     /// Cleans up the tar file associated with this upload progress.
     pub fn cleanup_tar_file(&self) {
         std::fs::remove_file(&self.tar_path).ok();
@@ -556,7 +561,7 @@ fn folder_size(path: &Path) -> Result<u64, std::io::Error> {
     for entry in path.read_dir()? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_file() {
+        if path.is_file() && path.extension().unwrap_or_default() != "tar" {
             size += path.metadata()?.len();
         }
     }

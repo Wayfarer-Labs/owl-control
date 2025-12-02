@@ -1,6 +1,6 @@
 use egui::{
     Align, Button, Checkbox, CollapsingHeader, Color32, CursorIcon, Frame, Label, Layout, Margin,
-    ProgressBar, Response, RichText, ScrollArea, Sense, TextEdit, TextWrapMode, Ui, vec2,
+    ProgressBar, Response, RichText, ScrollArea, Sense, TextEdit, TextWrapMode, Ui, Vec2, vec2,
     widgets::Spinner,
 };
 
@@ -1077,7 +1077,7 @@ fn render_recording_entry(
                     });
                 });
             }
-            LocalRecording::Paused(LocalRecordingPaused { metadata, info, .. }) => {
+            LocalRecording::Paused(paused @ LocalRecordingPaused { metadata, info, .. }) => {
                 // Paused upload entry
                 frame(ui, Color32::from_rgb(70, 60, 90), |ui| {
                     ui.horizontal(|ui| {
@@ -1122,7 +1122,19 @@ fn render_recording_entry(
                                     Some((info.folder_path.clone(), info.folder_name.clone()));
                             }
 
-                            filesize(ui, info.folder_size as f64 / 1024.0 / 1024.0, font_size);
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing = Vec2::ZERO;
+                                filesize(ui, info.folder_size as f64 / 1024.0 / 1024.0, font_size);
+                                ui.add(Label::new(
+                                    RichText::new(format!(
+                                        "{:.2}/",
+                                        paused.upload_progress().uploaded_bytes() as f64
+                                            / 1024.0
+                                            / 1024.0
+                                    ))
+                                    .size(font_size),
+                                ));
+                            });
 
                             if let Some(md) = metadata.as_deref() {
                                 duration(ui, md.duration, font_size);
