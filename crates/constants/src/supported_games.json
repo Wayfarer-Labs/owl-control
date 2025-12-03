@@ -527,7 +527,7 @@
   {
     "game": "The Outer Worlds",
     "url": "https://store.steampowered.com/app/578650/The_Outer_Worlds/",
-    "binaries": ["theouterworlds", "indiana-win64-shipping"]
+    "binaries": ["theouterworlds", "indiana-win64-shipping", "indianaepicgamestore"]
   },
   {
     "game": "Outlast 2",
