@@ -527,7 +527,11 @@
   {
     "game": "The Outer Worlds",
     "url": "https://store.steampowered.com/app/578650/The_Outer_Worlds/",
-    "binaries": ["theouterworlds", "indiana-win64-shipping", "indianaepicgamestore"]
+    "binaries": [
+      "theouterworlds",
+      "indiana-win64-shipping",
+      "indianaepicgamestore"
+    ]
   },
   {
     "game": "Outlast 2",
@@ -562,7 +566,7 @@
   {
     "game": "Poppy Playtime",
     "url": "https://store.steampowered.com/app/1721470/Poppy_Playtime/",
-    "binaries": ["poppy_playtime", "poppy_playtime-win64-shipping"]
+    "binaries": ["poppy_playtime", "poppy_playtime-win64-shipping", "ch4_pro"]
   },
   {
     "game": "Prey (2017)",
