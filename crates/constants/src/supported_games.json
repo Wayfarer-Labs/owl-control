@@ -799,7 +799,7 @@
   {
     "game": "Viscera Cleanup Detail",
     "url": "https://store.steampowered.com/app/246900/Viscera_Cleanup_Detail/",
-    "binaries": ["rust", "rustugc", "rustclientprocess"]
+    "binaries": ["rust", "rustugc", "rustclientprocess", "udk"]
   },
   {
     "game": "VOIDBREAKER",
