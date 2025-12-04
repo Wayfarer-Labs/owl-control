@@ -756,6 +756,7 @@ impl State {
                 RecordingState::Paused { pid }
             }
             (RecordingState::Paused { .. }, RecordingState::Idle) => {
+                let honk = self.app_state.config.read().unwrap().preferences.honk;
                 // When user stop keys recording while paused, or when the paused app closes
                 *self.app_state.state.write().unwrap() = RecordingStatus::Stopped;
                 // Play a mild version of the stop recording cue to signal we're done
@@ -768,15 +769,17 @@ impl State {
                     .audio_cues
                     .stop_recording
                     .clone();
-                play_cue(
-                    &self.sink,
-                    &self.app_state,
-                    &stop_recording_cue,
-                    &mut self.cue_cache,
-                    // TODO: find a better effect / sound for this. I wanted to use a reversed-start cue,
-                    // but that doesn't seem to be something that can be easily done with rodio
-                    |s| Box::new(s.low_pass(500).amplify(1.5)),
-                );
+                if honk {
+                    play_cue(
+                        &self.sink,
+                        &self.app_state,
+                        &stop_recording_cue,
+                        &mut self.cue_cache,
+                        // TODO: find a better effect / sound for this. I wanted to use a reversed-start cue,
+                        // but that doesn't seem to be something that can be easily done with rodio
+                        |s| Box::new(s.low_pass(500).amplify(1.5)),
+                    );
+                }
                 // Notify play time tracker (already paused, just confirming stop)
                 self.app_state
                     .play_time_state
