@@ -480,6 +480,11 @@
     "binaries": ["metroexodus"]
   },
   {
+    "game": "Metro: Last Light (delisted, see Redux)",
+    "url": "https://store.steampowered.com/app/43160/Metro_Last_Light/",
+    "binaries": ["metroll"]
+  },
+  {
     "game": "Metro: Last Light Redux",
     "url": "https://store.steampowered.com/app/287390/Metro_Last_Light_Redux/",
     "binaries": ["metro"]
