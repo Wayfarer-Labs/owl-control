@@ -2,11 +2,12 @@ use std::{iter, sync::Arc};
 
 use wgpu::util::DeviceExt;
 use winit::{
-    application::ApplicationHandler, event::*, event_loop::{ActiveEventLoop, EventLoop}, keyboard::{KeyCode, PhysicalKey}, window::Window
+    application::ApplicationHandler,
+    event::*,
+    event_loop::{ActiveEventLoop, EventLoop},
+    keyboard::{KeyCode, PhysicalKey},
+    window::Window,
 };
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -59,26 +60,18 @@ const VERTICES: &[Vertex] = &[
     }, // E
 ];
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
+const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
 
 pub struct State {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-
+    is_surface_configured: bool,
     render_pipeline: wgpu::RenderPipeline,
-
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-
-    challenge_vertex_buffer: wgpu::Buffer,
-    challenge_index_buffer: wgpu::Buffer,
-    num_challenge_indices: u32,
-    use_complex: bool,
-
-    is_surface_configured: bool,
     window: Arc<Window>,
 }
 
@@ -86,20 +79,11 @@ impl State {
     async fn new(window: Arc<Window>) -> anyhow::Result<State> {
         let size = window.inner_size();
 
-        // The instance is a handle to our GPU
-        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
             ..Default::default()
         });
 
-        // # Safety
-        //
-        // The surface needs to live as long as the window that created it.
-        // State owns the window so this should be safe.
         let surface = instance.create_surface(window.clone()).unwrap();
 
         let adapter = instance
@@ -111,28 +95,17 @@ impl State {
             .await?;
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    required_features: wgpu::Features::empty(),
-                    experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
-                    required_limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
-                    },
-                    memory_hints: Default::default(),
-                    trace: wgpu::Trace::Off, // Trace path
-                },
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: None,
+                required_features: wgpu::Features::empty(),
+                experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: Default::default(),
+                trace: wgpu::Trace::Off,
+            })
             .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an Srgb surface texture. Using a different
-        // one will result all the colors comming out darker. If you want to support non
-        // Srgb surfaces, you'll need to account for that when drawing to the frame.
         let surface_format = surface_caps
             .formats
             .iter()
@@ -189,12 +162,8 @@ impl State {
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                // or Features::POLYGON_MODE_POINT
                 polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
             depth_stencil: None,
@@ -203,10 +172,7 @@ impl State {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            // If the pipeline will be used with a multiview render pass, this
-            // indicates how many array layers the attachments will have.
             multiview: None,
-            // Useful for optimizing shader compilation on Android
             cache: None,
         });
 
@@ -222,53 +188,16 @@ impl State {
         });
         let num_indices = INDICES.len() as u32;
 
-        let num_vertices = 16;
-        let angle = std::f32::consts::PI * 2.0 / num_vertices as f32;
-        let challenge_verts = (0..num_vertices)
-            .map(|i| {
-                let theta = angle * i as f32;
-                Vertex {
-                    position: [0.5 * theta.cos(), -0.5 * theta.sin(), 0.0],
-                    color: [(1.0 + theta.cos()) / 2.0, (1.0 + theta.sin()) / 2.0, 1.0],
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let num_triangles = num_vertices - 2;
-        let challenge_indices = (1u16..num_triangles + 1)
-            .into_iter()
-            .flat_map(|i| vec![i + 1, i, 0])
-            .collect::<Vec<_>>();
-        let num_challenge_indices = challenge_indices.len() as u32;
-
-        let challenge_vertex_buffer =
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Challenge Vertex Buffer"),
-                contents: bytemuck::cast_slice(&challenge_verts),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-        let challenge_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Challenge Index Buffer"),
-            contents: bytemuck::cast_slice(&challenge_indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let use_complex = false;
-
         Ok(Self {
             surface,
             device,
             queue,
             config,
+            is_surface_configured: false,
             render_pipeline,
             vertex_buffer,
             index_buffer,
             num_indices,
-            challenge_vertex_buffer,
-            challenge_index_buffer,
-            num_challenge_indices,
-            use_complex,
-            is_surface_configured: false,
             window,
         })
     }
@@ -282,24 +211,21 @@ impl State {
         }
     }
 
+    fn update(&mut self) {}
+
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, key: KeyCode, pressed: bool) {
-        match (key, pressed) {
-            (KeyCode::Space, pressed) => self.use_complex = pressed,
-            (KeyCode::Escape, true) => event_loop.exit(),
-            _ => {}
+        if let (KeyCode::Escape, true) = (key, pressed) {
+            event_loop.exit()
         }
     }
-
-    fn update(&mut self) {}
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.window.request_redraw();
 
-        // We can't render unless the surface is configured
         if !self.is_surface_configured {
             return Ok(());
         }
-        
+
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -334,20 +260,9 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-
-            let data = if self.use_complex {
-                (
-                    &self.challenge_vertex_buffer,
-                    &self.challenge_index_buffer,
-                    self.num_challenge_indices,
-                )
-            } else {
-                (&self.vertex_buffer, &self.index_buffer, self.num_indices)
-            };
-            render_pass.set_vertex_buffer(0, data.0.slice(..));
-            render_pass.set_index_buffer(data.1.slice(..), wgpu::IndexFormat::Uint16);
-
-            render_pass.draw_indexed(0..data.2, 0, 0..1);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
         self.queue.submit(iter::once(encoder.finish()));
@@ -357,82 +272,30 @@ impl State {
     }
 }
 
-fn main() {
-    run().unwrap();
-}
-
 pub struct App {
-    #[cfg(target_arch = "wasm32")]
-    proxy: Option<winit::event_loop::EventLoopProxy<State>>,
     state: Option<State>,
 }
 
 impl App {
-    pub fn new(#[cfg(target_arch = "wasm32")] event_loop: &EventLoop<State>) -> Self {
-        #[cfg(target_arch = "wasm32")]
-        let proxy = Some(event_loop.create_proxy());
-        Self {
-            state: None,
-            #[cfg(target_arch = "wasm32")]
-            proxy,
-        }
+    pub fn new() -> Self {
+        Self { state: None }
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl ApplicationHandler<State> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        #[allow(unused_mut)]
-        let mut window_attributes = Window::default_attributes();
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use wasm_bindgen::JsCast;
-            use winit::platform::web::WindowAttributesExtWebSys;
-
-            const CANVAS_ID: &str = "canvas";
-
-            let window = wgpu::web_sys::window().unwrap_throw();
-            let document = window.document().unwrap_throw();
-            let canvas = document.get_element_by_id(CANVAS_ID).unwrap_throw();
-            let html_canvas_element = canvas.unchecked_into();
-            window_attributes = window_attributes.with_canvas(Some(html_canvas_element));
-        }
-
+        let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // If we are not on web we can use pollster to
-            // await the
-            self.state = Some(pollster::block_on(State::new(window)).unwrap());
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(proxy) = self.proxy.take() {
-                wasm_bindgen_futures::spawn_local(async move {
-                    assert!(proxy
-                        .send_event(
-                            State::new(window)
-                                .await
-                                .expect("Unable to create canvas!!!")
-                        )
-                        .is_ok())
-                });
-            }
-        }
+        self.state = Some(pollster::block_on(State::new(window)).unwrap());
     }
 
-    #[allow(unused_mut)]
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: State) {
-        #[cfg(target_arch = "wasm32")]
-        {
-            event.window.request_redraw();
-            event.resize(
-                event.window.inner_size().width,
-                event.window.inner_size().height,
-            );
-        }
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: State) {
         self.state = Some(event);
     }
 
@@ -454,7 +317,6 @@ impl ApplicationHandler<State> for App {
                 state.update();
                 match state.render() {
                     Ok(_) => {}
-                    // Reconfigure the surface if it's lost or outdated
                     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                         let size = state.window.inner_size();
                         state.resize(size.width, size.height);
@@ -464,11 +326,6 @@ impl ApplicationHandler<State> for App {
                     }
                 }
             }
-            WindowEvent::MouseInput { state, button, .. } => match (button, state.is_pressed()) {
-                (MouseButton::Left, true) => {}
-                (MouseButton::Left, false) => {}
-                _ => {}
-            },
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
@@ -484,30 +341,11 @@ impl ApplicationHandler<State> for App {
 }
 
 pub fn run() -> anyhow::Result<()> {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        env_logger::init();
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        console_log::init_with_level(log::Level::Info).unwrap_throw();
-    }
+    env_logger::init();
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new(
-        #[cfg(target_arch = "wasm32")]
-        &event_loop,
-    );
+    let mut app = App::new();
     event_loop.run_app(&mut app)?;
-
-    Ok(())
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(start)]
-pub fn run_web() -> Result<(), wasm_bindgen::JsValue> {
-    console_error_panic_hook::set_once();
-    run().unwrap_throw();
 
     Ok(())
 }

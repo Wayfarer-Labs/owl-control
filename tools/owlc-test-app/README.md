@@ -2,4 +2,4 @@ hippity hoppity - yoink - https://github.com/sotrh/learn-wgpu/tree/master/code/b
 your code is now my property.
 
 From root directory run this:
-`cargo run -p wgpu-ex --bin wgpu-ex`
+`cargo run -p test-app`

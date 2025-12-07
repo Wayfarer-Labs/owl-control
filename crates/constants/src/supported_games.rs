@@ -29,6 +29,8 @@ impl SupportedGames {
 
         let games = raw_games
             .into_iter()
+            // Filter out test app in release builds
+            .filter(|raw| cfg!(debug_assertions) || raw.game != "Owl Control Test App")
             .map(|raw| {
                 let steam_app_id = extract_steam_app_id(&raw.url);
                 let installed = steam_app_id.is_some_and(|id| installed_app_ids.contains(&id));

@@ -1,4 +1,4 @@
-use wgpu_ex::run;
+use test_app::run;
 
 fn main() {
     run().unwrap();

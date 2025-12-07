@@ -870,5 +870,10 @@
     "game": "Ziggurat 2",
     "url": "https://store.steampowered.com/app/1159560/Ziggurat_2/",
     "binaries": ["ziggurat2"]
+  },
+  {
+    "game": "Owl Control Test App",
+    "url": "https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human_Reloaded_Edition/",
+    "binaries": ["test-app"]
   }
 ]
