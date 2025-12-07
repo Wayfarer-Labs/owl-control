@@ -120,13 +120,24 @@ async fn check_for_response_success(
 
     let status = response.status();
     if !status.is_success() {
-        let value = response.json::<StructuredError>().await?;
+        let text = response.text().await?;
+        tracing::error!("API error response (HTTP {status}): {text}");
+
+        // if 502 this will return None, then APIError must fallback to using just the text
+        let value = serde_json::from_str::<StructuredError>(&text).ok();
 
         return Err(match value {
-            StructuredError::ServerInvalidation { detail } => ApiError::ServerInvalidation(detail),
-            StructuredError::Other { detail } => ApiError::ApiFailure {
+            Some(StructuredError::ServerInvalidation { detail }) => {
+                ApiError::ServerInvalidation(detail)
+            }
+            Some(StructuredError::Other { detail }) => ApiError::ApiFailure {
                 context: context.into(),
-                error: detail.unwrap_or_else(|| "unknown error".to_string()),
+                error: detail.unwrap_or_else(|| text.clone()),
+                status: Some(status),
+            },
+            None => ApiError::ApiFailure {
+                context: context.into(),
+                error: text,
                 status: Some(status),
             },
         });
