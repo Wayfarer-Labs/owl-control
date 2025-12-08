@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing to OWL Control! 🦉
 
+Before diving in, check out [ARCHITECTURE.md](ARCHITECTURE.md) for a high-level overview of how the codebase is organized and how the different modules work together.
+
 ## Building from Source
 
 Using PowerShell or Command Prompt:
