@@ -26,12 +26,21 @@ windows = { version = "0.62.2", features = [
     "Win32_System_Threading",
     "Win32_System_WindowsProgramming",
 ] }
+winit = "0.30.12"
 uuid = { version = "1.17.0", features = ["v4"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 git-version = "0.3"
 sysinfo = "0.32.1"
 steamlocate = "2.0.1"
+
+# test-app dependencies
+anyhow = "1.0"
+bytemuck = { version = "1.24", features = ["derive"] }
+env_logger = "0.10"
+log = "0.4"
+pollster = "0.3"
+wgpu = "27.0.0"
 
 obws = "0.14.0"
 async-trait = "0.1"
@@ -69,10 +78,10 @@ libobs-window-helper.workspace = true
 async-trait.workspace = true
 obws.workspace = true
 windows.workspace = true
+winit.workspace = true
 futures.workspace = true
 
 tray-icon = "0.14.3"
-winit = "0.30.12"
 
 # The egui block. All of these need to be updated together.
 egui = "0.33"

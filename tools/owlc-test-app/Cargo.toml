@@ -1,0 +1,21 @@
+[package]
+name = "test-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "test_app"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+winit.workspace = true
+wgpu.workspace = true
+env_logger.workspace = true
+log.workspace = true
+pollster.workspace = true
+bytemuck.workspace = true
+
+[[bin]]
+name = "test-app"
+path = "src/main.rs"

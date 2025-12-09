@@ -48,6 +48,20 @@ To build a production-ready release with an installer:
 build-resources\scripts\build.ps1
 ```
 
+## Tools
+
+### owlc-test-app
+
+A lightweight wgpu-based test application for testing OWL Control's recording functionality.
+
+**Usage:**
+
+```powershell
+cargo run -p test-app
+```
+
+Press `Escape` to close the window.
+
 ## Code Quality
 
 This project uses automated code formatting tools to maintain consistent code style:
