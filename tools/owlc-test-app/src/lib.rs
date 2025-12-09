@@ -217,6 +217,14 @@ impl State {
         if let (KeyCode::Escape, true) = (key, pressed) {
             event_loop.exit()
         }
+
+        // Unsafe crash trigger for testing
+        if let (KeyCode::KeyC, true) = (key, pressed) {
+            unsafe {
+                let ptr: *const u8 = std::ptr::null();
+                let _crash = *ptr; // Deliberately read from nullptr
+            }
+        }
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {

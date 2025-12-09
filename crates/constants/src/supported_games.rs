@@ -27,10 +27,8 @@ impl SupportedGames {
         let raw_games: Vec<RawSupportedGame> = serde_json::from_str(s)?;
         let installed_app_ids = detect_installed_app_ids();
 
-        let games = raw_games
+        let mut games: Vec<SupportedGame> = raw_games
             .into_iter()
-            // Filter out test app in release builds
-            .filter(|raw| cfg!(debug_assertions) || raw.game != "Owl Control Test App")
             .map(|raw| {
                 let steam_app_id = extract_steam_app_id(&raw.url);
                 let installed = steam_app_id.is_some_and(|id| installed_app_ids.contains(&id));
@@ -43,6 +41,17 @@ impl SupportedGames {
                 }
             })
             .collect();
+
+        // Add test app in debug builds
+        if cfg!(debug_assertions) {
+            games.push(SupportedGame {
+                game: "Owl Control Test App".to_string(),
+                url: "https://store.steampowered.com/app/534380/Dying_Light_2_Stay_Human_Reloaded_Edition/".to_string(),
+                binaries: vec!["test-app".to_string()],
+                steam_app_id: Some(534380),
+                installed: false,
+            });
+        }
 
         Ok(Self { games })
     }
