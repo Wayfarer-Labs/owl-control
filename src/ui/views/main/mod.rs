@@ -1,5 +1,6 @@
 use std::{
     path::PathBuf,
+    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 
@@ -220,6 +221,31 @@ fn account_section(ui: &mut Ui, app: &mut App) {
                     TextEdit::singleline(&mut user_id.as_str()),
                 );
             });
+        });
+
+        // Offline mode toggle
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            let mut offline_mode = app.app_state.offline_mode.load(Ordering::SeqCst);
+            if ui.checkbox(&mut offline_mode, "Offline Mode").changed() {
+                app.app_state
+                    .offline_mode
+                    .store(offline_mode, Ordering::SeqCst);
+
+                // Trigger API key validation when toggling offline mode
+                // This allows switching between online and offline modes
+                app.app_state
+                    .async_request_tx
+                    .blocking_send(AsyncRequest::ValidateApiKey {
+                        api_key: app.local_credentials.api_key.clone(),
+                    })
+                    .ok();
+            }
+            ui.label(
+                RichText::new("(Skip API server - local recording only)")
+                    .size(11.0)
+                    .color(Color32::from_rgb(140, 140, 140)),
+            );
         });
     });
 }

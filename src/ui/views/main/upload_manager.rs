@@ -429,81 +429,88 @@ pub fn view(
 
     // Unreliable Connection Setting
     ui.add_space(5.0);
-    ui.horizontal(|ui| {
-        ui.add(Checkbox::new(
-            &mut local_preferences.unreliable_connection,
-            "Optimize for unreliable connections",
-        ));
-        util::tooltip(
-            ui,
-            concat!(
-                "Enable this if you have a slow or unstable internet connection. ",
-                "This will use smaller file chunks to improve upload success rates."
-            ),
-            None,
-        );
+    let offline_mode = app_state.offline_mode.load(std::sync::atomic::Ordering::SeqCst);
+    ui.add_enabled_ui(!offline_mode, |ui| {
+        ui.horizontal(|ui| {
+            ui.add(Checkbox::new(
+                &mut local_preferences.unreliable_connection,
+                "Optimize for unreliable connections",
+            ));
+            util::tooltip(
+                ui,
+                concat!(
+                    "Enable this if you have a slow or unstable internet connection. ",
+                    "This will use smaller file chunks to improve upload success rates."
+                ),
+                None,
+            );
+        });
     });
 
     // Auto-upload on completion setting
-    ui.horizontal(|ui| {
-        ui.add(Checkbox::new(
-            &mut local_preferences.auto_upload_on_completion,
-            "Automatically upload recordings when complete",
-        ));
-        util::tooltip(
-            ui,
-            concat!(
-                "Automatically start uploading recordings when they finish. ",
-                "If an upload is already in progress, new recordings will be queued."
-            ),
-            None,
-        );
+    ui.add_enabled_ui(!offline_mode, |ui| {
+        ui.horizontal(|ui| {
+            ui.add(Checkbox::new(
+                &mut local_preferences.auto_upload_on_completion,
+                "Automatically upload recordings when complete",
+            ));
+            util::tooltip(
+                ui,
+                concat!(
+                    "Automatically start uploading recordings when they finish. ",
+                    "If an upload is already in progress, new recordings will be queued."
+                ),
+                None,
+            );
 
-        // Detect when auto-upload is turned off and clear the queue
-        if upload_manager.prev_auto_upload_enabled && !local_preferences.auto_upload_on_completion {
-            app_state
-                .async_request_tx
-                .blocking_send(AsyncRequest::ClearAutoUploadQueue)
-                .ok();
-        }
-        upload_manager.prev_auto_upload_enabled = local_preferences.auto_upload_on_completion;
+            // Detect when auto-upload is turned off and clear the queue
+            if upload_manager.prev_auto_upload_enabled && !local_preferences.auto_upload_on_completion {
+                app_state
+                    .async_request_tx
+                    .blocking_send(AsyncRequest::ClearAutoUploadQueue)
+                    .ok();
+            }
+            upload_manager.prev_auto_upload_enabled = local_preferences.auto_upload_on_completion;
+        });
     });
 
     // Delete Uploaded Recordings Setting
-    ui.horizontal(|ui| {
-        ui.add(Checkbox::new(
-            &mut local_preferences.delete_uploaded_files,
-            "Delete recordings after successful upload",
-        ));
-        util::tooltip(ui, concat!(
-            "Automatically delete local recordings after they have been successfully uploaded. ",
-            "Invalid uploads, as well as existing uploads, will not be deleted."
-        ), None);
+    ui.add_enabled_ui(!offline_mode, |ui| {
+        ui.horizontal(|ui| {
+            ui.add(Checkbox::new(
+                &mut local_preferences.delete_uploaded_files,
+                "Delete recordings after successful upload",
+            ));
+            util::tooltip(ui, concat!(
+                "Automatically delete local recordings after they have been successfully uploaded. ",
+                "Invalid uploads, as well as existing uploads, will not be deleted."
+            ), None);
 
-        // Check how many uploaded local recordings there are
-        let uploaded_local_count = upload_manager
-            .recordings
-            .iter_filtered()
-            .filter(|r| matches!(r, Recording::Local(LocalRecording::Uploaded { .. })))
-            .count();
+            // Check how many uploaded local recordings there are
+            let uploaded_local_count = upload_manager
+                .recordings
+                .iter_filtered()
+                .filter(|r| matches!(r, Recording::Local(LocalRecording::Uploaded { .. })))
+                .count();
 
-        if uploaded_local_count > 0 {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui
-                    .button(RichText::new(format!("Clear {uploaded_local_count} Uploaded Recordings")).size(11.0))
-                    .on_hover_text(concat!(
-                        "Delete all local recordings that have been successfully uploaded. ",
-                        "This will free up disk space while keeping your uploaded recordings in the cloud."
-                    ))
-                    .clicked()
-                {
-                    app_state
-                        .async_request_tx
-                        .blocking_send(AsyncRequest::DeleteAllUploadedLocalRecordings)
-                        .ok();
-                }
-            });
-        }
+            if uploaded_local_count > 0 {
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if ui
+                        .button(RichText::new(format!("Clear {uploaded_local_count} Uploaded Recordings")).size(11.0))
+                        .on_hover_text(concat!(
+                            "Delete all local recordings that have been successfully uploaded. ",
+                            "This will free up disk space while keeping your uploaded recordings in the cloud."
+                        ))
+                        .clicked()
+                    {
+                        app_state
+                            .async_request_tx
+                            .blocking_send(AsyncRequest::DeleteAllUploadedLocalRecordings)
+                            .ok();
+                    }
+                });
+            }
+        });
     });
 
     // Upload Button
@@ -511,9 +518,10 @@ pub fn view(
     if upload_manager.current_upload_progress.is_some() {
         // Show Pause button when uploading
         ui.add_enabled_ui(
-            !app_state
-                .upload_pause_flag
-                .load(std::sync::atomic::Ordering::Relaxed),
+            !offline_mode
+                && !app_state
+                    .upload_pause_flag
+                    .load(std::sync::atomic::Ordering::Relaxed),
             |ui| {
                 let response = ui
                     .add_sized(
@@ -525,10 +533,14 @@ pub fn view(
                         )
                         .fill(Color32::from_rgb(180, 60, 60)),
                     )
-                    .on_hover_text(concat!(
-                        "Pause the uploading process. ",
-                        "The next upload will resume where the current one left off."
-                    ));
+                    .on_hover_text(if offline_mode {
+                        "Uploads are disabled in offline mode"
+                    } else {
+                        concat!(
+                            "Pause the uploading process. ",
+                            "The next upload will resume where the current one left off."
+                        )
+                    });
                 if response.clicked() {
                     app_state
                         .async_request_tx
@@ -553,7 +565,7 @@ pub fn view(
             })
             .count();
 
-        let enabled = !is_newer_release_available && uploadable_count > 0;
+        let enabled = !offline_mode && !is_newer_release_available && uploadable_count > 0;
         ui.add_enabled_ui(enabled, |ui| {
             let mut response = ui.add_sized(
                 vec2(ui.available_width(), 32.0),
@@ -564,7 +576,9 @@ pub fn view(
 
             // Add hover text explaining why uploads are disabled
             if !enabled {
-                let hover_text = if is_newer_release_available {
+                let hover_text = if offline_mode {
+                    "Uploads are disabled in offline mode"
+                } else if is_newer_release_available {
                     "Please update to the latest version before uploading."
                 } else if uploadable_count == 0 {
                     "No recordings available to upload."

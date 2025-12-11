@@ -34,6 +34,8 @@ pub struct AppState {
     pub play_time_state: RwLock<PlayTimeTracker>,
     pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
     pub supported_games: RwLock<SupportedGames>,
+    /// Flag for offline mode - skips API server calls when enabled
+    pub offline_mode: AtomicBool,
 }
 impl AppState {
     pub fn new(
@@ -59,6 +61,7 @@ impl AppState {
             play_time_state: RwLock::new(PlayTimeTracker::load()),
             last_foregrounded_game: RwLock::new(None),
             supported_games: RwLock::new(SupportedGames::load_from_embedded()),
+            offline_mode: AtomicBool::new(false),
         };
         tracing::debug!("AppState::new() complete");
         state
