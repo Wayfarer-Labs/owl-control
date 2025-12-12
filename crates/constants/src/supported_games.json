@@ -681,7 +681,7 @@
   {
     "game": "Superliminal",
     "url": "https://store.steampowered.com/app/1049410/Superliminal/",
-    "binaries": ["superliminalsteam"]
+    "binaries": ["superliminalsteam", "superliminal"]
   },
   {
     "game": "Tacoma",
