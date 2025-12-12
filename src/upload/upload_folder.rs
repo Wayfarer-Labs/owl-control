@@ -108,7 +108,7 @@ pub async fn upload_folder(
 
         // Initialize new upload session
         let file_size = std::fs::metadata(&tar_path)
-            .map(|m| m.len())
+            .map(|m| m.len()) 
             .map_err(|e| UploadFolderError::FailedToGetFileSize(tar_path.to_owned(), e))?;
 
         fn get_filename(path: &Path) -> Result<String, UploadFolderError> {
@@ -123,6 +123,7 @@ pub async fn upload_folder(
         let hardware_id =
             crate::system::hardware_id::get().map_err(UploadFolderError::MissingHardwareId)?;
 
+        // TODO: If it errors out here, the tar file is never cleaned up.
         let init_response = api_client
             .init_multipart_upload(
                 api_token,

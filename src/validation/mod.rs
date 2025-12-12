@@ -91,8 +91,18 @@ fn validate_folder_impl(path: &Path) -> Result<ValidationResult, Vec<String>> {
 
     match serde_json::to_string_pretty(&metadata) {
         Ok(metadata) => {
-            if let Err(e) = std::fs::write(&meta_path, metadata) {
-                invalid_reasons.push(format!("Error writing metadata file: {e:?}"));
+            // fs::write will completely overwrite existing metadata file, and if the OS is
+            // out of available memory (either due to user skill issue or a bug with owlc),
+            // it becomes a nightmare case where the metadata just gets deleted.
+            // To be safe, we use atomic write pattern: write to temp file, then rename
+            // This prevents corruption if the process crashes or runs out of memory
+            let temp_path = meta_path.with_extension("tmp");
+            if let Err(e) = std::fs::write(&temp_path, metadata) {
+                invalid_reasons.push(format!("Error writing metadata temp file: {e:?}"));
+            } else if let Err(e) = std::fs::rename(&temp_path, &meta_path) {
+                invalid_reasons.push(format!("Error renaming metadata temp file: {e:?}"));
+                // Clean up temp file on failure
+                std::fs::remove_file(&temp_path).ok();
             }
         }
         Err(e) => invalid_reasons.push(format!("Error generating JSON for metadata file: {e:?}")),
