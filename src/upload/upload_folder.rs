@@ -17,6 +17,46 @@ use crate::{
     validation::validate_folder,
 };
 
+/// RAII guard that automatically cleans up a tar file when dropped,
+/// unless explicitly disarmed via `into_path()`.
+struct TarFileGuard {
+    path: Option<PathBuf>,
+}
+
+impl TarFileGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path: Some(path) }
+    }
+
+    /// Disarm the guard and return the path, preventing cleanup
+    fn into_path(mut self) -> PathBuf {
+        self.path.take().expect("TarFileGuard already consumed")
+    }
+
+    fn path(&self) -> &Path {
+        self.path.as_ref().expect("TarFileGuard already consumed")
+    }
+}
+
+impl Drop for TarFileGuard {
+    fn drop(&mut self) {
+        if let Some(path) = &self.path {
+            if let Err(e) = std::fs::remove_file(path) {
+                tracing::warn!(
+                    "Tar file guard triggered but failed to clean up tar file at {}: {}",
+                    path.display(),
+                    e
+                );
+            } else {
+                tracing::info!(
+                    "Tar file guard triggered, cleaned up tar file at {}",
+                    path.display()
+                );
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum UploadFolderError {
     Io(std::io::Error),
@@ -104,12 +144,13 @@ pub async fn upload_folder(
         .map_err(UploadFolderError::Validation)?;
 
         tracing::info!("Creating tar file for {}", path.display());
-        let tar_path = create_tar_file(&path, &validation).await?;
+        let tar_guard = TarFileGuard::new(create_tar_file(&path, &validation).await?);
 
         // Initialize new upload session
-        let file_size = std::fs::metadata(&tar_path)
-            .map(|m| m.len()) 
-            .map_err(|e| UploadFolderError::FailedToGetFileSize(tar_path.to_owned(), e))?;
+        // If any operation fails, tar_guard will automatically clean up the tar file
+        let file_size = std::fs::metadata(tar_guard.path())
+            .map(|m| m.len())
+            .map_err(|e| UploadFolderError::FailedToGetFileSize(tar_guard.path().to_owned(), e))?;
 
         fn get_filename(path: &Path) -> Result<String, UploadFolderError> {
             Ok(path
@@ -123,14 +164,16 @@ pub async fn upload_folder(
         let hardware_id =
             crate::system::hardware_id::get().map_err(UploadFolderError::MissingHardwareId)?;
 
-        // TODO: If it errors out here, the tar file is never cleaned up.
         let init_response = api_client
             .init_multipart_upload(
                 api_token,
                 InitMultipartUploadArgs {
-                    filename: tar_path
+                    filename: tar_guard
+                        .path()
                         .file_name()
-                        .ok_or_else(|| UploadFolderError::MissingFilename(tar_path.to_owned()))?
+                        .ok_or_else(|| {
+                            UploadFolderError::MissingFilename(tar_guard.path().to_owned())
+                        })?
                         .to_string_lossy()
                         .as_ref(),
                     total_size_bytes: file_size,
@@ -158,7 +201,7 @@ pub async fn upload_folder(
         let upload_progress = UploadProgressState::new(
             init_response.upload_id,
             init_response.game_control_id,
-            tar_path.to_path_buf(),
+            tar_guard.into_path(), // Disarm guard - tar file is now managed by upload progress
             init_response.total_chunks,
             init_response.chunk_size_bytes,
             init_response.expires_at,
