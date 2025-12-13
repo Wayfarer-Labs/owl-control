@@ -1,5 +1,5 @@
 use crate::{
-    api::ApiClient,
+    api::{ApiClient, ApiError},
     app_state::{
         AppState, AsyncRequest, ForegroundedGame, GitHubRelease, ListeningForNewHotkey,
         RecordingStatus, UiUpdate,
@@ -190,22 +190,44 @@ async fn main(
                             // Send back success with dummy user ID
                             app_state
                                 .ui_update_tx
-                                .send(UiUpdate::UpdateUserId(Ok("offline".to_string())))
+                                .send(UiUpdate::UpdateUserId(Ok("Offline".to_string())))
                                 .ok();
                         } else {
                             let response = api_client.validate_api_key(&api_key).await;
                             tracing::info!("Received response from API key validation: {response:?}");
 
-                            valid_api_key_and_user_id = response.as_ref().ok().map(|s| (api_key.clone(), s.clone()));
-                            app_state
-                                .ui_update_tx
-                                .send(UiUpdate::UpdateUserId(response.map_err(|e| e.to_string())))
-                                .ok();
+                            match response {
+                                Err(ApiError::Reqwest(e)) => {
+                                    // Network error - server unavailable, switch to offline mode
+                                    tracing::warn!("API server unavailable, switching to offline mode: {e}");
+                                    app_state
+                                        .offline_mode
+                                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                                    app_state
+                                        .ui_update_tx
+                                        .send(UiUpdate::UpdateUserId(Ok(format!("Offline ({e})"))))
+                                        .ok();
+                                }
+                                Err(e) => {
+                                    // API key validation failed - don't switch to offline mode
+                                    tracing::warn!("API key validation failed: {e}");
+                                    app_state
+                                        .ui_update_tx
+                                        .send(UiUpdate::UpdateUserId(Err(e.to_string())))
+                                        .ok();
+                                }
+                                Ok(user_id) => {
+                                    valid_api_key_and_user_id = Some((api_key.clone(), user_id.clone()));
+                                    app_state
+                                        .ui_update_tx
+                                        .send(UiUpdate::UpdateUserId(Ok(user_id)))
+                                        .ok();
 
-                            if valid_api_key_and_user_id.is_some() {
-                                app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
-                                app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
+                                    app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                                }
                             }
+                            // no matter if offline or online, local recordings should be loaded
+                            app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
                         }
                     }
                     AsyncRequest::UploadData => {

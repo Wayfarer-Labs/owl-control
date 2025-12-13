@@ -202,12 +202,19 @@ fn account_section(ui: &mut Ui, app: &mut App) {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let offline_mode = app.app_state.offline_mode.load(Ordering::SeqCst);
             let (icon, color, tooltip) = if offline_mode {
-                ("📡❌", Color32::from_rgb(180, 80, 80), "Offline mode (click to go online)")
+                (
+                    "📡",
+                    Color32::from_rgb(180, 80, 80),
+                    "Offline mode (click to go online)",
+                )
             } else {
-                ("📡", Color32::from_rgb(100, 180, 100), "Online mode (click to go offline)")
+                (
+                    "📡",
+                    Color32::from_rgb(100, 180, 100),
+                    "Online mode (click to go offline)",
+                )
             };
-            let button = Button::new(RichText::new(icon).size(16.0).color(color))
-                .frame(false);
+            let button = Button::new(RichText::new(icon).size(16.0).color(color)).frame(false);
             if ui.add(button).on_hover_text(tooltip).clicked() {
                 app.app_state
                     .offline_mode
