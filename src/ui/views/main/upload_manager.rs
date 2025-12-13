@@ -429,7 +429,9 @@ pub fn view(
 
     // Unreliable Connection Setting
     ui.add_space(5.0);
-    let offline_mode = app_state.offline_mode.load(std::sync::atomic::Ordering::SeqCst);
+    let offline_mode = app_state
+        .offline_mode
+        .load(std::sync::atomic::Ordering::SeqCst);
     ui.add_enabled_ui(!offline_mode, |ui| {
         ui.horizontal(|ui| {
             ui.add(Checkbox::new(
@@ -464,7 +466,9 @@ pub fn view(
             );
 
             // Detect when auto-upload is turned off and clear the queue
-            if upload_manager.prev_auto_upload_enabled && !local_preferences.auto_upload_on_completion {
+            if upload_manager.prev_auto_upload_enabled
+                && !local_preferences.auto_upload_on_completion
+            {
                 app_state
                     .async_request_tx
                     .blocking_send(AsyncRequest::ClearAutoUploadQueue)
