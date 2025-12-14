@@ -51,6 +51,16 @@ impl std::fmt::Display for UploadFolderError {
         }
     }
 }
+impl UploadFolderError {
+    /// Returns true if this error is due to a network connectivity issue
+    pub fn is_network_error(&self) -> bool {
+        match self {
+            UploadFolderError::InitMultipartUpload(e) => e.is_network_error(),
+            UploadFolderError::UploadTar(e) => e.is_network_error(),
+            _ => false,
+        }
+    }
+}
 impl From<std::io::Error> for UploadFolderError {
     fn from(e: std::io::Error) -> Self {
         UploadFolderError::Io(e)

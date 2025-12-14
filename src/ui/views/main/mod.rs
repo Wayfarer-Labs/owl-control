@@ -201,7 +201,15 @@ fn account_section(ui: &mut Ui, app: &mut App) {
         ui.label(RichText::new("Account").size(18.0).strong());
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let offline_mode = app.app_state.offline_mode.load(Ordering::SeqCst);
-            let (icon, color, tooltip) = if offline_mode {
+            let upload_in_progress = app.app_state.upload_in_progress.load(Ordering::SeqCst);
+
+            let (icon, color, tooltip) = if upload_in_progress {
+                (
+                    "📡",
+                    Color32::from_rgb(128, 128, 128),
+                    "Cannot toggle offline mode while upload is in progress",
+                )
+            } else if offline_mode {
                 (
                     "📡",
                     Color32::from_rgb(180, 80, 80),
@@ -215,7 +223,12 @@ fn account_section(ui: &mut Ui, app: &mut App) {
                 )
             };
             let button = Button::new(RichText::new(icon).size(16.0).color(color)).frame(false);
-            if ui.add(button).on_hover_text(tooltip).clicked() {
+            let response = ui.add_enabled(!upload_in_progress, button);
+            if response
+                .on_hover_text(tooltip)
+                .on_disabled_hover_text(tooltip)
+                .clicked()
+            {
                 app.app_state
                     .offline_mode
                     .store(!offline_mode, Ordering::SeqCst);

@@ -166,6 +166,11 @@ pub enum AsyncRequest {
     },
     /// Clear the auto-upload queue (called when unchecking auto-upload preference)
     ClearAutoUploadQueue,
+    /// Switch to/from offline mode
+    SetOfflineMode {
+        enabled: bool,
+        offline_reason: Option<String>,
+    },
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread

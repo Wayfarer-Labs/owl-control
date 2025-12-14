@@ -187,11 +187,7 @@ async fn main(
                         // Check if offline mode is enabled
                         if app_state.offline_mode.load(std::sync::atomic::Ordering::SeqCst) {
                             tracing::info!("Offline mode enabled, skipping API key validation");
-                            // Send back success with dummy user ID
-                            app_state
-                                .ui_update_tx
-                                .send(UiUpdate::UpdateUserId(Ok("Offline".to_string())))
-                                .ok();
+                            app_state.async_request_tx.send(AsyncRequest::SetOfflineMode { enabled: true, offline_reason: None }).await.ok();
                         } else {
                             let response = api_client.validate_api_key(&api_key).await;
                             tracing::info!("Received response from API key validation: {response:?}");
@@ -200,13 +196,7 @@ async fn main(
                                 Err(ApiError::Reqwest(e)) => {
                                     // Network error - server unavailable, switch to offline mode
                                     tracing::warn!("API server unavailable, switching to offline mode: {e}");
-                                    app_state
-                                        .offline_mode
-                                        .store(true, std::sync::atomic::Ordering::SeqCst);
-                                    app_state
-                                        .ui_update_tx
-                                        .send(UiUpdate::UpdateUserId(Ok(format!("Offline ({e})"))))
-                                        .ok();
+                                    app_state.async_request_tx.send(AsyncRequest::SetOfflineMode { enabled: true, offline_reason: Some(e.to_string()) }).await.ok();
                                 }
                                 Err(e) => {
                                     // API key validation failed - don't switch to offline mode
@@ -488,6 +478,19 @@ async fn main(
                             prev_count
                         );
                         set_auto_upload_queue_count(&app_state, 0);
+                    }
+                    AsyncRequest::SetOfflineMode { enabled, offline_reason } => {
+                        tracing::info!("Setting offline mode to {}", enabled);
+                        app_state.offline_mode.store(enabled, std::sync::atomic::Ordering::SeqCst);
+                        let mut offline_str = "Offline".to_string();
+
+                        if let Some(reason) = offline_reason {
+                            offline_str.push_str(&format!(" ({reason})"));
+                        }
+                        app_state
+                            .ui_update_tx
+                            .send(UiUpdate::UpdateUserId(Ok(offline_str)))
+                            .ok();
                     }
                 }
             },
