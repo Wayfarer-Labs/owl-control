@@ -1,5 +1,5 @@
 use crate::{
-    api::{ApiClient, ApiError},
+    api::ApiClient,
     app_state::{
         AppState, AsyncRequest, ForegroundedGame, GitHubRelease, ListeningForNewHotkey,
         RecordingStatus, UiUpdate,
@@ -193,8 +193,8 @@ async fn main(
                             tracing::info!("Received response from API key validation: {response:?}");
 
                             match response {
-                                Err(ApiError::Reqwest(e)) => {
-                                    // Network error - server unavailable, switch to offline mode
+                                Err(e) if e.is_network_error() => {
+                                    // Network error or server unavailable (502/503/504) - switch to offline mode
                                     tracing::warn!("API server unavailable, switching to offline mode: {e}");
                                     app_state.async_request_tx.send(AsyncRequest::SetOfflineMode { enabled: true, offline_reason: Some(e.to_string()) }).await.ok();
                                 }

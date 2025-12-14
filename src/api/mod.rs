@@ -41,10 +41,19 @@ impl std::fmt::Display for ApiError {
 }
 impl std::error::Error for ApiError {}
 impl ApiError {
-    /// Returns true if this error is due to a network connectivity issue
+    /// Returns true if this error is due to a network connectivity issue or server unavailability.
+    /// This includes connection/timeout errors and HTTP 502/503/504 status codes.
     pub fn is_network_error(&self) -> bool {
         match self {
             ApiError::Reqwest(e) => e.is_connect() || e.is_timeout(),
+            ApiError::ApiFailure { status, .. } => {
+                // 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
+                // indicate server unavailability rather than client errors
+                matches!(
+                    status,
+                    Some(s) if s.as_u16() == 502 || s.as_u16() == 503 || s.as_u16() == 504
+                )
+            }
             _ => false,
         }
     }
