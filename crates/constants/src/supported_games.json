@@ -207,7 +207,7 @@
   {
     "game": "Dead Island 2",
     "url": "https://store.steampowered.com/app/934700/Dead_Island_2/",
-    "binaries": ["deadisland2-win64-shipping"]
+    "binaries": ["deadisland2-win64-shipping", "deadisland"]
   },
   {
     "game": "Deadzone: Rogue",
