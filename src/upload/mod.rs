@@ -166,6 +166,23 @@ async fn run(
             Err(e) => {
                 tracing::error!("Error uploading folder {}: {:?}", path.display(), e);
                 reliable_tx.send(UiUpdate::UploadFailed(e.to_string())).ok();
+
+                // If this is a network error, switch to offline mode and stop uploading
+                if e.is_network_error() {
+                    tracing::warn!("Network error detected, switching to offline mode");
+                    async_req_tx
+                        .send(AsyncRequest::SetOfflineMode {
+                            enabled: true,
+                            offline_reason: Some(format!(
+                                "Network error detected while uploading {}",
+                                path.display()
+                            )),
+                        })
+                        .await
+                        .ok();
+                    break;
+                }
+
                 continue;
             }
         };

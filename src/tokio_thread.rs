@@ -1,5 +1,5 @@
 use crate::{
-    api::ApiClient,
+    api::{ApiClient, ApiError},
     app_state::{
         AppState, AsyncRequest, ForegroundedGame, GitHubRelease, ListeningForNewHotkey,
         RecordingStatus, UiUpdate,
@@ -184,22 +184,52 @@ async fn main(
                 };
                 match e {
                     AsyncRequest::ValidateApiKey { api_key } => {
-                        let response = api_client.validate_api_key(&api_key).await;
-                        tracing::info!("Received response from API key validation: {response:?}");
+                        // Check if offline mode is enabled
+                        if app_state.offline_mode.load(std::sync::atomic::Ordering::SeqCst) {
+                            tracing::info!("Offline mode enabled, skipping API key validation");
+                            app_state.async_request_tx.send(AsyncRequest::SetOfflineMode { enabled: true, offline_reason: None }).await.ok();
+                        } else {
+                            let response = api_client.validate_api_key(&api_key).await;
+                            tracing::info!("Received response from API key validation: {response:?}");
 
-                        valid_api_key_and_user_id = response.as_ref().ok().map(|s| (api_key.clone(), s.clone()));
-                        app_state
-                            .ui_update_tx
-                            .send(UiUpdate::UpdateUserId(response.map_err(|e| e.to_string())))
-                            .ok();
+                            match response {
+                                Err(ApiError::Reqwest(e)) => {
+                                    // Network error - server unavailable, switch to offline mode
+                                    tracing::warn!("API server unavailable, switching to offline mode: {e}");
+                                    app_state.async_request_tx.send(AsyncRequest::SetOfflineMode { enabled: true, offline_reason: Some(e.to_string()) }).await.ok();
+                                }
+                                Err(e) => {
+                                    // API key validation failed - don't switch to offline mode
+                                    tracing::warn!("API key validation failed: {e}");
+                                    app_state
+                                        .ui_update_tx
+                                        .send(UiUpdate::UpdateUserId(Err(e.to_string())))
+                                        .ok();
+                                }
+                                Ok(user_id) => {
+                                    valid_api_key_and_user_id = Some((api_key.clone(), user_id.clone()));
+                                    app_state
+                                        .ui_update_tx
+                                        .send(UiUpdate::UpdateUserId(Ok(user_id)))
+                                        .ok();
 
-                        if valid_api_key_and_user_id.is_some() {
-                            app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                                    app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                                }
+                            }
+                            // no matter if offline or online, local recordings should be loaded
                             app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
                         }
                     }
                     AsyncRequest::UploadData => {
-                        tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
+                        if app_state.offline_mode.load(std::sync::atomic::Ordering::SeqCst) {
+                            tracing::info!("Offline mode enabled, skipping upload");
+                            app_state
+                                .ui_update_tx
+                                .send(UiUpdate::UploadFailed("Offline mode is enabled. Uploads are disabled.".to_string()))
+                                .ok();
+                        } else {
+                            tokio::spawn(upload::start(app_state.clone(), api_client.clone(), recording_location.clone()));
+                        }
                     }
                     AsyncRequest::PauseUpload => {
                         app_state.upload_pause_flag.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -237,26 +267,31 @@ async fn main(
                         );
                     }
                     AsyncRequest::LoadUploadStats => {
-                        match valid_api_key_and_user_id.clone() {
-                            Some((api_key, user_id)) => {
-                                tokio::spawn({
-                                    let app_state = app_state.clone();
-                                    let api_client = api_client.clone();
-                                    async move {
-                                        let stats = match api_client.get_user_upload_stats(&api_key, &user_id).await {
-                                            Ok(stats) => stats,
-                                            Err(e) => {
-                                                tracing::error!(e=?e, "Failed to get user upload stats");
-                                                return;
-                                            }
-                                        };
-                                        tracing::info!(stats=?stats.statistics, "Loaded upload stats");
-                                        app_state.ui_update_tx.send(UiUpdate::UpdateUserUploads(stats)).ok();
-                                    }
-                                });
-                            }
-                            None => {
-                                tracing::error!("API key and user ID not found, skipping upload stats load");
+                        if app_state.offline_mode.load(std::sync::atomic::Ordering::SeqCst) {
+                            tracing::info!("Offline mode enabled, skipping upload stats load");
+                            // Don't send any update - UI will show no upload stats
+                        } else {
+                            match valid_api_key_and_user_id.clone() {
+                                Some((api_key, user_id)) => {
+                                    tokio::spawn({
+                                        let app_state = app_state.clone();
+                                        let api_client = api_client.clone();
+                                        async move {
+                                            let stats = match api_client.get_user_upload_stats(&api_key, &user_id).await {
+                                                Ok(stats) => stats,
+                                                Err(e) => {
+                                                    tracing::error!(e=?e, "Failed to get user upload stats");
+                                                    return;
+                                                }
+                                            };
+                                            tracing::info!(stats=?stats.statistics, "Loaded upload stats");
+                                            app_state.ui_update_tx.send(UiUpdate::UpdateUserUploads(stats)).ok();
+                                        }
+                                    });
+                                }
+                                None => {
+                                    tracing::error!("API key and user ID not found, skipping upload stats load");
+                                }
                             }
                         }
                     }
@@ -443,6 +478,19 @@ async fn main(
                             prev_count
                         );
                         set_auto_upload_queue_count(&app_state, 0);
+                    }
+                    AsyncRequest::SetOfflineMode { enabled, offline_reason } => {
+                        tracing::info!("Setting offline mode to {}", enabled);
+                        app_state.offline_mode.store(enabled, std::sync::atomic::Ordering::SeqCst);
+                        let mut offline_str = "Offline".to_string();
+
+                        if let Some(reason) = offline_reason {
+                            offline_str.push_str(&format!(" ({reason})"));
+                        }
+                        app_state
+                            .ui_update_tx
+                            .send(UiUpdate::UpdateUserId(Ok(offline_str)))
+                            .ok();
                     }
                 }
             },

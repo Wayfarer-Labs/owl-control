@@ -1,5 +1,6 @@
 use std::{
     path::PathBuf,
+    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 
@@ -196,7 +197,53 @@ impl App {
 }
 
 fn account_section(ui: &mut Ui, app: &mut App) {
-    ui.label(RichText::new("Account").size(18.0).strong());
+    ui.horizontal(|ui| {
+        ui.label(RichText::new("Account").size(18.0).strong());
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let offline_mode = app.app_state.offline_mode.load(Ordering::SeqCst);
+            let upload_in_progress = app.app_state.upload_in_progress.load(Ordering::SeqCst);
+
+            let (icon, color, tooltip) = if upload_in_progress {
+                (
+                    "📡",
+                    Color32::from_rgb(128, 128, 128),
+                    "Cannot toggle offline mode while upload is in progress",
+                )
+            } else if offline_mode {
+                (
+                    "📡",
+                    Color32::from_rgb(180, 80, 80),
+                    "Offline mode (click to go online)",
+                )
+            } else {
+                (
+                    "📡",
+                    Color32::from_rgb(100, 180, 100),
+                    "Online mode (click to go offline)",
+                )
+            };
+            let button = Button::new(RichText::new(icon).size(16.0).color(color)).frame(false);
+            let response = ui.add_enabled(!upload_in_progress, button);
+            if response
+                .on_hover_text(tooltip)
+                .on_disabled_hover_text(tooltip)
+                .clicked()
+            {
+                app.app_state
+                    .offline_mode
+                    .store(!offline_mode, Ordering::SeqCst);
+
+                // Trigger API key validation when toggling offline mode
+                // This allows switching between online and offline modes
+                app.app_state
+                    .async_request_tx
+                    .blocking_send(AsyncRequest::ValidateApiKey {
+                        api_key: app.local_credentials.api_key.clone(),
+                    })
+                    .ok();
+            }
+        });
+    });
     ui.separator();
 
     ui.vertical(|ui| {

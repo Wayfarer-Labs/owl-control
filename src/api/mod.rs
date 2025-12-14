@@ -40,6 +40,15 @@ impl std::fmt::Display for ApiError {
     }
 }
 impl std::error::Error for ApiError {}
+impl ApiError {
+    /// Returns true if this error is due to a network connectivity issue
+    pub fn is_network_error(&self) -> bool {
+        match self {
+            ApiError::Reqwest(e) => e.is_connect() || e.is_timeout(),
+            _ => false,
+        }
+    }
+}
 impl From<reqwest::Error> for ApiError {
     fn from(err: reqwest::Error) -> Self {
         ApiError::Reqwest(err)

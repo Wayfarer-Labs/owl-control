@@ -73,6 +73,16 @@ impl std::fmt::Display for UploadTarError {
     }
 }
 impl std::error::Error for UploadTarError {}
+impl UploadTarError {
+    /// Returns true if this error is due to a network connectivity issue
+    pub fn is_network_error(&self) -> bool {
+        match self {
+            UploadTarError::Api { error, .. } => error.is_network_error(),
+            UploadTarError::FailedToUploadChunk { error, .. } => error.is_network_error(),
+            _ => false,
+        }
+    }
+}
 impl From<std::io::Error> for UploadTarError {
     fn from(e: std::io::Error) -> Self {
         UploadTarError::Io(e)
@@ -399,6 +409,16 @@ impl std::fmt::Display for UploadSingleChunkError {
     }
 }
 impl std::error::Error for UploadSingleChunkError {}
+impl UploadSingleChunkError {
+    /// Returns true if this error is due to a network connectivity issue
+    pub fn is_network_error(&self) -> bool {
+        match self {
+            UploadSingleChunkError::Reqwest(e) => e.is_connect() || e.is_timeout(),
+            UploadSingleChunkError::Api { error, .. } => error.is_network_error(),
+            _ => false,
+        }
+    }
+}
 impl From<std::io::Error> for UploadSingleChunkError {
     fn from(e: std::io::Error) -> Self {
         UploadSingleChunkError::Io(e)
