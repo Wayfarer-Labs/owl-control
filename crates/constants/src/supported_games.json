@@ -763,7 +763,8 @@
     "url": "https://store.steampowered.com/app/258520/The_Vanishing_of_Ethan_Carter",
     "binaries": [
       "astronautsgame-win32-shipping",
-      "astronautsgame-win64-shipping"
+      "astronautsgame-win64-shipping",
+      "ethancarter"
     ]
   },
   {
