@@ -7,7 +7,7 @@
   {
     "game": "Abyssus",
     "url": "https://store.steampowered.com/app/1721110/Abyssus/",
-    "binaries": ["abyssus"]
+    "binaries": ["abyssus", "rgame"]
   },
   {
     "game": "Alien: Isolation",
