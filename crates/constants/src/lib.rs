@@ -4,8 +4,8 @@ pub mod encoding;
 pub mod supported_games;
 
 pub const FPS: u32 = 60;
-pub const RECORDING_WIDTH: u32 = 640;
-pub const RECORDING_HEIGHT: u32 = 360;
+pub const RECORDING_WIDTH: u32 = 1280;
+pub const RECORDING_HEIGHT: u32 = 720;
 
 /// Minimum free space required to record (in megabytes)
 pub const MIN_FREE_SPACE_MB: u64 = 512;
