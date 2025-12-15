@@ -222,7 +222,7 @@
   {
     "game": "Delta Force",
     "url": "https://store.steampowered.com/app/2507950/Delta_Force/",
-    "binaries": ["deltaforceclient-win64-shipping", "deltaforceclient"]
+    "binaries": ["deltaforceclient-win64-shipping", "deltaforceclient", "bhdclient"]
   },
   {
     "game": "Dishonored 2",
