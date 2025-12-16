@@ -29,6 +29,8 @@ pub enum UploadTarError {
     Serde(serde_json::Error),
     UploadSessionExpired {
         upload_id: String,
+        client_time: u64,
+        expires_at: u64,
     },
     Api {
         api_request: &'static str,
@@ -49,8 +51,15 @@ impl std::fmt::Display for UploadTarError {
             UploadTarError::Serde(e) => {
                 write!(f, "Serde error: {e}")
             }
-            UploadTarError::UploadSessionExpired { upload_id } => {
-                write!(f, "Upload session expired: {upload_id}")
+            UploadTarError::UploadSessionExpired {
+                upload_id,
+                client_time,
+                expires_at,
+            } => {
+                write!(
+                    f,
+                    "Upload session expired: {upload_id} (client_time={client_time}, expires_at={expires_at})"
+                )
             }
             UploadTarError::Api { api_request, error } => {
                 write!(f, "API error for {api_request}: {error}")
@@ -237,7 +246,18 @@ pub async fn run(
                 .unwrap()
                 .as_secs();
             if now >= expires_at {
-                return Err(UploadTarError::UploadSessionExpired { upload_id });
+                tracing::error!(
+                    "Upload session expired: upload_id={}, client_time={}, expires_at={}, diff={}s. If this is a fresh upload, the system clock may be incorrect.",
+                    upload_id,
+                    now,
+                    expires_at,
+                    now as i64 - expires_at as i64
+                );
+                return Err(UploadTarError::UploadSessionExpired {
+                    upload_id,
+                    client_time: now,
+                    expires_at,
+                });
             }
             let seconds_left = expires_at as i64 - now as i64;
             if seconds_left < 60 && chunk_number % 10 == 0 {
