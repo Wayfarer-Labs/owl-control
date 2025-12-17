@@ -53,7 +53,7 @@ pub const NVENC_TUNE_OPTIONS: &[&str] = &["hq", "ll", "ull"];
 pub const VIDEO_PROFILE: &str = "high";
 
 /// Bitrate (kbps)
-pub const BITRATE: i64 = 2500;
+pub const BITRATE: i64 = 4777;
 
 /// Rate control
 pub const RATE_CONTROL: &str = "CBR";
