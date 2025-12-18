@@ -1,7 +1,9 @@
 use std::{
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
+
+use backoff::{Error as BackoffError, ExponentialBackoff, future::retry_notify};
 
 use futures::TryStreamExt as _;
 use tokio::io::{AsyncReadExt as _, AsyncSeekExt as _};
@@ -39,7 +41,7 @@ pub enum UploadTarError {
     FailedToUploadChunk {
         chunk_number: u64,
         total_chunks: u64,
-        max_retries: u32,
+        retries: u32,
         error: UploadSingleChunkError,
     },
     FailedToCompleteMultipartUpload(String),
@@ -67,12 +69,12 @@ impl std::fmt::Display for UploadTarError {
             UploadTarError::FailedToUploadChunk {
                 chunk_number,
                 total_chunks,
-                max_retries,
+                retries,
                 error,
             } => {
                 write!(
                     f,
-                    "Failed to upload chunk {chunk_number}/{total_chunks} after {max_retries} attempts: {error:?}"
+                    "Failed to upload chunk {chunk_number}/{total_chunks} after {retries} retries: {error:?}"
                 )
             }
             UploadTarError::FailedToCompleteMultipartUpload(message) => {
@@ -281,69 +283,72 @@ pub async fn run(
             let chunk_data = buffer[..chunk_size].to_vec();
             let chunk_hash = sha256::digest(&chunk_data);
 
-            const MAX_RETRIES: u32 = 5;
+            // Store bytes_uploaded before attempting the chunk
+            let bytes_before_chunk = progress_sender.lock().unwrap().bytes_uploaded();
+            let mut retries = 0u32;
+            // Should be about 5-6 retries
+            let backoff = ExponentialBackoff {
+                initial_interval: Duration::from_millis(500),
+                max_interval: Duration::from_secs(8),
+                max_elapsed_time: Some(Duration::from_secs(16)),
+                multiplier: 2.0,
+                randomization_factor: 0.25,
+                ..Default::default()
+            };
 
-            for attempt in 1..=MAX_RETRIES {
-                // Store bytes_uploaded before attempting the chunk
-                let bytes_before_chunk = progress_sender.lock().unwrap().bytes_uploaded();
+            let etag = retry_notify(
+                backoff,
+                || async {
+                    // Reset progress before each attempt
+                    progress_sender
+                        .lock()
+                        .unwrap()
+                        .set_bytes_uploaded(bytes_before_chunk);
 
-                let chunk = Chunk {
-                    data: &chunk_data,
-                    hash: &chunk_hash,
-                    number: chunk_number,
-                };
+                    let chunk = Chunk {
+                        data: &chunk_data,
+                        hash: &chunk_hash,
+                        number: chunk_number,
+                    };
 
-                match upload_single_chunk(
-                    chunk,
-                    &api_client,
-                    api_token,
-                    &upload_id,
-                    progress_sender.clone(),
-                    &client,
-                )
-                .await
-                {
-                    Ok(etag) => {
-                        progress_sender.lock().unwrap().send();
+                    upload_single_chunk(
+                        chunk,
+                        &api_client,
+                        api_token,
+                        &upload_id,
+                        progress_sender.clone(),
+                        &client,
+                    )
+                    .await
+                    .map_err(BackoffError::transient)
+                },
+                |err, dur| {
+                    retries += 1;
+                    tracing::warn!(
+                        "Failed to upload chunk {chunk_number}/{total_chunks}, retrying in {dur:?}: {err:?}"
+                    );
+                },
+            )
+            .await
+            .map_err(|e| UploadTarError::FailedToUploadChunk {
+                chunk_number,
+                total_chunks,
+                retries,
+                error: e,
+            })?;
 
-                        // Update progress state with new chunk and save to file
-                        guard.paused_mut().mutate_upload_progress(|progress| {
-                            progress
-                                .chunk_etags
-                                .push(CompleteMultipartUploadChunk { chunk_number, etag });
-                        });
+            progress_sender.lock().unwrap().send();
 
-                        tracing::info!(
-                            "Uploaded chunk {chunk_number}/{total_chunks} for upload_id {upload_id}"
-                        );
-                        break; // Success, move to next chunk
-                    }
-                    Err(error) => {
-                        // Reset bytes_uploaded to what it was before the chunk attempt
-                        {
-                            let mut progress_sender = progress_sender.lock().unwrap();
-                            progress_sender.set_bytes_uploaded(bytes_before_chunk);
-                        }
+            // Update progress state with new chunk and save to file
+            guard.paused_mut().mutate_upload_progress(|progress| {
+                progress
+                    .chunk_etags
+                    .push(CompleteMultipartUploadChunk { chunk_number, etag });
+            });
 
-                        tracing::warn!(
-                            "Failed to upload chunk {chunk_number}/{total_chunks} (attempt {attempt}/{MAX_RETRIES}): {error:?}"
-                        );
-
-                        if attempt == MAX_RETRIES {
-                            return Err(UploadTarError::FailedToUploadChunk {
-                                chunk_number,
-                                total_chunks,
-                                max_retries: MAX_RETRIES,
-                                error,
-                            });
-                        }
-
-                        // Optional: add a small delay before retrying
-                        tokio::time::sleep(std::time::Duration::from_millis(500 * attempt as u64))
-                            .await;
-                    }
-                }
-            }
+            tracing::info!(
+                "Uploaded chunk {chunk_number}/{total_chunks} for upload_id {upload_id}"
+            );
         }
     }
     let completion_result = match api_client
