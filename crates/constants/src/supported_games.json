@@ -77,7 +77,7 @@
   {
     "game": "BioShock Infinite",
     "url": "https://store.steampowered.com/app/8870/BioShock_Infinite/",
-    "binaries": ["bioshockinfinite"]
+    "binaries": ["bioshockinfinite", "shippingpc-xgame"]
   },
   {
     "game": "Blacktail",
