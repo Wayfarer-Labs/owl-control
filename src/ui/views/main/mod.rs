@@ -200,45 +200,70 @@ fn account_section(ui: &mut Ui, app: &mut App) {
     ui.horizontal(|ui| {
         ui.label(RichText::new("Account").size(18.0).strong());
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            let offline_mode = app.app_state.offline_mode.load(Ordering::SeqCst);
+            let offline_mode = app.app_state.offline.mode.load(Ordering::SeqCst);
             let upload_in_progress = app.app_state.upload_in_progress.load(Ordering::SeqCst);
+            let backoff_active = app.app_state.offline.backoff_active.load(Ordering::SeqCst);
 
-            let (icon, color, tooltip) = if upload_in_progress {
+            let (icon, color, tooltip, is_disabled) = if upload_in_progress {
                 (
                     "📡",
                     Color32::from_rgb(128, 128, 128),
-                    "Cannot toggle offline mode while upload is in progress",
+                    "Cannot toggle offline mode while upload is in progress".to_string(),
+                    true,
+                )
+            } else if backoff_active {
+                // Calculate time remaining until next retry
+                let next_retry_time = app.app_state.offline.next_retry_time.load(Ordering::SeqCst);
+                let retry_count = app.app_state.offline.retry_count.load(Ordering::SeqCst);
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+
+                let time_remaining = if next_retry_time > now {
+                    let secs = next_retry_time - now;
+                    format!("{}m {}s", secs / 60, secs % 60)
+                } else {
+                    "retrying...".to_string()
+                };
+
+                (
+                    "📡",
+                    Color32::from_rgb(200, 150, 50), // Orange for backoff
+                    format!(
+                        "Offline - auto-retry in {} (attempt #{})",
+                        time_remaining,
+                        retry_count + 1
+                    ),
+                    true, // Disabled during backoff to prevent server spam
                 )
             } else if offline_mode {
                 (
                     "📡",
                     Color32::from_rgb(180, 80, 80),
-                    "Offline mode (click to go online)",
+                    "Offline mode (click to go online)".to_string(),
+                    false,
                 )
             } else {
                 (
                     "📡",
                     Color32::from_rgb(100, 180, 100),
-                    "Online mode (click to go offline)",
+                    "Online mode (click to go offline)".to_string(),
+                    false,
                 )
             };
             let button = Button::new(RichText::new(icon).size(16.0).color(color)).frame(false);
-            let response = ui.add_enabled(!upload_in_progress, button);
+            let response = ui.add_enabled(!is_disabled, button);
             if response
-                .on_hover_text(tooltip)
-                .on_disabled_hover_text(tooltip)
+                .on_hover_text(&tooltip)
+                .on_disabled_hover_text(&tooltip)
                 .clicked()
             {
                 app.app_state
-                    .offline_mode
-                    .store(!offline_mode, Ordering::SeqCst);
-
-                // Trigger API key validation when toggling offline mode
-                // This allows switching between online and offline modes
-                app.app_state
                     .async_request_tx
-                    .blocking_send(AsyncRequest::ValidateApiKey {
-                        api_key: app.local_credentials.api_key.clone(),
+                    .blocking_send(AsyncRequest::SetOfflineMode {
+                        enabled: !offline_mode,
+                        offline_reason: None,
                     })
                     .ok();
             }

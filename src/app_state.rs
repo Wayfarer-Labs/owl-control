@@ -2,7 +2,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, OnceLock, RwLock,
-        atomic::{AtomicBool, AtomicUsize},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize},
     },
     time::{Duration, Instant},
 };
@@ -34,8 +34,31 @@ pub struct AppState {
     pub play_time_state: RwLock<PlayTimeTracker>,
     pub last_foregrounded_game: RwLock<Option<ForegroundedGame>>,
     pub supported_games: RwLock<SupportedGames>,
+    /// Offline mode state
+    pub offline: OfflineState,
+}
+
+/// State for offline mode and backoff retry logic
+pub struct OfflineState {
     /// Flag for offline mode - skips API server calls when enabled
-    pub offline_mode: AtomicBool,
+    pub mode: AtomicBool,
+    /// Whether offline backoff retry is currently active
+    pub backoff_active: AtomicBool,
+    /// Timestamp (as seconds since UNIX epoch) of when the next offline retry will occur
+    pub next_retry_time: AtomicU64,
+    /// Current retry count for offline backoff (used to display in UI)
+    pub retry_count: AtomicU32,
+}
+
+impl Default for OfflineState {
+    fn default() -> Self {
+        Self {
+            mode: AtomicBool::new(false),
+            backoff_active: AtomicBool::new(false),
+            next_retry_time: AtomicU64::new(0),
+            retry_count: AtomicU32::new(0),
+        }
+    }
 }
 impl AppState {
     pub fn new(
@@ -61,7 +84,7 @@ impl AppState {
             play_time_state: RwLock::new(PlayTimeTracker::load()),
             last_foregrounded_game: RwLock::new(None),
             supported_games: RwLock::new(SupportedGames::load_from_embedded()),
-            offline_mode: AtomicBool::new(false),
+            offline: OfflineState::default(),
         };
         tracing::debug!("AppState::new() complete");
         state
@@ -171,6 +194,10 @@ pub enum AsyncRequest {
         enabled: bool,
         offline_reason: Option<String>,
     },
+    /// Attempt to go online with backoff - starts backoff if not active, or retries if active
+    OfflineBackoffAttempt,
+    /// Cancel the offline mode backoff retry loop
+    CancelOfflineBackoff,
 }
 
 /// A message sent to the UI thread, usually in response to some action taken in another thread
