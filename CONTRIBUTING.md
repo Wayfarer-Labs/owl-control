@@ -80,7 +80,7 @@ cargo clippy
 
 Before updating the games list, please check with the data team to ensure that the changes are valid. In this phase, we are primarily pruning games and not adding new ones.
 
-Please update `crates/constants/src/supported_games.json` and run `cargo run --bin update-games` to update `GAMES.md`. To find the executable names for each game, you can use:
+Please update `crates/constants/src/supported_games.json` and run `cargo run --p update-games --release` to update `GAMES.md`. To find the executable names for each game, you can use:
 
 - SteamDB: You can look at the depots for a game and find the `exe` files. This requires some discernment, and is hard to automate. It is the most reliable approach, however.
 - Rely on Discord's hard work, and use their list instead: <https://discord.com/api/v10/applications/detectable>

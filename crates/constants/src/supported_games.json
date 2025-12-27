@@ -712,12 +712,7 @@
   {
     "game": "The Elder Scrolls V: Skyrim",
     "url": "https://store.steampowered.com/app/489830/The_Elder_Scrolls_V_Skyrim_Special_Edition/",
-    "binaries": ["skyrimse"]
-  },
-  {
-    "game": "The Exit 8",
-    "url": "https://store.steampowered.com/app/2653790/The_Exit_8/",
-    "binaries": ["exit8", "exit8-win64-shipping"]
+    "binaries": ["skyrimse", "tesv"]
   },
   {
     "game": "The Forest",
