@@ -182,7 +182,7 @@
   {
     "game": "Conundrum",
     "url": "https://store.steampowered.com/app/1744140/Conundrum/",
-    "binaries": ["trygame-win32-shipping"]
+    "binaries": ["trygame-win32-shipping", "conundrum"]
   },
   {
     "game": "Crysis 1 Remastered",
