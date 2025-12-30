@@ -36,6 +36,7 @@ pub struct AppState {
     pub supported_games: RwLock<SupportedGames>,
     /// Flag for offline mode - skips API server calls when enabled
     pub offline_mode: AtomicBool,
+    pub upload_filters: RwLock<UploadFilters>,
 }
 impl AppState {
     pub fn new(
@@ -62,10 +63,17 @@ impl AppState {
             last_foregrounded_game: RwLock::new(None),
             supported_games: RwLock::new(SupportedGames::load_from_embedded()),
             offline_mode: AtomicBool::new(false),
+            upload_filters: RwLock::new(UploadFilters::default()),
         };
         tracing::debug!("AppState::new() complete");
         state
     }
+}
+
+#[derive(Default, Clone, Copy, Debug)]
+pub struct UploadFilters {
+    pub start_date: Option<chrono::NaiveDate>,
+    pub end_date: Option<chrono::NaiveDate>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -144,7 +152,8 @@ pub enum AsyncRequest {
     OpenDataDump,
     OpenLog,
     UpdateSupportedGames(SupportedGames),
-    LoadUploadStats,
+    LoadUploadStatistics,
+    LoadUploadList { limit: u32, offset: u32 },
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,
     DeleteAllUploadedLocalRecordings,
@@ -182,7 +191,12 @@ pub enum UiUpdate {
     UploadFailed(String),
     UpdateRecordingState(bool),
     UpdateNewerReleaseAvailable(GitHubRelease),
-    UpdateUserUploads(UserUploads),
+    UpdateUserUploadStatistics(crate::api::user_upload::UserUploadStatistics),
+    UpdateUserUploadList {
+        uploads: Vec<crate::api::user_upload::UserUpload>,
+        limit: u32,
+        offset: u32,
+    },
     UpdateLocalRecordings(Vec<LocalRecording>),
     FolderPickerResult {
         old_path: PathBuf,
