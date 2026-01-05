@@ -3374,8 +3374,9 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "libobs"
-version = "4.0.2+32.0.2"
-source = "git+https://github.com/libobs-rs/libobs-rs.git#9406f52e1bc8a93b992be9b04725ff8ab54bf3c6"
+version = "5.0.0+32.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eef3e1fb1b9265a01c927e1915cfa4c5760359d01a07291bad6e6ba61e34a39"
 dependencies = [
  "bindgen",
  "pkg-config",
@@ -3383,10 +3384,12 @@ dependencies = [
 
 [[package]]
 name = "libobs-simple"
-version = "5.0.6+32.0.2"
-source = "git+https://github.com/libobs-rs/libobs-rs.git#9406f52e1bc8a93b992be9b04725ff8ab54bf3c6"
+version = "8.0.0+32.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bd6f6d386159c93a2ba8f62c9f2bd75f523a8e0e005d4e67a1fecd0cbcc81a7"
 dependencies = [
  "display-info",
+ "lazy_static",
  "libobs",
  "libobs-simple-macro",
  "libobs-window-helper",
@@ -3395,12 +3398,15 @@ dependencies = [
  "num-derive",
  "num-traits",
  "paste",
+ "tokio",
+ "windows 0.62.2",
 ]
 
 [[package]]
 name = "libobs-simple-macro"
-version = "6.0.1"
-source = "git+https://github.com/libobs-rs/libobs-rs.git#9406f52e1bc8a93b992be9b04725ff8ab54bf3c6"
+version = "7.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a3bdb09c0709df286ccd0fd07994d1fee8877e039fee6e3c21f043d90da76db"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3409,16 +3415,18 @@ dependencies = [
 
 [[package]]
 name = "libobs-window-helper"
-version = "0.2.1"
-source = "git+https://github.com/libobs-rs/libobs-rs.git#9406f52e1bc8a93b992be9b04725ff8ab54bf3c6"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69207f23b413243491c3703c6c1c9434fd0ff46f158ef4d945d1dc8d889bad80"
 dependencies = [
  "windows 0.62.2",
 ]
 
 [[package]]
 name = "libobs-wrapper"
-version = "6.0.4+32.0.2"
-source = "git+https://github.com/libobs-rs/libobs-rs.git#9406f52e1bc8a93b992be9b04725ff8ab54bf3c6"
+version = "9.0.0+32.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bc36b46bc5dca37d7be104b566d812c5ececd9512c36b89076b7ccf18401d9f"
 dependencies = [
  "chrono",
  "display-info",

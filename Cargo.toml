@@ -44,12 +44,11 @@ wgpu = "27.0.0"
 
 obws = "0.14.0"
 async-trait = "0.1"
-libobs-wrapper = { git = "https://github.com/libobs-rs/libobs-rs.git", features = [
+libobs-wrapper = { version = "9", features = [
     "logging_crash_handler",
-    "enable_runtime",
 ], default-features = false }
-libobs-simple = { git = "https://github.com/libobs-rs/libobs-rs.git" }
-libobs-window-helper = { git = "https://github.com/libobs-rs/libobs-rs.git" }
+libobs-simple = "8"
+libobs-window-helper = "0.4"
 
 [package]
 name = "owl-control"
