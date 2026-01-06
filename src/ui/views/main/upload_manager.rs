@@ -5,7 +5,7 @@ use egui::{
 };
 
 use crate::{
-    api::{UserUpload, UserUploads, UserUploadStatistics},
+    api::{UserUpload, UserUploadStatistics, UserUploads},
     app_state::{AppState, AsyncRequest},
     config::Preferences,
     output_types::Metadata,
@@ -31,7 +31,8 @@ impl UploadManager {
     }
 
     pub fn update_user_upload_list(&mut self, uploads: Vec<UserUpload>, limit: u32, offset: u32) {
-        self.recordings.update_user_upload_list(uploads, limit, offset);
+        self.recordings
+            .update_user_upload_list(uploads, limit, offset);
         self.virtual_list.reset();
     }
 
@@ -815,8 +816,7 @@ fn recordings_view(
 
                         ui.add_enabled_ui(recordings.offset > 0, |ui| {
                             if ui.button("Previous").clicked() {
-                                let new_offset =
-                                    recordings.offset.saturating_sub(recordings.limit);
+                                let new_offset = recordings.offset.saturating_sub(recordings.limit);
                                 app_state
                                     .async_request_tx
                                     .blocking_send(AsyncRequest::LoadUploadStats {

@@ -153,7 +153,10 @@ pub enum AsyncRequest {
     OpenLog,
     UpdateSupportedGames(SupportedGames),
     LoadUploadStatistics,
-    LoadUploadList { limit: u32, offset: u32 },
+    LoadUploadList {
+        limit: u32,
+        offset: u32,
+    },
     LoadLocalRecordings,
     DeleteAllInvalidRecordings,
     DeleteAllUploadedLocalRecordings,

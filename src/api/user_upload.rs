@@ -134,8 +134,7 @@ impl ApiClient {
             .send()
             .await?;
 
-        let response =
-            check_for_response_success(response, "User upload list unavailable").await?;
+        let response = check_for_response_success(response, "User upload list unavailable").await?;
 
         let server_list = response.json::<UserUploadListResponse>().await?;
 
