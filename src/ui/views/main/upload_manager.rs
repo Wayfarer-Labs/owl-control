@@ -5,7 +5,7 @@ use egui::{
 };
 
 use crate::{
-    api::{UserUpload, UserUploadStatistics, UserUploads},
+    api::{UserUpload, UserUploadStatistics},
     app_state::{AppState, AsyncRequest},
     config::Preferences,
     output_types::Metadata,
@@ -819,7 +819,7 @@ fn recordings_view(
                                 let new_offset = recordings.offset.saturating_sub(recordings.limit);
                                 app_state
                                     .async_request_tx
-                                    .blocking_send(AsyncRequest::LoadUploadStats {
+                                    .blocking_send(AsyncRequest::LoadUploadList {
                                         limit: recordings.limit,
                                         offset: new_offset,
                                     })
@@ -834,7 +834,7 @@ fn recordings_view(
                                 let new_offset = recordings.offset + recordings.limit;
                                 app_state
                                     .async_request_tx
-                                    .blocking_send(AsyncRequest::LoadUploadStats {
+                                    .blocking_send(AsyncRequest::LoadUploadList {
                                         limit: recordings.limit,
                                         offset: new_offset,
                                     })

@@ -273,12 +273,13 @@ async fn main(
                         } else {
                             match valid_api_key_and_user_id.clone() {
                                 Some((api_key, user_id)) => {
-                                    let filters = app_state.upload_filters.read().unwrap();
+                                    let start_date = app_state.upload_filters.read().unwrap().start_date;
+                                    let end_date = app_state.upload_filters.read().unwrap().end_date;
                                     tokio::spawn({
                                         let app_state = app_state.clone();
                                         let api_client = api_client.clone();
                                         async move {
-                                            let stats = match api_client.get_user_upload_statistics(&api_key, &user_id, filters.start_date, filters.end_date).await {
+                                            let stats = match api_client.get_user_upload_statistics(&api_key, &user_id, start_date, end_date).await {
                                                 Ok(stats) => stats,
                                                 Err(e) => {
                                                     tracing::error!(e=?e, "Failed to get user upload statistics");
@@ -302,12 +303,13 @@ async fn main(
                         } else {
                             match valid_api_key_and_user_id.clone() {
                                 Some((api_key, user_id)) => {
-                                    let filters = app_state.upload_filters.read().unwrap();
+                                    let start_date = app_state.upload_filters.read().unwrap().start_date;
+                                    let end_date = app_state.upload_filters.read().unwrap().end_date;
                                     tokio::spawn({
                                         let app_state = app_state.clone();
                                         let api_client = api_client.clone();
                                         async move {
-                                            let (uploads, limit, offset) = match api_client.get_user_upload_list(&api_key, &user_id, limit, offset, filters.start_date, filters.end_date).await {
+                                            let (uploads, limit, offset) = match api_client.get_user_upload_list(&api_key, &user_id, limit, offset, start_date, end_date).await {
                                                 Ok(res) => res,
                                                 Err(e) => {
                                                     tracing::error!(e=?e, "Failed to get user upload list");

@@ -12,8 +12,7 @@ use egui_wgpu::wgpu;
 use tokio::sync::{broadcast, mpsc};
 
 use crate::{
-    api::UserUploads, config::Config, play_time::PlayTimeTracker, record::LocalRecording,
-    upload::ProgressData,
+    config::Config, play_time::PlayTimeTracker, record::LocalRecording, upload::ProgressData,
 };
 
 pub struct AppState {
@@ -194,9 +193,9 @@ pub enum UiUpdate {
     UploadFailed(String),
     UpdateRecordingState(bool),
     UpdateNewerReleaseAvailable(GitHubRelease),
-    UpdateUserUploadStatistics(crate::api::user_upload::UserUploadStatistics),
+    UpdateUserUploadStatistics(crate::api::UserUploadStatistics),
     UpdateUserUploadList {
-        uploads: Vec<crate::api::user_upload::UserUpload>,
+        uploads: Vec<crate::api::UserUpload>,
         limit: u32,
         offset: u32,
     },
