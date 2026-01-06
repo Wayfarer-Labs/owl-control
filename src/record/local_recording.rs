@@ -69,10 +69,13 @@ impl UploadProgressState {
     pub fn load_from_file(path: &Path) -> eyre::Result<Self> {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
-        let mut stream = serde_json::Deserializer::from_reader(reader).into_iter::<serde_json::Value>();
+        let mut stream =
+            serde_json::Deserializer::from_reader(reader).into_iter::<serde_json::Value>();
 
         // Read the first object which should be the UploadProgressState
-        let first_value = stream.next().ok_or_else(|| eyre::eyre!("Empty progress file"))??;
+        let first_value = stream
+            .next()
+            .ok_or_else(|| eyre::eyre!("Empty progress file"))??;
         let mut state: Self = serde_json::from_value(first_value)?;
 
         // If the state was saved in the old format (single JSON object with populated etags),
@@ -84,7 +87,11 @@ impl UploadProgressState {
         for value in stream {
             let chunk: CompleteMultipartUploadChunk = serde_json::from_value(value?)?;
             // Avoid duplicates if we're migrating or recovering from a weird state
-            if !state.chunk_etags.iter().any(|c| c.chunk_number == chunk.chunk_number) {
+            if !state
+                .chunk_etags
+                .iter()
+                .any(|c| c.chunk_number == chunk.chunk_number)
+            {
                 state.chunk_etags.push(chunk);
             }
         }
@@ -110,24 +117,27 @@ impl UploadProgressState {
             serde_json::to_writer(&mut writer, chunk)?;
             writeln!(&mut writer)?;
         }
-        
+
         writer.flush()?;
         Ok(())
     }
 
     /// Append a single chunk completion to the log file
     pub fn append_chunk_to_file(&self, chunk: &CompleteMultipartUploadChunk) -> eyre::Result<()> {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(&self.tar_path.parent().unwrap().join(constants::filename::recording::UPLOAD_PROGRESS))?;
-        
+        let mut file = std::fs::OpenOptions::new().write(true).append(true).open(
+            &self
+                .tar_path
+                .parent()
+                .unwrap()
+                .join(constants::filename::recording::UPLOAD_PROGRESS),
+        )?;
+
         // Ensure we start on a new line (though save_to_file guarantees ending with newline)
         // serde_json::to_writer doesn't add a newline
         serde_json::to_writer(&mut file, chunk)?;
         use std::io::Write;
         writeln!(&mut file)?;
-        
+
         Ok(())
     }
 
@@ -212,28 +222,31 @@ impl LocalRecordingPaused {
         self.save_upload_progress().ok();
         r
     }
-    
+
     /// Records a successful chunk upload: updates in-memory state and appends to the log file.
-    pub fn record_chunk_completion(&mut self, chunk: CompleteMultipartUploadChunk) -> eyre::Result<()> {
+    pub fn record_chunk_completion(
+        &mut self,
+        chunk: CompleteMultipartUploadChunk,
+    ) -> eyre::Result<()> {
         // Update in-memory
         self.upload_progress.chunk_etags.push(chunk.clone());
-        
+
         // Append to disk (efficient log append)
-        // We construct the path manually here or use the one from info, 
+        // We construct the path manually here or use the one from info,
         // but UploadProgressState doesn't store the full progress file path, only tar path.
         // We can use the helper method on self.
-        
+
         let path = self.upload_progress_path();
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .append(true)
             .create(false) // Should already exist
             .open(path)?;
-            
+
         serde_json::to_writer(&mut file, &chunk)?;
         use std::io::Write;
         writeln!(&mut file)?;
-        
+
         Ok(())
     }
 
