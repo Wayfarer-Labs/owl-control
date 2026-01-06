@@ -19,7 +19,7 @@ The setup process involves:
 
 ```bash
 git clone https://github.com/Wayfarer-Labs/owl-control.git
-cd owl-control
+cd owl-control/tools/vm
 ./owl-dev-setup.sh
 ```
 
@@ -40,7 +40,7 @@ Clone the repository and run the setup script:
 
 ```bash
 git clone https://github.com/Wayfarer-Labs/owl-control.git
-cd owl-control
+cd owl-control/tools/vm
 ./owl-dev-setup.sh
 ```
 
@@ -241,7 +241,7 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 Now run the Windows setup script:
 
 ```powershell
-cd Z:\
+cd Z:\tools\vm
 .\owl-windows-dev-setup.ps1
 ```
 

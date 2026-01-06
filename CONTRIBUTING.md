@@ -4,7 +4,7 @@ Thanks for your interest in contributing to OWL Control! 🦉
 
 ## Building from Source
 
-**Note for Linux developers**: See [LINUX_DEV_SETUP.md](./LINUX_DEV_SETUP.md) for instructions on setting up a Windows VM for development and testing.
+**Note for Linux developers**: See [LINUX_DEV_SETUP.md](./tools/vm/LINUX_DEV_SETUP.md) for instructions on setting up a Windows VM for development and testing.
 
 Using PowerShell or Command Prompt:
 

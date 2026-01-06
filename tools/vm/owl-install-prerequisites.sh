@@ -114,7 +114,8 @@ echo "Step 5: Configuring Samba share"
 echo "--------------------------------"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SHARED_FOLDER_PATH="$SCRIPT_DIR"
+# Share the owl-control root directory (two levels up from tools/vm)
+SHARED_FOLDER_PATH="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SHARED_FOLDER_NAME="owl-control"
 SMB_CONF="/etc/samba/smb.conf"
 
