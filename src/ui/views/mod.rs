@@ -164,10 +164,19 @@ impl App {
             UiUpdate::UpdateNewerReleaseAvailable(release) => {
                 self.newer_release_available = Some(release);
             }
-            UiUpdate::UpdateUserUploads(uploads) => {
+            UiUpdate::UpdateUserUploadStatistics(statistics) => {
                 self.main_view_state
                     .upload_manager
-                    .update_user_uploads(uploads.uploads);
+                    .update_user_upload_statistics(statistics);
+            }
+            UiUpdate::UpdateUserUploadList {
+                uploads,
+                limit,
+                offset,
+            } => {
+                self.main_view_state
+                    .upload_manager
+                    .update_user_upload_list(uploads, limit, offset);
             }
             UiUpdate::UpdateLocalRecordings(recordings) => {
                 self.main_view_state
