@@ -262,10 +262,7 @@ pub async fn run(
                     let chunk_hash = match hash_result {
                         Ok(hash) => hash,
                         Err(join_err) => {
-                            return Err(UploadTarError::from(std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                join_err,
-                            )));
+                            return Err(UploadTarError::from(std::io::Error::other(join_err)));
                         }
                     };
 
@@ -523,15 +520,13 @@ pub async fn run(
         // Ensure producer and signer tasks didn't crash
         if let Err(e) = producer_handle.await {
             tracing::error!("Producer task failed: {:?}", e);
-            return Err(UploadTarError::from(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(UploadTarError::from(std::io::Error::other(
                 "Producer task failed",
             )));
         }
         if let Err(e) = signer_handle.await {
             tracing::error!("Signer task failed: {:?}", e);
-            return Err(UploadTarError::from(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(UploadTarError::from(std::io::Error::other(
                 "Signer task failed",
             )));
         }
@@ -584,19 +579,9 @@ pub async fn run(
     }
 }
 
-struct Chunk<'a> {
-    data: &'a [u8],
-    hash: &'a str,
-    number: u64,
-}
-
 #[derive(Debug)]
 pub enum UploadSingleChunkError {
     Io(std::io::Error),
-    Api {
-        api_request: &'static str,
-        error: ApiError,
-    },
     Reqwest(reqwest::Error),
     ChunkUploadFailed(reqwest::StatusCode),
     NoEtagHeaderFound,
@@ -605,9 +590,6 @@ impl std::fmt::Display for UploadSingleChunkError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UploadSingleChunkError::Io(e) => write!(f, "I/O error: {e}"),
-            UploadSingleChunkError::Api { api_request, error } => {
-                write!(f, "API error for {api_request}: {error:?}")
-            }
             UploadSingleChunkError::Reqwest(e) => write!(f, "Reqwest error: {e}"),
             UploadSingleChunkError::ChunkUploadFailed(status) => {
                 write!(f, "Chunk upload failed with status: {status}")
@@ -624,7 +606,6 @@ impl UploadSingleChunkError {
     pub fn is_network_error(&self) -> bool {
         match self {
             UploadSingleChunkError::Reqwest(e) => e.is_connect() || e.is_timeout(),
-            UploadSingleChunkError::Api { error, .. } => error.is_network_error(),
             _ => false,
         }
     }
@@ -638,55 +619,4 @@ impl From<reqwest::Error> for UploadSingleChunkError {
     fn from(e: reqwest::Error) -> Self {
         UploadSingleChunkError::Reqwest(e)
     }
-}
-
-async fn upload_single_chunk(
-    chunk: Chunk<'_>,
-    api_client: &Arc<ApiClient>,
-    api_token: &str,
-    upload_id: &str,
-    progress_sender: Arc<Mutex<ProgressSender>>,
-    client: &reqwest::Client,
-) -> Result<String, UploadSingleChunkError> {
-    let multipart_chunk_response = api_client
-        .upload_multipart_chunk(api_token, upload_id, chunk.number, chunk.hash)
-        .await
-        .map_err(|e| UploadSingleChunkError::Api {
-            api_request: "upload_multipart_chunk",
-            error: e,
-        })?;
-
-    // Create a stream that wraps chunk_data and tracks upload progress
-    let progress_stream =
-        tokio_util::io::ReaderStream::new(std::io::Cursor::new(chunk.data.to_vec())).inspect_ok({
-            let progress_sender = progress_sender.clone();
-            move |bytes| {
-                progress_sender
-                    .lock()
-                    .unwrap()
-                    .increment_bytes_uploaded(bytes.len() as u64);
-            }
-        });
-
-    let res = client
-        .put(&multipart_chunk_response.upload_url)
-        .header("Content-Type", "application/octet-stream")
-        .header("Content-Length", chunk.data.len())
-        .body(reqwest::Body::wrap_stream(progress_stream))
-        .send()
-        .await?;
-
-    if !res.status().is_success() {
-        return Err(UploadSingleChunkError::ChunkUploadFailed(res.status()));
-    }
-
-    // Extract etag header from response
-    let etag = res
-        .headers()
-        .get("etag")
-        .and_then(|hv| hv.to_str().ok())
-        .map(|s| s.trim_matches('"').to_owned())
-        .ok_or(UploadSingleChunkError::NoEtagHeaderFound)?;
-
-    Ok(etag)
 }

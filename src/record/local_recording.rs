@@ -122,25 +122,6 @@ impl UploadProgressState {
         Ok(())
     }
 
-    /// Append a single chunk completion to the log file
-    pub fn append_chunk_to_file(&self, chunk: &CompleteMultipartUploadChunk) -> eyre::Result<()> {
-        let mut file = std::fs::OpenOptions::new().write(true).append(true).open(
-            &self
-                .tar_path
-                .parent()
-                .unwrap()
-                .join(constants::filename::recording::UPLOAD_PROGRESS),
-        )?;
-
-        // Ensure we start on a new line (though save_to_file guarantees ending with newline)
-        // serde_json::to_writer doesn't add a newline
-        serde_json::to_writer(&mut file, chunk)?;
-        use std::io::Write;
-        writeln!(&mut file)?;
-
-        Ok(())
-    }
-
     /// Get the next chunk number to upload (after the last completed chunk)
     pub fn next_chunk_number(&self) -> u64 {
         self.chunk_etags
@@ -213,16 +194,6 @@ impl LocalRecordingPaused {
         &self.upload_progress
     }
 
-    /// Mutate the upload progress state and save to file.
-    pub fn mutate_upload_progress<R>(
-        &mut self,
-        f: impl FnOnce(&mut UploadProgressState) -> R,
-    ) -> R {
-        let r = f(&mut self.upload_progress);
-        self.save_upload_progress().ok();
-        r
-    }
-
     /// Records a successful chunk upload: updates in-memory state and appends to the log file.
     pub fn record_chunk_completion(
         &mut self,
@@ -238,7 +209,6 @@ impl LocalRecordingPaused {
 
         let path = self.upload_progress_path();
         let mut file = std::fs::OpenOptions::new()
-            .write(true)
             .append(true)
             .create(false) // Should already exist
             .open(path)?;
