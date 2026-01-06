@@ -198,27 +198,168 @@ pub async fn run(
     let mut guard = AbortUploadOnDrop::new(api_client.clone(), api_token.to_string(), paused);
 
     {
-        let mut file = tokio::fs::File::open(tar_path).await?;
+        let file = tokio::fs::File::open(tar_path.clone()).await?;
 
-        // If resuming, seek to the correct position in the file
-        if start_chunk > 1 {
-            let bytes_to_skip = (start_chunk - 1) * chunk_size_bytes;
-            file.seek(std::io::SeekFrom::Start(bytes_to_skip))
-                .await
-                .map_err(UploadTarError::Io)?;
-            tracing::info!(
-                "Seeking to byte {} to resume from chunk {}",
-                bytes_to_skip,
-                start_chunk
-            );
-        }
+        // Pipeline Channels
+        // Channel 1: Producer -> Signer
+        // Payload: (Chunk Data, Chunk Hash, Chunk Number)
+        let (tx_hashed, mut rx_hashed) = tokio::sync::mpsc::channel(2);
 
-        // TODO: make this less sloppy.
-        // Instead of allocating a chunk-sized buffer, and then allocating that buffer
-        // again for each chunk's stream, figure out a way to stream each chunk from the file
-        // directly into the hasher, and then stream each chunk directly into the uploader
-        let mut buffer = vec![0u8; chunk_size_bytes as usize];
-        let client = reqwest::Client::new();
+        // Channel 2: Signer -> Uploader
+        // Payload: (Chunk Data, Upload URL, Chunk Number)
+        let (tx_signed, mut rx_signed) = tokio::sync::mpsc::channel(2);
+
+        // --- STAGE 1: PRODUCER (Read & Hash) ---
+        let producer_handle = tokio::spawn({
+            let mut file = file;
+            let pause_flag = pause_flag.clone();
+            async move {
+                // If resuming, seek to the correct position in the file
+                if start_chunk > 1 {
+                    let bytes_to_skip = (start_chunk - 1) * chunk_size_bytes;
+                    if let Err(e) = file.seek(std::io::SeekFrom::Start(bytes_to_skip)).await {
+                        return Err(UploadTarError::Io(e));
+                    }
+                    tracing::info!(
+                        "Seeking to byte {} to resume from chunk {}",
+                        bytes_to_skip,
+                        start_chunk
+                    );
+                }
+
+                let mut buffer = vec![0u8; chunk_size_bytes as usize];
+
+                for chunk_number in start_chunk..=total_chunks {
+                    // Check pause
+                    if pause_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+
+                    // Read chunk
+                    let mut buffer_start = 0;
+                    loop {
+                        match file.read(&mut buffer[buffer_start..]).await {
+                            Ok(0) => break, // EOF
+                            Ok(n) => buffer_start += n,
+                            Err(e) => return Err(UploadTarError::Io(e)),
+                        }
+                    }
+
+                    let chunk_size = buffer_start;
+                    if chunk_size == 0 {
+                        break;
+                    }
+
+                    let chunk_data = buffer[..chunk_size].to_vec();
+
+                    // Offload Hashing to blocking thread
+                    let hash_result = tokio::task::spawn_blocking({
+                        let data = chunk_data.clone();
+                        move || sha256::digest(&data)
+                    })
+                    .await;
+
+                    let chunk_hash = match hash_result {
+                        Ok(hash) => hash,
+                        Err(join_err) => {
+                            return Err(UploadTarError::from(std::io::Error::other(join_err)));
+                        }
+                    };
+
+                    if tx_hashed
+                        .send(Ok((chunk_data, chunk_hash, chunk_number)))
+                        .await
+                        .is_err()
+                    {
+                        break; // Receiver dropped
+                    }
+                }
+                Ok(())
+            }
+        });
+
+        // --- STAGE 2: SIGNER (Get Upload URL) ---
+        let signer_handle = tokio::spawn({
+            let api_client = api_client.clone();
+            let api_token = api_token.to_string();
+            let upload_id = upload_id.clone();
+            let pause_flag = pause_flag.clone();
+            async move {
+                while let Some(msg) = rx_hashed.recv().await {
+                    if pause_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+
+                    let (chunk_data, chunk_hash, chunk_number) = match msg {
+                        Ok(val) => val,
+                        Err(e) => {
+                            let _ = tx_signed.send(Err(e)).await;
+                            break;
+                        }
+                    };
+
+                    // Retry loop for Getting Signed URL
+                    const MAX_RETRIES: u32 = 5;
+                    let mut upload_url_opt = None;
+                    let mut last_error = None;
+
+                    for attempt in 1..=MAX_RETRIES {
+                        match api_client
+                            .upload_multipart_chunk(
+                                &api_token,
+                                &upload_id,
+                                chunk_number,
+                                &chunk_hash,
+                            )
+                            .await
+                        {
+                            Ok(resp) => {
+                                upload_url_opt = Some(resp.upload_url);
+                                break;
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Failed to get signed URL for chunk {} (attempt {}/{}): {:?}",
+                                    chunk_number,
+                                    attempt,
+                                    MAX_RETRIES,
+                                    e
+                                );
+                                last_error = Some(e);
+                                if attempt < MAX_RETRIES {
+                                    tokio::time::sleep(std::time::Duration::from_millis(
+                                        500 * attempt as u64,
+                                    ))
+                                    .await;
+                                }
+                            }
+                        }
+                    }
+
+                    match upload_url_opt {
+                        Some(url) => {
+                            if tx_signed
+                                .send(Ok((chunk_data, url, chunk_number)))
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                        }
+                        None => {
+                            let err = UploadTarError::Api {
+                                api_request: "upload_multipart_chunk",
+                                error: last_error.unwrap_or(ApiError::ServerInvalidation(
+                                    "Unknown error getting signed URL".into(),
+                                )),
+                            };
+                            let _ = tx_signed.send(Err(err)).await;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
 
         // Initialize progress sender with bytes already uploaded
         let bytes_already_uploaded = (start_chunk - 1) * chunk_size_bytes;
@@ -228,7 +369,16 @@ pub async fn run(
             sender
         }));
 
-        for chunk_number in start_chunk..=total_chunks {
+        let client = reqwest::Client::new();
+
+        // --- STAGE 3: UPLOADER (PUT Data) ---
+        while let Some(msg) = rx_signed.recv().await {
+            // Check for error from previous stages
+            let (chunk_data, upload_url, chunk_number) = match msg {
+                Ok(val) => val,
+                Err(e) => return Err(e),
+            };
+
             // Check if upload has been paused (user-initiated pause)
             if pause_flag.load(std::sync::atomic::Ordering::SeqCst) {
                 // Ensure the latest progress is saved for resume
@@ -268,82 +418,117 @@ pub async fn run(
                 "Uploading chunk {chunk_number}/{total_chunks} for upload_id {upload_id}"
             );
 
-            // Read chunk data from file (only once per chunk, not per retry)
-            let mut buffer_start = 0;
-            loop {
-                let bytes_read = file.read(&mut buffer[buffer_start..]).await?;
-                if bytes_read == 0 {
-                    break;
-                }
-                buffer_start += bytes_read;
-            }
-            let chunk_size = buffer_start;
-            let chunk_data = buffer[..chunk_size].to_vec();
-            let chunk_hash = sha256::digest(&chunk_data);
-
             const MAX_RETRIES: u32 = 5;
+            let mut etag_opt = None;
+            let mut last_error = None;
 
             for attempt in 1..=MAX_RETRIES {
                 // Store bytes_uploaded before attempting the chunk
                 let bytes_before_chunk = progress_sender.lock().unwrap().bytes_uploaded();
 
-                let chunk = Chunk {
-                    data: &chunk_data,
-                    hash: &chunk_hash,
-                    number: chunk_number,
-                };
-
-                match upload_single_chunk(
-                    chunk,
-                    &api_client,
-                    api_token,
-                    &upload_id,
-                    progress_sender.clone(),
-                    &client,
-                )
-                .await
-                {
-                    Ok(etag) => {
-                        progress_sender.lock().unwrap().send();
-
-                        // Update progress state with new chunk and save to file
-                        guard.paused_mut().mutate_upload_progress(|progress| {
-                            progress
-                                .chunk_etags
-                                .push(CompleteMultipartUploadChunk { chunk_number, etag });
+                // Create a stream that wraps chunk_data and tracks upload progress
+                let progress_stream =
+                    tokio_util::io::ReaderStream::new(std::io::Cursor::new(chunk_data.clone()))
+                        .inspect_ok({
+                            let progress_sender = progress_sender.clone();
+                            move |bytes| {
+                                progress_sender
+                                    .lock()
+                                    .unwrap()
+                                    .increment_bytes_uploaded(bytes.len() as u64);
+                            }
                         });
 
-                        tracing::info!(
-                            "Uploaded chunk {chunk_number}/{total_chunks} for upload_id {upload_id}"
-                        );
-                        break; // Success, move to next chunk
+                let res = client
+                    .put(&upload_url)
+                    .header("Content-Type", "application/octet-stream")
+                    .header("Content-Length", chunk_data.len())
+                    .body(reqwest::Body::wrap_stream(progress_stream))
+                    .send()
+                    .await;
+
+                match res {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            if let Some(etag) =
+                                response.headers().get("etag").and_then(|h| h.to_str().ok())
+                            {
+                                etag_opt = Some(etag.trim_matches('"').to_owned());
+                                break; // Success
+                            } else {
+                                last_error = Some(UploadSingleChunkError::NoEtagHeaderFound);
+                            }
+                        } else {
+                            last_error =
+                                Some(UploadSingleChunkError::ChunkUploadFailed(response.status()));
+                        }
                     }
-                    Err(error) => {
-                        // Reset bytes_uploaded to what it was before the chunk attempt
-                        {
-                            let mut progress_sender = progress_sender.lock().unwrap();
-                            progress_sender.set_bytes_uploaded(bytes_before_chunk);
-                        }
-
-                        tracing::warn!(
-                            "Failed to upload chunk {chunk_number}/{total_chunks} (attempt {attempt}/{MAX_RETRIES}): {error:?}"
-                        );
-
-                        if attempt == MAX_RETRIES {
-                            return Err(UploadTarError::FailedToUploadChunk {
-                                chunk_number,
-                                total_chunks,
-                                max_retries: MAX_RETRIES,
-                                error,
-                            });
-                        }
-
-                        // Optional: add a small delay before retrying
-                        tokio::time::sleep(std::time::Duration::from_millis(500 * attempt as u64))
-                            .await;
+                    Err(e) => {
+                        last_error = Some(UploadSingleChunkError::Reqwest(e));
                     }
                 }
+
+                // Reset bytes on failure
+                {
+                    let mut progress_sender = progress_sender.lock().unwrap();
+                    progress_sender.set_bytes_uploaded(bytes_before_chunk);
+                }
+
+                tracing::warn!(
+                    "Failed to upload chunk data {} (attempt {}/{}): {:?}",
+                    chunk_number,
+                    attempt,
+                    MAX_RETRIES,
+                    last_error
+                );
+                if attempt < MAX_RETRIES {
+                    tokio::time::sleep(std::time::Duration::from_millis(500 * attempt as u64))
+                        .await;
+                }
             }
+
+            match etag_opt {
+                Some(etag) => {
+                    progress_sender.lock().unwrap().send();
+
+                    // Update progress state with new chunk and save to file (APPEND ONLY)
+                    if let Err(e) =
+                        guard
+                            .paused_mut()
+                            .record_chunk_completion(CompleteMultipartUploadChunk {
+                                chunk_number,
+                                etag,
+                            })
+                    {
+                        tracing::error!("Failed to append chunk completion to log: {:?}", e);
+                    }
+                    tracing::info!(
+                        "Uploaded chunk {chunk_number}/{total_chunks} for upload_id {upload_id}"
+                    );
+                }
+                None => {
+                    return Err(UploadTarError::FailedToUploadChunk {
+                        chunk_number,
+                        total_chunks,
+                        max_retries: MAX_RETRIES,
+                        error: last_error.unwrap_or(UploadSingleChunkError::NoEtagHeaderFound),
+                    });
+                }
+            }
+        }
+
+        // Ensure producer and signer tasks didn't crash
+        if let Err(e) = producer_handle.await {
+            tracing::error!("Producer task failed: {:?}", e);
+            return Err(UploadTarError::from(std::io::Error::other(
+                "Producer task failed",
+            )));
+        }
+        if let Err(e) = signer_handle.await {
+            tracing::error!("Signer task failed: {:?}", e);
+            return Err(UploadTarError::from(std::io::Error::other(
+                "Signer task failed",
+            )));
         }
     }
     let completion_result = match api_client
@@ -394,19 +579,9 @@ pub async fn run(
     }
 }
 
-struct Chunk<'a> {
-    data: &'a [u8],
-    hash: &'a str,
-    number: u64,
-}
-
 #[derive(Debug)]
 pub enum UploadSingleChunkError {
     Io(std::io::Error),
-    Api {
-        api_request: &'static str,
-        error: ApiError,
-    },
     Reqwest(reqwest::Error),
     ChunkUploadFailed(reqwest::StatusCode),
     NoEtagHeaderFound,
@@ -415,9 +590,6 @@ impl std::fmt::Display for UploadSingleChunkError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UploadSingleChunkError::Io(e) => write!(f, "I/O error: {e}"),
-            UploadSingleChunkError::Api { api_request, error } => {
-                write!(f, "API error for {api_request}: {error:?}")
-            }
             UploadSingleChunkError::Reqwest(e) => write!(f, "Reqwest error: {e}"),
             UploadSingleChunkError::ChunkUploadFailed(status) => {
                 write!(f, "Chunk upload failed with status: {status}")
@@ -434,7 +606,6 @@ impl UploadSingleChunkError {
     pub fn is_network_error(&self) -> bool {
         match self {
             UploadSingleChunkError::Reqwest(e) => e.is_connect() || e.is_timeout(),
-            UploadSingleChunkError::Api { error, .. } => error.is_network_error(),
             _ => false,
         }
     }
@@ -448,55 +619,4 @@ impl From<reqwest::Error> for UploadSingleChunkError {
     fn from(e: reqwest::Error) -> Self {
         UploadSingleChunkError::Reqwest(e)
     }
-}
-
-async fn upload_single_chunk(
-    chunk: Chunk<'_>,
-    api_client: &Arc<ApiClient>,
-    api_token: &str,
-    upload_id: &str,
-    progress_sender: Arc<Mutex<ProgressSender>>,
-    client: &reqwest::Client,
-) -> Result<String, UploadSingleChunkError> {
-    let multipart_chunk_response = api_client
-        .upload_multipart_chunk(api_token, upload_id, chunk.number, chunk.hash)
-        .await
-        .map_err(|e| UploadSingleChunkError::Api {
-            api_request: "upload_multipart_chunk",
-            error: e,
-        })?;
-
-    // Create a stream that wraps chunk_data and tracks upload progress
-    let progress_stream =
-        tokio_util::io::ReaderStream::new(std::io::Cursor::new(chunk.data.to_vec())).inspect_ok({
-            let progress_sender = progress_sender.clone();
-            move |bytes| {
-                progress_sender
-                    .lock()
-                    .unwrap()
-                    .increment_bytes_uploaded(bytes.len() as u64);
-            }
-        });
-
-    let res = client
-        .put(&multipart_chunk_response.upload_url)
-        .header("Content-Type", "application/octet-stream")
-        .header("Content-Length", chunk.data.len())
-        .body(reqwest::Body::wrap_stream(progress_stream))
-        .send()
-        .await?;
-
-    if !res.status().is_success() {
-        return Err(UploadSingleChunkError::ChunkUploadFailed(res.status()));
-    }
-
-    // Extract etag header from response
-    let etag = res
-        .headers()
-        .get("etag")
-        .and_then(|hv| hv.to_str().ok())
-        .map(|s| s.trim_matches('"').to_owned())
-        .ok_or(UploadSingleChunkError::NoEtagHeaderFound)?;
-
-    Ok(etag)
 }
