@@ -4,6 +4,7 @@ use serde::Deserialize;
 use crate::api::{API_BASE_URL, ApiClient, ApiError, check_for_response_success};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct UserUploads {
     pub statistics: UserUploadStatistics,
     pub uploads: Vec<UserUpload>,
@@ -142,6 +143,7 @@ impl ApiClient {
     }
 
     /// Legacy method for backward compatibility if needed, though it's better to use the split methods.
+    #[allow(dead_code)]
     pub async fn get_user_upload_stats(
         &self,
         api_key: &str,

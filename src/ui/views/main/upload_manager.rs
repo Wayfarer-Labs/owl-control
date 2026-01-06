@@ -807,47 +807,47 @@ fn recordings_view(
             }
 
             // Pagination Controls
-            if let Some(stats) = &recordings.statistics {
-                if stats.total_uploads > 0 {
-                    ui.horizontal(|ui| {
-                        let total_pages =
-                            (stats.total_uploads as f32 / recordings.limit as f32).ceil() as u32;
-                        let current_page = (recordings.offset / recordings.limit) + 1;
+            if let Some(stats) = &recordings.statistics
+                && stats.total_uploads > 0
+            {
+                ui.horizontal(|ui| {
+                    let total_pages =
+                        (stats.total_uploads as f32 / recordings.limit as f32).ceil() as u32;
+                    let current_page = (recordings.offset / recordings.limit) + 1;
 
-                        ui.add_enabled_ui(recordings.offset > 0, |ui| {
-                            if ui.button("Previous").clicked() {
-                                let new_offset = recordings.offset.saturating_sub(recordings.limit);
-                                app_state
-                                    .async_request_tx
-                                    .blocking_send(AsyncRequest::LoadUploadList {
-                                        limit: recordings.limit,
-                                        offset: new_offset,
-                                    })
-                                    .ok();
-                            }
-                        });
-
-                        ui.label(format!("Page {current_page} of {total_pages}"));
-
-                        ui.add_enabled_ui(current_page < total_pages, |ui| {
-                            if ui.button("Next").clicked() {
-                                let new_offset = recordings.offset + recordings.limit;
-                                app_state
-                                    .async_request_tx
-                                    .blocking_send(AsyncRequest::LoadUploadList {
-                                        limit: recordings.limit,
-                                        offset: new_offset,
-                                    })
-                                    .ok();
-                            }
-                        });
-
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            ui.label(format!("Total records: {}", stats.total_uploads));
-                        });
+                    ui.add_enabled_ui(recordings.offset > 0, |ui| {
+                        if ui.button("Previous").clicked() {
+                            let new_offset = recordings.offset.saturating_sub(recordings.limit);
+                            app_state
+                                .async_request_tx
+                                .blocking_send(AsyncRequest::LoadUploadList {
+                                    limit: recordings.limit,
+                                    offset: new_offset,
+                                })
+                                .ok();
+                        }
                     });
-                    ui.separator();
-                }
+
+                    ui.label(format!("Page {current_page} of {total_pages}"));
+
+                    ui.add_enabled_ui(current_page < total_pages, |ui| {
+                        if ui.button("Next").clicked() {
+                            let new_offset = recordings.offset + recordings.limit;
+                            app_state
+                                .async_request_tx
+                                .blocking_send(AsyncRequest::LoadUploadList {
+                                    limit: recordings.limit,
+                                    offset: new_offset,
+                                })
+                                .ok();
+                        }
+                    });
+
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(format!("Total records: {}", stats.total_uploads));
+                    });
+                });
+                ui.separator();
             }
 
             ScrollArea::vertical()
