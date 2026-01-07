@@ -430,7 +430,8 @@ pub fn view(
     // Unreliable Connection Setting
     ui.add_space(5.0);
     let offline_mode = app_state
-        .offline_mode
+        .offline
+        .mode
         .load(std::sync::atomic::Ordering::SeqCst);
     ui.add_enabled_ui(!offline_mode, |ui| {
         ui.horizontal(|ui| {
