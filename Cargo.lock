@@ -1099,8 +1099,8 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "windows 0.62.2",
- "windows-core 0.62.2",
+ "windows 0.61.3",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -1304,7 +1304,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.61.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1752,7 +1752,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2328,7 +2328,7 @@ dependencies = [
  "gobject-sys 0.21.2",
  "libc",
  "system-deps 7.0.7",
- "windows-sys 0.61.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2872,7 +2872,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3160,7 +3160,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.61.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3384,9 +3384,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-simple"
-version = "8.0.0+32.0.2"
+version = "8.0.1+32.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bd6f6d386159c93a2ba8f62c9f2bd75f523a8e0e005d4e67a1fecd0cbcc81a7"
+checksum = "eb0021c0d3497415b7e558605a74d2a297a46f8301bb3ca2564bcd11aee6181d"
 dependencies = [
  "display-info",
  "lazy_static",
@@ -3424,9 +3424,9 @@ dependencies = [
 
 [[package]]
 name = "libobs-wrapper"
-version = "9.0.0+32.0.2"
+version = "9.0.2+32.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc36b46bc5dca37d7be104b566d812c5ececd9512c36b89076b7ccf18401d9f"
+checksum = "468e26ca2283e08efff3f6503ad608e17f011e16090173f5918d87433cbba5a2"
 dependencies = [
  "chrono",
  "display-info",
@@ -3921,7 +3921,7 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77e878c846a8abae00dd069496dbe8751b16ac1c3d6bd2a7283a938e8228f90d"
 dependencies = [
- "proc-macro-crate 3.3.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
@@ -5419,7 +5419,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.61.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6209,7 +6209,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.1.2",
- "windows-sys 0.61.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7403,7 +7403,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
