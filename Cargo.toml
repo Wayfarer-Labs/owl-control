@@ -1,10 +1,11 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "tools/*"]
+exclude = ["tools/vm"]
 default-members = ["."]
 
 [workspace.package]
-version = "1.5.0"
+version = "1.6.0"
 
 [workspace.dependencies]
 input-capture = { path = "crates/input-capture" }
