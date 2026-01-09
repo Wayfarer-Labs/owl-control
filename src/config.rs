@@ -306,7 +306,7 @@ impl EncoderSettings {
             VideoEncoderType::Amf => self.amf.apply_to_data_updater(updater),
             VideoEncoderType::Qsv => self.qsv.apply_to_data_updater(updater),
         };
-        updater.update()?;
+        updater.apply()?;
 
         Ok(data)
     }

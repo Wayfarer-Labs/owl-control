@@ -16,17 +16,18 @@ use constants::{FPS, RECORDING_HEIGHT, RECORDING_WIDTH, encoding::VideoEncoderTy
 use windows::Win32::Foundation::HWND;
 
 use libobs_simple::sources::{
-    ObsObjectUpdater, ObsSourceBuilder,
+    ObsEitherSource, ObsObjectUpdater, ObsSourceBuilder,
     windows::{
-        GameCaptureSourceBuilder, GameCaptureSourceUpdater, ObsGameCaptureMode,
-        WindowCaptureSourceBuilder, WindowCaptureSourceUpdater, WindowInfo,
+        GameCaptureSource, GameCaptureSourceBuilder, ObsGameCaptureMode, ObsHookableSourceTrait,
+        WindowCaptureSource, WindowCaptureSourceBuilder, WindowInfo,
     },
 };
 use libobs_wrapper::{
     context::ObsContext,
     data::{
-        ObsDataGetters as _,
-        output::ObsOutputRef,
+        ObsDataGetters as _, ObsDataSetters,
+        object::ObsObjectTrait,
+        output::{ObsOutputRef, ObsOutputTrait},
         video::{ObsVideoInfo, ObsVideoInfoBuilder},
     },
     encoders::{
@@ -34,10 +35,9 @@ use libobs_wrapper::{
     },
     enums::ObsScaleType,
     logger::ObsLogger,
-    scenes::ObsSceneRef,
-    sources::ObsSourceRef,
+    scenes::{ObsSceneItemRef, ObsSceneRef, SceneItemExtSceneTrait, SceneItemTrait},
     unsafe_send::SendableComp,
-    utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo, traits::ObsUpdatable},
+    utils::{AudioEncoderInfo, ObsPath, OutputInfo, VideoEncoderInfo},
 };
 
 use crate::{
@@ -292,7 +292,7 @@ struct RecorderState {
     adapter_index: usize,
     skipped_frames: Arc<Mutex<Option<SkippedFrames>>>,
     output: ObsOutputRef,
-    source: Option<ObsSourceRef>,
+    scene_item: Option<ObsSceneItemRef<ObsEitherSource<WindowCaptureSource, GameCaptureSource>>>,
     last_encoder_settings: Option<serde_json::Value>,
     was_hooked: Arc<AtomicBool>,
     last_video_encoder_type: Option<VideoEncoderType>,
@@ -377,7 +377,7 @@ impl RecorderState {
                 adapter_index,
                 skipped_frames,
                 output,
-                source: None,
+                scene_item: None,
                 last_encoder_settings: None,
                 was_hooked: Arc::new(AtomicBool::new(false)),
                 last_video_encoder_type: None,
@@ -408,7 +408,7 @@ impl RecorderState {
             scene
         } else {
             tracing::info!("Creating new scene");
-            self.obs_context.scene(OWL_SCENE_NAME)?
+            self.obs_context.scene(OWL_SCENE_NAME, Some(0))?
         };
 
         self.obs_context
@@ -417,21 +417,18 @@ impl RecorderState {
         let source_creation_state = SourceCreationState {
             use_window_capture: request.game_config.use_window_capture,
         };
-        let source = prepare_source(
+        let scene_item = prepare_source(
             &mut self.obs_context,
             &request.game_exe,
             request.hwnd.0,
             &mut scene,
-            self.source.take(),
+            self.scene_item.take(),
             &source_creation_state,
             self.last_source_creation_state.as_ref(),
         )?;
 
-        // Register the source
-        scene.set_to_channel(0)?;
-
         // Ensure the source takes up the entire scene
-        scene.fit_source_to_screen(&source)?;
+        scene_item.fit_source_to_screen()?;
 
         // Register the video encoder with encoder-specific settings
         let video_encoder_data = self.obs_context.data()?;
@@ -486,18 +483,19 @@ impl RecorderState {
             // output
             let mut start_signal_rx = self
                 .output
-                .signal_manager()
+                .signals()
                 .on_start()
                 .context("failed to register output on_start signal")?;
             let mut stop_signal_rx = self
                 .output
-                .signal_manager()
+                .signals()
                 .on_stop()
                 .context("failed to register output on_stop signal")?;
 
             // source
-            let mut hook_signal_rx = source
-                .signal_manager()
+            let mut hook_signal_rx = scene_item
+                .inner_source()
+                .source_specific_signals()
                 .on_hooked()
                 .context("failed to register source on_hooked signal")?;
 
@@ -571,7 +569,7 @@ impl RecorderState {
 
         self.output.start()?;
 
-        self.source = Some(source);
+        self.scene_item = Some(scene_item);
         self.last_application = Some((request.game_exe.clone(), request.hwnd));
         self.last_source_creation_state = Some(source_creation_state);
         self.is_recording = true;
@@ -637,9 +635,9 @@ impl RecorderState {
         {
             tracing::warn!("Game no longer open, removing source");
             if let Some(mut scene) = self.obs_context.get_scene(OWL_SCENE_NAME)?
-                && let Some(source) = self.source.take()
+                && let Some(scene_item) = self.scene_item.take()
             {
-                scene.remove_source(&source)?;
+                scene.remove_scene_item(scene_item)?;
                 self.last_application = None;
             }
         }
@@ -708,23 +706,25 @@ fn prepare_source(
     game_exe: &str,
     hwnd: HWND,
     scene: &mut ObsSceneRef,
-    mut last_source: Option<ObsSourceRef>,
+    mut last_scene_item: Option<
+        ObsSceneItemRef<ObsEitherSource<WindowCaptureSource, GameCaptureSource>>,
+    >,
     state: &SourceCreationState,
     last_state: Option<&SourceCreationState>,
-) -> Result<ObsSourceRef> {
+) -> Result<ObsSceneItemRef<ObsEitherSource<WindowCaptureSource, GameCaptureSource>>> {
     let capture_audio = true;
 
     // Check if source creation state changed - if so, we can't reuse the old source
     if let Some(last) = last_state
         && last != state
-        && last_source.is_some()
+        && last_scene_item.is_some()
     {
         tracing::info!(
             "Source creation state changed ({last:?} -> {state:?}), discarding old source",
         );
-        if let Some(source) = last_source.take() {
+        if let Some(scene_item) = last_scene_item.take() {
             tracing::info!("Removing old source");
-            dbg!(scene.remove_source(&source))?;
+            dbg!(scene.remove_scene_item(scene_item))?;
             tracing::info!("Old source removed");
         }
     }
@@ -737,23 +737,34 @@ fn prepare_source(
         // capture full screen. if this is set to true there's black borders around the window capture.
         let client_area = false;
 
-        if let Some(mut source) = last_source.take() {
-            tracing::info!("Reusing existing window capture source");
-            source
-                .create_updater::<WindowCaptureSourceUpdater>()?
-                .set_window(&window)
-                .set_capture_audio(capture_audio)?
-                .set_client_area(client_area)
-                .update()?;
-            Ok(source)
-        } else {
+        if let Some(mut scene_item) = last_scene_item.take() {
+            if let ObsEitherSource::Left(window_source) = scene_item.inner_source_mut() {
+                tracing::info!("Reusing existing window capture source");
+                window_source
+                    .create_updater()?
+                    .set_window(&window)
+                    .set_capture_audio(capture_audio)?
+                    .set_client_area(client_area)
+                    .update()?;
+                return Ok(scene_item);
+            } else {
+                // Source type mismatch - remove old source and create new one below
+                tracing::info!("Source type mismatch (expected window capture), recreating");
+                scene.remove_scene_item(scene_item)?;
+            }
+        }
+
+        {
             tracing::info!("Creating new window capture source");
-            obs_context
+            let window_source = obs_context
                 .source_builder::<WindowCaptureSourceBuilder, _>(OWL_WINDOW_CAPTURE_NAME)?
                 .set_window(&window)
                 .set_capture_audio(capture_audio)?
                 .set_client_area(client_area)
-                .add_to_scene(scene)
+                .build()?;
+
+            let source = ObsEitherSource::Left(window_source);
+            scene.add_source(source)
         }
     } else {
         let window = find_game_capture_window(Some(game_exe), hwnd)?;
@@ -766,16 +777,24 @@ fn prepare_source(
 
         let capture_mode = ObsGameCaptureMode::CaptureSpecificWindow;
 
-        if let Some(mut source) = last_source.take() {
-            tracing::info!("Reusing existing game capture source");
-            source
-                .create_updater::<GameCaptureSourceUpdater>()?
-                .set_capture_mode(capture_mode)
-                .set_window_raw(window.obs_id.as_str())
-                .set_capture_audio(capture_audio)?
-                .update()?;
-            Ok(source)
-        } else {
+        if let Some(mut scene_item) = last_scene_item.take() {
+            if let ObsEitherSource::Right(game_source) = scene_item.inner_source_mut() {
+                tracing::info!("Reusing existing game capture source");
+                game_source
+                    .create_updater()?
+                    .set_capture_mode(capture_mode)
+                    .set_window_raw(window.obs_id.as_str())
+                    .set_capture_audio(capture_audio)?
+                    .update()?;
+                return Ok(scene_item);
+            } else {
+                // Source type mismatch - remove old source and create new one below
+                tracing::info!("Source type mismatch (expected game capture), recreating");
+                scene.remove_scene_item(scene_item)?;
+            }
+        }
+
+        {
             tracing::info!("Creating new game capture source");
 
             if GameCaptureSourceBuilder::is_window_in_use_by_other_instance(window.pid)? {
@@ -785,12 +804,16 @@ fn prepare_source(
                 );
             }
 
-            obs_context
+            let source = obs_context
                 .source_builder::<GameCaptureSourceBuilder, _>(OWL_GAME_CAPTURE_NAME)?
                 .set_capture_mode(capture_mode)
                 .set_window(&window)
                 .set_capture_audio(capture_audio)?
-                .add_to_scene(scene)
+                .build()?;
+
+            let source = ObsEitherSource::Right(source);
+
+            scene.add_source(source)
         }
     };
 
