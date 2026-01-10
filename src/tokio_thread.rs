@@ -213,7 +213,8 @@ async fn main(
                                     .send(UiUpdate::UpdateUserId(Ok(user_id)))
                                     .ok();
 
-                                app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                                app_state.async_request_tx.send(AsyncRequest::LoadUploadStatistics).await.ok();
+                                app_state.async_request_tx.send(AsyncRequest::LoadUploadList { limit: 100, offset: 0 }).await.ok();
                             }
                         }
                         // no matter if offline or online, local recordings should be loaded
@@ -265,31 +266,62 @@ async fn main(
                             supported_games.installed().count()
                         );
                     }
-                    AsyncRequest::LoadUploadStats => {
+                    AsyncRequest::LoadUploadStatistics => {
                         if app_state.offline.mode.load(Ordering::SeqCst) {
-                            tracing::info!("Offline mode enabled, skipping upload stats load");
-                            // Don't send any update - UI will show no upload stats
+                            tracing::info!("Offline mode enabled, skipping upload statistics load");
                         } else {
                             match valid_api_key_and_user_id.clone() {
                                 Some((api_key, user_id)) => {
+                                    let start_date = app_state.upload_filters.read().unwrap().start_date;
+                                    let end_date = app_state.upload_filters.read().unwrap().end_date;
                                     tokio::spawn({
                                         let app_state = app_state.clone();
                                         let api_client = api_client.clone();
                                         async move {
-                                            let stats = match api_client.get_user_upload_stats(&api_key, &user_id).await {
+                                            let stats = match api_client.get_user_upload_statistics(&api_key, &user_id, start_date, end_date).await {
                                                 Ok(stats) => stats,
                                                 Err(e) => {
-                                                    tracing::error!(e=?e, "Failed to get user upload stats");
+                                                    tracing::error!(e=?e, "Failed to get user upload statistics");
                                                     return;
                                                 }
                                             };
-                                            tracing::info!(stats=?stats.statistics, "Loaded upload stats");
-                                            app_state.ui_update_tx.send(UiUpdate::UpdateUserUploads(stats)).ok();
+                                            tracing::info!(stats=?stats, "Loaded upload statistics");
+                                            app_state.ui_update_tx.send(UiUpdate::UpdateUserUploadStatistics(stats)).ok();
                                         }
                                     });
                                 }
                                 None => {
-                                    tracing::error!("API key and user ID not found, skipping upload stats load");
+                                    tracing::error!("API key and user ID not found, skipping upload statistics load");
+                                }
+                            }
+                        }
+                    }
+                    AsyncRequest::LoadUploadList { limit, offset } => {
+                        if app_state.offline.mode.load(Ordering::SeqCst) {
+                            tracing::info!("Offline mode enabled, skipping upload list load");
+                        } else {
+                            match valid_api_key_and_user_id.clone() {
+                                Some((api_key, user_id)) => {
+                                    let start_date = app_state.upload_filters.read().unwrap().start_date;
+                                    let end_date = app_state.upload_filters.read().unwrap().end_date;
+                                    tokio::spawn({
+                                        let app_state = app_state.clone();
+                                        let api_client = api_client.clone();
+                                        async move {
+                                            let (uploads, limit, offset) = match api_client.get_user_upload_list(&api_key, &user_id, limit, offset, start_date, end_date).await {
+                                                Ok(res) => res,
+                                                Err(e) => {
+                                                    tracing::error!(e=?e, "Failed to get user upload list");
+                                                    return;
+                                                }
+                                            };
+                                            tracing::info!(count=uploads.len(), "Loaded upload list");
+                                            app_state.ui_update_tx.send(UiUpdate::UpdateUserUploadList { uploads, limit, offset }).ok();
+                                        }
+                                    });
+                                }
+                                None => {
+                                    tracing::error!("API key and user ID not found, skipping upload list load");
                                 }
                             }
                         }
