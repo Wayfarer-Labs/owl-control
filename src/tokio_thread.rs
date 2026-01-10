@@ -532,7 +532,8 @@ async fn main(
                                 app_state.async_request_tx.send(AsyncRequest::CancelOfflineBackoff).await.ok();
                                 app_state.async_request_tx.send(AsyncRequest::ValidateApiKey { api_key }).await.ok();
                                 // Load data now that we're online
-                                app_state.async_request_tx.send(AsyncRequest::LoadUploadStats).await.ok();
+                                app_state.async_request_tx.send(AsyncRequest::LoadUploadStatistics).await.ok();
+                                app_state.async_request_tx.send(AsyncRequest::LoadUploadList { limit: 100, offset: 0 }).await.ok();
                                 app_state.async_request_tx.send(AsyncRequest::LoadLocalRecordings).await.ok();
                             },
                         }
