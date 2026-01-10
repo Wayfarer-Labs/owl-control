@@ -495,10 +495,7 @@ pub async fn run(
             // Update progress state with new chunk and save to file (APPEND ONLY)
             if let Err(e) = guard
                 .paused_mut()
-                .record_chunk_completion(CompleteMultipartUploadChunk {
-                    chunk_number,
-                    etag,
-                })
+                .record_chunk_completion(CompleteMultipartUploadChunk { chunk_number, etag })
             {
                 tracing::error!("Failed to append chunk completion to log: {:?}", e);
             }
