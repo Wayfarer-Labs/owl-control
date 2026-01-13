@@ -854,7 +854,9 @@
     "binaries": [
       "poppy_playtime",
       "poppy_playtime-win64-shipping",
-      "ch4_pro"
+      "ch4_pro",
+      "playtime_prototype4",
+      "playtime_chapter3"
     ]
   },
   {
