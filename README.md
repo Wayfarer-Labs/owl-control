@@ -61,18 +61,6 @@ Watch the [Walkthrough Video](https://vimeo.com/1134400699) or follow the steps 
 - Upload recordings by hitting the `Upload Recordings` button.
   - If your connection is slow, try checking `Optimize for unreliable recordings`.
 
-> [!TIP]
->
-> For a LIMITED TIME, we are compensating per hour for game data under these circumstances:
->
-> - You must be 18 years old, or older.
-> - You must play a game on [the games list](./GAMES.md)
-> - You must only play PvE or Co-op PvE (ie: gameplay against in-game, non-human opponents). We do not allow PvP recordings.
-> - You must upload least 20 hours of footage.
-> - You must record active and human play. No camping, bots, idling, etc.
-> - You must use [Wise](https://wise.com/) or [Fiverr](https://www.fiverr.com/). We do not use other payment providers. If you need help setting up ask [our Discord community](https://discord.gg/ZgCWTGYf4E).
->   - Due to legal and technical restrictions, residents of MENA countries, .PK, or .VN must use Fiverr.
-
 ## Troubleshooting
 
 Software known to interfere with OWL Control:
