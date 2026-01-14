@@ -234,7 +234,8 @@
     "url": "https://store.steampowered.com/app/3595230/Call_of_Duty_Modern_Warfare_II/",
     "binaries": [
       "cod",
-      "sp22-cod"
+      "sp22-cod",
+      "cod22-cod"
     ]
   },
   {
@@ -288,14 +289,16 @@
     "game": "Crysis 2",
     "url": "https://store.steampowered.com/app/108800/Crysis_2__Maximum_Edition/",
     "binaries": [
-      "crysis2"
+      "crysis2",
+      "crysis2remastered"
     ]
   },
   {
     "game": "Crysis 3",
     "url": "https://store.steampowered.com/app/2096610/Crysis_3_Remastered/",
     "binaries": [
-      "crysis3"
+      "crysis3",
+      "crysis3remastered"
     ]
   },
   {
