@@ -80,7 +80,11 @@ pub async fn start(
         .store(false, std::sync::atomic::Ordering::SeqCst);
 
     for req in [
-        AsyncRequest::LoadUploadStats,
+        AsyncRequest::LoadUploadStatistics,
+        AsyncRequest::LoadUploadList {
+            limit: 100,
+            offset: 0,
+        },
         AsyncRequest::LoadLocalRecordings,
     ] {
         app_state.async_request_tx.send(req).await.ok();
@@ -220,7 +224,11 @@ async fn run(
 
         if should_reload {
             for req in [
-                AsyncRequest::LoadUploadStats,
+                AsyncRequest::LoadUploadStatistics,
+                AsyncRequest::LoadUploadList {
+                    limit: 100,
+                    offset: 0,
+                },
                 AsyncRequest::LoadLocalRecordings,
             ] {
                 async_req_tx.send(req).await.ok();
